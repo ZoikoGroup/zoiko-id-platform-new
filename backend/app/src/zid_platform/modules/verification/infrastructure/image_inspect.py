@@ -6,6 +6,7 @@ The sidecar is a separate container, so this process links no imaging library. I
 from __future__ import annotations
 
 import base64
+import binascii
 import os
 from typing import Any
 from urllib.parse import urlparse
@@ -26,6 +27,18 @@ class ImagingUnavailable(RuntimeError):
     def __init__(self, code: str = "IMAGING_UNAVAILABLE") -> None:
         super().__init__(code)
         self.code = code
+
+
+async def sanitize(image: bytes, *, transport: httpx.AsyncBaseTransport | None = None) -> bytes:
+    """The photograph re-encoded as a plain JPEG with its metadata removed, by the sidecar (the backend links no imaging library). Raises `ImagingUnavailable` when it cannot: an image is never kept or shown as it arrived."""
+    answer = await _post("/sanitize", {"image_base64": base64.b64encode(image).decode()}, transport)
+    try:
+        clean = base64.b64decode(str(answer["image_base64"]), validate=True)
+    except (KeyError, ValueError, binascii.Error) as e:
+        raise ImagingUnavailable("IMAGING_ANSWER_UNREADABLE") from e
+    if not clean.startswith(b"\xff\xd8\xff"):
+        raise ImagingUnavailable("IMAGING_ANSWER_UNREADABLE")
+    return clean
 
 
 def configured_url() -> str | None:

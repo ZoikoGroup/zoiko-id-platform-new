@@ -99,21 +99,6 @@
         "title": "AdvanceBody",
         "type": "object"
       },
-      "ApproveIn": {
-        "additionalProperties": false,
-        "properties": {
-          "role": {
-            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
-            "title": "Role",
-            "type": "string"
-          }
-        },
-        "required": [
-          "role"
-        ],
-        "title": "ApproveIn",
-        "type": "object"
-      },
       "BreakGlassBody": {
         "additionalProperties": false,
         "properties": {
@@ -500,6 +485,59 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InformationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "due_in_days": {
+            "maximum": 60.0,
+            "minimum": 3.0,
+            "title": "Due In Days",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "pattern": "^[A-Z][A-Z_]{2,40}$",
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "due_in_days"
+        ],
+        "title": "InformationIn",
+        "type": "object"
+      },
+      "InformationReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "pattern": "^(INCOMPLETE|UNREADABLE|INCONSISTENT|NOT_SUPPORTED_BY_DOCUMENTS)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "InformationReviewIn",
+        "type": "object"
+      },
       "ItemBody": {
         "additionalProperties": false,
         "properties": {
@@ -710,6 +748,35 @@
         "title": "Severity",
         "type": "string"
       },
+      "SignIn": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Evidence Ref",
+            "type": "string"
+          },
+          "gate": {
+            "pattern": "^G[0-3]$",
+            "title": "Gate",
+            "type": "string"
+          },
+          "valid_days": {
+            "default": 180,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gate",
+          "evidence_ref"
+        ],
+        "title": "SignIn",
+        "type": "object"
+      },
       "UpdateBody": {
         "additionalProperties": false,
         "properties": {
@@ -804,6 +871,31 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "cadence_days": {
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Cadence Days",
+            "type": "integer"
+          },
+          "triggers": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Triggers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cadence_days"
+        ],
+        "title": "WatchIn",
         "type": "object"
       },
       "zid_platform__modules__operations__api__ops__CloseBody": {
@@ -913,6 +1005,21 @@
         "title": "ReviewBody",
         "type": "object"
       },
+      "zid_platform__modules__operator_access__api__kyb_policy__ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ApproveIn",
+        "type": "object"
+      },
       "zid_platform__modules__operator_access__api__kyb_policy__ProposeIn": {
         "additionalProperties": false,
         "properties": {
@@ -1001,6 +1108,146 @@
           "notes"
         ],
         "title": "ReviewBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__screening_cases__ProposeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "pattern": "^(RELEASE|EDD|HOLD|REJECT|FREEZE|BLOCK|REPORT)$",
+            "title": "Action",
+            "type": "string"
+          },
+          "disposition": {
+            "pattern": "^(CLEARED_FOR_PURPOSE|EDD_REQUIRED|HOLD_PENDING_REVIEW|RESTRICTED|PROHIBITED|UNRESOLVED)$",
+            "title": "Disposition",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "expected_revision": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "legal_citation": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Citation"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 20,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          },
+          "review_by": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review By"
+          }
+        },
+        "required": [
+          "disposition",
+          "action",
+          "expected_revision",
+          "rationale",
+          "reason_codes"
+        ],
+        "title": "ProposeIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__screening_exports__ExportIn": {
+        "additionalProperties": false,
+        "properties": {
+          "include_sensitive": {
+            "default": false,
+            "title": "Include Sensitive",
+            "type": "boolean"
+          },
+          "purpose": {
+            "maxLength": 500,
+            "minLength": 10,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "ttl_days": {
+            "default": 7,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Ttl Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purpose"
+        ],
+        "title": "ExportIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__screening_gates__ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "ref": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__screening_sources__ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledged": {
+            "items": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Acknowledged",
+            "type": "array"
+          }
+        },
+        "title": "ApproveIn",
         "type": "object"
       },
       "zid_platform__modules__resilience__api__platform__ReasonBody": {
@@ -3224,6 +3471,46 @@
         ]
       }
     },
+    "/v1/integrations/screening/{ref}/events": {
+      "post": {
+        "operationId": "event_v1_integrations_screening__ref__events_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Event",
+        "tags": [
+          "screening-integrations"
+        ]
+      }
+    },
     "/v1/kyb/market-policies": {
       "get": {
         "operationId": "list_policies_v1_kyb_market_policies_get",
@@ -3352,7 +3639,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveIn"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__ApproveIn"
               }
             }
           },
@@ -3710,6 +3997,1566 @@
         "summary": "Put Policy",
         "tags": [
           "operator-access"
+        ]
+      }
+    },
+    "/v1/screening/gates/records/{record_id}:close": {
+      "post": {
+        "operationId": "close_defect_v1_screening_gates_records__record_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Close Defect V1 Screening Gates Records  Record Id  Close Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Defect",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/records/{record_id}:release": {
+      "post": {
+        "operationId": "release_hold_v1_screening_gates_records__record_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Hold V1 Screening Gates Records  Record Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Hold",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/records/{record_id}:rescind": {
+      "post": {
+        "operationId": "rescind_v1_screening_gates_records__record_id__rescind_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rescind V1 Screening Gates Records  Record Id  Rescind Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rescind",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/{market}/{module}": {
+      "get": {
+        "operationId": "gate_status_v1_screening_gates__market___module__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "pattern": "^(SANCTIONS|PEP_RCA|ADVERSE_MEDIA|MONITORING)$",
+              "title": "Module",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Gate Status V1 Screening Gates  Market   Module  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gate Status",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/{market}/{module}/defects": {
+      "post": {
+        "operationId": "open_defect_v1_screening_gates__market___module__defects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "pattern": "^(SANCTIONS|PEP_RCA|ADVERSE_MEDIA|MONITORING)$",
+              "title": "Module",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__screening_gates__ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Defect V1 Screening Gates  Market   Module  Defects Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Defect",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/{market}/{module}/holds": {
+      "post": {
+        "operationId": "place_hold_v1_screening_gates__market___module__holds_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "pattern": "^(SANCTIONS|PEP_RCA|ADVERSE_MEDIA|MONITORING)$",
+              "title": "Module",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__screening_gates__ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Place Hold V1 Screening Gates  Market   Module  Holds Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Place Hold",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/gates/{market}/{module}:sign": {
+      "post": {
+        "operationId": "sign_v1_screening_gates__market___module__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "market",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z]{2}$",
+              "title": "Market",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "pattern": "^(SANCTIONS|PEP_RCA|ADVERSE_MEDIA|MONITORING)$",
+              "title": "Module",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign V1 Screening Gates  Market   Module  Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign",
+        "tags": [
+          "screening-gates"
+        ]
+      }
+    },
+    "/v1/screening/providers": {
+      "get": {
+        "operationId": "providers_v1_screening_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Providers V1 Screening Providers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Providers",
+        "tags": [
+          "screening-providers"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}": {
+      "get": {
+        "operationId": "one_release_v1_screening_releases__release_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response One Release V1 Screening Releases  Release Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One Release",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}/comparison": {
+      "get": {
+        "operationId": "comparison_v1_screening_releases__release_id__comparison_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Comparison V1 Screening Releases  Release Id  Comparison Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Comparison",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}:approve": {
+      "post": {
+        "operationId": "approve_v1_screening_releases__release_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__screening_sources__ApproveIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Screening Releases  Release Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}:approve-rollback": {
+      "post": {
+        "operationId": "approve_rollback_v1_screening_releases__release_id__approve_rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Rollback V1 Screening Releases  Release Id  Approve Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Rollback",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}:publish": {
+      "post": {
+        "operationId": "publish_v1_screening_releases__release_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish V1 Screening Releases  Release Id  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/releases/{release_id}:rollback": {
+      "post": {
+        "operationId": "rollback_v1_screening_releases__release_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback V1 Screening Releases  Release Id  Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/review/cases/{request_id}": {
+      "get": {
+        "operationId": "case_v1_screening_review_cases__request_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Case V1 Screening Review Cases  Request Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Case",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/cases/{request_id}/exports": {
+      "post": {
+        "operationId": "request_export_v1_screening_review_cases__request_id__exports_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__screening_exports__ExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Export V1 Screening Review Cases  Request Id  Exports Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Export",
+        "tags": [
+          "screening-exports"
+        ]
+      }
+    },
+    "/v1/screening/review/cases/{request_id}/information-requests": {
+      "get": {
+        "operationId": "information_requests_v1_screening_review_cases__request_id__information_requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Information Requests V1 Screening Review Cases  Request Id  Information Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Information Requests",
+        "tags": [
+          "screening-cases"
+        ]
+      },
+      "post": {
+        "operationId": "ask_for_information_v1_screening_review_cases__request_id__information_requests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InformationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ask For Information V1 Screening Review Cases  Request Id  Information Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask For Information",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/cases/{request_id}/watches": {
+      "post": {
+        "operationId": "create_v1_screening_review_cases__request_id__watches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create V1 Screening Review Cases  Request Id  Watches Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create",
+        "tags": [
+          "screening-watches"
+        ]
+      }
+    },
+    "/v1/screening/review/cases/{request_id}:propose": {
+      "post": {
+        "operationId": "propose_v1_screening_review_cases__request_id__propose_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__screening_cases__ProposeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose V1 Screening Review Cases  Request Id  Propose Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/exports/{export_id}": {
+      "get": {
+        "operationId": "fetch_export_v1_screening_review_exports__export_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fetch Export V1 Screening Review Exports  Export Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch Export",
+        "tags": [
+          "screening-exports"
+        ]
+      }
+    },
+    "/v1/screening/review/exports/{export_id}:approve": {
+      "post": {
+        "operationId": "approve_export_v1_screening_review_exports__export_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Export V1 Screening Review Exports  Export Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Export",
+        "tags": [
+          "screening-exports"
+        ]
+      }
+    },
+    "/v1/screening/review/information-requests/{edd_id}:review": {
+      "post": {
+        "operationId": "review_information_v1_screening_review_information_requests__edd_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "edd_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Edd Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InformationReviewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Information V1 Screening Review Information Requests  Edd Id  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Information",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/proposals/{proposal_id}:finalise": {
+      "post": {
+        "operationId": "finalise_v1_screening_review_proposals__proposal_id__finalise_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Finalise V1 Screening Review Proposals  Proposal Id  Finalise Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalise",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/proposals/{proposal_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_v1_screening_review_proposals__proposal_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw V1 Screening Review Proposals  Proposal Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/queue": {
+      "get": {
+        "operationId": "queue_v1_screening_review_queue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(NO_CANDIDATE|REVIEW_REQUIRED|SOURCE_UNAVAILABLE|CLOSED_CLEAR_FOR_SCOPE|CLOSED_RESTRICTED|CLOSED_UNRESOLVED)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Queue V1 Screening Review Queue Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "screening-cases"
+        ]
+      }
+    },
+    "/v1/screening/review/watches/{watch_id}": {
+      "get": {
+        "operationId": "one_v1_screening_review_watches__watch_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "watch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Watch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response One V1 Screening Review Watches  Watch Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One",
+        "tags": [
+          "screening-watches"
+        ]
+      }
+    },
+    "/v1/screening/review/watches/{watch_id}:activate": {
+      "post": {
+        "operationId": "activate_v1_screening_review_watches__watch_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "watch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Watch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate V1 Screening Review Watches  Watch Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate",
+        "tags": [
+          "screening-watches"
+        ]
+      }
+    },
+    "/v1/screening/review/watches/{watch_id}:approve": {
+      "post": {
+        "operationId": "approve_v1_screening_review_watches__watch_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "watch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Watch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Screening Review Watches  Watch Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "screening-watches"
+        ]
+      }
+    },
+    "/v1/screening/sources": {
+      "get": {
+        "operationId": "sources_v1_screening_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sources V1 Screening Sources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sources",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/sources/{source_id}/releases": {
+      "get": {
+        "operationId": "releases_v1_screening_sources__source_id__releases_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "pattern": "^(OFAC_SDN|OFAC_NON_SDN|UK_SANCTIONS|EU_CONSOLIDATED|UN_SC)$",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Releases V1 Screening Sources  Source Id  Releases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Releases",
+        "tags": [
+          "screening-sources"
+        ]
+      }
+    },
+    "/v1/screening/sources/{source_id}/releases:fetch": {
+      "post": {
+        "operationId": "fetch_v1_screening_sources__source_id__releases_fetch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "pattern": "^(OFAC_SDN|OFAC_NON_SDN|UK_SANCTIONS|EU_CONSOLIDATED|UN_SC)$",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fetch V1 Screening Sources  Source Id  Releases Fetch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch",
+        "tags": [
+          "screening-sources"
         ]
       }
     }

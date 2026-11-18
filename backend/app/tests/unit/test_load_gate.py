@@ -86,3 +86,44 @@ def test_machine_token_harness_identifies_the_workload_by_certificate_and_report
     stats = re.search(r"summaryTrendStats:\s*\[([^\]]*)\]", MACHINE_SCRIPT)
     assert stats and all(p in stats.group(1) for p in ('"p(50)"', '"p(95)"', '"p(99)"'))
     assert '"avg"' not in stats.group(1)
+
+
+SCREENING_SCRIPT = (REPO / "tests/load/screening-gate/screening-gate.js").read_text(
+    encoding="utf-8"
+)
+
+
+def _screening_constant(name: str) -> float:
+    m = re.search(rf"^\s*{name}:\s*([\d.]+),", SCRIPT_SCREENING_GATE, re.MULTILINE)
+    assert m, f"GATE.{name} missing from screening-gate.js"
+    return float(m.group(1))
+
+
+SCRIPT_SCREENING_GATE = SCREENING_SCRIPT
+
+
+def test_screening_gate_matches_the_slo_proposal_and_says_it_is_only_proposed() -> None:
+    gate = SLO["screening_gate"]
+    assert (
+        gate["status"] == "PROPOSED"
+    )  # no requirement sets these numbers: they are not a gate until the owners ratify them
+    assert _screening_constant("eligibilityPerSecond") == gate["eligibility_reads_per_s"]
+    assert _screening_constant("caseOpensPerSecond") == gate["case_opens_per_s"]
+    assert _screening_constant("soakMinutes") == gate["soak_minutes"]
+    assert _screening_constant("maxErrorRate") == gate["max_error_rate"]
+    assert _screening_constant("p95MsEligibility") == gate["p95_ms_eligibility"]
+    assert _screening_constant("p95MsCaseOpen") == gate["p95_ms_case_open"]
+    assert not any("requirement" in k for k in gate)
+
+
+def test_screening_harness_counts_a_leaked_list_name_as_a_failure_and_reports_percentiles() -> None:
+    assert 'customer_response_leaks: ["count==0"]' in SCREENING_SCRIPT
+    for forbidden in ("OFAC", "matched_name", '"score"'):
+        assert forbidden in SCREENING_SCRIPT
+    assert (
+        "/v1/screening/eligibility" in SCREENING_SCRIPT
+        and "/v1/screening/cases" in SCREENING_SCRIPT
+    )
+    stats = re.search(r"summaryTrendStats:\s*\[([^\]]*)\]", SCREENING_SCRIPT)
+    assert stats and all(p in stats.group(1) for p in ('"p(50)"', '"p(95)"', '"p(99)"'))
+    assert '"avg"' not in stats.group(1)

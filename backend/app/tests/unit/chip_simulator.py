@@ -171,6 +171,9 @@ class PaceSimulatedChip(SimulatedChip):
         integrated: bool = False,
         dh: bool = False,
         tdes: bool = False,
+        cam: bool = False,
+        ca_secret: int | None = None,
+        send_ca_data: bool = True,
         can: str | None = None,
         rng_seed: int = 7,
         **kw,
@@ -183,7 +186,8 @@ class PaceSimulatedChip(SimulatedChip):
         self.integrated, self.dh, self.tdes, self.can = integrated, dh, tdes, can
         if tdes:
             self.bits = 128  # two DES keys
-        mapping = (3 if integrated else 1) if dh else (4 if integrated else 2)
+        self.cam, self.send_ca_data = cam, send_ca_data
+        mapping = 6 if cam else (3 if integrated else 1) if dh else (4 if integrated else 2)
         self.oid = (
             bytes.fromhex("04007F0007020204")
             + bytes([mapping])
@@ -199,6 +203,19 @@ class PaceSimulatedChip(SimulatedChip):
         self.aes_keys: tuple[bytes, bytes] | None = None
         self.aes_ssc = b"\x00" * 16
         self.requests: list[bytes] = []  # every command the chip received, for the framing tests
+        # the chip authentication mapping: the chip's static key pair (section 6.2), made apart from the mapping key
+        self.ca_sk = (
+            ca_secret if ca_secret is not None else (self._scalar_for(curve_id) if cam else 0)
+        )
+
+    def _scalar_for(self, curve_id: int) -> int:
+        c = pace.CURVES[curve_id]
+        return pace.scalar_from(self.rng.randbytes(c.size + 16), c)
+
+    def static_public(self) -> bytes:
+        """PK_IC, the chip's static public key, as an uncompressed point (what data group 14 carries)."""
+        c = self._curve()
+        return pace.encode_point(c, pace.mul(c, self.ca_sk, c.g))
 
     # ------------------------------------------------------------------------------------------------------------ dispatch
     def _handle(self, apdu: bytes) -> bytes:
@@ -331,6 +348,9 @@ class PaceSimulatedChip(SimulatedChip):
         )
         if self.wrong_token:
             token = bytes([token[0] ^ 1]) + token[1:]
+        extra = b""
+        if self.cam and self.send_ca_data:
+            extra = cr._tlv(0x8A, self._encrypted_ca_data(ksenc))
         if self.tdes:
             self.channel = cr.SecureChannel(
                 ksenc, ksmac, b"\x00" * 8
@@ -338,7 +358,18 @@ class PaceSimulatedChip(SimulatedChip):
         else:
             self.aes_keys, self.aes_ssc = (ksenc, ksmac), b"\x00" * 16
         self.step += 1
-        return cr._tlv(0x7C, cr._tlv(0x86, token)) + b"\x90\x00"
+        return cr._tlv(0x7C, cr._tlv(0x86, token) + extra) + b"\x90\x00"
+
+    def _encrypted_ca_data(self, ksenc: bytes) -> bytes:
+        """A_IC = E(KSEnc, CA_IC) with CA_IC = SK_IC^-1 * SK_Map,IC mod n (section 4.4.3.5.1): AES-CBC, IV = E(KSEnc, FF..FF), padding method 2."""
+        c = self._curve()
+        ca = pow(self.ca_sk, -1, c.n) * self.sk_map % c.n
+        plain = ca.to_bytes(c.size, "big") + b"\x80"
+        plain += b"\x00" * (-len(plain) % 16)
+        ecb = Cipher(algorithms.AES(ksenc), modes.ECB()).encryptor()
+        iv = ecb.update(b"\xff" * 16) + ecb.finalize()
+        enc = Cipher(algorithms.AES(ksenc), modes.CBC(iv)).encryptor()
+        return enc.update(plain) + enc.finalize()
 
     # ----------------------------------------------------------------------------------------- AES secure messaging, chip side
     def _bump(self) -> bytes:

@@ -9,6 +9,16 @@ Decision: a case is VERIFIED only with every required list current, no alert, a 
 
 from __future__ import annotations
 
+from zid_platform.modules.screening.application import (
+    edd,
+    evidence_exports,
+    gates,
+    licensed,
+    ownership_screening,
+    screening_requests,
+    source_releases,
+    watches,
+)
 from zid_platform.modules.screening.application.monitoring_gate import (
     MonitoringNotApproved,
     monitoring_allowed,
@@ -55,6 +65,9 @@ from zid_platform.modules.screening.application.signals import (
 from zid_platform.modules.screening.application.signals import challenge as challenge_signal
 from zid_platform.modules.screening.application.signals import open_queue as open_signal_queue
 from zid_platform.modules.screening.application.signals import resolve as resolve_signal
+from zid_platform.modules.screening.application.watch_pass import watch_pass
+from zid_platform.modules.screening.domain import coverage, provider_controls, release_gates
+from zid_platform.modules.screening.domain import disposition as dispositions
 from zid_platform.modules.screening.domain.decision import (
     AuthorityEvidence,
     AuthorityKind,
@@ -68,10 +81,14 @@ from zid_platform.modules.screening.domain.decision import (
 from zid_platform.modules.screening.domain.lists import ListId, PartyKind
 from zid_platform.modules.screening.domain.matching import Party, name_score
 from zid_platform.modules.screening.domain.monitoring_scope import Kind as MonitoringKind
+from zid_platform.modules.screening.domain.monitoring_watch import Trigger as watch_trigger
 from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph, Holder, HolderKind
 from zid_platform.modules.screening.domain.signals import SIGNAL_OUTCOMES, RiskTier
 from zid_platform.modules.screening.domain.signals import Action as AttemptAction
 from zid_platform.modules.screening.infrastructure.config import config as screening_config
+from zid_platform.modules.screening.infrastructure.fetch import FetchError, fetch_source
+from zid_platform.modules.screening.infrastructure.market_policies import market_packs
+from zid_platform.modules.screening.infrastructure.providers import providers as screening_providers
 
 __all__ = [
     "SIGNAL_EVENT_CHANNEL",
@@ -83,6 +100,7 @@ __all__ = [
     "CaseView",
     "Control",
     "Edge",
+    "FetchError",
     "Graph",
     "Holder",
     "HolderKind",
@@ -106,21 +124,32 @@ __all__ = [
     "close_for_kyb",
     "configure_monitoring_scope",
     "configure_usage_sink",
+    "coverage",
+    "dispositions",
     "due_for_rescreen",
+    "edd",
+    "evidence_exports",
+    "fetch_source",
+    "gates",
     "get_case",
     "history",
     "ingest_list",
     "ingest_pass",
+    "licensed",
     "live_kyb_cases",
+    "market_packs",
     "monitoring_allowed",
     "name_score",
     "note_attempt",
     "open_case",
     "open_signal_queue",
+    "ownership_screening",
+    "provider_controls",
     "prune_velocity",
     "raise_identity_findings",
     "record_attempt",
     "record_register",
+    "release_gates",
     "replay",
     "request_appeal",
     "request_rescreen",
@@ -133,4 +162,10 @@ __all__ = [
     "review",
     "review_view",
     "screening_config",
+    "screening_providers",
+    "screening_requests",
+    "source_releases",
+    "watch_pass",
+    "watch_trigger",
+    "watches",
 ]

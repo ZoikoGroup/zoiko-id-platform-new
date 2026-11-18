@@ -7,6 +7,14 @@ export const MY_IDV_KEY = ["my-idv-cases"] as const;
 /** The applicant's journey (P01 to P07), in order. Reading the chip and the selfie need the phone app; the browser takes the notice, consent and a document photograph, and shows where the case stands. */
 export type Step = "START" | "NOTICE" | "DOCUMENT" | "CHIP" | "SELFIE" | "STATUS";
 
+/** The route a person takes with no phone app: a browser photograph that two independent reviewers look at. It names the market's signed alternate; the platform refuses it for a market whose policy does not. It never carries a chip claim. */
+export const WEB_ROUTE = "WEB_REVIEW";
+
+/** The steps shown for a route: the browser route has no chip and no selfie step. */
+export function stepsFor(route: string): Step[] {
+  return route === "CHIP" ? ["START", "NOTICE", "DOCUMENT", "CHIP", "SELFIE", "STATUS"] : ["START", "NOTICE", "DOCUMENT", "STATUS"];
+}
+
 export const STEP_LABEL: Record<Step, string> = {
   START: "Start",
   NOTICE: "Notice and consent",
@@ -36,12 +44,39 @@ export async function fileToBase64(file: File): Promise<string> {
 export function nextStep(c: Pick<IdvCase, "state" | "route" | "signals" | "decision" | "attempts">): Step {
   if (c.state === "CLOSED") return "STATUS";
   if (c.signals.optical === "NOT_STARTED") return "DOCUMENT";
-  if (c.route === "CHIP" && c.signals.nfc_read !== "READ_OK") return "CHIP";
+  if (c.route !== "CHIP") return "STATUS"; // the browser route ends with the photograph: reviewers decide
+  if (c.signals.nfc_read !== "READ_OK") return "CHIP";
   if (c.signals.liveness === "NOT_RUN") return "SELFIE";
   return "STATUS";
 }
 
+/** The address the phone app registers for opening a check (a custom scheme, or the universal link once the app's domain exists). It carries NO secret: only which case. The app signs in as the same person, and the platform refuses
+ * anyone else's case (NOT_YOUR_CASE), so a copied or forwarded link opens nothing for another person. */
+export const CHIP_APP_LINK = "zoikoid://identity-check";
+
+export function chipLink(c: Pick<IdvCase, "case_id" | "market">, base: string = CHIP_APP_LINK): string {
+  return `${base}?case=${encodeURIComponent(c.case_id)}&market=${encodeURIComponent(c.market)}`;
+}
+
+/** Whether this browser is on a phone or tablet, from the user agent. Only a hint to choose the wording: "open the app" here, or "send this to your phone". Never a security decision. */
+export function onPhone(userAgent: string): boolean {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent);
+}
+
+/** What the hand-off card says, from the case alone. It polls while the person is away in the app, and stops when the chip has been read or the case is closed. */
+export function handoff(c: Pick<IdvCase, "state" | "route" | "signals">): "NOT_NEEDED" | "WAITING_FOR_APP" | "CHIP_DONE" {
+  if (c.state === "CLOSED" || c.route !== "CHIP" || c.signals.optical === "NOT_STARTED") return "NOT_NEEDED";
+  return c.signals.nfc_read === "READ_OK" ? "CHIP_DONE" : "WAITING_FOR_APP";
+}
+
 const FOR_APPLICANT: Record<string, string> = {
+  ALTERNATE_ROUTE_NEEDS_INDEPENDENT_REVIEWERS: "Two people who work independently of each other will look at your photograph. You do not need to do anything.",
+  ALTERNATE_ROUTE_REVIEW_ONLY: "A person will look at your photograph. This way of verifying is checked by people only.",
+  ROUTE_NOT_ALLOWED_BY_POLICY: "Checking with a browser only is not available for that country.",
+  TYPED_TRANSCRIPTION_IS_NOT_AUTHENTICATION: "Typing the details is not enough on its own. Send a photograph of the document.",
+  MEDIA_RETENTION_NOT_SET: "Checking with a browser only is not available for your country yet.",
+  DOCUMENT_EXPIRED: "The document has expired. Use a document that is still valid.",
+  DOCUMENT_DATE_NOT_ESTABLISHED: "We could not read the expiry date reliably. Take the photograph again with the two lines at the bottom sharp, flat and fully in view.",
   CHIP_UNSUPPORTED: "This phone cannot read the passport chip. You may be offered another way to verify.",
   CHIP_USER_DECLINED: "You chose not to read the chip. You may be offered another way to verify.",
   CHIP_READ_FAILED: "The chip could not be read. Hold the phone steady on the passport and try again.",
@@ -68,6 +103,8 @@ const FOR_APPLICANT: Record<string, string> = {
 
 /** Plain words for the applicant. Reasons that would only help someone gaming the check are not explained; they get the general line. */
 export function applicantText(code: string): string {
+  if (code.startsWith("RECAPTURE_REQUESTED:")) return "A reviewer asked for a clearer photograph. Take a new one and send it again. This does not count as a failed attempt.";
+  if (code.startsWith("REVIEWER_REJECTED:")) return "A reviewer could not accept this document. You can contact support or start again with another document.";
   if (code.startsWith("BIOMETRICS_OFF:")) return "Face checks are not switched on for your country, so this step cannot run.";
   return FOR_APPLICANT[code] ?? "We need a person to look at this case, or more evidence, before we can say more.";
 }

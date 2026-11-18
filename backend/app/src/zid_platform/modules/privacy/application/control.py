@@ -370,7 +370,12 @@ async def open_erasure_job(
                 add("FIRST_PARTY_STORE", ref, "FAILED", failure="NO_DISPOSER", asset_class=cls)
                 continue
             action = policy.action_on_expiry if policy is not None else "DELETE"
-            await disposer(conn, e, action)
+            try:
+                async with conn.begin_nested():  # a store that raises fails this one task; the rest of the job goes on and the retry picks it up
+                    await disposer(conn, e, action)
+            except Exception:  # noqa: BLE001 - the failure is recorded as a task, never swallowed
+                add("FIRST_PARTY_STORE", ref, "FAILED", failure="DISPOSER_ERROR", asset_class=cls)
+                continue
             await store.set_entry_status(conn, e.entry_id, "DISPOSED", action=action, now=now)
             add(
                 "FIRST_PARTY_STORE",
@@ -1738,6 +1743,78 @@ async def close_breach(
 
 
 # ------------------------------------------------------------------------------------------------------------- KPIs
+
+
+async def retry_failed_erasures(conn: AsyncConnection, now: datetime) -> dict[str, int]:
+    """QA-023: re-run first-party disposals that failed, with a growing delay and a ceiling. A provider's deletion is not retried here (it is the provider's to acknowledge); a task that runs out of
+    attempts stays FAILED and keeps the oversight view at ERASURE_STUCK. Never marks a task complete unless the store actually disposed the data."""
+    counts = {"retried": 0, "recovered": 0, "still_failing": 0, "gave_up": 0}
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT task_id, tenant_id, target_ref, attempts FROM privacy.erasure_task "
+                "WHERE state = 'FAILED' AND target_kind = 'FIRST_PARTY_STORE' AND target_ref LIKE '%:%' AND target_ref <> 'evidence-vault' "
+                "AND attempts < :m AND (next_attempt_at IS NULL OR next_attempt_at <= :now) ORDER BY updated_at LIMIT 200"
+            ),
+            {"m": rules.MAX_ERASURE_ATTEMPTS, "now": now},
+        )
+    ).all()
+    for t in rows:
+        store_name, _, object_ref = str(t.target_ref).partition(":")
+        entry = (
+            await conn.execute(
+                text(
+                    "SELECT * FROM privacy.data_map_entry WHERE tenant_id = :t AND store = :s AND object_ref = :o"
+                ),
+                {"t": t.tenant_id, "s": store_name, "o": object_ref},
+            )
+        ).first()
+        disposer = v1._DISPOSERS.get(store_name)
+        counts["retried"] += 1
+        attempts = int(t.attempts) + 1
+        failure = "NO_DISPOSER" if disposer is None else None
+        if entry is not None and entry.status == "DISPOSED":
+            failure = None  # disposed in the meantime (for example by the retention sweep): record the receipt below
+        elif disposer is not None and entry is not None:
+            try:
+                async with conn.begin_nested():
+                    await disposer(conn, entry, "DELETE")
+                await store.set_entry_status(
+                    conn, entry.entry_id, "DISPOSED", action="DELETE", now=now
+                )
+            except Exception:  # noqa: BLE001
+                failure = "DISPOSER_ERROR"
+        elif entry is None:
+            failure = "ENTRY_NOT_FOUND"
+        if failure is None:
+            receipt = hashlib.sha256(
+                f"{t.target_ref}|DELETE|{now.isoformat()}".encode()
+            ).hexdigest()
+            await conn.execute(
+                text(
+                    "UPDATE privacy.erasure_task SET state = 'ACKNOWLEDGED', receipt_hash = :h, failure = NULL, attempts = :a, next_attempt_at = NULL, updated_at = :now WHERE task_id = :i"
+                ),
+                {"h": receipt, "a": attempts, "now": now, "i": t.task_id},
+            )
+            counts["recovered"] += 1
+            continue
+        gave_up = attempts >= rules.MAX_ERASURE_ATTEMPTS
+        await conn.execute(
+            text(
+                "UPDATE privacy.erasure_task SET failure = :f, attempts = :a, next_attempt_at = :n, updated_at = :now WHERE task_id = :i"
+            ),
+            {
+                "f": failure,
+                "a": attempts,
+                "n": None
+                if gave_up
+                else now + timedelta(minutes=rules.retry_delay_minutes(attempts)),
+                "now": now,
+                "i": t.task_id,
+            },
+        )
+        counts["gave_up" if gave_up else "still_failing"] += 1
+    return counts
 
 
 async def biometric_oversight(

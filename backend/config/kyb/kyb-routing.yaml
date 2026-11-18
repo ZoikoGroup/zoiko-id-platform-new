@@ -30,6 +30,9 @@ adapters:
   sirene:
     kind: OFFICIAL_REGISTER             # French Annuaire des Entreprises (INSEE Sirene and RNE): open, keyless
     status: ENABLED
+  inpi:
+    kind: OFFICIAL_REGISTER             # French RNE (INPI): the register of record behind an account; the field names are not yet run against a live account
+    status: DISABLED_UNTIL_CREDENTIALS
   gleif:
     kind: LEI_REFERENCE
     status: ENABLED
@@ -63,6 +66,6 @@ routes:
   FR:
     first_pass: [sirene]                # the official register answers on its own: no supplier coverage needed
     lei: gleif
-    exception: [creditsafe]
+    exception: [inpi, creditsafe]       # inpi is asked only once an owner enables it with credentials
 
 supplier_coverage_proven: {}            # country -> [adapter ids]; filled only when the owners record the proof

@@ -22,22 +22,26 @@ import base64
 import binascii
 import hashlib
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.ports import (
+    LedgerError,
     chip_photo,
     effective_csca,
+    scan_content,
     trust_config,
     verify_chip,
 )
 from zid_platform.modules.verification.application import idv_case as svc
+from zid_platform.modules.verification.application import idv_claims, idv_media
 from zid_platform.modules.verification.application.idv_document import read_document
 from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions
 from zid_platform.modules.verification.domain.idv_evidence import Envelope
@@ -48,6 +52,9 @@ from zid_platform.modules.verification.infrastructure import (
     self_run_config,
 )
 from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable
+from zid_platform.modules.verification.infrastructure.image_inspect import (
+    sanitize as sanitize_image,
+)
 from zid_platform.protected import protected_action
 
 router = APIRouter(tags=["idv"])
@@ -65,6 +72,14 @@ _STATUS = {
     "RETRY_CEILING_REACHED": 429,
     "RETRY_CEILING_NOT_CONFIGURED": 409,
     "INVALID_ACCESS_STATE": 422,
+    "MEDIA_RETENTION_NOT_SET": 409,
+    "MEDIA_NOT_FOUND": 404,
+    "MEDIA_EXPIRED": 410,
+    "GRANT_INVALID": 403,
+    "REASON_REQUIRED": 422,
+    "ONLY_ON_REVIEWED_ROUTE": 409,
+    "CODE_INVALID": 422,
+    "DATE_ALREADY_ESTABLISHED": 409,
 }
 
 
@@ -183,9 +198,20 @@ class FaceIn(CaptureFacts):
     liveness_base64: str = Field(min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
 
 
+class DeclaredIn(BaseModel):
+    """What the applicant types, compared once with the platform's own reading of the document on an automatic route, and never stored."""
+
+    model_config = ConfigDict(extra="forbid")
+    surname: str = Field(min_length=1, max_length=80)
+    given_names: str = Field(min_length=1, max_length=120)
+    document_number: str = Field(min_length=3, max_length=20)
+    birth_date: date
+
+
 class DocumentImageIn(CaptureFacts):
     image_base64: str = Field(min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
     channel: Literal["APP", "WEB"] = "APP"
+    declared: DeclaredIn | None = None
 
 
 class OpticalIn(BaseModel):
@@ -375,10 +401,22 @@ async def document_image(
 ) -> dict[str, Any]:
     """A document photograph. The platform computes the digest, inspects the image through the imaging sidecar, reads the printed machine-readable lines itself and verifies any device report: the client states none of it."""
     image = _b64(body.image_base64)
-    try:
-        reading = await read_document(
-            image, transport=getattr(request.app.state, "imaging_transport", None)
+    # what arrives is scanned for malware first, then re-encoded by the sidecar as a plain JPEG with its metadata (location, device, time) removed. The checks, the printed-line reading and anything kept all use the clean
+    # copy; only the replay digest is taken from what was received. A deployed cell with no scanner refuses rather than pretend to scan.
+    verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), image)
+    if verdict.state == "INFECTED":
+        raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
+    if verdict.state != "CLEAN":
+        raise ZidError(
+            "SCAN_UNAVAILABLE",
+            "The file could not be checked right now. Try again soon.",
+            http_status=503,
+            retryable=True,
         )
+    try:
+        transport = getattr(request.app.state, "imaging_transport", None)
+        clean = await sanitize_image(image, transport=transport)
+        reading = await read_document(clean, transport=transport)
     except ImagingUnavailable as e:
         raise ZidError(
             e.code,
@@ -387,12 +425,55 @@ async def document_image(
             retryable=True,
         ) from e
     env = _envelope(body, image)
-    return await _mutate(
-        request, caller, case_id,
-        lambda conn, rules: svc.submit_document(
-            conn, str(case_id), rules, env, checks=reading.checks, printed=reading.printed, now=datetime.now(UTC), web=body.channel == "WEB"
-        ),
-    )  # fmt: skip
+    now = datetime.now(UTC)
+    tenant = str(caller.ctx.tenant_id or "")
+
+    async def work(conn: Any, rules: MarketRules) -> svc.Case:
+        before = await svc.get(conn, str(case_id))
+        automatic = before is not None and any(
+            a.route_id == before.route and a.automatic for a in rules.policy.alternates
+        )
+        keep = (
+            before is not None and before.route != "CHIP" and not automatic
+        )  # a case that people decide keeps its photograph so they can see it; one the platform decides keeps nothing
+        if keep and not rules.media_retention_days:
+            raise svc.CaseError(
+                "MEDIA_RETENTION_NOT_SET",
+                "This way of verifying keeps a photograph for review, and no retention period is set for this market.",
+            )
+        kind = idv_media.sniff(clean)
+        if keep and kind is None:
+            raise svc.CaseError("CODE_INVALID", "The photograph must be a JPEG or a PNG.")
+        out = await svc.submit_document(
+            conn,
+            str(case_id),
+            rules,
+            env,
+            checks=reading.checks,
+            printed=reading.printed,
+            now=now,
+            web=body.channel == "WEB",
+            declared=(
+                {**body.declared.model_dump(exclude={"birth_date"}), "birth_date": body.declared.birth_date.isoformat()}
+                if body.declared
+                else None
+            ),
+        )
+        if keep and kind is not None:
+            await idv_media.save(
+                conn,
+                tenant,
+                out,
+                clean,
+                content_type=kind,
+                checks=dict(reading.checks),
+                captured_at=body.captured_at,
+                retention_days=rules.media_retention_days,
+                now=now,
+            )
+        return out
+
+    return await _mutate(request, caller, case_id, work)
 
 
 @router.post("/v1/idv/cases/{case_id}/optical")
@@ -471,3 +552,195 @@ def _notice(request: Request, market: str) -> str | None:
         return None
     rules = table.get(market.upper())
     return rules.basis.notice_version if rules else None
+
+
+# ---------------------------------------------------------------------------------------------------- the reviewer's side of a reviewed route (CR-124)
+
+
+class ReasonIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=10, max_length=500)
+
+
+class CodeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(pattern=r"^[A-Z][A-Z_]{2,40}$")
+
+
+@router.get("/v1/idv/cases/{case_id}/review")
+async def review_view(case_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What a reviewer sees of a case before opening anything: the decision and reasons, who signed, and that a photograph exists, when it was taken, until when it is kept and what was measured. Never the image."""
+    _scope(caller, "verification:read")
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        c = await svc.get(conn, str(case_id))
+        if c is None:
+            raise ZidError("CASE_NOT_FOUND", "No such case.", http_status=404)
+        photo = await idv_media.describe(conn, str(case_id), now=now)
+        claim = await idv_claims.for_case(conn, str(case_id))
+    return {
+        **view(c, _notice(request, c.market)),
+        "photo": photo,
+        "reject_codes": sorted(svc.REJECT_CODES),
+        "recapture_codes": sorted(svc.RECAPTURE_CODES),
+        "document_date_known": c.signals.document_expired is not None,
+        "claim": claim,
+    }
+
+
+@router.post("/v1/idv/cases/{case_id}/media:access", status_code=201)
+async def media_access(
+    case_id: uuid.UUID, body: ReasonIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Ask to open the photograph: a protected act with a reason, answered with a grant that lasts minutes and reads at most three times."""
+    _scope(caller, "verification:execute")
+    me, tenant = str(caller.ctx.principal_id), str(caller.ctx.tenant_id or "")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="evidence.object.read", resource=f"idv_case:{case_id}"
+        )
+        try:
+            return await idv_media.open_grant(
+                conn, tenant, str(case_id), reviewer=me, reason=body.reason, now=datetime.now(UTC)
+            )
+        except svc.CaseError as e:
+            raise _fail(e) from e
+
+
+@router.get("/v1/idv/cases/{case_id}/media/{grant_id}")
+async def media_read(
+    case_id: uuid.UUID, grant_id: uuid.UUID, request: Request, caller: CallerDep
+) -> JSONResponse:
+    _scope(caller, "verification:execute")
+    me, tenant = str(caller.ctx.principal_id), str(caller.ctx.tenant_id or "")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            got = await idv_media.read_with_grant(
+                conn, tenant, str(case_id), str(grant_id), reviewer=me, now=datetime.now(UTC)
+            )
+        except svc.CaseError as e:
+            raise _fail(e) from e
+        except LedgerError as e:
+            raise ZidError(
+                "MEDIA_NOT_AVAILABLE", "The photograph is no longer held.", http_status=410
+            ) from e
+    body = {
+        "content_type": got["content_type"],
+        "image_base64": base64.b64encode(got["content"]).decode("ascii"),
+        "checks": got["checks"],
+        "reads_left": got["reads_left"],
+    }
+    return JSONResponse(body, headers={"Cache-Control": "no-store", "Pragma": "no-cache"})
+
+
+async def _reviewer_decision(
+    request: Request, caller: Caller, case_id: uuid.UUID, fn: Any
+) -> dict[str, Any]:
+    _scope(caller, "verification:execute")
+    me = str(caller.ctx.principal_id)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="verification.idv.review", resource=f"idv_case:{case_id}"
+        )
+        existing = await svc.get(conn, str(case_id))
+        if existing is None:
+            raise ZidError("CASE_NOT_FOUND", "No such case.", http_status=404)
+        rules = _rules(request, existing.market)
+        if rules.policy_hash != existing.policy_hash:
+            raise ZidError(
+                "POLICY_CHANGED_SINCE_OPENED",
+                "This case was opened under rules that have since changed.",
+                http_status=409,
+            )
+        try:
+            c = await fn(conn, rules, me, datetime.now(UTC))
+        except svc.CaseError as e:
+            raise _fail(e) from e
+    return view(c, _notice(request, c.market))
+
+
+@router.post("/v1/idv/cases/{case_id}/reject")
+async def reject(
+    case_id: uuid.UUID, body: CodeIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """A reviewer rejects a reviewed-route case for one defined failure."""
+    return await _reviewer_decision(
+        request,
+        caller,
+        case_id,
+        lambda conn, rules, me, now: svc.reject_case(
+            conn, str(case_id), rules, reviewer=me, code=body.code, now=now
+        ),
+    )
+
+
+@router.post("/v1/idv/cases/{case_id}/recapture")
+async def recapture(
+    case_id: uuid.UUID, body: CodeIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """A reviewer asks the applicant for a clearer photograph. The old one can no longer be opened."""
+
+    async def act(conn: Any, rules: MarketRules, me: str, now: datetime) -> svc.Case:
+        c = await svc.request_recapture(
+            conn, str(case_id), rules, reviewer=me, code=body.code, now=now
+        )
+        await idv_media.supersede(conn, str(case_id), now)
+        return c
+
+    return await _reviewer_decision(request, caller, case_id, act)
+
+
+class DateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expired: bool
+
+
+@router.post("/v1/idv/cases/{case_id}/attest-date")
+async def attest_date(
+    case_id: uuid.UUID, body: DateIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """A reviewer says whether the document is in date, when the platform's own reading could not (no machine-readable lines, or lines that did not read reliably). It is a logged reviewer act, recorded as an attestation."""
+    return await _reviewer_decision(
+        request,
+        caller,
+        case_id,
+        lambda conn, rules, me, now: svc.attest_document_date(
+            conn, str(case_id), rules, reviewer=me, expired=body.expired, now=now
+        ),
+    )
+
+
+@router.get("/v1/idv/review-queue")
+async def review_queue(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The cases waiting for reviewers in this company, oldest first, for a person who may review them: never their own case, and not one they already signed. Each says how long it has waited and, where the market sets a
+    deadline, when it falls due and whether it is overdue."""
+    _scope(caller, "verification:read")
+    me = str(caller.ctx.principal_id)
+    now = datetime.now(UTC)
+    deadlines: dict[str, int | None] = {}
+    items: list[dict[str, Any]] = []
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        for c in sorted(await svc.list_cases(conn, limit=200), key=lambda x: x.created_at):
+            if (
+                c.state != "OPEN"
+                or c.route == "CHIP"
+                or c.decision.value != "REVIEW_REQUIRED"
+                or c.applicant == me
+                or me in c.signals.reviewers
+            ):
+                continue
+            if c.market not in deadlines:
+                try:
+                    deadlines[c.market] = _rules(request, c.market).review_sla_hours
+                except ZidError:
+                    deadlines[c.market] = None
+            sla = deadlines[c.market]
+            due = c.created_at + timedelta(hours=sla) if sla else None
+            photo = await idv_media.describe(conn, c.case_id, now=now)
+            items.append(
+                {
+                    "case_id": c.case_id, "market": c.market, "route": c.route, "created_at": c.created_at.isoformat(), "waiting_hours": int((now - c.created_at).total_seconds() // 3600),
+                    "due_at": due.isoformat() if due else None, "overdue": bool(due and now > due), "signatures": len(c.signals.reviewers), "has_photo": photo["has_photo"],
+                }
+            )  # fmt: skip
+    return {"items": items, "overdue": sum(1 for i in items if i["overdue"])}

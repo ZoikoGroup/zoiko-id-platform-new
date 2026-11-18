@@ -16,7 +16,11 @@ from zid_platform.modules.privacy.application.biometric_retention import (
     missing_biometric_retention,
     use_case_problems,
 )
-from zid_platform.modules.privacy.application.control import capture_paused_breaches, release_gate
+from zid_platform.modules.privacy.application.control import (
+    capture_paused_breaches,
+    release_gate,
+    retry_failed_erasures,
+)
 from zid_platform.modules.privacy.application.model_governance import (
     active_model_version,
     method_evidence,
@@ -66,6 +70,7 @@ __all__ = [
     "register_rectification_source",
     "register_store",
     "release_gate",
+    "retry_failed_erasures",
     "route_outcome",
     "use_case_problems",
 ]

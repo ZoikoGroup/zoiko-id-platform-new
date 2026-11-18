@@ -10,7 +10,7 @@ import json
 import secrets
 import uuid
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_outbox import emit
 
+from zid_platform.modules.verification.application import idv_claims
 from zid_platform.modules.verification.domain import idv_controls as ctl
 from zid_platform.modules.verification.domain import idv_evidence as ev
 from zid_platform.modules.verification.domain.idv_decision import (
@@ -93,6 +94,8 @@ def signals_to_dict(s: Signals) -> dict[str, Any]:
         "method_released": s.method_released,
         "reviewers": list(s.reviewers),
         "abandoned": s.abandoned,
+        "reject_code": s.reject_code,
+        "declared_matches_document": s.declared_matches_document,
     }
 
 
@@ -116,6 +119,8 @@ def signals_from_dict(d: dict[str, Any]) -> Signals:
         method_released=d["method_released"],
         reviewers=tuple(d["reviewers"]),
         abandoned=d["abandoned"],
+        reject_code=d.get("reject_code"),
+        declared_matches_document=d.get("declared_matches_document", "UNKNOWN"),
     )
 
 
@@ -215,6 +220,11 @@ async def _commit(
         else tuple(f"BIOMETRICS_OFF:{w}" for w in why)
     )
     reasons = tuple(dict.fromkeys(result.reasons + extra_reasons + off))
+    if result.decision is Decision.APPROVED and not rules.result_valid_days:
+        reasons = (
+            *reasons,
+            "NO_CLAIM_ISSUED:RESULT_VALIDITY_NOT_SET",
+        )  # approved, but the market sets no period it counts for, so nothing downstream will rely on it
     version = c.version + 1
     state = (
         "CLOSED"
@@ -260,6 +270,12 @@ async def _commit(
                 {"c": uuid.UUID(c.case_id)},
             )
         ).scalar_one()
+        if result.decision is Decision.APPROVED:
+            await idv_claims.issue(
+                conn, tenant_id=str(tenant), case_id=c.case_id, applicant=c.applicant, market=c.market, policy_version=c.policy_version,
+                policy_hash=c.policy_hash, assertions=tuple(result.allowed_assertions), valid_days=rules.result_valid_days, now=now,
+                automatic=any(a.route_id == c.route and a.automatic for a in rules.policy.alternates),
+            )  # fmt: skip
         await emit(
             conn,
             name=EVENT,
@@ -369,16 +385,44 @@ async def store_printed(conn: AsyncConnection, case_id: str, fields: dict[str, s
     )
 
 
+def expired_from_printed(
+    printed: dict[str, str] | None, checks: dict[str, str], *, today: date
+) -> bool | None:
+    """Whether the document has expired, from the platform's own reading of the machine-readable lines. Only when that reading is reliable (every check digit held) and the expiry date is there; otherwise unknown, never "not expired"."""
+    if not printed or checks.get("MRZ_CHECK_DIGITS") != "PASS":
+        return None
+    try:
+        return date.fromisoformat(str(printed.get("expiry_date"))) < today
+    except (TypeError, ValueError):
+        return None
+
+
 async def submit_document(
     conn: AsyncConnection, case_id: str, rules: MarketRules, envelope: ev.Envelope, *, checks: dict[str, str],
-    printed: dict[str, str] | None, now: datetime, web: bool = False,
+    printed: dict[str, str] | None, now: datetime, web: bool = False, declared: dict[str, str] | None = None,
 ) -> Case:  # fmt: skip
     """A document photograph: the capture's envelope is checked (the digest is the one the platform computed from the bytes, never the client's), the image checks become the printed-document signal, and the printed
     machine-readable data, which the platform read itself, is kept as digests for the chip comparison."""
     await submit_capture(conn, case_id, rules, envelope, now=now, web=web)
-    if printed:
-        await store_printed(conn, case_id, printed)
-    return await submit_optical(conn, case_id, rules, checks, now=now)
+    current = await get(conn, case_id)
+    if printed and current is not None and current.route == "CHIP":
+        await store_printed(
+            conn, case_id, printed
+        )  # only a case with a chip has anything to compare it with: on a route people decide, nothing of the printed data is kept
+    # on a route with no chip nothing else can say whether the document is in date: the platform's own reading of the printed lines does, when it is reliable
+    expired = (
+        expired_from_printed(printed, checks, today=now.date())
+        if current is not None and current.route != "CHIP"
+        else None
+    )
+    # what the applicant typed is compared once, in memory, with a reading the platform trusts, and never kept
+    declared_matches = None
+    if declared is not None and current is not None and current.route != "CHIP":
+        reliable = bool(printed) and checks.get("MRZ_CHECK_DIGITS") == "PASS"
+        declared_matches = ev.compare_declared(printed or {}, declared)[0] if reliable else "UNKNOWN"
+    mrz = checks.get("MRZ_CHECK_DIGITS")
+    mrz_ok = None if current is None or current.route == "CHIP" or mrz is None else mrz == "PASS"
+    return await submit_optical(conn, case_id, rules, checks, now=now, document_expired=expired, declared_matches=declared_matches, mrz_ok=mrz_ok)
 
 
 async def chip_not_read(
@@ -484,10 +528,22 @@ async def submit_optical(
     *,
     now: datetime,
     typed_transcription: bool = False,
+    document_expired: bool | None = None,
+    declared_matches: str | None = None,
+    mrz_ok: bool | None = None,
 ) -> Case:
     c = await _require_open(conn, case_id)
     state, _why = ev.optical_state(results, rules.optical_required)
-    s = replace(c.signals, optical=state, typed_transcription_only=typed_transcription)
+    s = replace(
+        c.signals,
+        optical=state,
+        typed_transcription_only=typed_transcription,
+        document_expired=document_expired
+        if document_expired is not None
+        else c.signals.document_expired,
+        declared_matches_document=declared_matches or c.signals.declared_matches_document,
+        mrz_check_digits_ok=mrz_ok if mrz_ok is not None else c.signals.mrz_check_digits_ok,
+    )
     return await _commit(conn, c, s, rules, trigger="optical", now=now)
 
 
@@ -559,6 +615,107 @@ async def add_reviewer(
         raise CaseError("ALREADY_REVIEWED", "This reviewer already signed the case.")
     s = replace(c.signals, reviewers=(*c.signals.reviewers, reviewer))
     return await _commit(conn, c, s, rules, trigger="reviewer", now=now)
+
+
+REJECT_CODES = frozenset(
+    {
+        "DOCUMENT_MANIPULATION_SUSPECTED",
+        "DOCUMENT_EXPIRED",
+        "NOT_A_SUPPORTED_DOCUMENT",
+        "DETAILS_INCONSISTENT",
+    }
+)
+RECAPTURE_CODES = frozenset({"PHOTO_UNREADABLE", "GLARE_OR_SHADOW", "PAGE_CUT_OFF", "WRONG_PAGE"})
+
+
+async def _reviewer_act(conn: AsyncConnection, case_id: str, reviewer: str) -> Case:
+    c = await _require_open(conn, case_id)
+    if c.route == "CHIP":
+        raise CaseError(
+            "ONLY_ON_REVIEWED_ROUTE",
+            "A reviewer decides a case only on a route that people decide.",
+        )
+    if reviewer == c.applicant:
+        raise CaseError("REVIEWER_IS_THE_APPLICANT", "A person cannot review their own case.")
+    return c
+
+
+async def reject_case(
+    conn: AsyncConnection,
+    case_id: str,
+    rules: MarketRules,
+    *,
+    reviewer: str,
+    code: str,
+    now: datetime,
+) -> Case:
+    """A reviewer rejects a reviewed-route case for one defined failure. The case closes REJECTED; the reason is the code, and the earlier signatures stay in the history."""
+    c = await _reviewer_act(conn, case_id, reviewer)
+    if code not in REJECT_CODES:
+        raise CaseError("CODE_INVALID", "Give one of the defined reasons for rejecting.")
+    return await _commit(
+        conn, c, replace(c.signals, reject_code=code), rules, trigger="reviewer_rejected", now=now
+    )
+
+
+async def request_recapture(
+    conn: AsyncConnection,
+    case_id: str,
+    rules: MarketRules,
+    *,
+    reviewer: str,
+    code: str,
+    now: datetime,
+) -> Case:
+    """A reviewer asks for a clearer photograph. The case stays open and goes back to waiting for one: earlier signatures were for the old photograph and are cleared, and the applicant is not charged an attempt."""
+    c = await _reviewer_act(conn, case_id, reviewer)
+    if code not in RECAPTURE_CODES:
+        raise CaseError(
+            "CODE_INVALID", "Give one of the defined reasons for asking for a new photograph."
+        )
+    attempts = dict(c.attempts)
+    if attempts.get("capture", 0) > 0:
+        attempts["capture"] -= 1
+    signals = replace(
+        c.signals, optical=Optical.NOT_STARTED, reviewers=(), document_expired=None
+    )  # the new photograph is read afresh
+    return await _commit(
+        conn,
+        c,
+        signals,
+        rules,
+        trigger="recapture_requested",
+        now=now,
+        attempts=attempts,
+        extra_reasons=(f"RECAPTURE_REQUESTED:{code}",),
+    )
+
+
+async def attest_document_date(
+    conn: AsyncConnection,
+    case_id: str,
+    rules: MarketRules,
+    *,
+    reviewer: str,
+    expired: bool,
+    now: datetime,
+) -> Case:
+    """A reviewer says whether the document is in date, only when the platform's own reading could not (a document with no machine-readable lines, or lines that did not read reliably). It is logged as the
+    reviewer's act and recorded as an attestation, never as the platform's reading; once a date is established nobody changes it."""
+    c = await _reviewer_act(conn, case_id, reviewer)
+    if c.signals.document_expired is not None:
+        raise CaseError(
+            "DATE_ALREADY_ESTABLISHED", "The document's date is already established for this case."
+        )
+    return await _commit(
+        conn,
+        c,
+        replace(c.signals, document_expired=expired),
+        rules,
+        trigger="date_attested",
+        now=now,
+        extra_reasons=("DATE_ATTESTED_BY_REVIEWER",),
+    )
 
 
 async def abandon(

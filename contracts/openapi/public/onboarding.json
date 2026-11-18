@@ -46,21 +46,6 @@
         "title": "ApprovalBody",
         "type": "object"
       },
-      "ApproveIn": {
-        "additionalProperties": false,
-        "properties": {
-          "role": {
-            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
-            "title": "Role",
-            "type": "string"
-          }
-        },
-        "required": [
-          "role"
-        ],
-        "title": "ApproveIn",
-        "type": "object"
-      },
       "ClaimIn": {
         "additionalProperties": false,
         "properties": {
@@ -890,6 +875,21 @@
         "title": "AppealIn",
         "type": "object"
       },
+      "zid_platform__modules__operator_access__api__kyb_policy__ApproveIn": {
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "pattern": "^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$",
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "ApproveIn",
+        "type": "object"
+      },
       "zid_platform__modules__operator_access__api__kyb_policy__ProposeIn": {
         "additionalProperties": false,
         "properties": {
@@ -1638,7 +1638,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveIn"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__kyb_policy__ApproveIn"
               }
             }
           },

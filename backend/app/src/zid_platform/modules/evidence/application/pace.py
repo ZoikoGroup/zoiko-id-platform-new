@@ -367,14 +367,21 @@ class Variant:
     integrated: bool
     tdes: bool
     bits: int  # the session key size in bits: 128 for 3DES (two DES keys)
+    cam: bool = False  # the chip authentication mapping: the generic mapping, plus the chip proves it holds the private key of its static key (section 4.4.3.5)
+
+
+CAM_MAPPING = 6  # id-PACE-ECDH-CAM
 
 
 def variant(oid: bytes) -> Variant | None:
-    """The variant a protocol identifier names, or None if this reader does not implement it (the chip authentication mapping; the integrated mapping with 3DES, for which
-    the standard does not say how the pseudo-random function is built)."""
+    """The variant a protocol identifier names, or None if this reader does not implement it (the integrated mapping with 3DES, for which the standard does not say how
+    the pseudo-random function is built; the chip authentication mapping with anything but AES)."""
     if not (oid.startswith(PACE_PREFIX) and len(oid) == len(PACE_PREFIX) + 2):
         return None
     mapping, cipher = oid[len(PACE_PREFIX)], oid[-1]
+    if mapping == CAM_MAPPING:
+        # ECDH only, AES only (the standard lists three object identifiers: AES-128, 192 and 256)
+        return Variant(False, False, False, 64 * cipher, cam=True) if cipher in (2, 3, 4) else None
     if mapping not in (1, 2, 3, 4) or cipher not in (1, 2, 3, 4):
         return None
     integrated = mapping in (3, 4)
@@ -531,6 +538,8 @@ class PaceTerminal:
     ksenc: bytes = b""
     ksmac: bytes = b""
     t: bytes = b""  # the terminal's nonce for the integrated mapping, sent in clear
+    pk_map_ic: bytes = b""  # CAM: the chip's mapping public key, as received (what the chip's static key must reproduce)
+    ca_data: bytes = b""  # CAM: the encrypted chip authentication data, tag 8A of the last answer
 
     @property
     def variant(self) -> Variant:
@@ -550,6 +559,10 @@ class PaceTerminal:
     @property
     def tdes(self) -> bool:
         return self.variant.tdes
+
+    @property
+    def cam(self) -> bool:
+        return self.variant.cam
 
     @classmethod
     def start(
@@ -632,6 +645,8 @@ class PaceTerminal:
             self.gx, self.gy = mapped, 0
             return
         c = self.curve
+        if self.cam:
+            self.pk_map_ic = answer
         h_point = mul(c, self.sk_map, decode_point(c, answer))
         mapped_point = add(c, mul(c, int.from_bytes(self.s, "big"), c.g), h_point)
         if mapped_point is None:
@@ -686,6 +701,19 @@ class PaceTerminal:
         )
         return hmac.compare_digest(expected, token)
 
+    def receive_ca_data(self, data: bytes | None) -> None:
+        """Section 4.4.5: the encrypted chip authentication data MUST be present with the chip authentication mapping and MUST NOT be present otherwise."""
+        if self.cam and not data:
+            raise PaceError(
+                "PACE_CAM_DATA_MISSING", "the chip did not send its chip authentication data"
+            )
+        if not self.cam and data:
+            raise PaceError(
+                "PACE_RESPONSE_INVALID",
+                "chip authentication data without the chip authentication mapping",
+            )
+        self.ca_data = data or b""
+
     # ------------------------------------------------------------------------------------------------------- plain state
     def to_state(self) -> dict[str, object]:
         return {
@@ -702,6 +730,8 @@ class PaceTerminal:
             "ksenc": self.ksenc.hex(),
             "ksmac": self.ksmac.hex(),
             "t": self.t.hex(),
+            "pk_map_ic": self.pk_map_ic.hex(),
+            "ca_data": self.ca_data.hex(),
         }
 
     @classmethod
@@ -721,6 +751,54 @@ class PaceTerminal:
                 bytes.fromhex(str(state["ksenc"])),
                 bytes.fromhex(str(state["ksmac"])),
                 bytes.fromhex(str(state.get("t", ""))),
+                bytes.fromhex(str(state.get("pk_map_ic", ""))),
+                bytes.fromhex(str(state.get("ca_data", ""))),
             )
         except (KeyError, ValueError, TypeError) as e:
             raise PaceError("STATE_INVALID") from e
+
+
+# ------------------------------------------------------------------------------------------------ chip authentication (CAM)
+
+
+def chip_authentication_data(ksenc: bytes, encrypted: bytes) -> bytes:
+    """CA_IC = D(KSEnc, A_IC) (section 4.4.3.5): AES in CBC mode with the IV E(KSEnc, 0xFF..FF), padding method 2 removed. The result is the FE2OS encoding of an integer
+    modulo the group order, so it must be exactly the size of the order (section 4.4.5.6)."""
+    if not encrypted or len(encrypted) % 16 or len(ksenc) not in (16, 24, 32):
+        raise PaceError(
+            "PACE_CAM_DATA_INVALID", "the encrypted chip authentication data is malformed"
+        )
+    ecb = Cipher(algorithms.AES(ksenc), modes.ECB()).encryptor()
+    iv = ecb.update(b"\xff" * 16) + ecb.finalize()
+    cbc = Cipher(algorithms.AES(ksenc), modes.CBC(iv)).decryptor()
+    padded = cbc.update(encrypted) + cbc.finalize()
+    end = padded.rstrip(b"\x00")
+    if not end.endswith(b"\x80") or len(padded) - len(end) > 15:
+        raise PaceError(
+            "PACE_CAM_DATA_INVALID", "the padding of the chip authentication data is not valid"
+        )
+    return end[:-1]
+
+
+def verify_chip_authentication(
+    curve_id: int, pk_map_ic: bytes, ksenc: bytes, encrypted: bytes, ca_public: bytes
+) -> bool:
+    """Section 4.4.3.5.2: PK_Map,IC must equal KA(CA_IC, PK_IC, D_IC), which for ECDH is CA_IC times the chip's static public point. Only a chip that holds the private key of
+    PK_IC can make a CA_IC that does this, because CA_IC = SK_IC^-1 * SK_Map,IC mod n. True only when it matches exactly.
+
+    This proves the chip holds the key. Whether that key belongs to this passport is for passive authentication to say: PK_IC must come from a data group the signed object covered."""
+    if curve_id not in CURVES:
+        raise PaceError("PACE_UNSUPPORTED", f"domain parameters {curve_id}")
+    c = CURVES[curve_id]
+    try:
+        scalar_bytes = chip_authentication_data(ksenc, encrypted)
+        if len(scalar_bytes) != c.size:
+            return False
+        scalar = int.from_bytes(scalar_bytes, "big")
+        if not 1 <= scalar < c.n:
+            return False
+        mapped = decode_point(c, pk_map_ic)
+        static = decode_point(c, ca_public)
+    except PaceError:
+        return False
+    return mul(c, scalar, static) == mapped

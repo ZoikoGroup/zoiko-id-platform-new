@@ -85,6 +85,7 @@ services:
       ZID_CELL_ID: local-1
       # ENGINEERING DEFAULT for local development only: 30 days. The privacy officer sets the real value per deployment (ZID-GAP-001); a deployed cell with none set refuses uploads.
       ZID_UPLOAD_RETENTION_DAYS: ${ZID_UPLOAD_RETENTION_DAYS:-30}
+      ZID_OCR_URL: ${ZID_OCR_URL:-}   # the photo-checking service (docker compose --profile ocr up -d ocr, then http://ocr:8090). Empty: a photograph answers 503 and nothing is read or guessed
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD:-zid_runtime_local_only}@postgres:5432/zid_cell   # runtime role: row-level security applies (see local/postgres/runtime_role.sql)
       # Shared contracts live outside the backend build context; mount them read-only (prod: ship as config).
       ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml

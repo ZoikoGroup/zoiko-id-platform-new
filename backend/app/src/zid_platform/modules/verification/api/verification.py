@@ -537,6 +537,49 @@ async def engine_readiness(caller: CallerDep) -> dict[str, Any]:
     )
 
 
+@router.get("/verification-method-certification")
+async def method_certification_board(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """How far each identity-proofing method is from certified (WF03 P10; CR-119): not built, built but never run on a real document or lab, awaiting records, or approved. Read only: it states
+    what the versioned configuration and the trust store hold and what is still missing, and approves nothing."""
+    _scope(caller, "verification:read")
+    from zid_platform.modules.evidence.ports import effective_csca, trust_config
+    from zid_platform.modules.verification.domain import method_certification as mc
+    from zid_platform.modules.verification.domain.biometric_engine import readiness
+    from zid_platform.modules.verification.domain.idv_image import PRODUCED
+    from zid_platform.modules.verification.infrastructure import (
+        device_attestation,
+        engine_register,
+        image_inspect,
+        self_run_config,
+    )
+
+    config = getattr(request.app.state, "trust_config", None) or trust_config()
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        effective = await effective_csca(conn, config.csca)
+    rows = mc.board(
+        trust_list_active=bool(effective.csca),
+        engine=readiness(
+            self_run_config.raw(), engine_register.register(), today=datetime.now(UTC).date()
+        ),
+        optical_checks_produced=PRODUCED,
+        apple_attestation_configured=device_attestation.configured() is not None,
+        imaging_configured=image_inspect.configured_url() is not None,
+    )
+    return {
+        "methods": [
+            {
+                "method": r.method,
+                "level": r.level.value,
+                "summary": r.summary,
+                "needs": list(r.needs),
+            }
+            for r in rows
+        ],
+        "counts": mc.summary(rows),
+        "note": "Approved means every record the approval needs is present. Built but unproven means it has never met a real document, a real device or a lab.",
+    }
+
+
 @router.get("/verification-usage")
 async def usage(
     request: Request,

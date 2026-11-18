@@ -96,3 +96,13 @@ const result = await finishChipRead(cfg, verificationId, read.token); // judged 
 ## Before this is called working
 
 A developer builds both shells; it is run against real passports from several countries on several phones (Android and iOS, a range of models and OS versions); the failures are recorded in the device matrix. WF01 requires that matrix (T04) and the independent mobile review (WF01-010) before a market is enabled.
+
+## Opening a check from the website (the hand-off)
+
+The website's chip step shows a link, `zoikoid://identity-check?case=<case_id>&market=<CC>` (`frontend/apps/web/src/features/account/idv/logic.ts`: `CHIP_APP_LINK`, `chipLink`). The host app must:
+
+1. Register that scheme (Android: an intent filter on the activity; iOS: a URL type or, better, a universal link on the app's own domain; then change `CHIP_APP_LINK`).
+2. Sign the person in with the **same account** as the website. The link carries no secret. The platform refuses any case that is not the signed-in person's (`NOT_YOUR_CASE`), so a forwarded link opens nothing for anyone else.
+3. Open the case, ask the person for the document number, date of birth and expiry (or the CAN), then run `readChipThroughRelay` with this bridge's `transceive`.
+
+The website page polls the case every five seconds and moves on by itself when the chip has been read. A phone without NFC, or a person without the app, is offered the browser-only route instead.

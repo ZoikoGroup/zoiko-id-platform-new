@@ -108,6 +108,8 @@ const NAV: NavGroup[] = [
       { id: "ownership", label: "Ownership chains", href: "/admin/ownership", icon: Link2 },
       { id: "company-verification", label: "Company verification", href: "/admin/company-verification", icon: ClipboardCheck },
       { id: "idv-cases", label: "Identity proofing cases", href: "/admin/idv-cases", icon: ClipboardCheck },
+      { id: "screening", label: "Screening", href: "/admin/screening", icon: ShieldCheck },
+      { id: "age-check", label: "Age check", href: "/admin/age-check", icon: ShieldCheck },
       { id: "trust-store", label: "Chip trust store", href: "/admin/trust-store", icon: ShieldCheck },
       { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
       { id: "engine-readiness", label: "Face engine readiness", href: "/admin/engine-readiness", icon: ClipboardCheck },

@@ -184,6 +184,32 @@ def create_app(
     configure_kyb_sources(
         person_assurance_current, _screening_status
     )  # the company grade reads identity and screening; organization imports neither (the composition root wires them)
+    from .modules.organization.ports import company_claim as _company_claim
+    from .modules.screening.api.requests import configure_sources as configure_screening_sources
+    from .modules.tenant.ports import Role as _TenantRole
+    from .modules.tenant.ports import live_roles as _live_roles
+    from .modules.verification.ports import current_identity_claim as _person_claim
+
+    async def _screening_admin(conn, principal_id):  # type: ignore[no-untyped-def]
+        return any(
+            a.role in (_TenantRole.OWNER, _TenantRole.ADMIN)
+            for a in await _live_roles(conn, principal_id)
+        )
+
+    async def _screening_claim(conn, tenant_id, subject_type, subject_ref, now):  # type: ignore[no-untyped-def]
+        if getattr(subject_type, "value", "") == "BUSINESS":
+            return await _company_claim(conn, tenant_id) if subject_ref == tenant_id else None
+        try:
+            import uuid as _uuid
+
+            _uuid.UUID(subject_ref)
+        except ValueError:
+            return None
+        return await _person_claim(conn, subject_ref, now)
+
+    configure_screening_sources(
+        _screening_admin, _screening_claim
+    )  # screening asks who may request it and which identity claim a subject rests on; it imports neither the tenant, verification nor organization module
     configure_credential_usage_sink(
         credential_usage_sink
     )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial
@@ -440,6 +466,20 @@ def create_app(
             router as regulatory_suspensions_router,
         )
         from .modules.operator_access.api.regulatory_v2 import router as regulatory_v2_router
+        from .modules.operator_access.api.screening_cases import router as screening_cases_router
+        from .modules.operator_access.api.screening_exports import (
+            router as screening_exports_router,
+        )
+        from .modules.operator_access.api.screening_gates import router as screening_gates_router
+        from .modules.operator_access.api.screening_providers import (
+            router as screening_providers_router,
+        )
+        from .modules.operator_access.api.screening_sources import (
+            router as screening_sources_router,
+        )
+        from .modules.operator_access.api.screening_watches import (
+            router as screening_watches_router,
+        )
         from .modules.organization.api.kyb_company import router as kyb_company_router
         from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
@@ -452,6 +492,10 @@ def create_app(
         from .modules.provisioning.api.directory import router as directory_sync_router
         from .modules.provisioning.api.scim import router as scim_router
         from .modules.resilience.api.platform import router as resilience_router
+        from .modules.screening.api.provider_events import (
+            router as screening_provider_events_router,
+        )
+        from .modules.screening.api.requests import router as screening_requests_router
         from .modules.screening.api.signals import router as screening_signals_router
         from .modules.search.api.search import router as search_router
         from .modules.session.api.oauth import router as oauth_router
@@ -577,6 +621,8 @@ def create_app(
             access_readiness_router,
             tool_calls_router,
             screening_signals_router,
+            screening_requests_router,
+            screening_provider_events_router,
             settings_router,
             usage_router,
             commercial_router,
@@ -590,6 +636,12 @@ def create_app(
             regulatory_issuers_router,
             regulatory_suspensions_router,
             kyb_policy_router,
+            screening_sources_router,
+            screening_providers_router,
+            screening_exports_router,
+            screening_gates_router,
+            screening_watches_router,
+            screening_cases_router,
             regulatory_biometric_methods_router,
             regulatory_conformance_router,
             regulatory_v2_router,
@@ -1121,11 +1173,22 @@ def register_privacy_stores(registration_tenant: str | None = None) -> None:
     from .modules.authentication.infrastructure import privacy_adapter as authentication
     from .modules.credential.infrastructure import privacy_adapter as credential
     from .modules.principal.infrastructure import privacy_adapter as principal
+    from .modules.screening.infrastructure import privacy_adapter as screening
     from .modules.session.infrastructure import privacy_adapter as session
     from .modules.verification.infrastructure import privacy_adapter as verification
 
-    for adapter in (principal, authentication, session, verification, credential, evidence_uploads):
+    for adapter in (
+        principal,
+        authentication,
+        session,
+        verification,
+        credential,
+        evidence_uploads,
+    ):
         adapter.register()
+    from .modules.privacy.ports import register_store as _register_store
+
+    screening.register(_register_store)
     if (
         registration_tenant
     ):  # sign-up records follow an erased account (PRIV-001 §17); a cell with sign-up off has none

@@ -2,6 +2,8 @@
 
 POST /ocr  {"image_base64": "...", "regions": [{"name": "surname", "x": 0.1, "y": 0.2, "w": 0.4, "h": 0.1}], "lang": "eng"}
   -> {"regions": [{"name": "surname", "text": "ERIKSSON", "confidence": 91.2}], "engine": "tesseract <version>"}
+POST /sanitize {"image_base64": "..."}
+  -> {"image_base64": "<a plain JPEG: orientation applied, all metadata removed, longest side capped>", "width": 1200, "height": 800, "format": "JPEG"}
 POST /inspect {"image_base64": "..."}
   -> {"width": 1200, "height": 800, "format": "JPEG", "sharpness": 130.2, "glare_fraction": 0.001, "dark_fraction": 0.1, "ela_hot_fraction": 0.004}
 GET  /healthz -> {"ok": true, "engine": "tesseract <version>"}
@@ -25,11 +27,12 @@ import json
 import subprocess
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from PIL import Image, ImageChops, ImageFilter, ImageStat
+from PIL import Image, ImageChops, ImageFilter, ImageOps, ImageStat
 
 MAX_BODY = 8 * 1024 * 1024
 MAX_PIXELS = 25_000_000
 MAX_REGIONS = 50
+MAX_SIDE = 3200  # a re-encoded photograph's longest side, in pixels
 MAX_TEXT = 2000
 TIMEOUT_SECONDS = 20
 LANGUAGES = {"eng", "fra", "spa", "deu", "ara"}
@@ -151,6 +154,29 @@ def handle(body: dict) -> tuple[int, dict]:
     return 200, {"regions": out, "engine": engine()}
 
 
+def sanitize(body: dict) -> tuple[int, dict]:
+    """Re-encode a photograph as a plain JPEG: orientation applied, every piece of metadata (location, device, time) gone, alpha dropped, the longest side capped. What a reviewer is shown and what is kept is this, never the file as it arrived."""
+    try:
+        raw = base64.b64decode(str(body.get("image_base64", "")), validate=True)
+    except (binascii.Error, ValueError):
+        return 422, {"error": "IMAGE_NOT_BASE64"}
+    if not (raw.startswith(b"\x89PNG\r\n\x1a\n") or raw.startswith(b"\xff\xd8\xff")):
+        return 422, {"error": "IMAGE_TYPE_NOT_ALLOWED"}
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+        img = ImageOps.exif_transpose(img)
+    except (OSError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        return 422, {"error": "IMAGE_NOT_READABLE"}
+    clean = Image.new("RGB", img.size, (255, 255, 255))
+    clean.paste(img.convert("RGBA"), mask=img.convert("RGBA").split()[-1])  # a transparent area becomes white, not hidden data
+    if max(clean.size) > MAX_SIDE:
+        clean.thumbnail((MAX_SIDE, MAX_SIDE))
+    buf = io.BytesIO()
+    clean.save(buf, format="JPEG", quality=92, optimize=True)  # no exif, no icc profile, no comment: nothing is passed on
+    return 200, {"image_base64": base64.b64encode(buf.getvalue()).decode("ascii"), "width": clean.size[0], "height": clean.size[1], "format": "JPEG"}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ocr-sidecar"
 
@@ -165,14 +191,14 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path == "/healthz":
             self._send(200, {"ok": True, "engine": engine()})
         else:
             self._send(404, {"error": "NOT_FOUND"})
 
-    def do_POST(self) -> None:  # noqa: N802
-        if self.path not in ("/ocr", "/inspect"):
+    def do_POST(self) -> None:
+        if self.path not in ("/ocr", "/inspect", "/sanitize"):
             return self._send(404, {"error": "NOT_FOUND"})
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -186,9 +212,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "BODY_NOT_JSON"})
         if not isinstance(body, dict):
             return self._send(400, {"error": "BODY_NOT_AN_OBJECT"})
-        code, payload = inspect(body) if self.path == "/inspect" else handle(body)
+        code, payload = inspect(body) if self.path == "/inspect" else sanitize(body) if self.path == "/sanitize" else handle(body)
         self._send(code, payload)
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("0.0.0.0", 8090), Handler).serve_forever()  # noqa: S104 - the container's own network only
+    ThreadingHTTPServer(("0.0.0.0", 8090), Handler).serve_forever()

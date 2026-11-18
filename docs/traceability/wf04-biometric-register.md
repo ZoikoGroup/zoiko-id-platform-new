@@ -41,7 +41,7 @@ Test files: `U-M` `backend/app/tests/unit/test_biometric_methods.py`; `U-E` `...
 | QA-020 | A false rejection can be contested and corrected | Covered | `test_doc04_closing_pg` (review, checker, decision.changed); W review tests |
 | QA-021 | Raw media, template, claim and audit each have their own TTL | Partly | Five asset classes, each needs its own retention policy (U-C, PG); encryption is per vault, not per class |
 | QA-022 | Vendor receipt before a class is purged | Covered | U-C `test_a_class_is_purged_only_when_its_tasks_and_the_backups_are_acknowledged` |
-| QA-023 | Provider deletion error is retried and alerted, never completed | Partly | FAILED stays FAILED (U-C), oversight ERASURE_STUCK (PG); no automatic retry |
+| QA-023 | Provider deletion error is retried and alerted, never completed | Partly (first-party retry built, CR-117) | FAILED stays FAILED (U-C), oversight ERASURE_STUCK (PG); a failed first-party disposal is retried automatically with backoff and a ceiling and never completed without real disposal (`test_erasure_retry_pg.py`). A provider's deletion is not retried by us (the provider acknowledges), and no push alert exists beyond the oversight view |
 | QA-024 | A legal hold keeps only what it covers | Existing / Covered | Erasure holds per entry (existing); U-C `test_a_held_or_failed_task_shows_on_its_class` |
 | QA-025 | Restoring a backup replays erasure tombstones | Existing | `evidence/application/vault.py` `reapply_tombstones` |
 | QA-026 | Cross-tenant reads denied, even privileged | Existing | Row-level security on every tenant table |

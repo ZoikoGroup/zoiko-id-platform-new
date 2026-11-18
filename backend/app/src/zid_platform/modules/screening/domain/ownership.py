@@ -188,6 +188,13 @@ def ofsi_owned_or_controlled(g: Graph, designated: frozenset[str]) -> bool:
     return g.subject in held and g.subject not in designated
 
 
+def eu_owned_or_controlled(g: Graph, designated: frozenset[str]) -> bool:
+    """The EU asset-freeze test as the Commission's guidance states it: a designated person owning more than 50 percent of the proprietary rights or holding a majority of the voting
+    rights, with the right to appoint or remove a majority of the board, or otherwise exercising control, over the subject, directly or through a chain. Holders are not added together,
+    and a person who ticks several boxes in one link is still one holder. It is its own rule so a pack says exactly which test it asked for; the wording is for Legal to confirm per market."""
+    return ofsi_owned_or_controlled(g, designated)
+
+
 @dataclass(frozen=True, slots=True)
 class CountryPack:
     """A versioned country rule set. Approved by Legal per country; no pack means no rule, which is a review."""
@@ -196,7 +203,7 @@ class CountryPack:
     version: str
     beneficial_owner_rule: str | None  # "uk_psc" or None
     beneficial_owner_threshold: Decimal | None
-    sanctions_evaluators: tuple[str, ...]  # "ofac_50", "ofsi"
+    sanctions_evaluators: tuple[str, ...]  # "ofac_50", "ofsi", "eu_control"
     status: str = "PROPOSED"
     local_list_required: bool = (
         False  # the country's own list must also be current before anyone is screened
@@ -209,6 +216,8 @@ def evaluate(g: Graph, pack: CountryPack, *, designated: frozenset[str]) -> Owne
         flags.append("OFAC_50_PERCENT_AGGREGATE")
     if "ofsi" in pack.sanctions_evaluators and ofsi_owned_or_controlled(g, designated):
         flags.append("OFSI_OWNED_OR_CONTROLLED")
+    if "eu_control" in pack.sanctions_evaluators and eu_owned_or_controlled(g, designated):
+        flags.append("EU_OWNED_OR_CONTROLLED")
     identify: list[str] = []
     if pack.beneficial_owner_rule == "uk_psc" and pack.beneficial_owner_threshold is not None:
         identify = uk_psc(g, pack.beneficial_owner_threshold)

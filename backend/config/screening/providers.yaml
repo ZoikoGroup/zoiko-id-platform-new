@@ -1,0 +1,32 @@
+# Licensed screening providers (ZID-DTV-WF-06 S11, ENG-10, ENG-11, ENG-13; CR-113). Versioned configuration, not tenant data.
+# status: PROPOSED. This file lists NO provider: PEP, associate and adverse-media screening are unavailable until a provider is contracted, authorised by Finance and enabled here.
+#
+# A provider is DISABLED, SANDBOX (never used in production) or APPROVED. It is called only when every gate holds, checked in this order and before any charge:
+#   approved -> Finance authorised the price schedule (finance_authorised_by, price_version, contract_version) -> the class and the market are in the contract -> the processing region is one
+#   Privacy approved and the tenant's own -> the circuit is closed -> the quota and the monthly budget have room.
+# There is no failover to another provider or region: a refusal or an outage makes the class unavailable, and a case with an unavailable required class never clears.
+#
+#   adapter          the name of the adapter that speaks to the provider (the platform ships none; a contracted adapter registers itself)
+#   classes          the check classes the contract covers: PEP_RCA, ADVERSE_MEDIA
+#   markets          ISO 3166-1 alpha-2 countries the contract covers
+#   regions          processing regions signed with the provider and approved by Privacy
+#   unit_cost        the price of one check, in the contract's currency
+#   monthly_budget / monthly_quota   caps for one tenant in one calendar month; empty means no cap (not recommended)
+#
+# Example (NOT enabled; copy, fill in and have it authorised):
+# providers:
+#   vendor-a:
+#     state: APPROVED
+#     adapter: vendor-a-v3
+#     classes: [PEP_RCA]
+#     markets: [GB, DE]
+#     regions: [uk-1]
+#     contract_version: c-2026-11
+#     price_version: p-2026-11
+#     finance_authorised_by: finance-owner
+#     unit_cost: "0.40"
+#     monthly_budget: "500"
+#     monthly_quota: 5000
+
+version: 0.1.0
+providers: {}

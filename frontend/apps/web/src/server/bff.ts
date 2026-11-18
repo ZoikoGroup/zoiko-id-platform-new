@@ -34,10 +34,16 @@ const API_PATH_PREFIXES = [
   "/verification-budget",
   "/verification-usage",
   "/verification-engine-readiness",
+  "/verification-method-certification",
+  "/v2/age-checks",
   // A company's verification grade, entitlements and representatives' mandates (WF02, CR-109). The cell decides each call by action.
   "/v1/kyb/",
   // Identity proofing cases (WF03, CR-110). The cell decides each call by scope and action.
   "/v1/idv/",
+  // Screening requests for a tenant (WF06 S01 to S03, CR-113). The cell requires an OWNER or ADMIN and a signed market policy; the operator routes are not reachable from here.
+  "/v1/screening/eligibility",
+  "/v1/screening/cases",
+  "/v1/screening/ownership/rollup",
   "/verifications",
   "/principals/",
   "/verification-assertions/",

@@ -50,6 +50,15 @@ rules:
   - {match: "* /v1/tenants*", exempt: OPERATOR_PLANE, why: "creating and listing tenants is a platform operation"}
   - {match: "POST /v1/tenant:*", exempt: NO_MATRIX_ACTION, why: "suspend, resume and offboard are owner steps under their protected actions; the matrices have no row"}
   - {match: "* /v1/reviews/*", exempt: OPERATOR_PLANE, why: "Zoiko reviewers decide company verification and screening cases"}
+  - {match: "* /v1/screening/eligibility", exempt: INLINE_EVALUATION, why: "the handler requires a tenant OWNER or ADMIN and reads the platform's own identity claim (WF06 S01, CR-113)"}
+  - {match: "* /v1/screening/ownership/*", exempt: INLINE_EVALUATION, why: "the handler requires a tenant OWNER or ADMIN; it reads only this tenant's own cases and tells the company nothing a check found (CR-122)"}
+  - {match: "* /v1/screening/cases*", exempt: INLINE_EVALUATION, why: "the handler requires a tenant OWNER or ADMIN and checks the signed market policy for the tenant (WF06 S01 to S03, CR-113)"}
+  - {match: "POST /v1/integrations/screening/*", exempt: PROTOCOL, why: "a licensed screening provider's callback, authorised by its own signing key, a clock window and a replay check (WF06 section 10, CR-113)"}
+  - {match: "* /v1/screening/review/*", exempt: OPERATOR_PLANE, why: "the restricted screening case queue and decisions are worked by operators in a case role (WF06 S04, S05, S09, CR-113)"}
+  - {match: "* /v1/screening/providers*", exempt: OPERATOR_PLANE, why: "licensed screening providers are governed by operators and Finance, read only here (WF06 S11, CR-113)"}
+  - {match: "* /v1/screening/gates*", exempt: OPERATOR_PLANE, why: "release gates for a screening module in a market are signed by operators in named roles (WF06 section 22, CR-113)"}
+  - {match: "* /v1/screening/sources*", exempt: OPERATOR_PLANE, why: "official sanctions sources are staged, approved and published by operators (WF06 S10, CR-113)"}
+  - {match: "* /v1/screening/releases*", exempt: OPERATOR_PLANE, why: "official sanctions source releases are approved and published by operators (WF06 S10, CR-113)"}
   - {match: "* /v1/regulatory/*", exempt: OPERATOR_PLANE, why: "jurisdiction and profession policy packs are platform configuration, authored and approved by Zoiko operators (CR-067)"}
   - {match: "* /v2/regulatory/*", exempt: OPERATOR_PLANE, why: "the ZID-RCG-003 09.2 regulatory API at the document's paths; the same operator handlers as /v1/regulatory (CR-085)"}
   - {match: "* /admin/recovery-*", exempt: APPROVAL_ENGINE, why: "recovery is a governed case (ZID-ENG-DEC-012)"}

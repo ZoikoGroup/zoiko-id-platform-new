@@ -158,6 +158,156 @@ RELEASE_APPROVER_ROLES = ("legal", "security_grc", "qa", "product_owner")
 
 KYB_POLICY_APPROVER_ROLES = ("compliance", "legal", "privacy", "security")
 
+# Screening operations (ZID-DTV-WF-06 S04 to S13; CR-113). The role someone works in IS the capability they hold, and no one holds two within a set.
+SCREENING_SOURCE_CAPABILITIES = (
+    "screening.source.stage",
+    "screening.source.approve",
+    "screening.source.publish",
+)
+SCREENING_CASE_ROLES = ("analyst", "senior", "legal")
+SCREENING_PROVIDER_CAPABILITIES = (
+    "screening.provider.configure",
+    "screening.provider.authorise_spend",
+)
+SCREENING_EXPORT_CAPABILITIES = ("screening.evidence.request", "screening.evidence.approve")
+SCREENING_GATE_ROLES = (
+    "founder",
+    "legal",
+    "dpo",
+    "aml",
+    "engineering",
+    "security",
+    "qa",
+    "cto",
+    "ciso",
+    "product",
+)
+
+
+def _screening_capabilities() -> tuple[Capability, ...]:
+    """Governed source releases, the restricted case queue, provider governance, monitoring and evidence export (ZID-DTV-WF-06; CR-113)."""
+
+    def cap(
+        name: str, description: str, *, two_person: bool, minutes: int, customer_data: bool = False
+    ) -> Capability:
+        return _cap(
+            name,
+            description,
+            risk=3,
+            evidence=3,
+            scope=Scope.PLATFORM,
+            customer_data=customer_data,
+            two_person=two_person,
+            minutes=minutes,
+            break_glass=False,
+        )
+
+    return (
+        cap(
+            "screening.source.stage",
+            "Fetch and stage an official sanctions source for validation; cannot approve or publish any (CR-113)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "screening.source.approve",
+            "Approve a staged official source corpus, acknowledging each anomaly by name, or approve a rollback to an earlier one (CR-113)",
+            two_person=True,
+            minutes=120,
+        ),
+        cap(
+            "screening.source.publish",
+            "Make an approved source corpus the one screening reads, or roll a source back once two others approved (CR-113)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "screening.case.analyst",
+            "Work the restricted screening case queue: hold, request evidence, propose a decision; cannot finalise one (CR-113)",
+            two_person=False,
+            minutes=240,
+            customer_data=True,
+        ),
+        cap(
+            "screening.case.senior",
+            "Check and finalise what an analyst proposed on a screening case; never one's own proposal (CR-113)",
+            two_person=True,
+            minutes=120,
+            customer_data=True,
+        ),
+        cap(
+            "screening.case.legal",
+            "Propose or finalise a prohibition and the legal actions freeze, block and report on a screening case (CR-113)",
+            two_person=True,
+            minutes=60,
+            customer_data=True,
+        ),
+        cap(
+            "screening.provider.configure",
+            "Register and change a licensed screening provider's contract scope, markets, regions and budget; cannot authorise its spend (CR-113)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "screening.provider.authorise_spend",
+            "Authorise a licensed screening provider's price schedule and budget, the Finance gate to activation (CR-113)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "screening.evidence.request",
+            "Ask for a purpose-bound screening evidence package; cannot approve sensitive material in it (CR-113)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "screening.evidence.approve",
+            "Approve sensitive material in a screening evidence package as the second person (CR-113)",
+            two_person=True,
+            minutes=60,
+            customer_data=True,
+        ),
+        cap(
+            "screening.monitoring.manage",
+            "Create and change ongoing screening watches and their cadence and triggers (CR-113)",
+            two_person=True,
+            minutes=120,
+        ),
+        *(
+            cap(
+                f"screening.gate.sign_{role}",
+                f"Sign a screening release gate as the {role} (G0 to G3 for one market and module); one role per person (CR-113)",
+                two_person=True,
+                minutes=60,
+            )
+            for role in SCREENING_GATE_ROLES
+        ),
+        cap(
+            "screening.gate.defect",
+            "Open or close an open P0 or critical security defect against a screening module in a market; an open one stops every gate (CR-113)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "screening.gate.hold",
+            "Place a kill switch on a screening module in a market, at once, by one person (CR-113)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "screening.gate.release_hold",
+            "Release a kill switch on a screening module in a market, never the person who placed it (CR-113)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "screening.read",
+            "Read screening source health, release history, provider status and watches; no case data (CR-113)",
+            two_person=False,
+            minutes=480,
+        ),
+    )
+
 
 def _kyb_policy_capabilities() -> tuple[Capability, ...]:
     """Company-verification market policy packs (ZID-DTV-WF-02 K09; CR-109): one capability to propose a version, one per sign-off role to approve its exact digest, one to publish or roll back.
@@ -560,6 +710,7 @@ CAPABILITIES: dict[str, Capability] = {
         ),
         *_release_capabilities(),
         *_kyb_policy_capabilities(),
+        *_screening_capabilities(),
         _cap(
             "prod.db.breakglass",
             "Captured, JIT-only database session (breakglass_dba)",
@@ -634,6 +785,31 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
             }
         ),
         "Whoever prepares a market release signs no gate or approval of it, and holds one signing role only (ZID-RCG-003 RG-08)",
+    ),
+    ConflictRule(
+        "screening-source-stager-vs-approver",
+        frozenset(SCREENING_SOURCE_CAPABILITIES),
+        "Whoever stages a sanctions source approves or publishes none of it, and whoever approves publishes nothing (ZID-DTV-WF-06 S10)",
+    ),
+    ConflictRule(
+        "screening-case-one-role",
+        frozenset(f"screening.case.{r}" for r in SCREENING_CASE_ROLES),
+        "A person works screening cases in one role only: analyst, senior or legal (ZID-DTV-WF-06 S09)",
+    ),
+    ConflictRule(
+        "screening-provider-configure-vs-spend",
+        frozenset(SCREENING_PROVIDER_CAPABILITIES),
+        "Whoever configures a licensed provider does not authorise its spend (ZID-DTV-WF-06 S11)",
+    ),
+    ConflictRule(
+        "screening-gate-one-role",
+        frozenset(f"screening.gate.sign_{r}" for r in SCREENING_GATE_ROLES),
+        "A person signs release gates in one role only (ZID-DTV-WF-06 section 22)",
+    ),
+    ConflictRule(
+        "screening-evidence-requester-vs-approver",
+        frozenset(SCREENING_EXPORT_CAPABILITIES),
+        "Whoever requests an evidence package does not approve its sensitive material (ZID-DTV-WF-06 S13)",
     ),
     ConflictRule(
         "kyb-policy-maker-vs-checker",

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from zid_platform.modules.evidence.ports import (
+    CamEvidence,
     ChipMachine,
     ChipRead,
     ChipReadError,
@@ -58,6 +59,9 @@ class RelayRead:
 
     chip: ChipRead
     active_authentication: bytes | None
+    chip_authentication: CamEvidence | None = (
+        None  # CR-111: the chip's proof from PACE-CAM, judged later against data group 14 once passive authentication has said it was covered
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,4 +174,4 @@ async def take_result(owner: Owner, session_id: str, token: str) -> RelayRead:
         chip, answer = machine.result()
     except ChipReadError as e:
         raise LinkError(e.code, e.detail) from e
-    return RelayRead(chip, answer)
+    return RelayRead(chip, answer, machine.chip_authentication())

@@ -81,3 +81,16 @@ alerting:
     authorization_latency_slo_breach: {sli: zid_decision_latency_seconds, severity: SEV2, pages: true}
     mandate_integrity_failure: {sli: zid_mandate_operation_failures_total, severity: SEV1-security, pages: true}
     fail_closed_spike: {sli: zid_fail_closed_total, severity: SEV2, pages: true}
+
+# ZID-DTV-WF-06 ENG-19 (screening performance certification). PROPOSED by engineering: no requirement text sets these numbers, so none carries a `requirement:` key and the owners must ratify them
+# before this is a gate. Harness: tests/load/screening-gate/screening-gate.js. Provider calls are excluded (a licensed provider's own latency is its contract's, and a provider outage is a degradation test, not a load one).
+screening_gate:
+  status: PROPOSED
+  tool: k6
+  eligibility_reads_per_s: 200
+  case_opens_per_s: 20
+  soak_minutes: 30
+  max_error_rate: 0.001
+  p95_ms_eligibility: 250
+  p95_ms_case_open: 1500
+  pass: "p95 budgets met for both calls with the error budget held, no case stored twice for one idempotency key, and no response carrying a list name or a candidate"

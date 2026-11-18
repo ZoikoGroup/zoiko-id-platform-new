@@ -6,6 +6,8 @@ import { AccessUnavailable, Badge, Banner, Button, Card, DataTable, DateTime, Em
 import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { canReview, claimText, DECISION, explainReason, IDV_KEY, problemText, SIGNAL_LABEL, signalWords } from "./logic";
+import { ReviewerPanel } from "./reviewer-panel";
+import { ReviewQueue } from "./review-queue";
 
 function Failed({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.status === 403 && !error.isStepUpRequired && !error.isApprovalRequired) {
@@ -48,6 +50,7 @@ function Detail({ c }: { c: IdvCase }) {
       </p>
       {canReview(c) ? (
         <>
+          <ReviewerPanel caseId={c.case_id} />
           <Button pending={review.isPending} onPress={() => review.mutate(c.case_id)}>
             Sign as a reviewer ({c.reviewers} so far)
           </Button>
@@ -65,6 +68,7 @@ export function IdvCasesPage() {
       <PageHeader title="Identity proofing cases" description="Each case keeps its evidence as separate signals and one decision under the market's rules. Missing evidence is never read as a pass, and a chip that was read is not a verified chip." />
       {q.isPending && q.fetchStatus !== "idle" ? <LoadingRows rows={4} /> : null}
       {q.isError ? <Failed error={q.error} /> : null}
+      <ReviewQueue />
       <Card title="Cases">
         <DataTable<IdvCase>
           caption="Identity proofing cases"

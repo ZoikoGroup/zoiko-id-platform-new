@@ -509,6 +509,83 @@ class SireneKyb:
         )
 
 
+@dataclass
+class InpiKyb:
+    """INPI Registre National des Entreprises (RNE) API: the French register of record, behind an account. UNVERIFIED against a live account.
+
+    It needs credentials (`inpi-rne-username` and `inpi-rne-password` in the secret broker): `POST /api/sso/login` with `username` and `password` returns `token`, and
+    `GET /api/companies/{siren}` returns the company under `formality.content.personneMorale`. The field names below follow the RNE documentation as published and have not
+    been run against a live account (ED-03 section 07), so the adapter stays DISABLED_UNTIL_CREDENTIALS in `config/kyb/kyb-routing.yaml`. With no credential it
+    makes no request and says the source is unavailable (T03): nothing is looked up or made up, and the signed alternative (the open Sirene source, then a reviewer) answers."""
+
+    credentials: Callable[[], tuple[str, str] | None]
+    transport: httpx.AsyncBaseTransport | None = None
+    base_url: str = "https://registre-national-entreprises.inpi.fr"
+    adapter_id: str = "inpi"
+    kind: SourceKind = SourceKind.OFFICIAL_REGISTER
+    capabilities: Capabilities = field(
+        default_factory=lambda: Capabilities(countries=frozenset({"FR"}))
+    )
+
+    @staticmethod
+    def _uri(siren: str) -> str:
+        return f"https://data.inpi.fr/entreprises/{quote(siren)}"
+
+    async def _headers(self, client: httpx.AsyncClient) -> dict[str, str]:
+        creds = self.credentials()
+        if not creds or not creds[0] or not creds[1]:
+            raise KybError("SOURCE_UNAVAILABLE", "no INPI credential configured")
+        status, _, doc = await _fetch(
+            client,
+            "POST",
+            "/api/sso/login",
+            json_body={"username": creds[0], "password": creds[1]},
+        )
+        token = _text(doc.get("token")) if status == 200 else ""
+        if not token:
+            raise KybError("SOURCE_UNAVAILABLE", "INPI refused the credential")
+        return {"Authorization": f"Bearer {token}"}
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        return []  # the RNE API looks a company up by SIREN; the open Sirene source does the name search
+
+    async def get(
+        self, registration_number: str, jurisdiction: str, now: datetime
+    ) -> CompanyFacts | None:
+        if jurisdiction != "FR" or not (
+            len(registration_number) == 9 and registration_number.isdigit()
+        ):
+            return None
+        async with _client(self.base_url, self.transport) as c:
+            headers = await self._headers(c)
+            status, raw, doc = await _fetch(
+                c, "GET", f"/api/companies/{quote(registration_number)}", headers=headers
+            )
+        if status == 404:
+            return None
+        legal = ((doc.get("formality") or {}).get("content") or {}).get("personneMorale") or {}
+        identity = (legal.get("identite") or {}).get("entreprise") or {}
+        if _text(identity.get("siren")) != registration_number:
+            return None  # an answer for another company is never taken for this one
+        ended = _text(identity.get("dateRadiation") or doc.get("dateRadiation"))
+        state = "radiee" if ended else "active"
+        return CompanyFacts(
+            adapter_id=self.adapter_id,
+            source_kind=self.kind,
+            jurisdiction="FR",
+            registry_authority="sirene-rne",
+            registration_number=registration_number,
+            legal_name=_text(identity.get("denomination")),
+            legal_form=None,  # `formeJuridique` is a numeric category code, not a name to compare
+            registration_status=state,
+            active=not ended,
+            registered_address=None,
+            source_uri=self._uri(registration_number),
+            observed_at=now,
+            response_hash=response_hash(raw),
+        )
+
+
 def default_adapters(broker: Any, transport: Any = None) -> dict[str, KybAdapter]:
     """The sources Zoiko reads without a supplier contract: the UK register (key from the secret broker), GLEIF and the French
     register. Creditsafe joins only when it is enabled in the routing and has credentials."""
@@ -519,8 +596,16 @@ def default_adapters(broker: Any, transport: Any = None) -> dict[str, KybAdapter
         except Exception:  # noqa: BLE001 - the source then reports itself unavailable
             return None
 
+    def inpi() -> tuple[str, str] | None:
+        try:
+            user, password = broker.get("inpi-rne-username"), broker.get("inpi-rne-password")
+            return (str(user), str(password)) if user and password else None
+        except Exception:  # noqa: BLE001 - no credential: the source then reports itself unavailable
+            return None
+
     return {
         "companies-house": CompaniesHouseKyb(key, transport),
         "gleif": GleifKyb(transport),
         "sirene": SireneKyb(transport),
+        "inpi": InpiKyb(inpi, transport),
     }

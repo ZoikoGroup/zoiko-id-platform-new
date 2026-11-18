@@ -6,7 +6,8 @@ import { useState } from "react";
 
 import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { applicantText, fileToBase64, imageProblem, MY_IDV_KEY, nextStep, outcomeOf, STEP_LABEL, type Step } from "./logic";
+import { DocumentCapture } from "./document-capture";
+import { applicantText, fileToBase64, imageProblem, MY_IDV_KEY, chipLink, handoff, nextStep, onPhone, outcomeOf, STEP_LABEL, stepsFor, WEB_ROUTE, type Step } from "./logic";
 
 function Failed({ error }: { error: unknown }) {
   if (error instanceof ApiError && [403, 404, 409, 422, 429, 503].includes(error.status)) {
@@ -15,8 +16,8 @@ function Failed({ error }: { error: unknown }) {
   return <ApiErrorView error={error} />;
 }
 
-function Progress({ at }: { at: Step }) {
-  const order: Step[] = ["START", "NOTICE", "DOCUMENT", "CHIP", "SELFIE", "STATUS"];
+function Progress({ at, route }: { at: Step; route: string }) {
+  const order = stepsFor(route);
   return (
     <ol className="flex flex-wrap gap-2 text-sm" aria-label="Steps">
       {order.map((s) => (
@@ -25,6 +26,53 @@ function Progress({ at }: { at: Step }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+/** The chip step: a browser cannot read a chip, so the phone app does it for this same case. This page keeps watching the case and moves on by itself when the app is done. */
+function PhoneHandoff({ c }: { c: IdvCase }) {
+  const link = chipLink(c);
+  const phone = typeof navigator !== "undefined" && onPhone(navigator.userAgent);
+  const [note, setNote] = useState("");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setNote("Link copied. Send it to your phone and open it there.");
+    } catch {
+      setNote("Copy this link by hand: " + link);
+    }
+  };
+  const share = async () => {
+    try {
+      await navigator.share({ title: "Zoiko identity check", url: link });
+    } catch {
+      /* the person closed the share sheet */
+    }
+  };
+  return (
+    <div className="space-y-2" aria-live="polite">
+      <p className="font-medium">Next: read your passport chip in the phone app</p>
+      <p>A browser cannot read a chip, so your phone does it for this same check. Sign in to the Zoiko app with the same account, open this check, then hold the top of the phone against the passport photo page.</p>
+      {phone ? (
+        <a className="inline-block rounded border px-3 py-2" href={link}>
+          Open the Zoiko app
+        </a>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onPress={copy}>
+            Copy the link for my phone
+          </Button>
+          {typeof navigator !== "undefined" && "share" in navigator ? (
+            <Button variant="secondary" onPress={share}>
+              Share to my phone
+            </Button>
+          ) : null}
+        </div>
+      )}
+      {note ? <p role="status">{note}</p> : null}
+      <p className="text-ink-muted">This page updates by itself when the app has finished. No app, or a phone without NFC? Stop this check and start one with "Verify in this browser only"; people will review your photograph.</p>
+      {handoff(c) === "WAITING_FOR_APP" ? <p className="text-ink-muted">Waiting for the app…</p> : null}
+    </div>
   );
 }
 
@@ -48,7 +96,7 @@ function CaseCard({ c }: { c: IdvCase }) {
   return (
     <Card title={`${c.market} identity check`} description="Each step is separate. Missing evidence is never read as a pass.">
       <div className="space-y-4 text-sm">
-        <Progress at={step} />
+        <Progress at={step} route={c.route} />
         <Banner tone={outcome.tone === "danger" ? "danger" : outcome.tone === "warn" ? "warn" : "info"} title={c.decision.toLowerCase().replace(/_/g, " ")}>
           {outcome.text}
         </Banner>
@@ -57,7 +105,10 @@ function CaseCard({ c }: { c: IdvCase }) {
             {step === "DOCUMENT" ? (
               <div className="space-y-2">
                 <p>Take a clear photograph of the page with your photo and the two lines of characters at the bottom. Flat, in good light, with nothing covering it.</p>
+                <DocumentCapture onCaptured={setFile} disabled={send.isPending} />
+                <p className="text-ink-muted">Or choose a photograph from your device:</p>
                 <input type="file" accept="image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Document photograph" />
+                {file && !problem ? <p role="status">Ready to send: {file.name} ({Math.round(file.size / 1024)} KB)</p> : null}
                 {file && problem ? <p className="text-danger">{problem}</p> : null}
                 <Button pending={send.isPending} isDisabled={problem !== null} onPress={() => file && send.mutate(file)}>
                   Send the photograph
@@ -65,7 +116,8 @@ function CaseCard({ c }: { c: IdvCase }) {
                 {send.error ? <Failed error={send.error} /> : null}
               </div>
             ) : null}
-            {step === "CHIP" ? <p>Open the Zoiko app on your phone and hold it against your passport to read the chip. A browser cannot read a chip.</p> : null}
+            {step === "STATUS" && c.route !== "CHIP" ? <p>Your photograph is with our reviewers. Two people who work independently of each other have to look at it before this check can be complete. This way of verifying never says your passport chip was read.</p> : null}
+            {step === "CHIP" ? <PhoneHandoff c={c} /> : null}
             {step === "SELFIE" ? <p>The selfie is taken in the phone app, after the chip, so the face is compared with the portrait the chip holds.</p> : null}
             <div className="space-y-2">
               <p className="font-medium">Face checks and your consent</p>
@@ -98,19 +150,22 @@ function CaseCard({ c }: { c: IdvCase }) {
 }
 
 export function IdentityProofingPage() {
-  const q = useCellQuery(MY_IDV_KEY, (api) => api.idv.cases());
+  const q = useCellQuery(MY_IDV_KEY, (api) => api.idv.cases(), { refetchInterval: 5000 });
   const [market, setMarket] = useState("");
-  const open = useCellMutation((api, m: string) => api.idv.open(m.trim().toUpperCase()), { invalidate: [MY_IDV_KEY], success: "Check started", onSuccess: () => setMarket("") });
+  const open = useCellMutation((api, v: { market: string; route: string }) => api.idv.open(v.market.trim().toUpperCase(), v.route), { invalidate: [MY_IDV_KEY], success: "Check started", onSuccess: () => setMarket("") });
   return (
     <div className="space-y-6">
-      <PageHeader title="Identity check" description="Verify your identity with your passport. You will photograph the document here, then read the chip and take a selfie in the phone app." />
+      <PageHeader title="Identity check" description="Verify your identity with your passport. Photograph the document here. The strongest check also reads the chip in the phone app; if you have no app, you can verify with this browser alone and people will review your photograph." />
       {q.isPending && q.fetchStatus !== "idle" ? <LoadingRows rows={3} /> : null}
       {q.isError ? <Failed error={q.error} /> : null}
       <Card title="Start a check" description="Use the two-letter code of the country that issued your document.">
         <div className="flex flex-wrap items-end gap-3">
           <TextField label="Country code" value={market} onChange={setMarket} />
-          <Button pending={open.isPending} isDisabled={!/^[A-Za-z]{2}$/.test(market.trim())} onPress={() => open.mutate(market)}>
-            Start
+          <Button pending={open.isPending} isDisabled={!/^[A-Za-z]{2}$/.test(market.trim())} onPress={() => open.mutate({ market, route: "CHIP" })}>
+            Start with the phone app
+          </Button>
+          <Button variant="secondary" pending={open.isPending} isDisabled={!/^[A-Za-z]{2}$/.test(market.trim())} onPress={() => open.mutate({ market, route: WEB_ROUTE })}>
+            Verify in this browser only
           </Button>
         </div>
         {open.error ? <Failed error={open.error} /> : null}

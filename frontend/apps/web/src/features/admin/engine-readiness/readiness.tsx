@@ -6,6 +6,7 @@ import { AccessUnavailable, Badge, Banner, Card, DataTable, EmptyState, LoadingR
 import { ApiErrorView, useCellQuery } from "@/lib/cell";
 
 import { groupByOwner, licenceState, MODE_WORDS, percent, READINESS_KEY } from "./logic";
+import { MethodBoard } from "./method-board";
 
 function Failed({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.status === 403) return <EmptyState title="Withheld for your role">Your role does not include this.</EmptyState>;
@@ -25,6 +26,7 @@ export function EngineReadinessPage() {
         breadcrumbs={[{ label: "Face engine readiness" }]}
       />
       <div className="space-y-4">
+        <MethodBoard />
         {q.isPending && q.fetchStatus !== "idle" ? <LoadingRows rows={4} /> : null}
         {q.isError ? <Failed error={q.error} /> : null}
         {r ? (
