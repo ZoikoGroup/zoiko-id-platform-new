@@ -51,8 +51,11 @@ PROFILE = Profile.from_json(
 def accepted(**over):
     cfg = {
         "enabled": True,
+        "mode": "APPROVED_FOR_SCOPE",
+        "scope": {"countries": ["GB"]},
         "engine": {
             "id": "deepface-arcface",
+            "components": ["deepface", "silent-face-anti-spoofing"],
             "version": "1.4.0",
             "evaluation_id": "EVAL-2026-0042",
             "evaluated_on": "2026-09-01",
@@ -599,3 +602,172 @@ def test_a_imported_csca_is_what_the_chip_check_then_trusts():
     assert r.ok
     assert ep.verify(chip.sod, chip.data_groups, csca=r.certificates).status == "VERIFIED_LIMITED"
     assert ep.verify(chip.sod, chip.data_groups, csca=()).status == "INDETERMINATE"
+
+
+# ------------------------------------------------------------------------------------ engine mode and country scope (WF01 O1, T02; CR-107)
+
+
+def test_an_engine_switched_on_without_a_mode_is_refused_and_a_lab_engine_is_never_routed() -> None:
+    cfg = accepted()
+    del cfg["mode"]
+    assert be.engine_gate_problems(cfg, today=TODAY) == ["ENGINE_MODE_MISSING"]
+    with pytest.raises(be.EngineGateError):
+        be.engine_gate(cfg, today=TODAY)  # switched on, not accepted: the owner is told
+    assert be.engine_mode(cfg) == "DISABLED"
+    # T02: LAB_ONLY is never routed to a live decision, even with a complete file and the flag on
+    lab = accepted(mode="LAB_ONLY")
+    assert (
+        be.engine_gate_problems(lab, today=TODAY) == [] and be.engine_gate(lab, today=TODAY) is None
+    )
+    assert be.engine_mode(lab) == "LAB_ONLY"
+    # a lab engine is only identifiable: no evaluation is needed to be a lab engine, and no id is not a lab engine
+    bare = {"enabled": True, "mode": "LAB_ONLY", "engine": {"id": "silent-face", "version": "1.0"}}
+    assert (
+        be.engine_gate_problems(bare, today=TODAY) == []
+        and be.engine_gate(bare, today=TODAY) is None
+    )
+    assert "ENGINE_ID_MISSING" in be.engine_gate_problems(
+        {"enabled": True, "mode": "LAB_ONLY", "engine": {}}, today=TODAY
+    )
+    # DISABLED stays off whatever else the file says
+    assert be.engine_gate(accepted(mode="DISABLED"), today=TODAY) is None
+    assert be.engine_mode({"enabled": False, "mode": "APPROVED_FOR_SCOPE"}) == "DISABLED"
+    assert be.engine_mode(accepted(mode="NONSENSE")) == "DISABLED"
+    assert be.engine_gate_problems(accepted(mode="NONSENSE"), today=TODAY) == [
+        "ENGINE_MODE_MISSING"
+    ]
+
+
+def test_an_approved_engine_needs_named_countries_and_runs_only_there() -> None:
+    for bad in (
+        None,
+        {},
+        {"countries": []},
+        {"countries": ["gb"]},
+        {"countries": ["GBR"]},
+        {"countries": "GB"},
+        {"countries": [7]},
+    ):
+        cfg = accepted()
+        cfg["scope"] = bad
+        assert "ENGINE_SCOPE_MISSING" in be.engine_gate_problems(cfg, today=TODAY), bad
+    gate = be.engine_gate(accepted(), today=TODAY)
+    assert (
+        gate is not None and gate.allows("GB") and not gate.allows("FR") and not gate.allows(None)
+    )
+    assert gate.audit()["mode"] == "APPROVED_FOR_SCOPE" and gate.audit()["countries"] == ["GB"]
+
+
+def test_outside_its_countries_the_engine_is_off_for_the_session_and_the_reason_says_so() -> None:
+    gate = be.engine_gate(accepted(), today=TODAY)
+    chip = chip_evidence()
+    inside = app.assess(chip, session_ref="s", gate=gate, country="GB", scoped=True)
+    assert "SELF_RUN_ENGINE_NOT_APPROVED_FOR_COUNTRY" not in inside.audit["codes"]
+    outside = app.assess(chip, session_ref="s", gate=gate, country="FR", scoped=True)
+    assert "SELF_RUN_ENGINE_NOT_APPROVED_FOR_COUNTRY" in outside.audit["codes"]
+    assert "SELF_RUN_BIOMETRICS_OFF" in outside.audit["codes"]  # nothing binds the holder there
+    assert outside.result.binding is None
+    unknown = app.assess(chip, session_ref="s", gate=gate, country=None, scoped=True)
+    assert (
+        "SELF_RUN_ENGINE_NOT_APPROVED_FOR_COUNTRY" in unknown.audit["codes"]
+    )  # no country, no approval
+
+
+# ------------------------------------------------------------------------------------------- the licence and component register (WF01-011; CR-107)
+
+VERIFIED = {
+    "commercial_use": "YES",
+    "model_licence_confirmed": True,
+    "licence_verified_on": "2026-11-01",
+}
+
+
+def reg(*components: dict) -> dict:
+    return {"components": list(components)}
+
+
+def test_an_engine_is_refused_unless_every_component_is_in_the_register_with_its_licences_confirmed() -> (
+    None
+):
+    both = reg({"id": "deepface", **VERIFIED}, {"id": "silent-face-anti-spoofing", **VERIFIED})
+    assert be.engine_gate_problems(accepted(), today=TODAY, register=both) == []
+    assert be.engine_gate(accepted(), today=TODAY, register=both) is not None
+
+    missing = reg({"id": "deepface", **VERIFIED})
+    assert be.engine_gate_problems(accepted(), today=TODAY, register=missing) == [
+        "COMPONENT_SILENT-FACE-ANTI-SPOOFING_NOT_IN_LICENCE_REGISTER"
+    ]
+    for field, code in (
+        ({"commercial_use": "UNKNOWN"}, "COMMERCIAL_USE_NOT_CONFIRMED"),
+        ({"commercial_use": "NO"}, "COMMERCIAL_USE_NOT_CONFIRMED"),
+        ({"commercial_use": False}, "COMMERCIAL_USE_NOT_CONFIRMED"),  # a bare NO in YAML is false
+        ({"model_licence_confirmed": False}, "MODEL_LICENCE_NOT_CONFIRMED"),
+        ({"licence_verified_on": None}, "LICENCE_NOT_VERIFIED"),
+    ):
+        bad = reg(
+            {"id": "deepface", **VERIFIED, **field}, {"id": "silent-face-anti-spoofing", **VERIFIED}
+        )
+        assert be.engine_gate_problems(accepted(), today=TODAY, register=bad) == [
+            f"COMPONENT_DEEPFACE_{code}"
+        ], field
+        with pytest.raises(be.EngineGateError):
+            be.engine_gate(accepted(), today=TODAY, register=bad)
+    assert (
+        be.engine_gate_problems(
+            accepted(),
+            today=TODAY,
+            register=reg(
+                {"id": "deepface", **VERIFIED, "commercial_use": True},
+                {"id": "silent-face-anti-spoofing", **VERIFIED},
+            ),
+        )
+        == []
+    )  # a bare YES is yes
+
+
+def test_an_engine_with_no_components_named_is_refused_when_a_register_is_supplied() -> None:
+    for bad in (None, [], "deepface", [7]):
+        cfg = accepted()
+        cfg["engine"]["components"] = bad
+        assert "ENGINE_COMPONENTS_MISSING" in be.engine_gate_problems(
+            cfg, today=TODAY, register=reg({"id": "deepface", **VERIFIED})
+        )
+    # without a register (a pure rule test) nothing is added: the deployment's loader always supplies one
+    cfg = accepted()
+    del cfg["engine"]["components"]
+    assert be.engine_gate_problems(cfg, today=TODAY) == []
+
+
+def test_the_shipped_register_verifies_nothing_so_no_engine_can_go_live_from_it() -> None:
+    from zid_platform.modules.verification.infrastructure import engine_register
+
+    shipped = engine_register.register()
+    ids = [c["id"] for c in shipped["components"]]
+    assert {"deepface", "silent-face-anti-spoofing", "insightface"} <= set(ids) and len(ids) == len(
+        set(ids)
+    )
+    for c in shipped["components"]:
+        assert {
+            "role",
+            "repository",
+            "code_licence",
+            "model_licence",
+            "commercial_use",
+            "model_licence_confirmed",
+            "licence_verified_on",
+            "status",
+            "sbom_ref",
+        } <= set(c), c["id"]
+        assert c["licence_verified_on"] is None, c["id"]  # nobody has verified anything yet
+        assert be.register_problems([c["id"]], shipped), c[
+            "id"
+        ]  # so every component still blocks an engine
+    insight = next(c for c in shipped["components"] if c["id"] == "insightface")
+    assert (
+        insight["commercial_use"] == "NO" and insight["status"] == "NOT_FOR_COMMERCIAL_USE"
+    )  # pretrained models are non-commercial
+    # and the shipped files together keep an enabled engine shut
+    cfg = accepted()
+    with pytest.raises(be.EngineGateError) as e:
+        be.engine_gate(cfg, today=TODAY, register=shipped)
+    assert any("NOT_CONFIRMED" in p or "NOT_VERIFIED" in p for p in e.value.problems)

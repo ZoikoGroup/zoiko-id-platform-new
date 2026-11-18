@@ -29,6 +29,14 @@ from typing import Any
 BANDS = ((18, "CRITICAL"), (12, "HIGH"), (6, "MODERATE"), (1, "LOW"))
 RISK_ID = re.compile(r"^R[0-9]{2,3}$")
 
+MAX_ERASURE_ATTEMPTS = 5
+RETRY_BASE_MINUTES = 15
+
+
+def retry_delay_minutes(attempts: int) -> int:
+    """How long to wait after the Nth failed attempt: 15 minutes, then doubling, never more than a day."""
+    return min(RETRY_BASE_MINUTES * (2 ** max(attempts - 1, 0)), 24 * 60)
+
 
 def score(likelihood: int, impact: int) -> int:
     if not (1 <= likelihood <= 5 and 1 <= impact <= 5):

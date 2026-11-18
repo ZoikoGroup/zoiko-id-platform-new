@@ -14,6 +14,7 @@ Provider payloads end at the adapter boundary: only canonical facts reach the re
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
 import logging
@@ -22,7 +23,8 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from decimal import Decimal
+from typing import Any, Protocol
 
 import httpx
 from sqlalchemy import text
@@ -33,7 +35,7 @@ from zid_crypto import CryptoError, verify_external_jws
 from zid_db import in_tenant, tenant_transaction
 from zid_outbox import emit
 
-from zid_platform.modules.commercial.ports import record_vendor_check
+from zid_platform.modules.commercial.ports import record_vendor_check, tenant_vendor_cost
 from zid_platform.modules.evidence.ports import (
     AuditFacts,
     EvidenceClass,
@@ -44,7 +46,13 @@ from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_
 from zid_platform.modules.privacy.ports import enforce_processing
 from zid_platform.modules.signals.ports import CanonicalSignal, ingest
 from zid_platform.modules.verification.application import self_run as self_run_app
+from zid_platform.modules.verification.domain import proofing
 from zid_platform.modules.verification.domain.audit_events import CALLBACK_REJECTED
+from zid_platform.modules.verification.domain.budget import (
+    Budget,
+    month_start,
+    require_within_budget,
+)
 from zid_platform.modules.verification.domain.providers import (
     ProviderKind,
     sumsub_digest_ok,
@@ -59,6 +67,7 @@ from zid_platform.modules.verification.domain.providers import (
 )
 from zid_platform.modules.verification.domain.self_run import ChipEvidence
 from zid_platform.modules.verification.domain.verification import (
+    ATTEMPT_WINDOW,
     IAL_RANK,
     SESSION_TTL,
     ClaimResult,
@@ -72,6 +81,7 @@ from zid_platform.modules.verification.domain.verification import (
     failover_candidates,
     reconstruct,
     reliance,
+    require_attempt_allowed,
     select_profile,
     transition,
 )
@@ -100,6 +110,62 @@ async def _event(
     )
 
 
+async def _proofing_event(
+    conn: AsyncConnection,
+    s: store.VSession,
+    profile: Profile,
+    facts: proofing.ProofingFacts,
+    *,
+    completed: bool,
+    evidence_commitment: str | None,
+    adapter_id: str | None,
+    now: datetime,
+) -> None:
+    """WF01's result events (CR-107). `completed` only ever follows a decision the platform stands behind; `indeterminate` is never a pass.
+    The payload names facts and references: no evidence, no claim value, no score."""
+    policy_ref = hashlib.sha256(
+        f"{profile.profile_id}:{profile.version}:{profile.level}".encode()
+    ).hexdigest()
+    base: dict[str, Any] = {
+        "session_id": s.session_id,
+        "subject_principal_id": s.subject_principal_id,
+        "policy_hash": policy_ref,
+        "profile_id": profile.profile_id,
+        "profile_version": profile.version,
+        "region": s.jurisdiction,
+    }
+    if completed:
+        data = {
+            **base,
+            "scope": s.purpose,
+            "assurance_facts": [a.value for a in facts.assertions],
+            "evidence_hashes": [evidence_commitment] if evidence_commitment else [],
+            "provider_refs": [adapter_id] if adapter_id else [],
+            "expires_at": (now + profile.freshness).isoformat(),
+        }
+        name = "verification.proofing.completed"
+    else:
+        data = {
+            **base,
+            "missing_method": facts.missing_method,
+            "failure_class": facts.failure_class,
+            "retriable": facts.retriable,
+            "next_action": facts.next_action,
+        }
+        name = "verification.proofing.indeterminate"
+    await emit(
+        conn,
+        name=name,
+        tenant_id=s.tenant_id,
+        aggregate_type="verification_proofing",
+        aggregate_id=s.session_id,
+        aggregate_version=await store.next_event_version(
+            conn, "verification_proofing", s.session_id
+        ),
+        data=data,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class Started:
     session_id: str
@@ -109,6 +175,15 @@ class Started:
     handoff: dict[str, str] | None = (
         None  # the applicant's short-lived link or token: returned once, never stored
     )
+
+
+async def _require_budget(conn: AsyncConnection, tenant_id: str, now: datetime) -> None:
+    """WF01-014: a company that set a monthly spend budget starts no new verification once suppliers have cost that much this month. No budget row, no check."""
+    row = await store.get_budget(conn)
+    if row is None:
+        return
+    budget = Budget(Decimal(row["monthly_limit"]), str(row["currency"]))
+    require_within_budget(budget, await tenant_vendor_cost(conn, tenant_id, month_start(now)))
 
 
 async def start(
@@ -129,6 +204,13 @@ async def start(
     async with tenant_transaction(engine, ctx) as conn:
         profile = await store.load_profile(conn, profile_id)
         select_profile(profile, floor=floor, jurisdiction=jurisdiction)
+        require_attempt_allowed(
+            profile,
+            await store.attempts_since(
+                conn, subject_principal_id, profile.profile_id, now - ATTEMPT_WINDOW
+            ),
+        )
+        await _require_budget(conn, ctx.tenant_id or "", now)
         # Identity evidence is D3: only for a purpose the tenant registered (PRIV-01/05)
         await enforce_processing(
             conn,
@@ -667,6 +749,20 @@ async def _apply(
     basis: dict[str, Any],
 ) -> None:
     if d.status is SessionStatus.PENDING_EXTERNAL:
+        facts = proofing.derive(
+            profile, basis, status=d.status, outcome=d.outcome, pending_codes=result.reason_codes
+        )
+        if facts.indeterminate:  # a result that could not be judged is announced as such, never as a pass (WF01 T05, T12)
+            await _proofing_event(
+                conn,
+                s,
+                profile,
+                facts,
+                completed=False,
+                evidence_commitment=None,
+                adapter_id=adapter_id,
+                now=now,
+            )
         return
     if d.status is SessionStatus.RESUBMISSION_REQUIRED:
         if (
@@ -679,6 +775,16 @@ async def _apply(
                 now=now,
                 outcome=d.outcome,
                 basis=basis,
+            )
+            await _proofing_event(
+                conn,
+                s,
+                profile,
+                proofing.derive(profile, basis, status=d.status, outcome=d.outcome),
+                completed=False,
+                evidence_commitment=None,
+                adapter_id=adapter_id,
+                now=now,
             )
         return
     if "FRAUD_SUSPECTED" in d.reasons:
@@ -745,6 +851,7 @@ async def _finish(
     evidence_commitment: str | None,
     now: datetime,
     basis: dict[str, Any] | None = None,
+    reviewed: bool = False,
 ) -> list[str]:
     done = await store.update_session(
         conn, s, status=transition(s.status, status), now=now, outcome=outcome, basis=basis
@@ -777,6 +884,40 @@ async def _finish(
                 },
             )
     await _event(conn, "verification.completed", done, 10, outcome=outcome, assertions=ids)
+    facts = proofing.derive(
+        profile,
+        basis or await store.decision_basis(conn, s.session_id),
+        status=status,
+        outcome=outcome,
+        reviewed=reviewed,
+    )
+    if (
+        status is SessionStatus.VERIFIED
+        and proofing.Assertion.IDENTITY_VERIFIED_FOR_SCOPE in facts.assertions
+    ):
+        await _proofing_event(
+            conn,
+            s,
+            profile,
+            facts,
+            completed=True,
+            evidence_commitment=evidence_commitment,
+            adapter_id=adapter_id,
+            now=now,
+        )
+    elif (
+        facts.indeterminate
+    ):  # decided, but only because a check could not be made: say so, never "failed the person"
+        await _proofing_event(
+            conn,
+            s,
+            profile,
+            facts,
+            completed=False,
+            evidence_commitment=None,
+            adapter_id=adapter_id,
+            now=now,
+        )
     return ids
 
 
@@ -850,6 +991,7 @@ async def review(
         ("MANUAL_REVIEW_APPROVED", *reasons),
         pending.get("evidence_commitment"),
         now,
+        reviewed=True,
     )
     return "APPROVED"
 
@@ -1203,6 +1345,42 @@ class SelfRunSubmitted:
     )
 
 
+class CloneVerdict(Protocol):
+    """The answer of a clone check: Active Authentication or the chip authentication mapping. `status` is GENUINE_KEY_HELD, CLONE_SUSPECTED or NOT_ASSESSED."""
+
+    @property
+    def status(self) -> str: ...
+
+    @property
+    def reasons(self) -> tuple[str, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _NoChallengeVerdict:
+    status: str = "NOT_ASSESSED"
+    reasons: tuple[str, ...] = ("AA_NO_CHALLENGE",)
+
+
+_NoChallenge = _NoChallengeVerdict()
+
+
+def _clone_outcome(verdicts: list[CloneVerdict]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """What the clone checks that ran add up to. Any one that finds the chip is not holding its key makes the session suspect, whatever the other said; otherwise the chip is
+    checked if any of them showed it held its key; otherwise it was not assessed, with every reason."""
+    suspect = [v for v in verdicts if v.status == "CLONE_SUSPECTED"]
+    if suspect:
+        return ("CLONE_SUSPECTED",), (
+            "SELF_RUN_CLONE_SUSPECTED",
+            *(r for v in suspect for r in v.reasons),
+        )
+    if any(v.status == "GENUINE_KEY_HELD" for v in verdicts):
+        return (), ("SELF_RUN_CLONE_CHECKED",)
+    return (), (
+        "SELF_RUN_CLONE_NOT_ASSESSED",
+        *(r for v in verdicts for r in v.reasons),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ActiveAuthInput:
     """What the client sends for the clone check: the chip's signed answer to the session's challenge, and DG15 with the proof that the signed
@@ -1249,6 +1427,13 @@ async def start_self_run(
     async with tenant_transaction(engine, ctx) as conn:
         profile = await store.load_profile(conn, profile_id)
         select_profile(profile, floor=floor, jurisdiction=jurisdiction)
+        require_attempt_allowed(
+            profile,
+            await store.attempts_since(
+                conn, subject_principal_id, profile.profile_id, now - ATTEMPT_WINDOW
+            ),
+        )
+        await _require_budget(conn, ctx.tenant_id or "", now)
         await enforce_processing(
             conn,
             ctx.tenant_id or "",
@@ -1301,6 +1486,7 @@ async def submit_self_run(
     now: datetime,
     country_check: Callable[[str], Awaitable[None] | None] | None = None,
     active_auth: ActiveAuthInput | None = None,
+    chip_auth: CloneVerdict | None = None,
     biometric: BiometricInput | None = None,
 ) -> SelfRunSubmitted:
     """Judge one chip's evidence for a waiting self-run session. The chip decides nothing by itself: the profile decides what the facts are worth,
@@ -1320,23 +1506,24 @@ async def submit_self_run(
         fraud: tuple[str, ...] = ()
         codes: tuple[str, ...] = ("SELF_RUN_CLONE_NOT_CHECKED",)
         challenge = (s.pending_result or {}).get("aa_challenge")
+        verdicts: list[CloneVerdict] = []
         if active_auth is not None:
             if not isinstance(challenge, str):
-                codes = ("SELF_RUN_CLONE_NOT_ASSESSED", "AA_NO_CHALLENGE")
+                verdicts.append(_NoChallenge)
             else:
-                aa = verify_active_authentication(
-                    active_auth.dg15,
-                    bytes.fromhex(challenge),
-                    active_auth.response,
-                    dg15_verified=active_auth.dg15_verified,
-                    hash_name=active_auth.hash_name,
+                verdicts.append(
+                    verify_active_authentication(
+                        active_auth.dg15,
+                        bytes.fromhex(challenge),
+                        active_auth.response,
+                        dg15_verified=active_auth.dg15_verified,
+                        hash_name=active_auth.hash_name,
+                    )
                 )
-                if aa.status == "CLONE_SUSPECTED":
-                    fraud, codes = ("CLONE_SUSPECTED",), ("SELF_RUN_CLONE_SUSPECTED", *aa.reasons)
-                elif aa.status == "GENUINE_KEY_HELD":
-                    codes = ("SELF_RUN_CLONE_CHECKED",)
-                else:
-                    codes = ("SELF_RUN_CLONE_NOT_ASSESSED", *aa.reasons)
+        if chip_auth is not None:  # CR-111: PACE-CAM is a second way to show the chip holds its key
+            verdicts.append(chip_auth)
+        if verdicts:
+            fraud, codes = _clone_outcome(verdicts)
         outcome = self_run_app.assess(
             chip,
             session_ref=s.session_id,
@@ -1346,6 +1533,8 @@ async def submit_self_run(
             chip_photo=biometric.chip_photo if biometric else None,
             extra_fraud=fraud,
             extra_codes=codes,
+            country=s.jurisdiction,
+            scoped=True,
         )
         decision = decide(profile, outcome.result, jurisdiction=s.jurisdiction)
         basis = decision_basis(

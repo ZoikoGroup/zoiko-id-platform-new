@@ -49,8 +49,32 @@ def test_no_api_route_reads_raw_evidence_without_the_protected_gate() -> None:
 
 
 def test_the_verification_module_never_stores_or_reads_raw_evidence_objects() -> None:
-    """VERIFY-22: normalized results and commitments only; the raw document and biometric stay with the provider."""
+    """VERIFY-22: normalised results and commitments only; the raw document and biometric stay with the provider.
+
+    ONE exception, pinned (CR-125): on a route that people decide there is no provider and no chip, so the evidence module keeps the document photograph (`evidence.application.review_photo`). The verification
+    module may reach it only through that port, only from `idv_media.py`, and still never calls the vault itself or names an evidence object."""
+    allowed = {"modules/verification/application/idv_media.py": {"keep", "read"}}
     for path in sorted((SRC / "modules/verification").rglob("*.py")):
+        rel = path.relative_to(SRC).as_posix()
         calls = {name for name, _ in _calls(path)}
-        assert not calls & READERS, path.relative_to(SRC).as_posix()
+        assert not calls & READERS, rel
         assert "evidence_object" not in path.read_text(encoding="utf-8"), path.name
+        text = path.read_text(encoding="utf-8")
+        if "review_photo" in text:
+            assert rel in allowed, f"{rel} reaches the review-photo port: only idv_media.py may"
+
+
+def test_the_review_photo_port_is_reached_by_one_module_and_opened_only_under_the_raw_read_action() -> (
+    None
+):
+    """The pinned exception has two conditions: only `idv_media.py` imports the port, and the API opens a photograph only after the protected `evidence.object.read` act."""
+    users = [
+        p.relative_to(SRC).as_posix()
+        for p in SRC.rglob("*.py")
+        if "review_photo" in p.read_text(encoding="utf-8")
+        and "evidence/application/review_photo.py" not in p.as_posix()
+        and "evidence/ports.py" not in p.as_posix()
+    ]
+    assert users == ["modules/verification/application/idv_media.py"], users
+    api = (SRC / "modules/verification/api/idv_cases.py").read_text(encoding="utf-8")
+    assert 'action="evidence.object.read"' in api and "verification.idv.view_document" not in api

@@ -243,6 +243,17 @@ export function createCellApi(t: Transport) {
       start: (body: VerificationStartIn) => post<M.VerificationSession>("/verifications", body),
       startBulk: (body: M.BulkVerificationIn) => post<M.BulkVerificationResult>("/verifications:bulk", body),
       get: (id: string) => get<M.VerificationSession>(`/verifications/${seg(id)}`),
+      /** WF01 screen A5: what was checked and how each check came out, in the platform's words. Facts only: no evidence, no claim value, no score. */
+      proofing: (id: string) => get<M.ProofingFacts>(`/verifications/${seg(id)}/proofing`),
+      /** WF01-014: the company's monthly supplier spend budget and this month's spend. Money is a decimal string, never a float. */
+      budget: () => get<M.VerificationBudget>("/verification-budget"),
+      setBudget: (body: { monthly_limit: string; currency: string }) => t.request<M.VerificationBudget>("PUT", "/verification-budget", { body }),
+      clearBudget: () => t.request<M.VerificationBudget>("DELETE", "/verification-budget"),
+      usage: (query?: { since?: string; until?: string }) => get<M.VerificationUsage>("/verification-usage", query),
+      /** WF01-011/012: whether a face engine could be approved today and what is missing. Read only. */
+      engineReadiness: () => get<M.EngineReadiness>("/verification-engine-readiness"),
+      methodCertification: () => get<M.MethodCertificationBoard>("/verification-method-certification"),
+      ageCheck: (body: M.AgeCheckIn) => post<M.AgeCheckResult>("/v2/age-checks", body),
       cancel: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:cancel`),
       reverify: (id: string) => post<M.VerificationSession>(`/verifications/${seg(id)}:reverify`),
       /** Where the caller is on the risk tiers R0 to R3 and what the next one needs. `cannot` (NO_CAMERA, NO_PHONE, NO_STANDARD_ID) shows the approved alternatives. */
@@ -903,6 +914,71 @@ export function createCellApi(t: Transport) {
       decide: (id: string, body: M.OwnDecisionIn) => post<M.OwnDecision>(`/v2/ownership-graphs/${seg(id)}/confirmations`, body),
     },
 
+    /** Identity proofing cases: the decision, its reasons and the six signal states (WF03, CR-110). Read, and a reviewer's signature. */
+    idv: {
+      cases: () => get<{ items: M.IdvCase[] }>("/v1/idv/cases"),
+      case: (id: string) => get<M.IdvCaseDetail>(`/v1/idv/cases/${seg(id)}`),
+      review: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/reviews`),
+      open: (market: string, route = "CHIP") => post<M.IdvCase>("/v1/idv/cases", { market, route }),
+      nonce: (id: string) => post<{ case_id: string; nonce: string; issued_at: string }>(`/v1/idv/cases/${seg(id)}/nonce`),
+      /** The platform measures the photograph, reads its printed lines and checks the envelope itself; nothing here states a result. */
+      documentImage: (id: string, body: { nonce: string; image_base64: string; captured_at: string }) =>
+        post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/document-image`, { ...body, virtual_camera: null, channel: "WEB" }),
+      consent: (id: string, noticeVersion: string, consented: boolean) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent`, { notice_version: noticeVersion, consented }),
+      withdraw: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent:withdraw`),
+      abandon: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}:abandon`),
+      /** A reviewer's side of a case that people decide (CR-124): the photograph is opened only with a reason, for minutes, and never appears in a list. */
+      reviewView: (id: string) => get<M.IdvReview>(`/v1/idv/cases/${seg(id)}/review`),
+      reviewQueue: () => get<M.IdvQueue>("/v1/idv/review-queue"),
+      attestDate: (id: string, expired: boolean) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/attest-date`, { expired }),
+      mediaAccess: (id: string, reason: string) => post<M.IdvMediaGrant>(`/v1/idv/cases/${seg(id)}/media:access`, { reason }),
+      mediaRead: (id: string, grantId: string) => get<M.IdvMedia>(`/v1/idv/cases/${seg(id)}/media/${seg(grantId)}`),
+      reject: (id: string, code: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/reject`, { code }),
+      recapture: (id: string, code: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/recapture`, { code }),
+    },
+
+    /** Screening for a tenant (WF06 S01 to S03, CR-113): eligibility, a case, its minimal status and a request for another look. The identity a screening rests on is the platform's own, never the caller's. */
+    screening: {
+      eligibility: (q: { market: string; purpose: string; subject_type: string; subject_ref: string; classes?: string }) =>
+        get<M.ScreeningEligibility>("/v1/screening/eligibility", q),
+      openCase: (body: M.ScreeningCaseIn, idempotencyKey: string) => post<M.ScreeningCaseView>("/v1/screening/cases", body, { idempotencyKey }),
+      getCase: (id: string) => get<M.ScreeningCaseView>(`/v1/screening/cases/${seg(id)}`),
+      /** What more is wanted for a case, in words that never say why, and the customer's answer (WF06 EDD, CR-122). */
+      information: (id: string) => get<M.ScreeningInformation>(`/v1/screening/cases/${seg(id)}/information`),
+      replyWithInformation: (id: string, provided: string[]) => post<{ request_id: string; request: M.ScreeningInformationRequest }>(`/v1/screening/cases/${seg(id)}/information`, { provided }),
+      ownershipRollup: (owners: M.ScreeningOwnerIn[]) => post<M.ScreeningOwnershipRollup>("/v1/screening/ownership/rollup", { owners }),
+      requestReview: (id: string, note: string) => post<{ request_id: string; status: string }>(`/v1/screening/cases/${seg(id)}:request-review`, { note }),
+    },
+
+    /** A company's verification grade, its representatives' mandates, appeals and the signed export (WF02, CR-109). The grade is worked out again on each read. */
+    kyb: {
+      assertion: () => get<M.KybAssertion>("/v1/kyb/assertions"),
+      history: () => get<{ items: M.KybHistoryItem[] }>("/v1/kyb/assertions/history"),
+      assess: () => post<M.KybAssertion>("/v1/kyb/assertions:assess"),
+      entitlement: (action: string) => get<M.KybEntitlement>("/v1/kyb/entitlements", { action }),
+      mandates: () => get<{ items: M.KybMandate[] }>("/v1/kyb/mandates"),
+      recordMandate: (body: M.KybMandateIn) => post<{ mandate_id: string; grade: M.KybGrade }>("/v1/kyb/mandates", body),
+      cosign: (id: string) => post<{ mandate_id: string; grade: M.KybGrade }>(`/v1/kyb/mandates/${seg(id)}:cosign`),
+      revoke: (id: string, reason: string) => post<{ mandate_id: string; grade: M.KybGrade }>(`/v1/kyb/mandates/${seg(id)}:revoke`, { reason }),
+      appeals: () => get<{ items: M.KybAppeal[] }>("/v1/kyb/appeals"),
+      openAppeal: (decisionVersion: number, reason: string) => post<{ appeal_id: string; state: string; message: string }>("/v1/kyb/appeals", { decision_version: decisionVersion, reason }),
+      decideAppeal: (id: string, outcome: "UPHELD" | "ALLOWED", reason: string) => post<{ appeal_id: string; state: string; message: string; grade?: M.KybGrade }>(`/v1/kyb/appeals/${seg(id)}:decide`, { outcome, reason }),
+      exportEvidence: (purpose: string) => post<M.KybExport>("/v1/kyb/evidence-exports", { purpose }),
+    },
+
+    /** The governed country-signing-CA trust store (WF01 screen O2, CR-107): importing is not trusting; a second person approves and activates. */
+    trustStore: {
+      packages: () => get<{ items: M.TrustPackage[] }>("/v2/trust-store/csca/packages"),
+      active: () => get<M.TrustActive>("/v2/trust-store/csca/active"),
+      stage: (body: M.TrustStageIn) => post<M.TrustPackage>("/v2/trust-store/csca/packages", body),
+      validate: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:validate`),
+      approve: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:approve`),
+      reject: (id: string, reason: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:reject`, { reason }),
+      activate: (id: string) => post<M.TrustPackage>(`/v2/trust-store/csca/packages/${seg(id)}:activate`),
+      rollback: (reason: string, toPackageId?: string) => post<M.TrustPackage>("/v2/trust-store/csca/rollback", toPackageId ? { reason, to_package_id: toPackageId } : { reason }),
+      retire: (reason: string) => post<M.TrustPackage>("/v2/trust-store/csca/retire", { reason }),
+    },
+
     /** Source of funds and wealth (DTV-28, CR-096). Every route that starts or changes a case answers "service unavailable" while the product line is not on. */
     sourceOfFunds: {
       queue: (state?: string) => get<{ items: M.SofQueueItem[]; notice: string }>("/v2/source-of-funds/cases", { state }),
@@ -1299,6 +1375,57 @@ export function createOperatorApi(t: Transport) {
       recordAttestation: (body: M.AttestationIn) => post<Record<string, unknown>>("/v1/regulatory/attestations", body),
       entitlements: (provider?: string) => get<M.Items<M.EntitlementRow>>("/v1/regulatory/entitlements", { provider }),
       recordEntitlement: (body: M.EntitlementIn) => post<Record<string, unknown>>("/v1/regulatory/entitlements", body),
+
+      /** Company-verification market policy packs (WF02 K09): versions are identified by their digest, signed in four roles and published or rolled back by different people. */
+      kybPolicies: () => get<{ items: M.KybPolicyVersion[] }>("/v1/kyb/market-policies"),
+      kybPolicy: (hash: string) => get<M.KybPolicyDetail>(`/v1/kyb/market-policies/${seg(hash)}`),
+      kybPolicyPropose: (pack: Record<string, unknown>) => post<M.KybPolicyProposed>("/v1/kyb/market-policies", { pack }),
+      kybPolicyApprove: (hash: string, role: string) => post<{ policy_hash: string; role: string; approved: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:approve`, { role }),
+      kybPolicyPublish: (hash: string) => post<{ policy_hash: string; in_force: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:publish`),
+      kybPolicyRollback: (marketKey: string, toHash: string, reason: string) =>
+        post<{ market_key: string; policy_hash: string; in_force: boolean }>("/v1/kyb/market-policies:rollback", { market_key: marketKey, to_hash: toHash, reason }),
+
+      /** Official sanctions sources (WF06 S10): a corpus is fetched and staged, approved by two others, then published; a rollback needs two approvals of its own. */
+      screeningSources: () => get<M.Items<M.ScreeningSource>>("/v1/screening/sources"),
+      screeningReleases: (sourceId: string) => get<M.Items<M.ScreeningRelease>>(`/v1/screening/sources/${seg(sourceId)}/releases`),
+      screeningComparison: (releaseId: string) => get<M.ScreeningComparison>(`/v1/screening/releases/${seg(releaseId)}/comparison`),
+      screeningFetch: (sourceId: string) => post<M.ScreeningRelease>(`/v1/screening/sources/${seg(sourceId)}/releases:fetch`),
+      screeningApprove: (releaseId: string, acknowledged: string[]) => post<M.ScreeningRelease>(`/v1/screening/releases/${seg(releaseId)}:approve`, { acknowledged }),
+      screeningPublish: (releaseId: string) => post<M.ScreeningRelease>(`/v1/screening/releases/${seg(releaseId)}:publish`),
+      screeningApproveRollback: (releaseId: string) => post<M.ScreeningRelease>(`/v1/screening/releases/${seg(releaseId)}:approve-rollback`),
+      screeningRollback: (releaseId: string) => post<M.ScreeningRelease>(`/v1/screening/releases/${seg(releaseId)}:rollback`),
+
+      /** Release gates G0 to G3 for a screening module in a market (WF06 section 22): the role someone signs in is the capability they hold. */
+      screeningGate: (market: string, module: string) => get<M.ScreeningGateStatus>(`/v1/screening/gates/${seg(market)}/${seg(module)}`),
+      screeningGateSign: (market: string, module: string, body: { gate: string; evidence_ref: string; valid_days: number }) =>
+        post<M.ScreeningGateAct>(`/v1/screening/gates/${seg(market)}/${seg(module)}:sign`, body),
+      screeningGateDefect: (market: string, module: string, ref: string) => post<M.ScreeningGateAct>(`/v1/screening/gates/${seg(market)}/${seg(module)}/defects`, { ref }),
+      screeningGateHold: (market: string, module: string, ref: string) => post<M.ScreeningGateAct>(`/v1/screening/gates/${seg(market)}/${seg(module)}/holds`, { ref }),
+      screeningGateClose: (recordId: string) => post<M.ScreeningGateAct>(`/v1/screening/gates/records/${seg(recordId)}:close`),
+      screeningGateRelease: (recordId: string) => post<M.ScreeningGateAct>(`/v1/screening/gates/records/${seg(recordId)}:release`),
+      screeningGateRescind: (recordId: string) => post<M.ScreeningGateAct>(`/v1/screening/gates/records/${seg(recordId)}:rescind`),
+
+      /** The restricted screening case queue (WF06 S04, S05, S09): a decision is proposed by one person and finalised by another. */
+      screeningQueue: (state?: string, cursor?: string) => get<{ items: M.ScreeningQueueItem[]; next_cursor: string | null }>("/v1/screening/review/queue", { state, cursor }),
+      screeningCase: (requestId: string) => get<M.ScreeningReviewCaseDetail>(`/v1/screening/review/cases/${seg(requestId)}`),
+      screeningInformationRequests: (requestId: string) => get<M.Items<M.ScreeningReviewInformation>>(`/v1/screening/review/cases/${seg(requestId)}/information-requests`),
+      screeningAskInformation: (requestId: string, items: string[], dueInDays: number) =>
+        post<M.ScreeningInformationRequest>(`/v1/screening/review/cases/${seg(requestId)}/information-requests`, { items, due_in_days: dueInDays }),
+      screeningReviewInformation: (eddId: string, accepted: boolean, code?: string) =>
+        post<M.ScreeningInformationRequest>(`/v1/screening/review/information-requests/${seg(eddId)}:review`, code ? { accepted, code } : { accepted }),
+      screeningPropose: (requestId: string, body: M.ScreeningProposeIn) => post<M.ScreeningProposeOut>(`/v1/screening/review/cases/${seg(requestId)}:propose`, body),
+      screeningFinalise: (proposalId: string) => post<Record<string, unknown>>(`/v1/screening/review/proposals/${seg(proposalId)}:finalise`),
+      screeningWithdraw: (proposalId: string) => post<Record<string, unknown>>(`/v1/screening/review/proposals/${seg(proposalId)}:withdraw`),
+      screeningProviders: () => get<M.Items<M.ScreeningProvider>>("/v1/screening/providers"),
+      screeningExportRequest: (requestId: string, body: { purpose: string; include_sensitive: boolean; ttl_days: number }) =>
+        post<M.ScreeningExportRequested>(`/v1/screening/review/cases/${seg(requestId)}/exports`, body),
+      screeningExportApprove: (exportId: string) => post<M.ScreeningExportRequested>(`/v1/screening/review/exports/${seg(exportId)}:approve`),
+      screeningExportFetch: (exportId: string) => get<M.ScreeningExportFetched>(`/v1/screening/review/exports/${seg(exportId)}`),
+      screeningWatchCreate: (requestId: string, body: { cadence_days: number; triggers: string[] }) =>
+        post<{ watch_id: string; active: boolean; classes: string[]; sources: string[] }>(`/v1/screening/review/cases/${seg(requestId)}/watches`, body),
+      screeningWatchApprove: (watchId: string) => post<{ watch_id: string; approvals: number; active: boolean }>(`/v1/screening/review/watches/${seg(watchId)}:approve`),
+      screeningWatchActivate: (watchId: string) => post<{ watch_id: string; active: boolean }>(`/v1/screening/review/watches/${seg(watchId)}:activate`),
+      screeningWatch: (watchId: string) => get<M.ScreeningWatchStatus>(`/v1/screening/review/watches/${seg(watchId)}`),
 
       suspensions: (active = false) =>
         get<M.Items<{ current: M.SuspensionVersion; versions: M.SuspensionVersion[] }>>("/v1/regulatory/suspensions", { active: active ? "true" : undefined }),

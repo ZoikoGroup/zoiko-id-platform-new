@@ -924,6 +924,41 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-ED-03 Global Company Verification (CR-043)"
+  org.kyb_appeal:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K06, K10 an appeal against a company-verification decision; changes only by being decided, once (CR-109)"
+  org.kyb_assessment:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 company verification grade as assessed, append-only (CR-109)"
+  org.kyb_market_policy:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 a company-verification market policy version, immutable and identified by its digest (CR-109)"
+  org.kyb_market_policy_approval:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 a sign-off bound to the exact digest, append-only; the author cannot approve (CR-109)"
+  org.kyb_market_policy_activation:
+    role: cell
+    module: organization
+    tenant_scoped: false
+    source: "ZID-DTV-WF-02 K09 when a policy version was in force for its market; only its end changes, once (CR-109)"
+  org.kyb_mandate:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K05 a representative's mandate; only revocation changes it (CR-109)"
+  org.kyb_mandate_cosign:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "ZID-DTV-WF-02 K05 second signatory, append-only (CR-109)"
   org.kyb_evidence:
     role: cell
     module: organization
@@ -944,6 +979,76 @@ tables:
     module: screening
     tenant_scoped: false
     source: "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening (CR-043)"
+  verify.screening_request:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 screening case: four result dimensions, tenant scoped (CR-113)"
+  verify.screening_request_subject:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 restricted subject details (CR-113)"
+  verify.screening_request_source:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 what each source said and which snapshot (CR-113)"
+  verify.screening_request_candidate:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 restricted match candidates, never a finding (CR-113)"
+  verify.screening_request_decision:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 append-only decision chain (CR-113)"
+  verify.screening_request_proposal:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 a decision proposed and not yet finalised by a second person (CR-113)"
+  verify.screening_supplier_call:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 a licensed provider call: idempotency key and bill, append-only (CR-113)"
+  verify.screening_provider_event:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 a licensed provider callback, accepted or refused, append-only (CR-113)"
+  verify.screening_watch:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 S12 ongoing screening of a subject, two approvers (CR-113)"
+  verify.screening_watch_mark:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 S12 last attempt and last success per source (CR-113)"
+  verify.screening_edd_request:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 section 10 enhanced due diligence information requests (CR-121)"
+  verify.screening_evidence_export:
+    role: cell
+    module: screening
+    tenant_scoped: true
+    source: "ZID-DTV-WF-06 S13 purpose-bound, redacted, expiring evidence package (CR-113)"
+  verify.screening_gate_record:
+    role: cell
+    module: screening
+    tenant_scoped: false
+    source: "ZID-DTV-WF-06 release gate sign-offs, open P0 defects and holds, closed once, never deleted (CR-113)"
+  verify.sanction_list_release:
+    role: cell
+    module: screening
+    tenant_scoped: false
+    source: "ZID-DTV-WF-06 S10 governed release of an official source, two approvers, never deleted (CR-113)"
   verify.screening_case:
     role: cell
     module: screening
@@ -1164,6 +1269,41 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-GAP-001 v2.0 DTV-24 (a person decision on one ownership candidate; append-only; reviewer is never the graph author); CR-103"
+  verify.idv_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (one identity proofing attempt, pinned to a market's rules; closed cases never change); CR-110"
+  verify.idv_case_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (append-only history of each decision a proofing case reached); CR-110"
+  verify.idv_media_hash:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (digest of each accepted capture, to detect a replay; no image kept); CR-110"
+  verify.idv_case_media:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (vault reference, digest and image checks of the document photograph a reviewer looks at; the image is encrypted in the evidence vault; CR-124)"
+  verify.idv_case_claim:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (the identity claim an approved proofing case leaves, with its grade and the date it stops counting; CR-125)"
+  verify.idv_media_grant:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-03 (a reviewer's time-limited, reason-logged permission to read one photograph; CR-124)"
+  verify.verification_budget:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-01 WF01-014 (one company's monthly verification spend limit and currency; no default amount); CR-107"
   verify.identity_observation:
     role: cell
     module: verification
@@ -1379,6 +1519,11 @@ tables:
     module: assurance
     tenant_scoped: true
     source: "ZID-UAT-005 OPS-03 (append-only snapshots of an official register, so drift is found by comparing two of them); CR-074"
+  evidence.trust_package:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-DTV-WF-01 section 13 (a staged, validated, independently approved and activated country signing CA package, with its chain of custody); CR-107"
   evidence.upload:
     role: cell
     module: evidence

@@ -28,6 +28,20 @@ export const OUTCOME_HELP: Record<Outcome, string> = {
   NEEDS_REVIEW: "You cannot decide yet. It stays with a person.",
 };
 
+/** Where a company case stands after a ruling, in words. A case no authoritative source backs needs two independent reviewers: the first approval is only a first finding. */
+export const POSITION_TEXT: Record<string, string> = {
+  AWAITING_SECOND_REVIEWER: "Your approval is recorded as the first finding. The case stays in review until a different reviewer gives the second opinion.",
+  ESCALATED_TO_COMPLIANCE: "The two reviewers disagree. The case is escalated to Compliance, and nobody's last word settles it.",
+  APPROVED_BY_TWO_REVIEWERS: "Two independent reviewers approved the case.",
+  DECIDED_BY_COMPLIANCE: "Compliance decided the escalated case.",
+  DECIDED: "The case is decided.",
+  IN_REVIEW: "The case stays in review.",
+};
+
+export function positionText(position: string | undefined): string | null {
+  return position ? (POSITION_TEXT[position] ?? null) : null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isCaseId(value: string): boolean {
@@ -47,6 +61,9 @@ const ERROR_HELP: Record<string, string> = {
   CASE_NOT_FOUND: "No case with this id.",
   PROTECTED_ACTION_DENIED: "Your role does not include reviewing this kind of case.",
   KYB_CASE_NOT_FOUND: "No company verification case with this id.",
+  REVIEWER_NOT_INDEPENDENT: "You already gave an opinion on this case. A different reviewer gives the second one.",
+  ESCALATION_NEEDS_COMPLIANCE: "The reviewers disagreed, so only someone authorised for escalations can decide this case.",
+  REVIEWER_IS_REQUESTER: "You asked for this check, so someone else decides it.",
 };
 
 export function errorText(error: unknown): string {
@@ -78,7 +95,7 @@ function RulingForm({ kind, caseId, onDone }: { kind: CaseKind; caseId: string; 
       kind === "SCREENING"
         ? api.caseReviews.screeningRuling(caseId, { outcome: outcome as "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED", rationale: rationale.trim(), confirm_mandate: mandate && mandateAllowed(kind, outcome) })
         : api.caseReviews.kybRuling(caseId, { outcome: outcome as "VERIFIED" | "REJECTED" | "NEEDS_REVIEW", rationale: rationale.trim() }),
-    { invalidate: [["operator", "case-reviews"]], success: "Ruling recorded", onSuccess: () => { setRationale(""); setMandate(false); onDone(); } },
+    { invalidate: [["operator", "case-reviews"]], success: (r) => positionText(r.position) ?? "Ruling recorded", onSuccess: () => { setRationale(""); setMandate(false); onDone(); } },
   );
   return (
     <form

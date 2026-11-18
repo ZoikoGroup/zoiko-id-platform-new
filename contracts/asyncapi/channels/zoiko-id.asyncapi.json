@@ -861,6 +861,30 @@
         },
         "evidence_retention_deleted": {
           "$ref": "#/components/messages/evidence_retention_deleted"
+        },
+        "evidence_trust_package_activated": {
+          "$ref": "#/components/messages/evidence_trust_package_activated"
+        },
+        "evidence_trust_package_approved": {
+          "$ref": "#/components/messages/evidence_trust_package_approved"
+        },
+        "evidence_trust_package_rejected": {
+          "$ref": "#/components/messages/evidence_trust_package_rejected"
+        },
+        "evidence_trust_package_retired": {
+          "$ref": "#/components/messages/evidence_trust_package_retired"
+        },
+        "evidence_trust_package_rolled_back": {
+          "$ref": "#/components/messages/evidence_trust_package_rolled_back"
+        },
+        "evidence_trust_package_staged": {
+          "$ref": "#/components/messages/evidence_trust_package_staged"
+        },
+        "evidence_trust_package_superseded": {
+          "$ref": "#/components/messages/evidence_trust_package_superseded"
+        },
+        "evidence_trust_package_validated": {
+          "$ref": "#/components/messages/evidence_trust_package_validated"
         }
       },
       "parameters": {
@@ -1460,8 +1484,14 @@
         "organization_identifier_changed": {
           "$ref": "#/components/messages/organization_identifier_changed"
         },
+        "organization_kyb_assertion_issued": {
+          "$ref": "#/components/messages/organization_kyb_assertion_issued"
+        },
         "organization_kyb_decided": {
           "$ref": "#/components/messages/organization_kyb_decided"
+        },
+        "organization_kyb_policy_activated": {
+          "$ref": "#/components/messages/organization_kyb_policy_activated"
         },
         "organization_kyb_proof_added": {
           "$ref": "#/components/messages/organization_kyb_proof_added"
@@ -1483,6 +1513,22 @@
         },
         "organization_successor_changed": {
           "$ref": "#/components/messages/organization_successor_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "organization.priority": {
+      "address": "zid.{env}.{region}.organization.priority",
+      "messages": {
+        "organization_kyb_assertion_revoked": {
+          "$ref": "#/components/messages/organization_kyb_assertion_revoked"
         }
       },
       "parameters": {
@@ -1870,6 +1916,9 @@
     "screening.domain": {
       "address": "zid.{env}.{region}.screening.domain",
       "messages": {
+        "screening_case_outcome_changed": {
+          "$ref": "#/components/messages/screening_case_outcome_changed"
+        },
         "screening_signal_corrected": {
           "$ref": "#/components/messages/screening_signal_corrected"
         },
@@ -2185,6 +2234,9 @@
         "verification_fraud_signal": {
           "$ref": "#/components/messages/verification_fraud_signal"
         },
+        "verification_idv_case_decided": {
+          "$ref": "#/components/messages/verification_idv_case_decided"
+        },
         "verification_manual_review_required": {
           "$ref": "#/components/messages/verification_manual_review_required"
         },
@@ -2202,6 +2254,12 @@
         },
         "verification_profile_activated": {
           "$ref": "#/components/messages/verification_profile_activated"
+        },
+        "verification_proofing_completed": {
+          "$ref": "#/components/messages/verification_proofing_completed"
+        },
+        "verification_proofing_indeterminate": {
+          "$ref": "#/components/messages/verification_proofing_indeterminate"
         },
         "verification_provider_entitlement_changed": {
           "$ref": "#/components/messages/verification_provider_entitlement_changed"
@@ -3809,6 +3867,94 @@
         "x-zid-source": "ZID-EVIDENCE-001",
         "x-zid-status": "catalogued"
       },
+      "evidence_trust_package_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approved list became the active trust set (also written when a rollback restores one) (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.activated",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_approved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.approved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A validated list was approved by a person other than the one who staged it (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.approved",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_rejected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.rejected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A staged list was rejected (it did not verify, or a person rejected it with a reason) (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.rejected",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_retired": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.retired.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The active list was retired; the store now trusts nothing until another is activated (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.retired",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_rolled_back": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.rolled_back.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The active list was rolled back with a reason (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.rolled_back",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_staged": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.staged.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An imported country signing CA list was staged with its source and anchors; nothing is trusted yet (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.staged",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_superseded": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.superseded.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The previously active list stopped being active because another was activated (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.superseded",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "evidence_trust_package_validated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.evidence.trust_package.validated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A staged list verified against its anchors and is a candidate for approval (package id, kind, sequence, state, the actor and the SHA-256 of the list only; never the list, anchors or certificates).",
+        "title": "evidence.trust_package.validated",
+        "x-zid-source": "ZID-DTV-WF-01 section 13; CR-107",
+        "x-zid-status": "proposed"
+      },
       "external_identity_linked": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.external_identity.linked.v1",
@@ -4942,6 +5088,28 @@
         "x-zid-source": "ZID-ROOT-001",
         "x-zid-status": "catalogued"
       },
+      "organization_kyb_assertion_issued": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.assertion_issued.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company reached a verification grade it did not hold (version, grade K0 to K4, the claims proven, the claims gained, policy digest and next recheck date; no company data, document or person).",
+        "title": "organization.kyb.assertion_issued",
+        "x-zid-source": "ZID-DTV-WF-02 section 4, 19; CR-109",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_assertion_revoked": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.assertion_revoked.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Claims a company held are no longer proven (version, grade now, the claims revoked, reason codes and what triggered the reassessment; no company data, document or person). Whatever depends on those claims reads the grade live and drops at once.",
+        "title": "organization.kyb.assertion_revoked",
+        "x-zid-source": "ZID-DTV-WF-02 section 4, 19; CR-109",
+        "x-zid-status": "proposed"
+      },
       "organization_kyb_decided": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.organization.kyb.decided.v1",
@@ -4951,6 +5119,17 @@
         "summary": "A company-verification decision was recorded (case id, decision status, reasons, evidence hash, policy version and country; no company data beyond ids and codes).",
         "title": "organization.kyb.decided",
         "x-zid-source": "ZID-ED-03 Global Company Verification section 04-05; CR-043",
+        "x-zid-status": "proposed"
+      },
+      "organization_kyb_policy_activated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.organization.kyb.policy_activated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A company-verification market policy version was put in force for its market, by a publish or a rollback (market key, policy digest, kind; no company data). Decisions record the digest of the pack that made them.",
+        "title": "organization.kyb.policy_activated",
+        "x-zid-source": "ZID-DTV-WF-02 K09, section 16; CR-109",
         "x-zid-status": "proposed"
       },
       "organization_kyb_proof_added": {
@@ -5635,6 +5814,17 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "screening_case_outcome_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.case.outcome_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A screening case moved between in review and complete (case id, market, outcome IN_REVIEW or COMPLETE, revision; no name, list, candidate, disposition or reason, and nothing that says what a check found). The customer reads the case under its own access for the calibrated status.",
+        "title": "screening.case.outcome_changed",
+        "x-zid-source": "ZID-DTV-WF-06 section 12; CR-120",
+        "x-zid-status": "proposed"
+      },
       "screening_signal_corrected": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.screening.signal.corrected.v1",
@@ -6240,6 +6430,17 @@
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
       },
+      "verification_idv_case_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.idv.case_decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An identity proofing case reached a decision (APPROVED, REVIEW_REQUIRED, REJECTED, INDETERMINATE or ABANDONED) with the reason codes, the six signal states, what may be asserted and the policy version and digest it was decided under; no document data, image, score or person.",
+        "title": "verification.idv.case_decided",
+        "x-zid-source": "ZID-DTV-WF-03 section 18; CR-110",
+        "x-zid-status": "proposed"
+      },
       "verification_manual_review_required": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.manual_review_required.v1",
@@ -6305,6 +6506,28 @@
         "title": "verification.profile.activated",
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_proofing_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.proofing.completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification session reached a decision the platform stands behind: the WF01 assertion facts that hold, the pinned profile and its version, the region and the expiry; no evidence and no value of any claim.",
+        "title": "verification.proofing.completed",
+        "x-zid-source": "ZID-DTV-WF-01 section 14; CR-107",
+        "x-zid-status": "proposed"
+      },
+      "verification_proofing_indeterminate": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.proofing.indeterminate.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification session could not be judged and is waiting or needs another route: the missing method, the failure class, whether a retry can help and the next action; never a pass.",
+        "title": "verification.proofing.indeterminate",
+        "x-zid-source": "ZID-DTV-WF-01 section 14; CR-107",
+        "x-zid-status": "proposed"
       },
       "verification_provider_entitlement_changed": {
         "contentType": "application/cloudevents+json",
@@ -7105,6 +7328,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/organization.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_organization_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/organization.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

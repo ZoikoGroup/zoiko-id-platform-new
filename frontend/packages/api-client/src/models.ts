@@ -4366,6 +4366,58 @@ export type OwnGraph = OwnGraphSummary & {
   confirmations: OwnDecision[];
 };
 
+/* ------------------------------------------------------------- WF01 result facts for one verification (screen A5, CR-107) */
+
+export type ProofingCheckType = "document_validity" | "liveness_pad" | "face_match" | "chip_crypto";
+export type ProofingCheckResult = "pass" | "fail" | "indeterminate" | "not_requested";
+export type ProofingDecision = "verified_for_scope" | "review_required" | "more_evidence" | "indeterminate" | "rejected" | "pending";
+export type ProofingFacts = {
+  verification_id: string;
+  scope: string;
+  region: string;
+  policy: { profile_id: string; version: number; level: string };
+  expires_at: string;
+  state: string;
+  decision: ProofingDecision;
+  assertions: string[];
+  checks: { type: ProofingCheckType; result: ProofingCheckResult; method: string | null }[];
+  not_derived_here: string[];
+  indeterminate: boolean;
+};
+
+/* ------------------------------------------------------------- governed CSCA trust store (WF01 screen O2, CR-107) */
+
+export type TrustPackageState = "STAGED" | "VALIDATED" | "REJECTED" | "APPROVED" | "ACTIVE" | "SUPERSEDED" | "ROLLED_BACK" | "RETIRED";
+export type TrustPackage = {
+  package_id: string;
+  kind: "CSCA";
+  seq: number;
+  version: number;
+  state: TrustPackageState;
+  source_uri: string;
+  source_note: string | null;
+  package_sha256: string;
+  anchor_sha256: string[];
+  list_status: "VERIFIED" | "NOT_VERIFIED" | "INDETERMINATE" | null;
+  list_reasons: string[];
+  list_signer: string | null;
+  certificate_count: number;
+  manifest_digest: string | null;
+  staged_by: string;
+  staged_at: string;
+  validated_at: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_reason: string | null;
+  activated_by: string | null;
+  activated_at: string | null;
+  ended_at: string | null;
+  ended_by: string | null;
+  ended_reason: string | null;
+};
+export type TrustStageIn = { master_list_base64: string; anchors_base64: string[]; confirmed_anchor_sha256: string[]; source_uri: string; source_note?: string };
+export type TrustActive = { source: "TRUST_STORE" | "CONFIG_FOLDER"; package_id: string | null; package_seq: number | null; manifest_digest: string | null; governed: boolean; certificates: number };
+
 /* ------------------------------------------------------------- reviewer rulings on company cases (WF-13B, ZID-ED-03, ZID-ED-04) */
 
 export type ScreeningAlert = { list_id: string; score?: number; reasons?: string[]; list_version?: string; [key: string]: unknown };
@@ -4381,4 +4433,376 @@ export type ScreeningCaseDetail = {
 export type ScreeningReplay = { replayable: boolean; version: number; reason?: string; matches?: boolean; [key: string]: unknown };
 export type ScreeningRulingIn = { outcome: "VERIFIED" | "REJECTED" | "REVIEW_REQUIRED"; rationale: string; confirm_mandate?: boolean };
 export type KybRulingIn = { outcome: "VERIFIED" | "REJECTED" | "NEEDS_REVIEW"; rationale: string };
-export type CaseRuling = { case_id: string; status: string; version: number };
+export type CaseRuling = { case_id: string; status: string; version: number; position?: string };
+
+/* ------------------------------------------------------------- supplier spend budget and usage (WF01-014) */
+
+export type VerificationBudget = {
+  budget: { monthly_limit: string; currency: string; version: number } | null;
+  month_start: string;
+  spent?: string;
+  remaining?: string;
+  exceeded?: boolean;
+  other_currencies?: string[];
+};
+export type VerificationUsage = {
+  since: string;
+  until: string;
+  sessions: { adapter_id: string; status: string; outcome: string | null; sessions: number }[];
+  total_sessions: number;
+  review_cases: Record<string, number>;
+  repeat_attempts: number;
+  failover_sessions: number;
+  failover_verified: number;
+};
+
+/* ------------------------------------------------------------- face engine readiness (WF01-011/012): what keeps an engine from being approved */
+
+export type EngineRates = { false_accept: number | null; false_reject: number | null; attack_accept: number | null; bona_fide_reject: number | null };
+export type EngineComponent = {
+  id: string;
+  role: string | null;
+  code_licence: string | null;
+  commercial_use: string;
+  model_licence_confirmed: boolean;
+  licence_verified_on: string | null;
+  status: string | null;
+  in_engine: boolean;
+};
+export type EngineReadiness = {
+  mode: "DISABLED" | "LAB_ONLY" | "APPROVED_FOR_SCOPE";
+  enabled: boolean;
+  approvable: boolean;
+  problems_for_approval: string[];
+  countries: string[];
+  engine: {
+    id: string | null;
+    version: string | null;
+    evaluation_id: string | null;
+    evaluated_on: string | null;
+    pad_standard: string | null;
+    licence_checked: boolean;
+    dpia_ref: string | null;
+    components: string[];
+    measured: EngineRates;
+  };
+  thresholds: { face_match_min: number | null; liveness_min: number | null };
+  ceilings: EngineRates & { [key: string]: number | null };
+  register: { version: string | null; status: string | null; components: EngineComponent[] };
+};
+
+/* ------------------------------------------------------------- company verification grade, mandates, appeals, export (WF02, CR-109) */
+
+export type KybGrade = "K0" | "K1" | "K2" | "K3" | "K4";
+export type KybAssertion = {
+  version?: number;
+  grade: KybGrade;
+  label: string;
+  claims: string[];
+  reasons: string[];
+  assessed_at?: string;
+  recheck_due: string | null;
+  policy_hash?: string | null;
+  /** The grade worked out again now from the stored facts: time alone can lower it. */
+  now?: { grade: KybGrade; label: string; reasons: string[]; lowered_since_assessed: boolean };
+  permitted_actions: string[];
+};
+export type KybHistoryItem = { version: number; grade: KybGrade; label: string; claims: string[]; reasons: string[]; trigger: string; assessed_at: string };
+export type KybMandate = {
+  mandate_id: string;
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  second_signatory_required: boolean;
+  second_signatory_present: boolean;
+  valid_from: string;
+  valid_to: string | null;
+  revoked: boolean;
+  recorded_at: string;
+};
+export type KybMandateIn = {
+  person: string;
+  role: string;
+  source: string;
+  powers: string[];
+  evidence_ref: string;
+  valid_from: string;
+  valid_to?: string | null;
+  second_signatory_required?: boolean;
+};
+export type KybAppeal = { appeal_id: string; decision_version: number; state: "OPEN" | "UPHELD" | "ALLOWED" | "WITHDRAWN"; message: string; opened_at: string; decided_at: string | null };
+export type KybEntitlement = { action: string; allowed: boolean; grade: KybGrade; label: string; reasons: string[] };
+export type KybExport = { summary: Record<string, unknown>; jws: string };
+
+/* ------------------------------------------------------------- company-verification market policy packs, operator plane (WF02 K09, CR-109) */
+
+export type KybPolicyVersion = { policy_hash: string; market_key: string; version: string; author: string; created_at: string; approved_roles: string[]; active: boolean };
+export type KybPolicyDetail = {
+  policy_hash: string;
+  market_key: string;
+  version: string;
+  author: string;
+  pack: Record<string, unknown>;
+  approved: [string, string][];
+  high_impact_changes: string[];
+  publishable: boolean;
+  problems: string[];
+  in_force: boolean;
+};
+export type KybPolicyProposed = { policy_hash: string; market_key: string; version: string; complete: boolean; problems: string[] };
+
+/** An identity proofing case (WF03, CR-110): codes and states only, no document data, image or score. */
+export type IdvDecision = "APPROVED" | "REVIEW_REQUIRED" | "REJECTED" | "INDETERMINATE" | "ABANDONED";
+export type IdvCase = {
+  case_id: string;
+  market: string;
+  route: string;
+  state: "OPEN" | "CLOSED";
+  decision: IdvDecision;
+  reasons: string[];
+  assertions: string[];
+  signals: { optical: string; nfc_read: string; passive_auth: string; chip_auth: string; liveness: string; face_match: string };
+  policy_version: string;
+  policy_hash: string;
+  notice_version: string | null;
+  reviewers: number;
+  attempts: Record<string, number>;
+  version: number;
+  created_at: string;
+  updated_at: string;
+};
+export type IdvCaseDetail = IdvCase & { history: { version: number; decision: IdvDecision; reasons: string[]; trigger: string; decided_at: string }[] };
+
+/* ---------------------------------------------------------------- screening sources (WF06 S10, CR-113) */
+
+export type ScreeningSourceId = "OFAC_SDN" | "OFAC_NON_SDN" | "UK_SANCTIONS" | "EU_CONSOLIDATED" | "UN_SC";
+export type ScreeningFreshness = "FRESH" | "STALE" | "NEVER_RELEASED";
+export type ScreeningSource = {
+  source_id: ScreeningSourceId;
+  address_on_record: boolean;
+  freshness: ScreeningFreshness;
+  last_validated_at: Iso | null;
+  snapshot: string | null;
+  awaiting_approval: number;
+  quarantined: number;
+  max_age_hours: number;
+};
+export type ScreeningReleaseState = "VALIDATED" | "QUARANTINED" | "ACTIVE" | "SUPERSEDED";
+export type ScreeningRelease = {
+  release_id: string;
+  source_id: ScreeningSourceId;
+  state: ScreeningReleaseState;
+  staged_by: string;
+  receipt: { url: string; sha256: string; fetched_at: Iso; published_at: Iso | null; item_count: number; schema_valid: boolean };
+  blocked: string[];
+  flags: string[];
+  approvals: { approver: string; at: Iso; acknowledged: string[]; kind: "PUBLISH" | "ROLLBACK" }[];
+  activated_at: Iso | null;
+  superseded_at: Iso | null;
+  publishable: string[];
+};
+export type ScreeningComparison = { release_id: string; against_active: boolean; added: number; removed: number; changed: number; removed_refs: string[]; changed_refs: string[] };
+
+/* ---------------------------------------------------------------- screening cases (WF06 S04, S05, S09, CR-113) */
+
+export type ScreeningCaseState = "NO_CANDIDATE" | "REVIEW_REQUIRED" | "SOURCE_UNAVAILABLE" | "CLOSED_CLEAR_FOR_SCOPE" | "CLOSED_RESTRICTED" | "CLOSED_UNRESOLVED";
+export type ScreeningDisposition = "CLEARED_FOR_PURPOSE" | "EDD_REQUIRED" | "HOLD_PENDING_REVIEW" | "RESTRICTED" | "PROHIBITED" | "UNRESOLVED";
+export type ScreeningAction = "RELEASE" | "EDD" | "HOLD" | "REJECT" | "FREEZE" | "BLOCK" | "REPORT";
+export type ScreeningQueueItem = {
+  request_id: string;
+  tenant_id: string;
+  market: string;
+  purpose: string;
+  subject_type: string;
+  state: ScreeningCaseState;
+  created_at: Iso;
+  revision: number;
+  sources_with_candidates: number;
+};
+export type ScreeningCandidate = {
+  candidate_id: string;
+  list_id: string;
+  list_version: string;
+  source_ref: string;
+  matched_name: string;
+  score: number;
+  strength: "STRONG" | "POSSIBLE";
+  reasons: string[];
+  programs: string[];
+};
+export type ScreeningDimensionView = { coverage: string; result: string | null };
+export type ScreeningModel = {
+  case_id: string;
+  coverage_status: string;
+  match_status: string;
+  review: string;
+  sanctions: ScreeningDimensionView;
+  pep_rca: ScreeningDimensionView;
+  adverse_media: ScreeningDimensionView;
+  ownership_control: ScreeningDimensionView;
+  source_results: { source_id: string; snapshot: string | null; match_status: string | null; screened_at: Iso | null }[];
+  decision: { status: ScreeningDisposition; rule_version: string; reason_codes: string[] };
+};
+export type ScreeningProposal = {
+  proposal_id: string;
+  maker: string;
+  maker_role: string;
+  disposition: ScreeningDisposition;
+  action: ScreeningAction;
+  rationale: string;
+  reason_codes: string[];
+  evidence_refs: string[];
+  expected_revision: number;
+  created_at: Iso;
+};
+export type ScreeningReviewCaseDetail = {
+  request_id: string;
+  tenant_id: string;
+  state: ScreeningCaseState;
+  revision: number;
+  market: string;
+  purpose: string;
+  subject: { kind: string; name: string; birth: string | null; countries: string[]; identifiers: string[]; expired_identifiers: string[]; identity_source: string; identity_assured_at: Iso } | null;
+  candidates: ScreeningCandidate[];
+  model: ScreeningModel;
+  decisions: { revision: number; disposition: ScreeningDisposition; action: ScreeningAction; maker: string; checker: string | null; rationale: string; reason_codes: string[]; kind: string; decided_at: Iso; case_hash: string }[];
+  chain_intact: boolean;
+  proposals: ScreeningProposal[];
+};
+export type ScreeningProposeIn = {
+  disposition: ScreeningDisposition;
+  action: ScreeningAction;
+  expected_revision: number;
+  rationale: string;
+  reason_codes: string[];
+  evidence_refs: string[];
+  legal_citation?: string | null;
+  review_by?: string | null;
+};
+export type ScreeningProposeOut = { proposal_id: string | null; state: "DECIDED" | "AWAITING_CHECKER"; request_id: string; disposition: ScreeningDisposition; revision?: number };
+
+/* ---------------------------------------------------------------- screening for a tenant (WF06 S01 to S03, CR-113) */
+
+export type ScreeningClass = "SANCTIONS" | "PEP_RCA" | "ADVERSE_MEDIA" | "OWNERSHIP_CONTROL";
+export type ScreeningSubjectType = "INDIVIDUAL" | "BUSINESS" | "UBO" | "REPRESENTATIVE";
+export type ScreeningReason = { code: string; text: string };
+export type ScreeningEligibility = {
+  eligible: boolean;
+  blocked: ScreeningReason[];
+  pending_identity: boolean;
+  policy_version: string | null;
+  region: string | null;
+  classes: { class: ScreeningClass; available: boolean; tier: "OFFICIAL" | "LICENSED" | null; reasons: ScreeningReason[] }[];
+  note: string;
+};
+export type ScreeningCaseIn = {
+  market: string;
+  purpose: string;
+  subject_type: ScreeningSubjectType;
+  subject_ref: string;
+  name: string;
+  birth?: string | null;
+  countries?: string[];
+  classes?: ScreeningClass[];
+};
+export type ScreeningCaseView = {
+  request_id: string;
+  market: string;
+  purpose: string;
+  subject_type: ScreeningSubjectType;
+  created_at: Iso;
+  checked_at: Iso | null;
+  coverage: string;
+  official_sanctions: string;
+  pep_rca: string;
+  adverse_media: string;
+  finding: string;
+  note: string;
+};
+
+/* ---------------------------------------------------------------- screening providers, exports, watches (WF06 S11, S12, S13, CR-113) */
+
+export type ScreeningProvider = {
+  provider_id: string;
+  adapter: string;
+  adapter_registered: boolean;
+  state: "DISABLED" | "SANDBOX" | "APPROVED";
+  classes: string[];
+  markets: string[];
+  regions: string[];
+  contract_version: string | null;
+  price_version: string | null;
+  finance_authorised_by: string | null;
+  unit_cost: string;
+  monthly_budget: string | null;
+  monthly_quota: number | null;
+  blocked_by: string[];
+  circuit: { open: boolean; recent_failures: number; opened_at: string | null };
+};
+export type ScreeningExportRequested = { export_id: string; state: "PENDING" | "READY"; manifest_hash: string | null };
+export type ScreeningExportFetched = {
+  export_id: string;
+  manifest_hash: string;
+  verified: boolean;
+  problems: string[];
+  bundle: { case_id: string; purpose: string; requester: string; approver: string | null; watermark: string; expires_at: string; included: { kind: string; ref: string }[]; excluded: { kind: string; ref: string; why: string }[] };
+};
+export type ScreeningWatchStatus = {
+  watch_id: string;
+  active: boolean;
+  approvals: number;
+  cadence_seconds: number;
+  runs: number;
+  continuous: boolean;
+  sources: Record<string, { last_attempt_at: string | null; last_success_at: string | null; snapshot: string | null }>;
+};
+
+/* ---------------------------------------------------------------- screening release gates (WF06 section 22, ENG-20, CR-113) */
+
+export type ScreeningGateModule = "SANCTIONS" | "PEP_RCA" | "ADVERSE_MEDIA" | "MONITORING";
+export type ScreeningGateStatus = {
+  market: string;
+  module: ScreeningGateModule;
+  go: boolean;
+  missing: Record<string, string[]>;
+  blockers: string[];
+  open_defects: { record_id: string; ref: string; opened_at: string }[];
+  holds: { record_id: string; reason: string; placed_at: string }[];
+};
+export type ScreeningGateAct = ScreeningGateStatus & { record_id?: string };
+
+/* ---------------------------------------------------------------- method certification board (WF03 P10, CR-119) */
+
+export type MethodLevel = "NOT_BUILT" | "BUILT_UNPROVEN" | "EVIDENCE_INCOMPLETE" | "APPROVED";
+export type MethodCertificationBoard = {
+  methods: { method: string; level: MethodLevel; summary: string; needs: string[] }[];
+  counts: Record<MethodLevel, number>;
+  note: string;
+};
+
+/* ---------------------------------------------------------------- screening information requests and the owners' roll-up (WF06, CR-122) */
+
+export type ScreeningInformationState = "REQUESTED" | "RECEIVED" | "ACCEPTED" | "INSUFFICIENT" | "EXPIRED";
+export type ScreeningInformationRequest = { edd_id: string; state: ScreeningInformationState; still_needed: string[]; due_at: string; message: string };
+export type ScreeningInformation = { request_id: string; open: boolean; request: ScreeningInformationRequest | null };
+export type ScreeningReviewInformation = ScreeningInformationRequest & { requested_by: string; reviewed_by: string | null; review_code: string | null; reminders: number };
+export type ScreeningOwnerIn = { person_ref: string; status: "NEEDS_EVIDENCE" | "NEEDS_CONFIRMATION" | "CONFIRMED" };
+export type ScreeningOwnershipRollup = {
+  status: "COMPLETE_CLEAR" | "IN_REVIEW" | "INCOMPLETE";
+  owners: { person_ref: string; status: string; reason: string }[];
+  reasons: string[];
+  needs_case: string[];
+};
+
+/* ---------------------------------------------------------------- the reviewer's side of a reviewed identity route, and the age check (CR-124) */
+
+export type IdvPhoto = { has_photo: boolean; expired?: boolean; content_type?: string; byte_length?: number; checks?: Record<string, string>; captured_at?: string; expires_at?: string };
+export type IdvClaim = { grade: "CHIP_VERIFIED" | "REVIEWED_NO_CHIP"; market: string; performed_at: string; valid_until: string; status: "VALID" | "REVOKED" };
+export type IdvReview = IdvCase & { photo: IdvPhoto; reject_codes: string[]; recapture_codes: string[]; document_date_known: boolean; claim: IdvClaim | null };
+export type IdvQueueItem = { case_id: string; market: string; route: string; created_at: string; waiting_hours: number; due_at: string | null; overdue: boolean; signatures: number; has_photo: boolean };
+export type IdvQueue = { items: IdvQueueItem[]; overdue: number };
+export type IdvMediaGrant = { grant_id: string; expires_at: string; reads_left: number };
+export type IdvMedia = { content_type: string; image_base64: string; checks: Record<string, string>; reads_left: number };
+export type AgeCheckIn = { threshold: number; birth_date?: string };
+export type AgeCheckResult = { threshold: number; result: "AT_LEAST" | "UNDER" | "UNDETERMINED"; method: "VERIFIED_BIRTH_DATE" | "ESTIMATION" | "SELF_DECLARED"; valid_until: string | null; reason_codes: string[]; fallback_offered: boolean; limitations: string[] };

@@ -185,6 +185,7 @@ __all__ = [
     "conformance_matrix",
     "conformance_model",
     "coverage",
+    "current_identity_claim",
     "entitlement_model",
     "entitlement_refusals",
     "entitlements",
@@ -236,12 +237,37 @@ __all__ = [
 async def person_assurance_current(conn: AsyncConnection, principal_id: str, now: datetime) -> bool:
     """Does this person hold at least one valid, unexpired identity verification assertion? Only the result of an identity check counts:
     a registry match, a declaration or a payment never does."""
+    from zid_platform.modules.verification.application import idv_claims
     from zid_platform.modules.verification.infrastructure.verification_store import assertions_for
 
-    return any(
+    if any(
         a["status"] == "VALID" and a["valid_until"] is not None and a["valid_until"] > now
         for a in await assertions_for(conn, principal_id)
-    )
+    ):
+        return True
+    return (
+        await idv_claims.current(conn, principal_id, now) is not None
+    )  # an approved proofing case counts too (CR-125)
+
+
+async def current_identity_claim(
+    conn: AsyncConnection, principal_id: str, now: datetime
+) -> tuple[str, datetime] | None:
+    """The claim type and the time of this person's newest valid, unexpired identity assertion, or None. A screening takes the identity it rests on from here, never from the caller."""
+    from zid_platform.modules.verification.application import idv_claims
+    from zid_platform.modules.verification.infrastructure.verification_store import assertions_for
+
+    best: tuple[str, datetime] | None = None
+    for a in await assertions_for(conn, principal_id):
+        if a["status"] == "VALID" and a["valid_until"] is not None and a["valid_until"] > now:
+            best = (str(a["claim_type"]), a["performed_at"])
+            break
+    from_case = await idv_claims.current(
+        conn, principal_id, now
+    )  # an approved proofing case (CR-125)
+    if from_case is not None and (best is None or from_case[1] > best[1]):
+        return from_case
+    return best
 
 
 async def verification_session_view(

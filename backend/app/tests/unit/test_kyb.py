@@ -474,8 +474,9 @@ def test_the_shipped_routing_follows_ed03_and_claims_no_supplier_coverage() -> N
     for country in ("US", "IE", "DE"):
         assert r.route(country) is not None and r.route(country).first_pass == ("creditsafe",)  # type: ignore[union-attr]
     assert r.route("FR") == Route(
-        ("sirene",), "gleif", ("creditsafe",)
-    )  # an official register answers on its own
+        ("sirene",), "gleif", ("inpi", "creditsafe")
+    )  # an official register answers on its own; INPI waits for credentials
+    assert r.adapter_status["inpi"] == "DISABLED_UNTIL_CREDENTIALS"
     assert r.supplier_coverage == {}  # nothing is proven until the owners record it
     assert r.adapter_status["creditsafe"] == "DISABLED_UNTIL_CONTRACT"
     assert r.policy.validity == timedelta(days=365)

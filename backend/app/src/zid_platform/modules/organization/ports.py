@@ -13,6 +13,7 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.organization.application import kyb_market_policy as kyb_policy
 from zid_platform.modules.organization.application import proof as proof_service
 from zid_platform.modules.organization.application.identity import (
     identifiers_of,
@@ -25,6 +26,9 @@ from zid_platform.modules.organization.application.identity import (
 )
 from zid_platform.modules.organization.application.kyb import (
     CaseView as KybCaseView,
+)
+from zid_platform.modules.organization.application.kyb import (
+    awaiting_compliance as kyb_awaiting_compliance,
 )
 from zid_platform.modules.organization.application.kyb import (
     close_claim as kyb_close,
@@ -62,6 +66,8 @@ from zid_platform.modules.organization.application.kyb import (
 from zid_platform.modules.organization.application.kyb import (
     submit_claim as kyb_submit,
 )
+from zid_platform.modules.organization.application.kyb_assessment import GateError as KybGateError
+from zid_platform.modules.organization.application.kyb_company import gate_action as kyb_gate_action
 from zid_platform.modules.organization.application.registry import (
     EstablishedRoot,
     NameMatcher,
@@ -71,6 +77,8 @@ from zid_platform.modules.organization.application.registry import (
     refresh_registry_roots,
     request_registry_refresh,
 )
+from zid_platform.modules.organization.domain import market_policy as kyb_policy_rules
+from zid_platform.modules.organization.domain.dual_review import position as dual_position
 from zid_platform.modules.organization.domain.kyb import (
     Applicant as KybApplicant,
 )
@@ -134,6 +142,7 @@ __all__ = [
     "KybApplicant",
     "KybCaseView",
     "KybError",
+    "KybGateError",
     "KybReview",
     "KybStatus",
     "NameMatcher",
@@ -151,18 +160,23 @@ __all__ = [
     "check_identifier",
     "check_proof",
     "default_adapters",
+    "dual_position",
     "establish_claim_root",
     "establish_development_root",
     "establish_registry_root",
     "has_usable_root",
     "identifiers_of",
+    "kyb_awaiting_compliance",
     "kyb_check_applicant",
     "kyb_close",
     "kyb_decide",
     "kyb_drafts_before",
+    "kyb_gate_action",
     "kyb_get_case",
     "kyb_history",
     "kyb_open_claims",
+    "kyb_policy",
+    "kyb_policy_rules",
     "kyb_refresh",
     "kyb_register_people",
     "kyb_request_verification",
@@ -213,6 +227,16 @@ class RootReader(Protocol):
     async def __call__(
         self, conn: AsyncConnection, tenant_id: str, root_id: str
     ) -> RootView | None: ...
+
+
+async def company_claim(conn: AsyncConnection, tenant_id: str) -> tuple[str, datetime] | None:
+    """The company's own verification claim for a screening: COMPANY_REGISTRY_MATCHED once the stored grade is K2 or higher, with the time it was assessed. Documents alone (K1) are not enough."""
+    from zid_platform.modules.organization.application import kyb_assessment
+
+    stored = await kyb_assessment.latest(conn, tenant_id)
+    if stored is None or kyb_assessment.g.rank(stored.grade) < kyb_assessment.g.rank(kyb_assessment.g.Grade.K2):
+        return None
+    return "COMPANY_REGISTRY_MATCHED", stored.assessed_at
 
 
 async def read_root(conn: AsyncConnection, tenant_id: str, root_id: str) -> RootView | None:

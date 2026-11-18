@@ -40,6 +40,7 @@ import { safeNext } from "@/lib/continue";
 import { useRuntime } from "@/lib/runtime";
 
 import { DevProvider, DevSetup } from "./dev-provider";
+import { ProofingResult } from "./proofing-result";
 import { regulatoryNotice } from "./regulatory-errors";
 import { VerificationTierCard } from "./verification-tier-card";
 
@@ -423,6 +424,10 @@ export function VerificationPage() {
               >
                 {STATUS_COPY[status ?? "CREATED"] ?? humanize(status ?? "")}
               </p>
+              <ProofingResult
+                verificationId={verificationId}
+                enabled={status !== undefined && status !== "CREATED"}
+              />
               {status === "PENDING_EXTERNAL" ? (
                 <DevProvider
                   verificationId={verificationId}

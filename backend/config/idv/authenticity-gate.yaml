@@ -1,0 +1,15 @@
+# The evidence a printed-document authenticity check (template, tamper, photo substitution) must earn before it is switched on for a document type (WF03 T24, T25; CR-125).
+# Ships with NO policy: until the security and QA owners record one the gate never passes, and no authenticity check is produced in any case (`idv_image.PRODUCED` lists the only checks).
+#
+# A lab runs genuine specimens and attacks made against them through a check, records one result each, and `tools/scripts/authenticity_eval.py` counts them per document type and check. Synthetic samples (ones
+# we made ourselves) never count; an attack the check did not clearly fail counts as accepted. The numbers are the owners' to choose; none is proposed here, because the right miss rate is a risk decision.
+#
+# policy:
+#   min_genuine: <genuine documents of the type, at least 1>
+#   min_attacks: <attack samples against the type, at least 1>
+#   max_attack_accept_rate: <share of attacks the check may fail to reject, 0 to 1>
+#   max_genuine_reject_rate: <share of genuine documents it may reject, 0 to 1>
+#   max_genuine_inconclusive_rate: <share of genuine documents it may be unable to judge, 0 to 1>
+#   required_attack_kinds: [PRINT_COPY, SCREEN_REPLAY, TEXT_EDIT, PHOTO_SUBSTITUTION, TEMPLATE_FORGERY]   # every one named must have been tried
+#   min_devices: <distinct phone models, at least 1>
+policy: null

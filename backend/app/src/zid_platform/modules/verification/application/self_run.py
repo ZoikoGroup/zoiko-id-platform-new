@@ -31,9 +31,15 @@ def assess(
     extra_fraud: tuple[str, ...] = (),
     extra_codes: tuple[str, ...] = (),
     today: date | None = None,
+    country: str | None = None,
+    scoped: bool = False,
 ) -> SelfRunOutcome:
     """`chip_photo` is the DG2 image taken from the chip whose hash passed. `gate` defaults to the deployment's accepted engine (None while off)."""
     gate = gate if gate is not None else self_run_config.accepted_engine(today)
+    if gate is not None and scoped and not gate.allows(country):
+        # approved for named countries only: anywhere else the engine is off for this session, and the reason says why (never a silent downgrade)
+        gate = None
+        extra_codes = (*extra_codes, "SELF_RUN_ENGINE_NOT_APPROVED_FOR_COUNTRY")
     if gate is None or engine is None or probe is None or chip_photo is None or media is None:
         return self_run_result(
             chip,

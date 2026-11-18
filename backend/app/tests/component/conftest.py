@@ -128,6 +128,8 @@ def _own_sanction_lists(request: pytest.FixtureRequest) -> None:
 
     async def clear() -> None:
         async with engine(owner) as eng, eng.begin() as c:
+            # releases are never deleted row by row (the table says so); a test starts clean by truncating them with the versions they point at
+            await c.execute(text("TRUNCATE verify.sanction_list_release"))
             await c.execute(text("DELETE FROM verify.sanction_list_version"))
 
     asyncio.run(clear())

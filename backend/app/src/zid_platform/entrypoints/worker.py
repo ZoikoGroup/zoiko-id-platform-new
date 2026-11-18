@@ -81,7 +81,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         return await expire_due(conn, now)
 
     async def privacy(conn: AsyncConnection, now: datetime) -> object:
-        return await privacy_pass(conn, now=now)
+        from zid_platform.modules.privacy.ports import retry_failed_erasures
+
+        return {
+            **await privacy_pass(conn, now=now),
+            "erasure_retry": await retry_failed_erasures(conn, now),
+        }
 
     async def biometric_reauthorization(conn: AsyncConnection, now: datetime) -> object:
         """WF-04 BIO-20 (CR-110): warn before a biometric DPIA lapses; hold a model whose evaluation went stale."""
@@ -210,6 +215,13 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         async with httpx.AsyncClient(timeout=30, follow_redirects=False) as http:
             return await directory_sync_pass(conn, now, http=http, home_cell=settings.cell_id)
 
+    async def master_lists(conn: AsyncConnection, now: datetime) -> object:
+        """WF01 (CR-114): fetch published CSCA master lists and stage what changed. Staging only: people validate, approve and activate (CR-107)."""
+        from zid_platform.modules.evidence.ports import master_list_refresh_pass
+        from zid_platform.modules.operator_access.infrastructure.store import in_tenant
+
+        return await master_list_refresh_pass(conn, now, in_tenant=in_tenant)
+
     async def sanctions_lists(conn: AsyncConnection, now: datetime) -> object:
         """ED-04 section 07: fetch and load the sanctions lists that have a verified address."""
         from zid_platform.modules.screening.ports import ingest_pass, screening_config
@@ -255,6 +267,49 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         return await rescreen_pass(
             conn, screening_config(), sign, now, country_gate=gate, monitoring_gate=monitoring
         )
+
+    async def screening_watches(conn: AsyncConnection, now: datetime) -> object:
+        """WF06 S12: screen again every active watch whose cadence has run out, where ongoing monitoring is approved for its market."""
+        from zid_platform.modules.organization.ports import company_claim
+        from zid_platform.modules.screening.ports import (
+            MonitoringKind,
+            market_packs,
+            require_monitoring,
+            screening_config,
+            watch_pass,
+        )
+        from zid_platform.modules.verification.ports import current_identity_claim
+
+        async def identity(
+            c: AsyncConnection, tenant: str, subject_type: object, subject_ref: str, at: datetime
+        ) -> object:
+            if getattr(subject_type, "value", "") == "BUSINESS":
+                return await company_claim(c, tenant) if subject_ref == tenant else None
+            return await current_identity_claim(c, subject_ref, at)
+
+        def monitoring(market: str) -> None:
+            require_monitoring(country=market, kind=MonitoringKind.SANCTIONS_ONGOING, at=now)
+
+        from zid_platform.modules.screening.ports import gates
+
+        async def released(c: AsyncConnection, market: str) -> bool:
+            return await gates.is_go(c, market, "MONITORING", now=now)
+
+        return await watch_pass(
+            conn,
+            screening_config(),
+            now,
+            packs=market_packs(),
+            identity_lookup=identity,
+            monitoring_gate=monitoring,
+            gate_check=released,
+        )
+
+    async def screening_edd(conn: AsyncConnection, now: datetime) -> object:
+        """WF06 EDD information requests: record reminders that fell due and expire what ran out. Expiry clears nothing (CR-121)."""
+        from zid_platform.modules.screening.ports import edd
+
+        return await edd.tick_all(conn, now)
 
     async def register_watch(conn: AsyncConnection, now: datetime) -> object:
         """ED-04 section 07: read the official register again for every live case; a change asks for a rescreen (answered by `screening`)."""
@@ -305,6 +360,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             now,
             country_gate=gate,
         )
+
+    async def company_grade_recheck(conn: AsyncConnection, now: datetime) -> object:
+        """WF02 K10: reassess each company whose next check is due, from what is recorded (the company refresh above has just read the registers again)."""
+        from zid_platform.modules.organization.application.kyb_operations import recheck_pass
+
+        return await recheck_pass(conn, now)
 
     async def register_refresh(conn: AsyncConnection, now: datetime) -> object:
         """ZID-RCG-003 RCG-G02 (CR-087): ask official registers again before a connector-recorded certification goes stale."""
@@ -478,10 +539,14 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("directory", directory),
         ("webhooks", webhooks),
         ("directory_sync", directory_sync),
+        ("master_lists", master_lists),
         ("sanctions_lists", sanctions_lists),
         ("register_watch", register_watch),
         ("screening", screening),
+        ("screening_watches", screening_watches),
+        ("screening_edd", screening_edd),
         ("company_refresh", company_refresh),
+        ("company_grade_recheck", company_grade_recheck),
         ("register_refresh", register_refresh),
         ("verification_reconcile", verification_reconcile),
         ("verification_policy_review", verification_policy_review),

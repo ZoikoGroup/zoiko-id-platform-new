@@ -21,6 +21,7 @@ ASSERTIONS = "verify.verification_assertion"
 SESSIONS = "verify.verification_session"
 SOF_CASES = "verify.sof_case"
 WORKFLOW_RUNS = "verify.workflow_run"
+IDV_CASES = "verify.idv_case"
 
 
 async def _locate_assertions(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
@@ -200,7 +201,72 @@ async def _dispose_run(conn: AsyncConnection, entry: Row[Any], action: str) -> N
     await erase_run(conn, entry.object_ref, datetime.now(UTC))
 
 
+async def _locate_idv(conn: AsyncConnection, subject: str) -> list[dict[str, Any]]:
+    rows = (
+        await conn.execute(
+            text("SELECT case_id, created_at FROM verify.idv_case WHERE applicant = :p"),
+            {"p": uuid.UUID(subject)},
+        )
+    ).all()
+    return [
+        {
+            "object_ref": str(r.case_id),
+            "object_type": "verification.idv_case",
+            "purpose_code": "VERIFY_IDENTITY",
+            "data_category": "D3",
+            "trigger_at": r.created_at,
+            "region": None,
+            "retention_policy_code": None,  # the DPO sets the schedule; until then the privacy default applies (delete on request unless held)
+        }
+        for r in rows
+    ]
+
+
+async def _export_idv(conn: AsyncConnection, entry: Row[Any]) -> dict[str, Any]:
+    """What a person is told about their own identity case: where, how, what was decided and why (as codes), whether a photograph is held and until when, and the claim it left. Never the image, which they supplied themselves."""
+    key = uuid.UUID(entry.object_ref)
+    case = (
+        await conn.execute(
+            text(
+                "SELECT market, route, decision, reasons, state, created_at FROM verify.idv_case WHERE case_id = :c"
+            ),
+            {"c": key},
+        )
+    ).first()
+    if case is None:
+        return {}
+    media = (
+        await conn.execute(
+            text(
+                "SELECT captured_at, expires_at, superseded_at FROM verify.idv_case_media WHERE case_id = :c ORDER BY created_at DESC LIMIT 1"
+            ),
+            {"c": key},
+        )
+    ).first()
+    claim = (
+        await conn.execute(
+            text("SELECT grade, valid_until, status FROM verify.idv_case_claim WHERE case_id = :c"),
+            {"c": key},
+        )
+    ).first()
+    return {
+        "market": case.market, "route": case.route, "decision": case.decision, "reason_codes": list(case.reasons), "state": case.state, "created_at": case.created_at.isoformat(),
+        "photograph": None if media is None else {"taken_at": media.captured_at.isoformat(), "kept_until": media.expires_at.isoformat(), "retired": media.superseded_at is not None},
+        "claim": None if claim is None else {"grade": claim.grade, "valid_until": claim.valid_until.isoformat(), "status": claim.status},
+    }  # fmt: skip
+
+
+async def _dispose_idv(conn: AsyncConnection, entry: Row[Any], action: str) -> None:
+    """Nobody can rely on this case's claim any more, and its photograph is retired (its bytes are destroyed with the subject's key by the erasure job). The case row is a closed record that holds no document data: its applicant is a pseudonymous id."""
+    from zid_platform.modules.verification.application import idv_claims, idv_media
+
+    now = datetime.now(UTC)
+    await idv_claims.revoke_for_case(conn, entry.object_ref, "SUBJECT_ERASURE", now)
+    await idv_media.supersede(conn, entry.object_ref, now)
+
+
 def register() -> None:
+    register_store(IDV_CASES, locator=_locate_idv, exporter=_export_idv, disposer=_dispose_idv)
     register_store(
         ASSERTIONS,
         locator=_locate_assertions,

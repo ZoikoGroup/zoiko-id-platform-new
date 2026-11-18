@@ -316,3 +316,4 @@ export class RoomsPack {
 export * from "./session.js";
 export * from "./v2.js";
 export * from "./widget.js";
+export * from "./chip-relay.js";

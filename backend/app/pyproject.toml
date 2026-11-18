@@ -20,6 +20,7 @@ dependencies = [
   "httpx>=0.28",
   "zid-crypto",
   "webauthn>=3.0",
+  "cbor2>=6.1",  # imported directly (mdoc, barcode, device attestation); was only present through webauthn
   "signxml>=4.0",
   "defusedxml>=0.7",
   "scim2-models>=0.3",

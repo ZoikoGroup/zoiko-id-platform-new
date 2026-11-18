@@ -1,59 +1,12 @@
 {
   "components": {
     "schemas": {
-      "CaseIn": {
-        "additionalProperties": false,
-        "properties": {
-          "action": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Action",
-            "type": "string"
-          },
-          "context": {
-            "additionalProperties": true,
-            "title": "Context",
-            "type": "object"
-          },
-          "expect_allow": {
-            "default": false,
-            "title": "Expect Allow",
-            "type": "boolean"
-          },
-          "name": {
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "principal": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Principal",
-            "type": "string"
-          },
-          "resource": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Resource",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "principal",
-          "action",
-          "resource"
-        ],
-        "title": "CaseIn",
-        "type": "object"
-      },
       "DraftIn": {
         "additionalProperties": false,
         "properties": {
           "cases": {
             "items": {
-              "$ref": "#/components/schemas/CaseIn"
+              "$ref": "#/components/schemas/zid_platform__modules__policy_authoring__api__policies__CaseIn"
             },
             "maxItems": 500,
             "minItems": 1,
@@ -85,7 +38,7 @@
         "properties": {
           "cases": {
             "items": {
-              "$ref": "#/components/schemas/CaseIn"
+              "$ref": "#/components/schemas/zid_platform__modules__policy_authoring__api__policies__CaseIn"
             },
             "maxItems": 500,
             "minItems": 1,
@@ -192,6 +145,53 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "zid_platform__modules__policy_authoring__api__policies__CaseIn": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Action",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          },
+          "expect_allow": {
+            "default": false,
+            "title": "Expect Allow",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "principal": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Principal",
+            "type": "string"
+          },
+          "resource": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Resource",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "principal",
+          "action",
+          "resource"
+        ],
+        "title": "CaseIn",
         "type": "object"
       }
     }

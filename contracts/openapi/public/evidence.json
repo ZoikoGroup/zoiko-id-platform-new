@@ -329,6 +329,64 @@
         "title": "PackageBody",
         "type": "object"
       },
+      "StageIn": {
+        "additionalProperties": false,
+        "properties": {
+          "anchors_base64": {
+            "items": {
+              "maxLength": 20000,
+              "minLength": 8,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Anchors Base64",
+            "type": "array"
+          },
+          "confirmed_anchor_sha256": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Confirmed Anchor Sha256",
+            "type": "array"
+          },
+          "master_list_base64": {
+            "maxLength": 11184826,
+            "minLength": 8,
+            "title": "Master List Base64",
+            "type": "string"
+          },
+          "source_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Note"
+          },
+          "source_uri": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Source Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "master_list_base64",
+          "anchors_base64",
+          "confirmed_anchor_sha256",
+          "source_uri"
+        ],
+        "title": "StageIn",
+        "type": "object"
+      },
       "UatBaselineIn": {
         "additionalProperties": false,
         "properties": {
@@ -1516,6 +1574,50 @@
           "case_ref"
         ],
         "title": "ResolveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__v2_trust_store__ReasonIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReasonIn",
+        "type": "object"
+      },
+      "zid_platform__modules__evidence__api__v2_trust_store__RollbackIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_package_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Package Id"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RollbackIn",
         "type": "object"
       }
     }
@@ -4503,6 +4605,469 @@
         "summary": "Manifest",
         "tags": [
           "evidence-v2"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/active": {
+      "get": {
+        "operationId": "active_v2_trust_store_csca_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Active V2 Trust Store Csca Active Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Active",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages": {
+      "get": {
+        "operationId": "list_packages_v2_trust_store_csca_packages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Packages V2 Trust Store Csca Packages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Packages",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      },
+      "post": {
+        "operationId": "stage_v2_trust_store_csca_packages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stage V2 Trust Store Csca Packages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}": {
+      "get": {
+        "operationId": "read_package_v2_trust_store_csca_packages__package_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Package V2 Trust Store Csca Packages  Package Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Package",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}:activate": {
+      "post": {
+        "operationId": "activate_v2_trust_store_csca_packages__package_id__activate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate V2 Trust Store Csca Packages  Package Id  Activate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}:approve": {
+      "post": {
+        "operationId": "approve_v2_trust_store_csca_packages__package_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V2 Trust Store Csca Packages  Package Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}:check-chip": {
+      "post": {
+        "operationId": "check_chip_v2_trust_store_csca_packages__package_id__check_chip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/V2ChipIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Chip V2 Trust Store Csca Packages  Package Id  Check Chip Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Chip",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}:reject": {
+      "post": {
+        "operationId": "reject_v2_trust_store_csca_packages__package_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__v2_trust_store__ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject V2 Trust Store Csca Packages  Package Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/packages/{package_id}:validate": {
+      "post": {
+        "operationId": "validate_v2_trust_store_csca_packages__package_id__validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Validate V2 Trust Store Csca Packages  Package Id  Validate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/retire": {
+      "post": {
+        "operationId": "retire_v2_trust_store_csca_retire_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__v2_trust_store__ReasonIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire V2 Trust Store Csca Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire",
+        "tags": [
+          "evidence-trust-store"
+        ]
+      }
+    },
+    "/v2/trust-store/csca/rollback": {
+      "post": {
+        "operationId": "rollback_v2_trust_store_csca_rollback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__v2_trust_store__RollbackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback V2 Trust Store Csca Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback",
+        "tags": [
+          "evidence-trust-store"
         ]
       }
     }

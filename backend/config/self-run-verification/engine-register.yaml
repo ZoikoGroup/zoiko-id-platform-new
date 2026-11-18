@@ -1,0 +1,76 @@
+# Licence and component register for self-run engines (ZID-DTV-WF-01 WF01-011; CR-107). Versioned configuration, not tenant data.
+# status: PROVISIONAL. Nothing here has been verified by a person. `licence_verified_on` is null everywhere on purpose.
+#
+# An engine named in self-run.yaml (`engine.components`) may run live only when EVERY component it is built from is listed here with
+#   commercial_use: YES            the code licence and every model licence it uses allow commercial use
+#   model_licence_confirmed: true  somebody read the licence of each pretrained model actually used, not only the library's
+#   licence_verified_on: <date>    when they read it
+# A component that is missing, marked NO or UNKNOWN, or never verified keeps the engine shut (LAB_ONLY at most). The gate cannot check that the person read
+# the licence honestly: it can only refuse to run without the record.
+#   role           face_match | liveness | chip_reader | ocr
+#   status         LAB_ONLY (evaluation only) | NOT_FOR_COMMERCIAL_USE | IN_USE_SUPPORTING (already part of a shipped, non-decision path)
+#   sbom_ref       where the pinned dependency list for the adopted version is kept; fill it when a version is adopted (null: none yet)
+# Facts below are what each project's own documentation said when this register was drafted; a person confirms them before relying on them.
+version: 0.1.0
+status: PROVISIONAL
+components:
+  - id: deepface
+    role: face_match
+    repository: https://github.com/serengil/deepface
+    code_licence: MIT
+    model_licence: "Per model. The library downloads weights (VGG-Face, Facenet, ArcFace and others) whose licences differ; read the one used."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: false
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: null
+  - id: silent-face-anti-spoofing
+    role: liveness
+    repository: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing
+    code_licence: Apache-2.0
+    model_licence: "Pretrained models ship with the repository; their terms are not stated separately. It has no independent presentation-attack evaluation."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: false
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: null
+  - id: insightface
+    role: face_match
+    repository: https://github.com/deepinsight/insightface
+    code_licence: MIT
+    model_licence: "Pretrained models are for non-commercial research only."
+    commercial_use: "NO"
+    model_licence_confirmed: true
+    licence_verified_on: null
+    status: NOT_FOR_COMMERCIAL_USE
+    sbom_ref: null
+  - id: jmrtd
+    role: chip_reader
+    repository: https://jmrtd.org
+    code_licence: LGPL-3.0
+    model_licence: "No model."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: true
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: null
+  - id: nfcpassportreader
+    role: chip_reader
+    repository: https://github.com/AndyQ/NFCPassportReader
+    code_licence: MIT
+    model_licence: "No model."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: true
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: null
+  - id: tesseract
+    role: ocr
+    repository: https://github.com/tesseract-ocr/tesseract
+    code_licence: Apache-2.0
+    model_licence: "Trained language data is Apache-2.0 as well."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: false
+    licence_verified_on: null
+    status: IN_USE_SUPPORTING
+    sbom_ref: null

@@ -158,6 +158,8 @@ def test_a_draft_record_carries_numbers_only_and_never_switches_the_engine_on() 
     }
     cfg = {  # the numbers it drafts are accepted by the gate once a person adds the references
         "enabled": True,
+        "mode": "APPROVED_FOR_SCOPE",
+        "scope": {"countries": ["GB"]},
         "engine": {
             **draft["engine"], "evaluation_id": "EVAL-2026-0042", "evaluated_on": "2026-11-01", "pad_standard": "ISO/IEC 30107-3",
             "licence_checked": True, "dpia_ref": "DPIA-2026-007",

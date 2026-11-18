@@ -20,13 +20,14 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
 from zid_errors import ErrorDetail, ZidError
@@ -34,9 +35,17 @@ from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.country_gate import enforce, enforce_packs
-from zid_platform.modules.commercial.ports import market_gate, require_feature
+from zid_platform.modules.commercial.ports import market_gate, require_feature, tenant_vendor_cost
 from zid_platform.modules.verification.application import privacy_gate, service
 from zid_platform.modules.verification.domain import privacy_overlay as po
+from zid_platform.modules.verification.domain import proofing
+from zid_platform.modules.verification.domain.budget import (
+    Budget,
+    month_start,
+    other_currencies,
+    parse_budget,
+    spent_in,
+)
 from zid_platform.modules.verification.domain.countries import (
     Availability,
     Capability,
@@ -69,6 +78,9 @@ _STATUS = {
     "ASSURANCE_NOT_MET": 422,
     "PROFILE_INVALID": 422,
     "REVIEWER_IS_SUBJECT": 403,
+    "VERIFICATION_BUDGET_EXCEEDED": 429,  # WF01-014: the company's monthly supplier spend budget; new verifications start next month or after a person raises it
+    "BUDGET_INVALID": 422,
+    "VERIFICATION_ATTEMPTS_EXCEEDED": 429,  # WF01-014: the profile's daily cap for one person; not a verdict, try again later
     "PROVIDER_UNTRUSTED": 401,
     "CALLBACK_SIGNATURE_INVALID": 401,
     "CALLBACK_SCHEMA_INVALID": 400,
@@ -429,6 +441,207 @@ async def read(verification_id: uuid.UUID, request: Request, caller: CallerDep) 
             return _session_view(await store.load_session(conn, str(verification_id)))
         except VerificationError as e:
             raise _err(e) from e
+
+
+MAX_USAGE_DAYS = 366
+
+
+class BudgetIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    monthly_limit: (
+        StrictStr | StrictInt
+    )  # a decimal string or a whole number: money is never a float
+    currency: str
+
+
+def _money(value: Decimal) -> str:
+    """A decimal as a plain string without trailing zeros (100.500000 is 100.5, 0 is 0). Money is never a float."""
+    return format(value.normalize(), "f")
+
+
+def _budget_view(
+    row: dict[str, Any] | None, spent: dict[str, Decimal], now: datetime
+) -> dict[str, Any]:
+    if row is None:
+        return {"budget": None, "month_start": month_start(now).isoformat()}
+    budget = Budget(Decimal(row["monthly_limit"]), str(row["currency"]))
+    used = spent_in(budget, spent)
+    return {
+        "budget": {
+            "monthly_limit": _money(budget.monthly_limit),
+            "currency": budget.currency,
+            "version": row["version"],
+        },
+        "month_start": month_start(now).isoformat(),
+        "spent": _money(used),
+        "remaining": _money(max(budget.monthly_limit - used, Decimal(0))),
+        "exceeded": used >= budget.monthly_limit,
+        "other_currencies": other_currencies(
+            budget, spent
+        ),  # costs in another currency are not converted and not counted
+    }
+
+
+@router.get("/verification-budget")
+async def read_budget(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The company's monthly supplier spend budget and what has been spent this month (WF01-014). Totals only."""
+    _scope(caller, "verification:read")
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        row = await store.get_budget(conn)
+        spent = await tenant_vendor_cost(conn, caller.ctx.tenant_id or "", month_start(now))
+    return _budget_view(row, spent, now)
+
+
+@router.put("/verification-budget")
+async def set_budget(body: BudgetIn, request: Request, caller: CallerDep) -> dict[str, Any]:
+    try:
+        parsed = parse_budget(body.monthly_limit, body.currency)
+    except VerificationError as e:
+        raise _err(e) from e
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="verification.budget.manage", resource="verification_budget:tenant"
+        )
+        await store.set_budget(
+            conn, tenant_id=caller.ctx.tenant_id or "", limit=parsed.monthly_limit, currency=parsed.currency,
+            actor=str(caller.ctx.principal_id), now=now,
+        )  # fmt: skip
+        row = await store.get_budget(conn)
+        spent = await tenant_vendor_cost(conn, caller.ctx.tenant_id or "", month_start(now))
+    return _budget_view(row, spent, now)
+
+
+@router.delete("/verification-budget")
+async def clear_budget(request: Request, caller: CallerDep) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="verification.budget.manage", resource="verification_budget:tenant"
+        )
+        await store.clear_budget(conn, actor=str(caller.ctx.principal_id), now=now)
+    return _budget_view(None, {}, now)
+
+
+@router.get("/verification-engine-readiness")
+async def engine_readiness(caller: CallerDep) -> dict[str, Any]:
+    """Whether a face engine could be approved today, and what is missing (WF01-011/012): the engine record, each component's licence reading and the evaluation
+    references, as the versioned configuration states them. Read only: approving an engine is a change to that configuration by the people who own it."""
+    _scope(caller, "verification:read")
+    from zid_platform.modules.verification.domain.biometric_engine import readiness
+    from zid_platform.modules.verification.infrastructure import engine_register, self_run_config
+
+    return readiness(
+        self_run_config.raw(), engine_register.register(), today=datetime.now(UTC).date()
+    )
+
+
+@router.get("/verification-method-certification")
+async def method_certification_board(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """How far each identity-proofing method is from certified (WF03 P10; CR-119): not built, built but never run on a real document or lab, awaiting records, or approved. Read only: it states
+    what the versioned configuration and the trust store hold and what is still missing, and approves nothing."""
+    _scope(caller, "verification:read")
+    from zid_platform.modules.evidence.ports import effective_csca, trust_config
+    from zid_platform.modules.verification.domain import method_certification as mc
+    from zid_platform.modules.verification.domain.biometric_engine import readiness
+    from zid_platform.modules.verification.domain.idv_image import PRODUCED
+    from zid_platform.modules.verification.infrastructure import (
+        device_attestation,
+        engine_register,
+        image_inspect,
+        self_run_config,
+    )
+
+    config = getattr(request.app.state, "trust_config", None) or trust_config()
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        effective = await effective_csca(conn, config.csca)
+    rows = mc.board(
+        trust_list_active=bool(effective.csca),
+        engine=readiness(
+            self_run_config.raw(), engine_register.register(), today=datetime.now(UTC).date()
+        ),
+        optical_checks_produced=PRODUCED,
+        apple_attestation_configured=device_attestation.configured() is not None,
+        imaging_configured=image_inspect.configured_url() is not None,
+    )
+    return {
+        "methods": [
+            {
+                "method": r.method,
+                "level": r.level.value,
+                "summary": r.summary,
+                "needs": list(r.needs),
+            }
+            for r in rows
+        ],
+        "counts": mc.summary(rows),
+        "note": "Approved means every record the approval needs is present. Built but unproven means it has never met a real document, a real device or a lab.",
+    }
+
+
+@router.get("/verification-usage")
+async def usage(
+    request: Request,
+    caller: CallerDep,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> dict[str, Any]:
+    """Usage counts for Finance and operations (WF01-014): sessions by provider, status and outcome, review cases, repeat attempts. Aggregates only:
+    no person, no claim, no evidence. What each provider attempt cost is the vendor cost report's job (commercial); this says how many there were."""
+    _scope(caller, "verification:read")
+    end = until or datetime.now(UTC)
+    start = since or end - timedelta(days=30)
+    if (
+        start.tzinfo is None
+        or end.tzinfo is None
+        or not start < end
+        or end - start > timedelta(days=MAX_USAGE_DAYS)
+    ):
+        raise ZidError(
+            "VALIDATION_FAILED",
+            f"since and until must be timezone-aware, in order, and at most {MAX_USAGE_DAYS} days apart.",
+            http_status=422,
+        )
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        counts = await store.usage_between(conn, start, end)
+    return {"since": start.isoformat(), "until": end.isoformat(), **counts}
+
+
+@router.get("/verifications/{verification_id}/proofing")
+async def proofing_facts(
+    verification_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """WF01's result facts for one session (CR-107): the state in WF01's words, the distinct assertions that hold, each check as pass, fail,
+    indeterminate or not requested, and the pinned policy. A view over the recorded decision: no evidence, no value of any claim, no score."""
+    _scope(caller, "verification:read")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        try:
+            s = await store.load_session(conn, str(verification_id))
+            profile = await store.load_profile(conn, s.profile_id)
+            basis = await store.decision_basis(conn, s.session_id)
+            reviewed = await store.review_approved(conn, s.session_id)
+        except VerificationError as e:
+            raise _err(e) from e
+    facts = proofing.derive(
+        profile,
+        basis,
+        status=s.status,
+        outcome=s.outcome_code,
+        reviewed=reviewed and s.status is SessionStatus.VERIFIED,
+    )
+    return {
+        "verification_id": s.session_id,
+        "scope": s.purpose,
+        "region": s.jurisdiction,
+        "policy": {
+            "profile_id": profile.profile_id,
+            "version": profile.version,
+            "level": profile.level,
+        },
+        "expires_at": s.expires_at.isoformat(),
+        **facts.public(),
+    }
 
 
 @router.post("/verifications/{verification_id}:cancel")

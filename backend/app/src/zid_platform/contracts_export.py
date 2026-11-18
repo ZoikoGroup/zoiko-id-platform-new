@@ -99,7 +99,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Security Signals and Shared Signals API",
     ),
     OPENAPI / "public" / "evidence.json": (
-        ("/v1/evidence/", "/v2/evidence/", "/v2/documents", "/v2/assurance"),
+        ("/v1/evidence/", "/v2/evidence/", "/v2/documents", "/v2/assurance", "/v2/trust-store"),
         "Zoiko iD Evidence, Audit and Provenance API (receipts, proofs, replay, export, legal holds)",
     ),
     OPENAPI / "public" / "privacy.json": (
@@ -117,7 +117,20 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         "Zoiko iD Policy Administration API (releases, validation, simulation, review, publication)",
     ),
     OPENAPI / "public" / "operator-access.json": (
-        ("/operator/", "/platform/", "/ops/", "/v1/lockbox-requests", "/v1/operator-access-policy"),
+        (
+            "/operator/",
+            "/platform/",
+            "/ops/",
+            "/v1/lockbox-requests",
+            "/v1/operator-access-policy",
+            "/v1/kyb/market-policies",
+            "/v1/screening/sources",
+            "/v1/screening/providers",
+            "/v1/screening/gates",
+            "/v1/screening/releases",
+            "/v1/screening/review/",
+            "/v1/integrations/screening/",
+        ),
         "Zoiko iD Operator Access API (JIT, customer lockbox, break-glass review)",
     ),
     OPENAPI / "public" / "residency.json": (
@@ -156,6 +169,7 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         (
             "/v1/onboarding/",
             "/v1/org-claims",
+            "/v1/kyb",
             "/v1/reviews/",
             "/v1/registration/",
             "/v2/organizations",

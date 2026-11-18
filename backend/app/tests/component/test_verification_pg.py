@@ -452,6 +452,18 @@ def test_verification_profiles_providers_review_reliance(
         )
         assert r.json()["outcome"] == "APPROVED"
         assert http.get(f"/verifications/{vid3}", headers=app_client).json()["status"] == "VERIFIED"
+        # WF01 (CR-107): the facts say a person reviewed it, and that the scope holds only because the profile's own review path approved it
+        facts = http.get(f"/verifications/{vid3}/proofing", headers=app_client)
+        assert facts.status_code == 200, facts.text
+        held = facts.json()
+        assert held["state"] == "VERIFIED_FOR_SCOPE" and held["decision"] == "verified_for_scope"
+        assert (
+            "DOCUMENT_REVIEWED" in held["assertions"]
+            and "IDENTITY_VERIFIED_FOR_SCOPE" in held["assertions"]
+        )
+        assert (
+            "DOCUMENT_CHIP_CRYPTO_VALID" not in held["assertions"]
+        )  # a provider's own read is not our cryptographic proof
 
         # reliance is an explicit decision per purpose, level and claim
         def rely(**kw: Any) -> str:
