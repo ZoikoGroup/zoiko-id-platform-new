@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 import yaml
 from zid_platform.modules.verification.domain import tiers as t
+from zid_platform.modules.verification.domain.assertions import Assertion
 from zid_platform.modules.verification.infrastructure.tier_policy import CONFIG, tier_policy
 
 POLICY = tier_policy()
@@ -135,11 +136,47 @@ def test_an_address_is_required_only_for_a_stated_reason() -> None:
 def test_an_address_the_customer_typed_is_never_shown_as_verified() -> None:
     """EDR06-08."""
     assert (
-        t.address_label(entered=True, verified=False, policy=POLICY)
+        t.address_label(entered=True, held=set(), policy=POLICY) == "Entered by you, not verified"
+    )
+    assert t.address_label(entered=False, held=set(), policy=POLICY) == "Not provided"
+
+
+def test_an_address_is_labelled_by_the_strongest_assertion_held_and_never_just_verified() -> None:
+    """ZID-DTV-WF-05 §02: four separate address assertions; a location found is not a residence."""
+    labels = {
+        a: t.address_label(entered=True, held={a}, policy=POLICY)
+        for a in (
+            Assertion.ADDRESS_FORMAT_VALID,
+            Assertion.ADDRESS_LOCATION_MATCH,
+            Assertion.ADDRESS_DOCUMENT_REVIEWED,
+            Assertion.ADDRESS_ASSOCIATION_CONFIRMED,
+        )
+    }
+    assert len(set(labels.values())) == 4 and "Verified" not in labels.values()
+    assert "not proof you live there" in labels[Assertion.ADDRESS_LOCATION_MATCH]
+    held = {Assertion.ADDRESS_LOCATION_MATCH, Assertion.ADDRESS_DOCUMENT_REVIEWED}
+    assert (
+        t.address_label(entered=True, held=held, policy=POLICY)
+        == labels[Assertion.ADDRESS_DOCUMENT_REVIEWED]
+    )
+    # a contact or device assertion says nothing about an address
+    assert (
+        t.address_label(entered=True, held={Assertion.CONTACT_CONTROL_CONFIRMED}, policy=POLICY)
         == "Entered by you, not verified"
     )
-    assert t.address_label(entered=True, verified=True, policy=POLICY) == "Verified"
-    assert t.address_label(entered=False, verified=False, policy=POLICY) == "Not provided"
+
+
+def test_an_address_policy_with_one_verified_label_or_a_missing_assertion_is_refused() -> None:
+    raw = _doc()
+    single = deepcopy(raw)
+    single["optional_checks"]["ADDRESS"]["label_when_verified"] = "Verified"
+    missing = deepcopy(raw)
+    del missing["optional_checks"]["ADDRESS"]["labels"]["ADDRESS_ASSOCIATION_CONFIRMED"]
+    claims = deepcopy(raw)
+    claims["optional_checks"]["ADDRESS"]["labels"]["ADDRESS_DOCUMENT_REVIEWED"] = "Address verified"
+    for doc in (single, missing, claims):
+        with pytest.raises(t.TierError):
+            t.parse(doc)
 
 
 def test_a_phone_is_asked_for_only_when_a_workflow_depends_on_possession_and_proves_nobody() -> (

@@ -352,3 +352,10 @@ async def spend_ticket(conn: AsyncConnection, ticket_hash: bytes, now: datetime)
         row.purpose,
         str(row.recovery_id) if row.recovery_id else None,
     )
+
+
+async def current_tenant(conn: AsyncConnection) -> str:
+    """The tenant this transaction runs in (`tenant_transaction` sets it); empty when none is set."""
+    return str(
+        (await conn.execute(text("SELECT current_setting('app.tenant_id', true)"))).scalar() or ""
+    )

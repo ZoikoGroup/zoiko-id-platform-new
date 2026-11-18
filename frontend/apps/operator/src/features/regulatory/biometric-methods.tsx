@@ -356,6 +356,50 @@ function StepDownDialog({ scope, onClose }: { scope: BiometricMethodVersion | nu
   );
 }
 
+/* ------------------------------------------------------------------------------------------------------------------------------ retire a market */
+
+/** CR-113 (QA-039): every scope in one country to OFF and its open proposals withdrawn, by one person, at once. Past sessions keep their results. */
+export function RetireMarketDialog({ countries, isOpen, onClose }: { countries: string[]; isOpen: boolean; onClose: () => void }) {
+  const [country, setCountry] = useState("");
+  const [reason, setReason] = useState("");
+  const [ref, setRef] = useState("");
+  const chosen = countries.includes(country) ? country : (countries[0] ?? "");
+  const retire = useCellMutation((api) => api.regulatory.retireBiometricMarket(chosen, { reason: reason.trim(), evidence_ref: ref.trim() }), {
+    invalidate: [REG.biometricMethods],
+    success: "Market retired: no biometric method runs there for new sessions",
+    onSuccess: () => {
+      setReason("");
+      setRef("");
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onOpenChange={(o) => !o && onClose()}
+      title="Retire a market"
+      description="Every face match and liveness scope in the country goes OFF and its open proposals are withdrawn, at once. Results already given keep their records. Coming back is a new two-person approval."
+      footer={
+        <>
+          <Button variant="secondary" onPress={onClose}>
+            Cancel
+          </Button>
+          <Button variant="danger" pending={retire.isPending} isDisabled={!chosen || reason.trim().length < 10 || !REF_OK(ref)} onPress={() => retire.mutate(undefined)}>
+            Retire {chosen}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Select label="Country" value={chosen} onChange={setCountry} options={countries.map((c) => ({ id: c, label: c }))} />
+        <TextField label="Evidence reference" description="board decision, legal advice or ticket" value={ref} onChange={setRef} isRequired />
+        <TextField label="Reason" description="at least 10 characters" value={reason} onChange={setReason} multiline rows={2} isRequired />
+        {retire.error ? <MethodErr error={retire.error} /> : null}
+      </div>
+    </Dialog>
+  );
+}
+
 /* ------------------------------------------------------------------------------------------------------------------------------ page */
 
 export function BiometricMethodsPage() {
@@ -363,6 +407,8 @@ export function BiometricMethodsPage() {
   const [proposing, setProposing] = useState<{ from: BiometricMethodVersion | null; widen?: boolean } | null>(null);
   const [deciding, setDeciding] = useState<{ p: BiometricProposal; approve: boolean } | null>(null);
   const [stepping, setStepping] = useState<BiometricMethodVersion | null>(null);
+  const [retiring, setRetiring] = useState(false);
+  const liveCountries = Array.from(new Set((q.data?.items ?? []).filter((r) => r.current.state !== "OFF").map((r) => r.current.scope.country))).sort();
 
   const scopeCols: Column<Row>[] = [
     { key: "id", header: "Scope", pinned: true, render: (r) => <Mono>{r.current.scope_id}</Mono>, sortValue: (r) => r.current.scope_id },
@@ -440,7 +486,16 @@ export function BiometricMethodsPage() {
       <PageHeader
         title="Biometric methods"
         description="Where each face match or liveness engine may run: one state per engine version, country, purpose and tenant. Nothing is on unless recorded here. A step up is two people, one step at a time; a pause is one person, at once."
-        actions={<Button onPress={() => setProposing({ from: null })}>Propose a new scope</Button>}
+        actions={
+          <span className="flex gap-2">
+            {liveCountries.length ? (
+              <Button variant="danger" onPress={() => setRetiring(true)}>
+                Retire a market
+              </Button>
+            ) : null}
+            <Button onPress={() => setProposing({ from: null })}>Propose a new scope</Button>
+          </span>
+        }
       />
       <QueryView query={q}>
         {(d) => (
@@ -473,6 +528,7 @@ export function BiometricMethodsPage() {
       <ProposeDialog from={proposing?.from ?? null} widen={proposing?.widen ?? false} isOpen={proposing !== null} onClose={() => setProposing(null)} />
       <DecideDialog proposal={deciding?.p ?? null} approve={deciding?.approve ?? true} onClose={() => setDeciding(null)} />
       <StepDownDialog scope={stepping} onClose={() => setStepping(null)} />
+      <RetireMarketDialog countries={liveCountries} isOpen={retiring} onClose={() => setRetiring(false)} />
     </>
   );
 }

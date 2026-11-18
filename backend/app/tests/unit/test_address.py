@@ -21,7 +21,10 @@ POLICY = ad.parse_policy(
     {
         "version": "t",
         "status": "SAMPLE",
-        "max_age_days": {"UTILITY_BILL": 90, "TENANCY_AGREEMENT": 365},
+        "markets": {
+            "GB": {"UTILITY_BILL": 90, "TENANCY_AGREEMENT": 365},
+            "JP": {"UTILITY_BILL": 90},
+        },
     }
 )
 
@@ -122,11 +125,89 @@ def test_a_flat_number_difference_in_the_same_building_goes_to_a_person_not_to_a
     )
 
 
+def jp(line1: str, city: str = "東京都", postal_code: str = "") -> ad.Address:
+    return ad.parse_address(
+        {"line1": line1, "city": city, "postal_code": postal_code, "country": "JP"}
+    )
+
+
+def test_non_latin_addresses_are_compared_in_their_own_script_not_erased():
+    """WF-05 A05 and QA-022: a non-Latin address is supported. Folding once dropped every non-ASCII letter, so two different Japanese addresses with no
+    postcode both became '1 1' and compared SAME."""
+    # the old fold made both of these '1 1' with an empty city, and said SAME for a Tokyo and an Osaka address
+    assert (
+        ad.compare(jp("千代田区丸の内1-1"), jp("新宿区西新宿1-1", city="大阪市"))
+        is ad.Match.DIFFERENT
+    )
+    assert ad.compare(jp("千代田区丸の内1-1"), jp("新宿区西新宿2-8-1")) is ad.Match.DIFFERENT
+    assert (
+        ad.compare(jp("千代田区丸の内1-1"), jp("千代田区丸の内１－１")) is ad.Match.SAME
+    )  # full-width digits are the same digits
+    ru = {"city": "Москва", "country": "RU"}
+    assert (
+        ad.compare(
+            ad.parse_address({**ru, "line1": "ул. Тверская 1"}),
+            ad.parse_address({**ru, "line1": "ул. Арбат 1"}),
+        )
+        is not ad.Match.SAME
+    )
+    assert (
+        ad.compare(
+            ad.parse_address({**ru, "line1": "ул. Тверская 1"}),
+            ad.parse_address({**ru, "line1": "УЛ ТВЕРСКАЯ, 1"}),
+        )
+        is ad.Match.SAME
+    )
+
+
+def test_a_mark_that_changes_a_word_outside_latin_is_kept():
+    """Dropping marks is right for é and e; it is wrong for a Japanese voicing mark (が is not か) or a Devanagari vowel sign (राम is not रिम)."""
+    assert ad.compare(jp("がっこう1"), jp("かっこう1")) is not ad.Match.SAME
+    hi = {"city": "दिल्ली", "country": "IN"}
+    assert (
+        ad.compare(
+            ad.parse_address({**hi, "line1": "राम मार्ग 1"}),
+            ad.parse_address({**hi, "line1": "रिम मार्ग 1"}),
+        )
+        is not ad.Match.SAME
+    )
+
+
+def test_a_native_spelling_and_a_transliteration_go_to_a_person():
+    native = jp("千代田区丸の内1-1", postal_code="100-0005")
+    roman = jp("1-1 Marunouchi, Chiyoda-ku", city="Tokyo", postal_code="100-0005")
+    assert ad.compare(native, roman) is ad.Match.PARTIAL
+    assert (
+        ad.compare(native, jp("1-1 Marunouchi", city="Tokyo", postal_code="999-9999"))
+        is ad.Match.DIFFERENT
+    )
+
+
+def test_an_address_with_nothing_comparable_is_never_the_same():
+    x = ad.parse_address({"line1": "—", "city": "★", "country": "GB"})
+    assert ad.compare(x, x) is ad.Match.PARTIAL
+
+
+def test_a_name_in_another_script_is_not_a_mismatch_and_a_split_name_is_not_a_pass():
+    native = ad.parse_address({"line1": "千代田区丸の内1-1", "city": "東京都", "country": "JP"})
+    d = doc(address=native, name_on_document="李小龍")
+    r = ad.assess_proof(d, native, "Lee Siu Long", POLICY, today=TODAY)
+    assert (
+        "NAME_PARTIAL_MATCH" in codes(r)
+        and "NAME_MISMATCH" not in codes(r)
+        and r.support is ad.Support.REVIEW
+    )
+    assert ad.assess_proof(d, native, "李小龍", POLICY, today=TODAY).support is ad.Support.SUPPORTS
+    assert "NAME_PARTIAL_MATCH" in codes(ad.assess_proof(d, native, "李 小龍", POLICY, today=TODAY))
+
+
 def test_the_comparison_is_symmetric():
     pairs = [
         (a(), a(line1="12, STATION RD.")),
         (a(), a(line1="Flat 2, 12 Station Road")),
         (a(), a(country="IE", postal_code="D02 X285")),
+        (jp("千代田区丸の内1-1"), jp("1-1 Marunouchi", city="Tokyo")),
+        (jp("千代田区丸の内1-1"), jp("新宿区西新宿2-8-1")),
     ]
     for x, y in pairs:
         assert ad.compare(x, y) is ad.compare(y, x)
@@ -135,19 +216,29 @@ def test_the_comparison_is_symmetric():
 # ------------------------------------------------------------------------------------------------------------------- the policy
 
 
-def test_a_policy_is_data_with_types_and_ages_and_refuses_nonsense():
-    assert ad.accepted_types(POLICY) == ["TENANCY_AGREEMENT", "UTILITY_BILL"]
+def test_a_policy_is_data_with_types_and_ages_per_market_and_refuses_nonsense():
+    assert ad.accepted_types(POLICY, "GB") == ["TENANCY_AGREEMENT", "UTILITY_BILL"]
+    assert ad.accepted_types(POLICY, "gb") == ["TENANCY_AGREEMENT", "UTILITY_BILL"]
+    assert (
+        ad.accepted_types(POLICY, "FR") == []
+    )  # a market the policy does not name offers no document
     for bad in (
-        {"status": "LIVE", "max_age_days": {"UTILITY_BILL": 90}},
-        {"max_age_days": {}},
-        {"max_age_days": {"utility bill": 90}},
-        {"max_age_days": {"UTILITY_BILL": 0}},
-        {"max_age_days": {"UTILITY_BILL": 99999}},
-        {"max_age_days": {"UTILITY_BILL": "90"}},
-        {"max_age_days": {"UTILITY_BILL": True}},
+        {"status": "LIVE", "markets": {"GB": {"UTILITY_BILL": 90}}},
+        {"markets": {}},
+        {"markets": {"GB": {}}},
+        {"markets": {"GBR": {"UTILITY_BILL": 90}}},
+        {"markets": {"GB": {"utility bill": 90}}},
+        {"markets": {"GB": {"UTILITY_BILL": 0}}},
+        {"markets": {"GB": {"UTILITY_BILL": 99999}}},
+        {"markets": {"GB": {"UTILITY_BILL": "90"}}},
+        {"markets": {"GB": {"UTILITY_BILL": True}}},
+        {
+            "max_age_days": {"UTILITY_BILL": 90}
+        },  # one rule for every market (WF-05 A06: no universal 90-day rule)
+        {"max_age_days": {"UTILITY_BILL": 90}, "markets": {"GB": {"UTILITY_BILL": 90}}},
         {
             "status": "APPROVED",
-            "max_age_days": {"UTILITY_BILL": 90},
+            "markets": {"GB": {"UTILITY_BILL": 90}},
         },  # approval needs a named approver and a legal basis
     ):
         with pytest.raises(ad.AddressError):
@@ -157,7 +248,7 @@ def test_a_policy_is_data_with_types_and_ages_and_refuses_nonsense():
             "status": "APPROVED",
             "approved_by": "compliance",
             "legal_basis_ref": "L-1",
-            "max_age_days": {"UTILITY_BILL": 90},
+            "markets": {"GB": {"UTILITY_BILL": 90}},
         }
     )
     assert ok.status == "APPROVED"
@@ -169,6 +260,21 @@ def test_the_shipped_policy_is_a_sample_nobody_approved_and_says_so():
     raw = yaml.safe_load((CONFIG / FILE).read_text(encoding="utf-8"))
     assert raw["status"] == "SAMPLE" and "approved_by" not in raw
     assert assess(policy=p).policy_status == "SAMPLE"
+    assert list(p.markets) == ["GB"]  # only the market the sample types belong to; no global list
+
+
+def test_a_market_the_policy_does_not_name_is_never_supported_and_goes_to_a_person():
+    fr = ad.parse_address(
+        {"line1": "1 rue de la Paix", "city": "Paris", "postal_code": "75002", "country": "FR"}
+    )
+    r = ad.assess_proof(doc(address=fr), fr, "Dana Lee", POLICY, today=TODAY)
+    assert "NO_POLICY_FOR_MARKET" in codes(r) and r.support is ad.Support.REVIEW
+    assert "DOCUMENT_TYPE_NOT_ACCEPTED" not in codes(r)  # not judged under another market's rule
+    # an explicit market overrides the address's country
+    assert (
+        ad.assess_proof(doc(), HOME, "Dana Lee", POLICY, today=TODAY, market="FR").support
+        is ad.Support.REVIEW
+    )
 
 
 # ------------------------------------------------------------------------------------------------------------------- proof of address

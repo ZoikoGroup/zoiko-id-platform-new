@@ -388,3 +388,85 @@ def test_passkey_registration_login_step_up_and_lifecycle(rt_url: str, owner_url
     sessions, keys, mah = asyncio.run(billing())
     assert keys and set(keys) == sessions and len(keys) == len(set(keys))
     assert mah == 2  # alice and mallory, once each this month
+
+
+def test_a_passkey_never_opens_a_session_in_another_tenant_even_when_rls_is_bypassed(
+    rt_url: str, owner_url: str
+) -> None:
+    """A passkey registered in tenant A is refused for tenant B's client. The runtime role's row-level security already hides A's authenticator
+    from B; the superuser connection here bypasses it (as the local development database does), so this proves the code checks the tenant too."""
+    home, other, alice = uid(), uid(), uid()
+    home_client, other_client = f"web-{uid()}", f"web-{uid()}"
+    now = datetime.now(UTC)
+
+    def client(cid: str, tenant: str) -> OAuthClient:
+        return OAuthClient(
+            client_id=cid, tenant_id=tenant, client_type="PUBLIC", profile="STANDARD", redirect_uris=(CB,),
+            grant_types=frozenset({"authorization_code"}), scopes=frozenset({"openid"}), audiences=(AUD,), token_auth_method="none",
+            dpop_bound=False, status="ACTIVE", first_party=True,
+        )  # fmt: skip
+
+    async def seed() -> str:
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(other)) as c:
+                await create_client(c, client(other_client, other))
+            async with tenant_transaction(eng, ctx(home)) as c:
+                await create_principal(
+                    c, Principal(alice, home, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+                )
+                await create_client(c, client(home_client, home))
+                return await issue_ticket(
+                    c,
+                    tenant_id=home,
+                    principal_id=alice,
+                    purpose="BOOTSTRAP",
+                    issued_by="test",
+                    expires_at=now + timedelta(hours=1),
+                )
+
+    ticket = asyncio.run(seed())
+    key = SoftAuthenticator(RP, ORIGIN)
+
+    def app_on(url: str) -> Any:
+        return create_app(
+            Settings(
+                database_url=url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", webauthn_rp_id=RP,
+                webauthn_origins=(ORIGIN,), webauthn_related_origins=(RELATED,),
+            ),
+            keyring=KeyRing(LocalSigner("issuer-1")),
+        )  # fmt: skip
+
+    h = {"Origin": ORIGIN}
+    with TestClient(app_on(rt_url), base_url=ISS, follow_redirects=False) as http:
+        o = http.post(
+            "/authn/webauthn/registration/options",
+            json={"client_id": home_client, "enrollment_ticket": ticket},
+            headers=h,
+        ).json()
+        r = http.post(
+            "/authn/webauthn/registration/verify",
+            json={"client_id": home_client, "credential": key.create(o)},
+            headers=h,
+        )
+        assert r.status_code == 201, r.text
+
+    with TestClient(app_on(owner_url), base_url=ISS, follow_redirects=False) as http:
+
+        def login(cid: str) -> Any:
+            http.cookies.clear()
+            o = http.post(
+                "/authn/webauthn/authentication/options", json={"client_id": cid}, headers=h
+            ).json()
+            return http.post(
+                "/authn/webauthn/authentication/verify",
+                json={"client_id": cid, "credential": key.get(o)},
+                headers=h,
+            )
+
+        crossed = login(other_client)
+        assert (
+            crossed.status_code != 200
+            and crossed.json()["error"]["code"] == "AUTHENTICATOR_NOT_ACTIVE"
+        )
+        home_login = login(home_client)  # the same passkey in its own tenant still works
+        assert home_login.status_code == 200 and home_login.json()["principal_id"] == alice

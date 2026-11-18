@@ -699,9 +699,36 @@
         "title": "PrivV2AttestIn",
         "type": "object"
       },
+      "PrivV2BreachDataClassesIn": {
+        "additionalProperties": false,
+        "properties": {
+          "data_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Data Classes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_classes"
+        ],
+        "title": "PrivV2BreachDataClassesIn",
+        "type": "object"
+      },
       "PrivV2BreachIn": {
         "additionalProperties": false,
         "properties": {
+          "data_classes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Data Classes",
+            "type": "array"
+          },
           "detected_at": {
             "format": "date-time",
             "title": "Detected At",
@@ -4804,6 +4831,61 @@
           }
         },
         "summary": "Close Breach",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/privacy/breaches/{breach_id}/data-classes": {
+      "post": {
+        "description": "WF-04 QA-034 (CR-113): record more affected data classes as the investigation finds them; never removes one.",
+        "operationId": "add_breach_data_classes_v2_privacy_breaches__breach_id__data_classes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "breach_id",
+            "required": true,
+            "schema": {
+              "title": "Breach Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivV2BreachDataClassesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Breach Data Classes V2 Privacy Breaches  Breach Id  Data Classes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Breach Data Classes",
         "tags": [
           "privacy-v2"
         ]

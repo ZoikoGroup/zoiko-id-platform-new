@@ -75,6 +75,10 @@ REGULATED: Mapping[Check, str | None] = {
     Check.SOURCE_OF_FUNDS: "source_of_funds",
 }
 
+# an address check gives evidence that SUPPORTS an address (a location found, a document reviewed); it never verifies that a person lives there on its own
+# (ZID-DTV-WF-05 §02). Like a regulated check, a person must look after it before anything approves.
+PERSON_AFTER: frozenset[Check] = frozenset({*REGULATED, Check.ADDRESS})
+
 
 @dataclass(frozen=True, slots=True)
 class Step:
@@ -362,14 +366,17 @@ def _guards(wf: Workflow, paths: list[_Path]) -> list[Problem]:
                 problems.append(Problem("APPROVAL_NOT_GUARDED", f"{check.value}: {label}"))
         reviews = [i for i, (s, _) in enumerate(path) if wf.steps[s].kind == "REVIEW"]
         for ran in executed:
-            if ran in REGULATED:
+            if ran in PERSON_AFTER:
                 ran_at = next(i for i, (s, _) in enumerate(path) if wf.steps[s].check is ran)
                 if not any(
                     i > ran_at for i in reviews
-                ):  # a person must look AFTER the regulated check ran, before anything approves
-                    problems.append(
-                        Problem("REGULATED_CHECK_AUTO_APPROVES", f"{ran.value}: {label}")
+                ):  # a person must look AFTER the check ran, before anything approves
+                    code = (
+                        "REGULATED_CHECK_AUTO_APPROVES"
+                        if ran in REGULATED
+                        else "ADDRESS_CHECK_AUTO_APPROVES"
                     )
+                    problems.append(Problem(code, f"{ran.value}: {label}"))
     return list(dict.fromkeys(problems))
 
 

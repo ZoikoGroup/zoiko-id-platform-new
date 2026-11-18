@@ -7,7 +7,7 @@ import { can, visibleNav } from "./nav-access";
 const icon = (() => null) as unknown as NavGroup["items"][number]["icon"];
 const item = (id: string) => ({ id, label: id, href: `/${id}`, icon });
 const NAV: NavGroup[] = [
-  { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "settings"].map(item) },
+  { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "checks", "settings"].map(item) },
   { label: "My account", items: ["account", "sessions", "passkeys"].map(item) },
   { label: "Administration", items: ["idp", "verification", "credentials", "authority", "mandates", "policies", "evidence"].map(item) },
 ];

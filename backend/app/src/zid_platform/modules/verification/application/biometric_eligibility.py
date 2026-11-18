@@ -38,6 +38,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.verification.application import biometric_methods as methods
+from zid_platform.modules.verification.application import biometric_release
 from zid_platform.modules.verification.domain import biometric_methods as bm
 from zid_platform.modules.verification.domain import privacy_overlay as po
 from zid_platform.modules.verification.domain.biometric_engine import EngineGate, EngineGateError
@@ -66,6 +67,10 @@ class MethodAnswer:
     )
     evaluation_blockers: tuple[str, ...] = ()
     exposure_percent: int = 100  # CR-110: the share of people a PRODUCTION_ELIGIBLE scope runs for
+    release_drift: tuple[
+        str, ...
+    ] = ()  # CR-113 (QA-041): the live approval names another build or SDK
+    release_attestation: str | None = None  # the attestation hash the live scope rests on
 
     def view(self) -> dict[str, Any]:
         return {
@@ -82,6 +87,8 @@ class MethodAnswer:
             "evaluation_id": self.evaluation_id,
             "evaluation_blockers": list(self.evaluation_blockers),
             "exposure_percent": self.exposure_percent,
+            "release_drift": list(self.release_drift),
+            "release_attestation": self.release_attestation,
         }
 
 
@@ -93,6 +100,9 @@ class Eligibility:
     methods: tuple[MethodAnswer, ...]
     policy_hash: str
     notes: tuple[str, ...] = field(default=())
+    release: Mapping[str, str] | None = (
+        None  # CR-113: the running build and capture SDK, and the binding mode
+    )
 
     def available(self, method: bm.Method) -> bool:
         return any(m.method is method and m.available for m in self.methods)
@@ -106,6 +116,7 @@ class Eligibility:
             "methods": [m.view() for m in self.methods],
             "policy_hash": self.policy_hash,
             "notes": list(self.notes),
+            "release": dict(self.release) if self.release else None,
         }
 
 
@@ -130,6 +141,9 @@ def combine(
     missing_retention: tuple[str, ...] = (),
     evaluation: Mapping[str, Any] | None = None,
     use_case: tuple[str, ...] = (),
+    release_drift: tuple[str, ...] = (),
+    release_enforced: bool = False,
+    release_attestation: str | None = None,
 ) -> MethodAnswer:
     """Pure: one method's answer from what each gate said. `state` and `dpia` are None when the engine gate already failed (they cannot be asked
     without an engine id and version)."""
@@ -163,6 +177,10 @@ def combine(
             str(b) for b in evaluation.get("blockers") or ("EVALUATION_NOT_READY",)
         )
         reasons.append("EVALUATION_NOT_READY")
+    if release_enforced:
+        reasons += list(
+            release_drift
+        )  # CR-113 (QA-041): enforce mode refuses a live scope approved for another build or SDK
     ok = not reasons and state is not None and state.available
     return MethodAnswer(
         method=method,
@@ -180,6 +198,8 @@ def combine(
         exposure_percent=state.record.exposure_percent
         if state is not None and state.record is not None
         else 100,
+        release_drift=tuple(release_drift),
+        release_attestation=release_attestation,
     )
 
 
@@ -206,6 +226,7 @@ def policy_hash(
                 "breaches": list(a.breaches),
                 "missing_retention": list(a.missing_retention),
                 "evaluation_id": a.evaluation_id,
+                "release_drift": list(a.release_drift),
             }
             for a in answers
         ],
@@ -274,6 +295,8 @@ async def eligibility(
         blocked.append("TENANT_REQUIRED")
     breaches = tuple(await capture_paused_breaches(conn, country)) if tenant_id else ()
     use_case = tuple(use_case_problems(purpose, today=now.date()))
+    release = biometric_release.running()
+    enforce_release = biometric_release.binding_mode() == "enforce"
     answers = []
     for method in bm.Method:
         version = versions[method]
@@ -286,6 +309,13 @@ async def eligibility(
         call = bm.Call(method, engine_id, version, country, purpose, tenant_id, rollout_key)
         state = await methods.availability_for(conn, call, at=now)
         dpia = await release_gate(conn, country, dpia_product(method), version)
+        attestation = (
+            await biometric_release.attestation_for(
+                conn, state.record.scope_id, state.record.version
+            )
+            if state.record is not None
+            else None
+        )
         answers.append(
             combine(
                 method,
@@ -297,6 +327,9 @@ async def eligibility(
                 missing_retention=await missing_biometric_retention(conn, method.value, purpose),
                 evaluation=await method_evidence(conn, method.value, engine_id, version),
                 use_case=use_case,
+                release_drift=biometric_release.drift(state.state, attestation, release),
+                release_enforced=enforce_release,
+                release_attestation=attestation.attestation_hash if attestation else None,
             )
         )
     result = tuple(answers)
@@ -313,6 +346,11 @@ async def eligibility(
             country=country, purpose=purpose, engine=engine, answers=result, overlay=overlay
         ),
         notes=notes,
+        release={
+            "build_ref": release.build_ref,
+            "sdk_version": release.sdk_version,
+            "binding": "enforce" if enforce_release else "report",
+        },
     )
 
 

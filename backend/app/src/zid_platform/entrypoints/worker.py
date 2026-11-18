@@ -89,6 +89,12 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return await reauthorization_pass(conn, now=now)
 
+    async def erasure_retry(conn: AsyncConnection, now: datetime) -> object:
+        """WF-04 QA-023 (CR-113): ask a provider again for an overdue or failed deletion; alert once when the attempts run out."""
+        from zid_platform.modules.privacy.ports import erasure_retry_pass
+
+        return await erasure_retry_pass(conn, now=now)
+
     async def registry(conn: AsyncConnection, now: datetime) -> object:
         from zid_platform.main import _secret_broker
         from zid_platform.modules.authority.ports import on_root_changed
@@ -467,6 +473,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("operator_access", operator),
         ("privacy", privacy),
         ("biometric_reauthorization", biometric_reauthorization),
+        ("erasure_retry", erasure_retry),
         ("registry", registry),
         ("domains", domains),
         ("connector_credentials", credentials),

@@ -11,6 +11,12 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from zid_platform.modules.verification.domain.assertions import (
+    ADDRESS_ORDER,
+    Assertion,
+    strongest_address,
+)
+
 
 class TierError(ValueError):
     def __init__(self, code: str, detail: str = "") -> None:
@@ -110,6 +116,8 @@ def parse(doc: dict[str, Any]) -> TierPolicy:
                 raise TierError(
                     "POLICY_INVALID", f"{name}: {r} is not a reason a check may be required"
                 ) from e
+    if "ADDRESS" in optional:
+        _check_address_labels(optional["ADDRESS"])
     if {"PHONE_OTP", "EMAIL_CONFIRMATION", "SSO", "SELFIE_ALONE", "DOMAIN_CONTROL"} - set(
         doc.get("never_identity_proof") or []
     ):
@@ -253,6 +261,27 @@ def counts_as_identity_proof(signal: str, policy: TierPolicy) -> bool:
     return s in PROOF_SOURCES and s not in policy.never_identity_proof
 
 
+def _check_address_labels(body: dict[str, Any]) -> None:
+    """Every address assertion has its own label, and none of them (nor the entered label) says plainly "verified" (WF-05 §02)."""
+    if "label_when_verified" in body:
+        raise TierError(
+            "POLICY_INVALID",
+            "ADDRESS has no single verified label; give one label per address assertion",
+        )
+    labels = body.get("labels")
+    if not isinstance(labels, dict) or set(labels) != {a.value for a in ADDRESS_ORDER}:
+        raise TierError(
+            "POLICY_INVALID",
+            "ADDRESS labels must name exactly: " + ", ".join(a.value for a in ADDRESS_ORDER),
+        )
+    for text in (*labels.values(), body.get("label_when_entered", "")):
+        low = str(text).lower()
+        if "verified" in low and "not verified" not in low:
+            raise TierError(
+                "POLICY_INVALID", f"an address label may not claim it is verified: {text}"
+            )
+
+
 def may_authorize_critical_change(signal: str, policy: TierPolicy) -> bool:
     """A phone code or an SMS can never authorize a critical change on its own; only a strong authenticator can."""
     return signal.upper() not in policy.never_authorizes_critical_change and signal.upper() in {
@@ -261,11 +290,16 @@ def may_authorize_critical_change(signal: str, policy: TierPolicy) -> bool:
     }
 
 
-def address_label(*, entered: bool, verified: bool, policy: TierPolicy) -> str:
-    """A customer-typed address is never shown as verified."""
+def address_label(
+    *, entered: bool, held: frozenset[Assertion] | set[Assertion], policy: TierPolicy
+) -> str:
+    """The label for an address: the strongest WF-05 address assertion actually held, never a single "Verified".
+
+    A customer-typed address with no assertion is shown as entered and not verified. A contact or device assertion says nothing about an address."""
     body = policy.optional["ADDRESS"]
-    if verified:
-        return str(body["label_when_verified"])
+    strongest = strongest_address(set(held))
+    if strongest is not None:
+        return str(body["labels"][strongest.value])
     return str(body["label_when_entered"]) if entered else "Not provided"
 
 

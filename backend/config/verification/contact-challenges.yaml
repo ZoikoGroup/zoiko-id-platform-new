@@ -1,0 +1,13 @@
+# Send limits for WF-05 contact challenges (ZID-DTV-WF-05 §22 OTP pumping, DEC-06; CR-114).
+# status: SAMPLE. Engineering values to exercise the machinery; Security, Product and Operations own the real ones (DEC-06).
+# SMS and voice go only to the calling codes listed; none are listed, so no SMS or voice code is ever sent until DEC-06 names the countries.
+# A daily cap of 0 means no sends on that channel for any tenant.
+status: SAMPLE
+per_contact_hour: 3
+per_case_hour: 6
+per_prefix_hour: 50
+daily_cap:
+  EMAIL: 1000
+  SMS: 0
+  VOICE: 0
+phone_calling_codes: []

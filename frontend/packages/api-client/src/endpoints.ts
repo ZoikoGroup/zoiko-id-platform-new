@@ -18,6 +18,7 @@ import type { components as Priv } from "./generated/privacy";
 import type { components as Res } from "./generated/residency";
 import type { components as Wl } from "./generated/workload-identity";
 import type * as M from "./models";
+import type * as C from "./checks";
 import { seg, type Transport } from "./runtime/transport";
 
 type S<C extends { schemas: Record<string, unknown> }, K extends keyof C["schemas"]> = C["schemas"][K];
@@ -674,6 +675,8 @@ export function createCellApi(t: Transport) {
         closeBreach: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/close`),
         pauseCapture: (id: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:pause`),
         releaseCapture: (id: string, reason: string) => post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/biometric-capture:release`, { reason }),
+        addBreachDataClasses: (id: string, dataClasses: string[]) =>
+          post<M.BreachCase>(`/v2/privacy/breaches/${seg(id)}/data-classes`, { data_classes: dataClasses }),
         /** The person's own verification session (WF-04 B01, B02): what is checked and why, the notice, consent only where it is the basis, and other ways. */
         session: (ref: string) => get<M.SubjectSessionStatus>(`/v2/verification-sessions/${seg(ref)}/subject-status`),
         acknowledgeNotice: (ref: string, noticeVersion: string, language: string) =>
@@ -745,13 +748,48 @@ export function createCellApi(t: Transport) {
       limits: () => get<M.RateLimitStatus>("/v1/usage/limits"),
     },
 
+    /** ZID-DTV-WF-05 verification checks (CR-112 to CR-116). Nothing is available until the owners approve a method. */
+    checks: {
+      eligibility: (country: string, purpose: string) => get<C.CheckEligibility>("/v1/check-methods/eligibility", { country, purpose }),
+      cases: () => get<{ items: C.CheckCase[] }>("/v1/verification-cases"),
+      open: (body: C.CheckCaseIn, idempotencyKey: string) => post<C.CheckCase>("/v1/verification-cases", body, { idempotencyKey }),
+      requirements: (id: string) => get<C.CheckRequirements>(`/v1/verification-cases/${seg(id)}/requirements`),
+      evidence: (id: string) => get<C.CheckEvidence>(`/v1/verification-cases/${seg(id)}/evidence`),
+      close: (id: string) => post<C.CheckCase>(`/v1/verification-cases/${seg(id)}:close`),
+      addContact: (id: string, body: { type: "EMAIL" | "PHONE"; value: string; region?: string }) =>
+        post<C.CheckContact>(`/v1/verification-cases/${seg(id)}/contacts`, body),
+      challenge: (contactId: string, body: { channel: "EMAIL" | "SMS" | "VOICE"; session_ref: string }, idempotencyKey: string) =>
+        post<C.CheckChallenge>(`/v1/contacts/${seg(contactId)}/challenges`, body, { idempotencyKey }),
+      confirm: (contactId: string, body: { challenge_id: string; code: string; session_ref: string }) =>
+        post<C.CheckChallenge>(`/v1/contacts/${seg(contactId)}/confirm`, body),
+      setAddress: (id: string, body: C.CheckAddressIn) =>
+        t.request<C.CheckAddressResult>("PUT", `/v1/verification-cases/${seg(id)}/address`, { body }),
+      documents: (id: string) => get<{ items: C.CheckDocument[] }>(`/v1/verification-cases/${seg(id)}/address-documents`),
+      addDocument: (id: string, body: C.CheckDocumentIn) => post<C.CheckDocument>(`/v1/verification-cases/${seg(id)}/address-documents`, body),
+      review: (id: string, doc: string, body: { finding: "CONFIRMED" | "REQUIRES_MORE_EVIDENCE" | "NOT_SUPPORTED"; reason_codes: string[] }) =>
+        post<{ status: string; recorded: Record<string, string> }>(`/v1/verification-cases/${seg(id)}/address-documents/${seg(doc)}:review`, body),
+      check: (id: string, doc: string, body: { agrees: boolean; reason_codes: string[] }) =>
+        post<{ status: string; recorded: Record<string, string> }>(`/v1/verification-cases/${seg(id)}/address-documents/${seg(doc)}:check`, body),
+      policies: () => get<{ items: C.CheckPolicy[] }>("/v1/check-policies"),
+      draftPolicy: (body: C.CheckPolicyIn) => post<C.CheckPolicy>("/v1/check-policies", body),
+      submitPolicy: (id: string) => post<C.CheckPolicy>(`/v1/check-policies/${seg(id)}:submit`),
+      decidePolicy: (id: string, approve: boolean, reason: string) =>
+        post<C.CheckPolicy>(`/v1/check-policies/${seg(id)}:${approve ? "approve" : "reject"}`, { reason }),
+      postal: (id: string) => post<C.CheckPostal>(`/v1/verification-cases/${seg(id)}/postal-challenges`),
+      confirmPostal: (id: string, challengeId: string, code: string) =>
+        post<C.CheckPostal>(`/v1/verification-cases/${seg(id)}/postal-challenges/${seg(challengeId)}:confirm`, { code }),
+    },
+
     contacts: {
       list: () => get<M.Items<M.EmailContact>>("/v1/tenant/contacts"),
       add: (body: { purpose: M.EmailContactPurpose; address: string }) =>
         t.request<M.EmailContact>("PUT", "/v1/tenant/contacts", { body }),
       remove: (id: string) => t.request<void>("DELETE", `/v1/tenant/contacts/${seg(id)}`),
-      /** Where the signed-in person's own security notices go. */
-      setMine: (address: string) => t.request<{ contact_id: string; address: string }>("PUT", "/v1/account/contact", { body: { address } }),
+      /** Ask to change where the signed-in person's own security notices go; the new address must confirm it (CR-114). */
+      setMine: (address: string) =>
+        t.request<{ change_id: string; status: "PENDING_CONFIRMATION"; address: string; expires_at: string }>("PUT", "/v1/account/contact", { body: { address } }),
+      /** The single-use link from the confirmation email. */
+      confirmMine: (token: string) => t.request<{ status: "APPLIED"; address: string }>("POST", "/v1/account/contact:confirm", { body: { token } }),
     },
 
     billing: {
@@ -1332,6 +1370,14 @@ export function createOperatorApi(t: Transport) {
       liftSuspension: (id: string, reason: string, evidenceRef: string) =>
         post<M.SuspensionVersion>(`/v1/regulatory/suspensions/${seg(id)}:lift`, { reason, evidence_ref: evidenceRef }),
 
+      /** WF-05 check method states (CR-112): the same two-person lifecycle as biometric methods. */
+      checkMethods: () => get<C.CheckMethodsList>("/v1/regulatory/check-methods"),
+      proposeCheckMethod: (body: C.CheckMethodProposeIn) => post<C.CheckMethodProposal>("/v1/regulatory/check-methods/proposals", body),
+      approveCheckProposal: (id: string, reason: string) => post<unknown>(`/v1/regulatory/check-methods/proposals/${seg(id)}:approve`, { reason }),
+      rejectCheckProposal: (id: string, reason: string) => post<unknown>(`/v1/regulatory/check-methods/proposals/${seg(id)}:reject`, { reason }),
+      stepDownCheckMethod: (scopeId: string, body: { target: string; reason: string; evidence_ref: string }) =>
+        post<C.CheckMethodVersion>(`/v1/regulatory/check-methods/${seg(scopeId)}:step-down`, body),
+
       /** Biometric method states per exact scope (ZID-DTV-WF-04; CR-107): a step up is proposed and approved by two people, a step down is at once. */
       biometricMethods: () => get<M.BiometricMethodsList>("/v1/regulatory/biometric-methods"),
       proposeBiometricMethod: (body: M.BiometricProposeIn) => post<M.BiometricProposal>("/v1/regulatory/biometric-methods/proposals", body),
@@ -1341,6 +1387,9 @@ export function createOperatorApi(t: Transport) {
         post<M.BiometricProposal>(`/v1/regulatory/biometric-methods/proposals/${seg(id)}:reject`, { reason }),
       stepDownBiometricMethod: (scopeId: string, body: M.BiometricStepDownIn) =>
         post<M.BiometricMethodVersion>(`/v1/regulatory/biometric-methods/${seg(scopeId)}:step-down`, body),
+      /** CR-113 (QA-039): every scope in the country to OFF and its open proposals withdrawn, in one action by one person. */
+      retireBiometricMarket: (country: string, body: { reason: string; evidence_ref: string }) =>
+        post<M.MarketRetirement>(`/v1/regulatory/biometric-methods/markets/${seg(country)}:retire`, body),
 
       issuers: () => get<M.Items<string>>("/v1/regulatory/issuers"),
       recordIssuerStatement: (body: M.IssuerStatementIn) => post<M.IssuerStatementRecorded>("/v1/regulatory/issuers", body),

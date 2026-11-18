@@ -27,6 +27,10 @@ export const REASON_HELP: Record<string, string> = {
   BIOMETRIC_NOT_PERMITTED_IN_COUNTRY: "This country's overlay does not permit biometric processing.",
   BREACH_CAPTURE_PAUSED: "An open breach case paused biometric capture here. Release it on the Breaches tab once it is safe.",
   TENANT_REQUIRED: "Sign in to an organization to check its methods.",
+  RELEASE_NOT_ATTESTED: "This approval has no record of the build and capture SDK it was signed for. Zoiko must approve it again.",
+  RELEASE_BUILD_CHANGED: "The running build is not the one this approval was signed for. Zoiko must approve it again for this build.",
+  RELEASE_SDK_CHANGED: "The capture SDK is not the one this approval was signed for. Zoiko must approve it again for this SDK.",
+  DPIA_POLICY_CHANGED: "The purpose, retention or provider policy changed after your DPIA was approved. Approve a new DPIA version against the policy now in force.",
   EVALUATION_NOT_READY: "This engine version has no current independent evaluation in your model inventory, or it is not the one in service. See the blockers below.",
 };
 
@@ -107,6 +111,12 @@ export function MethodCard({ answer }: { answer: BiometricMethodAnswer }) {
             {answer.reasons.filter((r) => r.startsWith("USE_CASE_")).map(help).join(" ")}
           </Gate>
         ) : null}
+        {answer.release_drift?.length ? (
+          <Gate ok={!answer.reasons.some((r) => r.startsWith("RELEASE_"))} label="Release signed for this build">
+            {answer.release_drift.map(help).join(" ")}
+            {!answer.reasons.some((r) => r.startsWith("RELEASE_")) ? " Reported only: this deployment does not enforce it yet." : null}
+          </Gate>
+        ) : null}
         <Gate ok={engine && !answer.missing_retention.length} label="Retention for every biometric asset class">
           {answer.missing_retention.length ? (
             <span className="mt-1 flex flex-wrap gap-1">
@@ -169,7 +179,15 @@ export function BiometricSection() {
                 ))}
               </div>
               <p className="text-xs text-ink-subtle">
-                Policy hash <span className="font-mono">{d.policy_hash.slice(0, 16)}…</span> · {d.notes.join(" ")}
+                Policy hash <span className="font-mono">{d.policy_hash.slice(0, 16)}…</span>
+                {d.release ? (
+                  <>
+                    {" "}
+                    · Build <span className="font-mono">{d.release.build_ref}</span>, capture SDK <span className="font-mono">{d.release.sdk_version}</span> (
+                    {d.release.binding === "enforce" ? "a release signed for another build is refused" : "a release signed for another build is reported"})
+                  </>
+                ) : null}{" "}
+                · {d.notes.join(" ")}
               </p>
             </div>
           )}

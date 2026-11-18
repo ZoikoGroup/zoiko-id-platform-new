@@ -8,6 +8,7 @@ import binascii
 import hashlib
 import json
 import os
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -21,8 +22,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 
+from zid_platform.modules.privacy.application import dpia_policy, registry
 from zid_platform.modules.privacy.application import model_governance as models
-from zid_platform.modules.privacy.application import registry
 from zid_platform.modules.privacy.application import service as v1
 from zid_platform.modules.privacy.domain import biometric_assets as ba
 from zid_platform.modules.privacy.domain import collection as collection_rules
@@ -957,6 +958,25 @@ async def _package(conn: AsyncConnection, package_id: str) -> Any:
     return row
 
 
+async def _package_policy(conn: AsyncConnection, p: Any) -> str:
+    """CR-113 (QA-004): the digest of the processing policy in force for this package's purpose and provider."""
+    return await dpia_policy.policy_hash(
+        conn,
+        purpose_code=p.purpose_code,
+        provider_service_ref=p.provider_service_ref,
+        object_types=[c.class_id for c in biometric_classes()],
+    )
+
+
+async def _policy_blockers(conn: AsyncConnection, p: Any) -> list[str]:
+    if p.state != "APPROVED" or not p.policy_hash:
+        return []
+    current = await _package_policy(conn, p)
+    return (
+        [dpia_policy.POLICY_CHANGED] if dpia_policy.changed(p.state, p.policy_hash, current) else []
+    )
+
+
 async def package_view(conn: AsyncConnection, package_id: str) -> dict[str, Any]:
     p = await _package(conn, package_id)
     out = _row(p)
@@ -977,6 +997,7 @@ async def package_view(conn: AsyncConnection, package_id: str) -> dict[str, Any]
     extra = await models.blockers_for(
         conn, p.model_version
     )  # a named model must be the evaluated one in service (AT-015, AT-016)
+    extra = [*extra, *await _policy_blockers(conn, p)]  # CR-113: the policy changed after approval
     blockers = [*rel.blockers, *extra]
     out["release"] = {"ready": rel.ready and not extra, "blockers": blockers}
     return out
@@ -1001,7 +1022,10 @@ async def list_packages(conn: AsyncConnection, *, limit: int = 100) -> list[dict
             consultation_ref=p.consultation_ref,
             now=now,
         )
-        extra = await models.blockers_for(conn, p.model_version)
+        extra = [
+            *await models.blockers_for(conn, p.model_version),
+            *await _policy_blockers(conn, p),
+        ]
         view = _row(p)
         view.pop("risks", None)
         view["risk_count"] = len(p.risks)
@@ -1119,10 +1143,11 @@ async def decide_package(
     await conn.execute(
         text("""
             UPDATE privacy.dpia_package SET state = :s, decided_by = :by, decision_rationale = :r, updated_at = now(),
-                approved_until = CASE WHEN :ok THEN now() + make_interval(days => :d) END
+                approved_until = CASE WHEN :ok THEN now() + make_interval(days => :d) END, policy_hash = :ph
             WHERE package_id = :p
         """),
         {
+            "ph": await _package_policy(conn, p) if approve else None,
             "s": "APPROVED" if approve else "REJECTED",
             "by": _u(actor),
             "r": rationale,
@@ -1449,14 +1474,17 @@ def _breach_view(r: Any, config: dict[str, Any], now: datetime) -> dict[str, Any
 async def open_breach(
     conn: AsyncConnection, tenant_id: str, actor: str, *, summary: str, severity: str, jurisdictions: list[str], subjects_estimate: int | None,
     detected_at: datetime, config: dict[str, Any] | None = None, pause_biometric_capture: bool | None = None,
+    data_classes: list[str] | None = None,
 ) -> dict[str, Any]:  # fmt: skip
-    """`pause_biometric_capture` None takes the severity default (CR-108: HIGH and CRITICAL pause); the pause takes effect in this transaction."""
+    """`pause_biometric_capture` None takes the severity default (CR-108: HIGH and CRITICAL pause); the pause takes effect in this transaction.
+    `data_classes` (CR-113, QA-034): the data classes the incident touched, as far as known at opening; more are added later, none removed."""
     pause = rules.default_capture_pause(severity, pause_biometric_capture)
+    classes = _data_classes(data_classes or [])
     row = (
         await conn.execute(
             text(
                 "INSERT INTO privacy.breach_case (breach_id, tenant_id, summary, severity, jurisdictions, subjects_estimate, detected_at, opened_by, "
-                "capture_state, capture_paused_by, capture_paused_at) VALUES (:id,:t,:s,:sev,:j,:n,:d,:by,:cs,:pby,:pat) RETURNING *"
+                "capture_state, capture_paused_by, capture_paused_at, data_classes) VALUES (:id,:t,:s,:sev,:j,:n,:d,:by,:cs,:pby,:pat,:dc) RETURNING *"
             ),
             {
                 "id": uuid7(),
@@ -1470,6 +1498,7 @@ async def open_breach(
                 "cs": "PAUSED" if pause else "NOT_PAUSED",
                 "pby": _u(actor) if pause else None,
                 "pat": _now() if pause else None,
+                "dc": classes,
             },
         )
     ).one()
@@ -1481,9 +1510,52 @@ async def open_breach(
         actor=actor,
         target_type="breach_case",
         target_ref=str(row.breach_id),
-        details={"severity": severity, "capture_paused": pause},
+        details={"severity": severity, "capture_paused": pause, "data_classes": classes},
     )
     return _breach_view(row, config if config is not None else breach_config(), _now())
+
+
+DATA_CLASS = re.compile(r"^[a-z][a-z0-9_]{0,31}(\.[a-z][a-z0-9_]{0,62})?$")
+
+
+def _data_classes(values: list[str]) -> list[str]:
+    """Data class codes: a biometric asset class id (`biometric.face_template`) or a data category code (`identity.document`). Codes only."""
+    out = sorted({v.strip() for v in values})
+    bad = [v for v in out if not DATA_CLASS.match(v)]
+    if bad or len(out) > 32:
+        raise PrivacyError("DATA_CLASS_INVALID", ", ".join(bad) or "at most 32 classes")
+    return out
+
+
+async def add_breach_data_classes(
+    conn: AsyncConnection, tenant_id: str, actor: str, breach_id: str, *, data_classes: list[str]
+) -> dict[str, Any]:
+    """CR-113 (QA-034): the investigation found more affected data classes. They are added, never removed; a closed case is not changed."""
+    classes = _data_classes(data_classes)
+    if not classes:
+        raise PrivacyError("DATA_CLASS_INVALID", "name at least one class")
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE privacy.breach_case SET data_classes = ARRAY(SELECT DISTINCT unnest(data_classes || CAST(:dc AS text[])) ORDER BY 1) "
+                "WHERE breach_id = :b AND state <> 'CLOSED' RETURNING breach_id"
+            ),
+            {"dc": classes, "b": _u(breach_id)},
+        )
+    ).first()
+    if row is None:
+        raise PrivacyError("PRIVACY_INVALID_STATE", "no open breach case with that id")
+    await v1._audit(
+        conn,
+        tenant_id,
+        None,
+        "privacy.breach.data_classes_added",
+        actor=actor,
+        target_type="breach_case",
+        target_ref=breach_id,
+        details={"data_classes": classes},
+    )
+    return await get_breach(conn, breach_id)
 
 
 async def list_breaches(

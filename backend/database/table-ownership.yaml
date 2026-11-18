@@ -524,6 +524,11 @@ tables:
     module: communication
     tenant_scoped: false
     source: "Communication Estate §03 (CR-031)"
+  platform.email_contact_change:
+    role: cell
+    module: communication
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 DTV-21 QA-014: a pending change of a principal's own security email, confirmed by the new address (proposed, CR-114)"
   platform.email_contact:
     role: cell
     module: communication
@@ -1074,6 +1079,71 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-DTV-WF-04 BIO-03 biometric method lifecycle and kill switch per exact scope, versioned and append-only (proposed, CR-107)"
+  verify.check_method_proposal:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-05 §04, §27 check method (email, phone, address, postal, device) step-up proposals, decided once by a second person (proposed, CR-112)"
+  verify.check_method_state:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-DTV-WF-05 §04, §27 check method lifecycle and kill switch per exact scope, versioned and append-only (proposed, CR-112)"
+  verify.check_case:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 VerificationCase: tenant, subject reference, purpose, market, region and the eligibility it opened under (proposed, CR-112)"
+  verify.check_assertion:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §02, §06 EvidenceDecision: one append-only row per separate evidence assertion of a case (proposed, CR-112)"
+  verify.check_contact:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 ContactClaim: a case's email or phone, vault-encrypted, keyed hash per tenant, revisioned (proposed, CR-114)"
+  verify.check_challenge:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 Challenge: one-time challenge bound to a contact revision and session, keyed hash only (proposed, CR-114)"
+  verify.check_address:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 AddressClaim: the address a case checks, as typed, revisioned (proposed, CR-115)"
+  verify.check_address_document:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 AddressEvidence: a proof of address document reference, what was read and the rules' assessment (proposed, CR-115)"
+  verify.check_device_nonce:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 DTV-22 QA-032: single-use attestation nonce bound to a case and session, keyed hash only (proposed, CR-116)"
+  verify.check_device_observation:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 DeviceObservation: tenant- and period-keyed pseudonym, platform, attestation, named signals, append-only (proposed, CR-116)"
+  verify.check_policy:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A11 company verification policy per market and purpose; author != approver; one approved (proposed, CR-118)"
+  verify.check_postal_challenge:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A08 postal confirmation code bound to an address revision, keyed hash only, audited dispatch (proposed, CR-115)"
+  verify.check_address_review:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A10: maker and checker review steps, append-only, checker never the maker (proposed, CR-115)"
   verify.conformance_run:
     role: cell
     module: verification
@@ -1609,6 +1679,11 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRI-004 §10/§11 appeals and human review (CR-072)"
+  privacy.biometric_release_attestation:
+    role: cell
+    module: privacy
+    tenant_scoped: false
+    source: "ZID-DTV-WF-04 QA-041 the build and capture SDK each approved biometric release was signed for, append-only (proposed, CR-113)"
   privacy.breach_case:
     role: cell
     module: privacy

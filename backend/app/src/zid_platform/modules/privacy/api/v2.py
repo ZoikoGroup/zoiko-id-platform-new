@@ -11,6 +11,7 @@
     POST /v2/decisions/{id}/appeals | /v2/decisions/{id}/human-reviews | POST /v2/privacy/reviews/{id}/decisions | GET /v2/privacy/reviews/{id} | GET /v2/privacy/reviews[?state=] | POST .../{id}/checks (a reversal needs a checker; CR-109)
     POST /v2/privacy/breaches | GET /v2/privacy/breaches[?open_only=] | GET .../{id} | POST .../{id}/notifications | POST .../{id}/close
     POST /v2/privacy/breaches/{id}/biometric-capture:pause | :release   containment: stop biometric methods in the case's jurisdictions (CR-108)
+    POST /v2/privacy/breaches/{id}/data-classes   affected data classes found later, added never removed (CR-113)
     GET  /v2/privacy/kpis
     POST /v2/privacy/models | POST /v2/privacy/model-evaluations | GET .../models/{ref}/versions/{v} | POST .../versions/{v}:promote | :rollback | POST .../models/{ref}:observe
 
@@ -762,6 +763,14 @@ class PrivV2BreachIn(BaseModel):
     pause_biometric_capture: bool | None = (
         None  # CR-108: None takes the severity default (HIGH and CRITICAL pause)
     )
+    data_classes: list[str] = Field(
+        default_factory=list, max_length=32
+    )  # CR-113 (QA-034): affected data classes, codes only
+
+
+class PrivV2BreachDataClassesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    data_classes: list[str] = Field(min_length=1, max_length=32)
 
 
 class PrivV2CaptureReleaseIn(BaseModel):
@@ -782,9 +791,24 @@ async def open_breach(body: PrivV2BreachIn, request: Request, caller: CallerDep)
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         return await ctl.open_breach(conn, _tenant(caller), me, summary=body.summary, severity=body.severity, jurisdictions=body.jurisdictions,
                                      subjects_estimate=body.subjects_estimate, detected_at=body.detected_at, config=_config(request),
-                                     pause_biometric_capture=body.pause_biometric_capture)  # fmt: skip
+                                     pause_biometric_capture=body.pause_biometric_capture, data_classes=body.data_classes)  # fmt: skip
 
     return {**_ids(), **await _run(request, caller, MANAGE, "breach_case:new", go)}
+
+
+@router.post("/v2/privacy/breaches/{breach_id}/data-classes")
+async def add_breach_data_classes(
+    breach_id: str, body: PrivV2BreachDataClassesIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """WF-04 QA-034 (CR-113): record more affected data classes as the investigation finds them; never removes one."""
+    me = _me(caller)
+
+    async def go(conn: AsyncConnection) -> dict[str, Any]:
+        return await ctl.add_breach_data_classes(
+            conn, _tenant(caller), me, breach_id, data_classes=body.data_classes
+        )
+
+    return {**_ids(), **await _run(request, caller, MANAGE, f"breach_case:{breach_id}", go)}
 
 
 @router.post("/v2/privacy/breaches/{breach_id}/biometric-capture:pause")
