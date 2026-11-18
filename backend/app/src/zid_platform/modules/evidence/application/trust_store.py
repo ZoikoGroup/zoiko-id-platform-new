@@ -33,6 +33,7 @@ from zid_platform.modules.evidence.application.csca_master_list import (
 from zid_platform.modules.evidence.domain import trust_store as rules
 from zid_platform.modules.evidence.domain.trust_store import State, TrustStoreError
 from zid_platform.modules.evidence.infrastructure import trust_package_store as store
+from zid_platform.modules.evidence.infrastructure.source_policy import load as load_source_policy
 
 MAX_ANCHORS = 5
 _PUBLIC = (
@@ -159,7 +160,13 @@ async def stage(
 
 
 async def validate(
-    conn: AsyncConnection, *, tenant_id: str, actor: str, package_id: str, now: datetime
+    conn: AsyncConnection,
+    *,
+    tenant_id: str,
+    actor: str,
+    package_id: str,
+    now: datetime,
+    source_policy: rules.SourcePolicy | None = None,
 ) -> dict[str, Any]:
     """Verify the stored master list against the stored anchors. A list that does not verify is REJECTED; it never becomes a candidate."""
     row = await _must(conn, package_id, heavy=True)
@@ -176,8 +183,15 @@ async def validate(
         }
         for c in result.certificates
     ]
-    new_state = rules.after_validation(result.status, len(records))
+    policy = source_policy if source_policy is not None else load_source_policy()
+    problems = rules.authority_problems(
+        policy, {r["country"] for r in records}, str(row["source_uri"])
+    )
+    new_state = rules.after_validation(
+        result.status, len(records), authority_ok=not (policy.enforce and problems)
+    )
     reasons = list(result.reasons)
+    reasons += [p if policy.enforce else f"ADVISORY:{p}" for p in problems]
     if new_state is State.REJECTED and not reasons:
         reasons = ["NO_CERTIFICATES"]
     version = await store.update(
@@ -194,7 +208,12 @@ async def validate(
         validated_at=now,
         **(
             {
-                "decision_reason": "LIST_DID_NOT_VERIFY: " + ",".join(reasons)[:450],
+                "decision_reason": (
+                    "SOURCE_NOT_ALLOWLISTED: "
+                    if result.status == "VERIFIED" and problems
+                    else "LIST_DID_NOT_VERIFY: "
+                )
+                + ",".join(reasons)[:450],
                 "decided_at": now,
             }
             if new_state is State.REJECTED

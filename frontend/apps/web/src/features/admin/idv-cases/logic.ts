@@ -59,6 +59,10 @@ const REASONS: Record<string, string> = {
 };
 
 export function explainReason(code: string): string {
+  const recapture = /^RECAPTURE_REQUESTED:(.+)$/.exec(code);
+  if (recapture) return `A reviewer asked for a new photograph: ${(RECAPTURE_TEXT[recapture[1]!] ?? recapture[1]!).toLowerCase()}.`;
+  const rejected = /^REVIEWER_REJECTED:(.+)$/.exec(code);
+  if (rejected) return `A reviewer rejected the case: ${(REJECT_TEXT[rejected[1]!] ?? rejected[1]!).toLowerCase()}.`;
   if (code.startsWith("BIOMETRICS_OFF:")) return `Biometric steps are off for this market: ${code.slice(15).toLowerCase().replace(/_/g, " ")}.`;
   if (code.startsWith("CHIP_")) return REASONS[code] ?? code;
   return REASONS[code] ?? code;
@@ -92,7 +96,17 @@ export function signalWords(value: string): string {
 }
 
 const PROBLEMS: Record<string, string> = {
-  REVIEWER_IS_THE_APPLICANT: "A person cannot review their own case.",
+  REVIEWER_IS_THE_APPLICANT: "A person cannot review their own case or open their own photograph.",
+  DATE_ALREADY_ESTABLISHED: "The document's date is already established for this case.",
+  SCAN_UNAVAILABLE: "The file could not be checked for malware right now. Try again soon.",
+  IMAGE_REFUSED: "That file could not be accepted.",
+  MEDIA_RETENTION_NOT_SET: "This market has no retention period for photographs, so none is kept.",
+  MEDIA_NOT_FOUND: "There is no photograph on this case now (it may have been replaced).",
+  MEDIA_EXPIRED: "The retention period for this photograph has ended.",
+  GRANT_INVALID: "That permission has expired, been used up or is not yours. Ask again with a reason.",
+  REASON_REQUIRED: "Say why you need to see the photograph (10 to 500 characters).",
+  ONLY_ON_REVIEWED_ROUTE: "Only a case that people decide can be rejected or sent back this way.",
+  CODE_INVALID: "Choose one of the listed reasons.",
   ALREADY_REVIEWED: "You already signed this case.",
   CASE_CLOSED: "This case reached a final decision.",
   ROUTE_HAS_NO_CHIP: "This case is on an alternative route; it has no chip.",
@@ -108,3 +122,76 @@ export function problemText(code: string): string {
 export function canReview(c: { state: string; route: string; reviewers: number; decision: IdvDecision }): boolean {
   return c.state === "OPEN" && c.route !== "CHIP" && c.decision === "REVIEW_REQUIRED";
 }
+
+/** Why a reviewer may reject, each a defined failure and never a bare accusation. */
+export const REJECT_TEXT: Record<string, string> = {
+  DOCUMENT_MANIPULATION_SUSPECTED: "The document looks altered",
+  DOCUMENT_EXPIRED: "The document has expired",
+  NOT_A_SUPPORTED_DOCUMENT: "This is not a document the market accepts",
+  DETAILS_INCONSISTENT: "The details on the document do not agree with each other",
+};
+
+/** Why a reviewer may ask for a new photograph. Asking is not a finding against the applicant and costs them no attempt. */
+export const RECAPTURE_TEXT: Record<string, string> = {
+  PHOTO_UNREADABLE: "The photograph cannot be read",
+  GLARE_OR_SHADOW: "Glare or a shadow hides part of it",
+  PAGE_CUT_OFF: "Part of the page is cut off",
+  WRONG_PAGE: "It is not the page with the photo and the two lines at the bottom",
+};
+
+export const CHECK_TEXT: Record<string, string> = {
+  RESOLUTION: "Resolution",
+  SHARPNESS: "Sharpness",
+  GLARE: "Glare",
+  EXPOSURE: "Exposure",
+  ELA_ANOMALY: "Re-compression screen",
+  MRZ_READABLE: "The two lines at the bottom can be read",
+  MRZ_CHECK_DIGITS: "The check digits on those lines add up",
+};
+
+/** A measured check in words. A good score is about the capture, not about whether the document is genuine. */
+export function checkWords(name: string, result: string): { label: string; tone: Tone; text: string } {
+  const label = CHECK_TEXT[name] ?? name.toLowerCase().replace(/_/g, " ");
+  if (result === "PASS") return { label, tone: "ok", text: "fine" };
+  if (result === "FAIL") return { label, tone: "danger", text: name === "ELA_ANOMALY" ? "residue worth a look" : "not good enough" };
+  return { label, tone: "info", text: "could not be judged" };
+}
+
+/** Why the reviewer cannot ask to open the photograph yet, or null. Every look is logged with this reason. */
+export function reasonProblem(reason: string): string | null {
+  const n = reason.trim().length;
+  if (n < 10) return "Say why you need to see it (at least 10 characters).";
+  if (n > 500) return "Keep the reason under 500 characters.";
+  return null;
+}
+
+/** The sentence about how long the photograph is kept, from what the platform says. */
+export function keptLine(photo: { has_photo: boolean; expired?: boolean; expires_at?: string }): string {
+  if (!photo.has_photo) return "There is no photograph on this case.";
+  if (photo.expired) return "The retention period for this photograph has ended.";
+  return photo.expires_at ? `Kept encrypted until ${new Date(photo.expires_at).toLocaleDateString()}, then deleted.` : "Kept encrypted.";
+}
+
+export const OPEN_NOTE = "Opening it is logged with your reason. It stays open for five minutes and can be shown three times. It is never in a list or a log.";
+
+/** What an approved case counts as downstream. The grade travels with the claim so a consumer can decide what to accept. */
+export const GRADE_TEXT: Record<string, string> = {
+  CHIP_VERIFIED: "Verified with the passport chip",
+  REVIEWED_NO_CHIP: "Reviewed by people, no chip read",
+};
+
+export function claimLine(c: { grade: string; valid_until: string; status: string } | null): string {
+  if (c === null) return "This case left no identity claim, so nothing else on the platform will rely on it.";
+  const when = new Date(c.valid_until).toLocaleDateString();
+  if (c.status === "REVOKED") return "The identity claim this case left has been withdrawn.";
+  return `Counts as an identity claim until ${when}: ${(GRADE_TEXT[c.grade] ?? c.grade).toLowerCase()}.`;
+}
+
+/** How long a case has waited, and whether the market's deadline has passed. */
+export function waitingLine(i: { waiting_hours: number; due_at: string | null; overdue: boolean }): string {
+  const waited = i.waiting_hours < 1 ? "just arrived" : i.waiting_hours < 48 ? `waiting ${i.waiting_hours} hours` : `waiting ${Math.floor(i.waiting_hours / 24)} days`;
+  if (!i.due_at) return waited;
+  return i.overdue ? `${waited}, overdue (was due ${new Date(i.due_at).toLocaleString()})` : `${waited}, due ${new Date(i.due_at).toLocaleString()}`;
+}
+
+export const ATTEST_NOTE = "The platform could not read this document's date. If you attest to it, that is logged as your act and recorded as an attestation, not as the platform's reading. Once a date is established, nobody changes it.";

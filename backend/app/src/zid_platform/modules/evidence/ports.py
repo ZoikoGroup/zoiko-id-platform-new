@@ -13,20 +13,33 @@ Worker: `worker_pass` (sequence, checkpoint, anchor, retention sweep).
 
 from __future__ import annotations
 
+from zid_platform.modules.evidence.application import review_photo
 from zid_platform.modules.evidence.application import trust as trust_model
 from zid_platform.modules.evidence.application.active_auth import (
     verify as verify_active_authentication,
 )
 from zid_platform.modules.evidence.application.assessment import Assessment, assess
+from zid_platform.modules.evidence.application.chip_authentication import (
+    CamEvidence,
+)
+from zid_platform.modules.evidence.application.chip_authentication import (
+    assess as assess_chip_authentication,
+)
 from zid_platform.modules.evidence.application.chip_reader import (
     ChipMachine,
     ChipRead,
     ChipReader,
     ChipReadError,
 )
+from zid_platform.modules.evidence.application.destinations import keep_destination, read_destination
 from zid_platform.modules.evidence.application.dg2 import chip_photo
 from zid_platform.modules.evidence.application.epassport import verify as verify_chip
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
+from zid_platform.modules.evidence.application.master_list_refresh import (
+    HttpFetcher,
+    load,
+    refresh_pass,
+)
 from zid_platform.modules.evidence.application.provenance import (
     Node,
     add_edges,
@@ -50,6 +63,7 @@ from zid_platform.modules.evidence.application.runtime import (
     current_runtime,
     runtime_from_settings,
 )
+from zid_platform.modules.evidence.application.scanner import scan as scan_content
 from zid_platform.modules.evidence.application.sealed import SealError, open_sealed, seal
 from zid_platform.modules.evidence.application.seals import SealCheck, check_signed_xml
 from zid_platform.modules.evidence.application.trust_store import (
@@ -76,9 +90,22 @@ from zid_platform.modules.evidence.domain.mrz import parse as parse_mrz
 from zid_platform.modules.evidence.domain.receipts import AuditFacts, ReceiptFacts, ReplayResult
 from zid_platform.modules.evidence.infrastructure.trust_config import trust_config
 
+
+async def master_list_refresh_pass(conn, now, *, in_tenant, fetcher=None, sources=None):  # type: ignore[no-untyped-def]
+    """The scheduled master-list fetch (CR-114): stage what changed from the configured sources; the sources default to the shipped file, which is empty."""
+    return await refresh_pass(
+        conn,
+        now,
+        sources=load() if sources is None else sources,
+        fetcher=fetcher or HttpFetcher(),
+        in_tenant=in_tenant,
+    )
+
+
 __all__ = [
     "Assessment",
     "AuditFacts",
+    "CamEvidence",
     "ChipMachine",
     "ChipRead",
     "ChipReadError",
@@ -100,6 +127,7 @@ __all__ = [
     "add_edges",
     "artifact",
     "assess",
+    "assess_chip_authentication",
     "check_signed_xml",
     "chip_photo",
     "commitment",
@@ -113,6 +141,7 @@ __all__ = [
     "hold_status",
     "ingest_event",
     "is_held",
+    "master_list_refresh_pass",
     "keep_destination",
     "material_commitment",
     "open_sealed",
@@ -127,7 +156,9 @@ __all__ = [
     "register_artifact",
     "register_issuer_binding",
     "register_replayer",
+    "review_photo",
     "runtime_from_settings",
+    "scan_content",
     "seal",
     "sequence_pending",
     "store_object",

@@ -1916,6 +1916,9 @@
     "screening.domain": {
       "address": "zid.{env}.{region}.screening.domain",
       "messages": {
+        "screening_case_outcome_changed": {
+          "$ref": "#/components/messages/screening_case_outcome_changed"
+        },
         "screening_signal_corrected": {
           "$ref": "#/components/messages/screening_signal_corrected"
         },
@@ -5810,6 +5813,17 @@
         "title": "sbom.generated",
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
+      },
+      "screening_case_outcome_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.screening.case.outcome_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A screening case moved between in review and complete (case id, market, outcome IN_REVIEW or COMPLETE, revision; no name, list, candidate, disposition or reason, and nothing that says what a check found). The customer reads the case under its own access for the calibrated status.",
+        "title": "screening.case.outcome_changed",
+        "x-zid-source": "ZID-DTV-WF-06 section 12; CR-120",
+        "x-zid-status": "proposed"
       },
       "screening_signal_corrected": {
         "contentType": "application/cloudevents+json",

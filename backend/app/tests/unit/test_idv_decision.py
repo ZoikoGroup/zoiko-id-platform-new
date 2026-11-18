@@ -214,3 +214,27 @@ def test_a_lost_entitlement_or_unreleased_method_disables_the_route_and_abandonm
     assert d(route_enabled=False) is Decision.INDETERMINATE
     assert d(method_released=False) is Decision.INDETERMINATE
     assert d(abandoned=True) is Decision.ABANDONED
+
+
+def test_expiry_is_taken_from_the_printed_lines_only_when_that_reading_is_reliable() -> None:
+    from datetime import date
+
+    from zid_platform.modules.verification.application.idv_case import expired_from_printed
+
+    today = date(2026, 11, 18)
+    good = {"MRZ_CHECK_DIGITS": "PASS"}
+    assert expired_from_printed({"expiry_date": "2031-05-01"}, good, today=today) is False
+    assert expired_from_printed({"expiry_date": "2025-05-01"}, good, today=today) is True
+    assert (
+        expired_from_printed({"expiry_date": "2026-11-18"}, good, today=today) is False
+    )  # valid on its last day
+    assert (
+        expired_from_printed(
+            {"expiry_date": "2025-05-01"}, {"MRZ_CHECK_DIGITS": "FAIL"}, today=today
+        )
+        is None
+    )  # an unreliable reading says nothing
+    assert expired_from_printed({"expiry_date": "2025-05-01"}, {}, today=today) is None
+    assert expired_from_printed(None, good, today=today) is None
+    assert expired_from_printed({"expiry_date": "not a date"}, good, today=today) is None
+    assert expired_from_printed({"surname": "X"}, good, today=today) is None

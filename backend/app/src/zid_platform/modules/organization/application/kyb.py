@@ -110,6 +110,8 @@ async def decide(
     async def run(ids: Sequence[str]) -> None:
         for adapter_id in ids:
             adapter = adapters.get(adapter_id)
+            if not routing.enabled(adapter_id):
+                continue  # switched off by the routing (a contract, a licence or a qualification is outstanding): not called, so nothing is billed (T35)
             if adapter is None or not _covers(adapter, applicant.jurisdiction):
                 continue  # not available here: it simply does not answer, and is never replaced by another
             outcomes.append(
@@ -125,7 +127,12 @@ async def decide(
         decision = reconcile(
             applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
         )
-    if applicant.lei and route.lei and (adapter := adapters.get(route.lei)) is not None:
+    if (
+        applicant.lei
+        and route.lei
+        and routing.enabled(route.lei)
+        and (adapter := adapters.get(route.lei)) is not None
+    ):
         outcomes.append(await _ask(adapter, applicant.lei, applicant.jurisdiction, now))
         decision = reconcile(
             applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now

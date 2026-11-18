@@ -72,6 +72,15 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Screening",
+    items: [
+      { id: "screening-cases", label: "Screening cases", href: "/screening/cases", icon: ClipboardCheck },
+      { id: "screening-sources", label: "Sanctions sources", href: "/screening/sources", icon: ShieldQuestion },
+      { id: "screening-providers", label: "Screening providers", href: "/screening/providers", icon: BadgeCheck },
+      { id: "screening-gates", label: "Release gates", href: "/screening/gates", icon: ClipboardCheck },
+    ],
+  },
+  {
     label: "Commercial",
     items: [{ id: "commercial", label: "Commercial", href: "/commercial", icon: Receipt }],
   },

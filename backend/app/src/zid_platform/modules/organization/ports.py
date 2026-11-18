@@ -229,6 +229,16 @@ class RootReader(Protocol):
     ) -> RootView | None: ...
 
 
+async def company_claim(conn: AsyncConnection, tenant_id: str) -> tuple[str, datetime] | None:
+    """The company's own verification claim for a screening: COMPANY_REGISTRY_MATCHED once the stored grade is K2 or higher, with the time it was assessed. Documents alone (K1) are not enough."""
+    from zid_platform.modules.organization.application import kyb_assessment
+
+    stored = await kyb_assessment.latest(conn, tenant_id)
+    if stored is None or kyb_assessment.g.rank(stored.grade) < kyb_assessment.g.rank(kyb_assessment.g.Grade.K2):
+        return None
+    return "COMPANY_REGISTRY_MATCHED", stored.assessed_at
+
+
 async def read_root(conn: AsyncConnection, tenant_id: str, root_id: str) -> RootView | None:
     """Default RootReader backed by the organization store."""
     from zid_platform.modules.organization.domain.roots import RootStatus

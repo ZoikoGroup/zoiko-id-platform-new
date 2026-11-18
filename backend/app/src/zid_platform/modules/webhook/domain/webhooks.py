@@ -368,6 +368,7 @@ SUBSCRIBABLE = {
     "com.zoiko.id.organization.kyb.assertion_issued.v1": "A company reached a verification grade it did not hold (grade, claims gained, next check; no company data)",
     "com.zoiko.id.organization.kyb.assertion_revoked.v1": "Claims a company held are no longer proven (grade now, claims revoked, reason codes; no company data)",
     "com.zoiko.id.verification.case.completed.v1": "A verification case finished: each check has its own outcome",
+    "com.zoiko.id.screening.case.outcome_changed.v1": "A screening case moved between in review and complete (case id, market, outcome, revision; no name, list, candidate or reason: fetch the case for the calibrated status)",
     "com.zoiko.id.credential.status.changed.v1": "Credential status update",
     "com.zoiko.id.credential.status_changed.v1": "Credential claim status changed (a source revoked, suspended or expired a checked claim)",
     "com.zoiko.id.privacy.consent.withdrawn.v1": "Consent withdrawn",

@@ -1,0 +1,17 @@
+# Scheduled fetch of published CSCA master lists into the governed trust store (WF01, CR-114). Ships with NO source: nothing is fetched until the security owner adds one.
+#
+# A fetched list is only ever STAGED. A person still validates it, a second person approves it and activates it in the trust store (CR-107). Each source names:
+#   id:            a short unique name
+#   url:           the publisher's own address (http or https, a public address)
+#   tenant_id:     the tenant that holds the trust store
+#   anchor_files:  paths (relative to this config root) of the anchor certificates the security owner confirmed out of band with the publishing country
+#   anchor_sha256: the SHA-256 of each anchor, typed back from the country's own publication
+#   note:          optional, kept with the staged package
+#
+# sources:
+#   - id: example-country
+#     url: https://example.invalid/masterlist.ml
+#     tenant_id: 00000000-0000-0000-0000-000000000000
+#     anchor_files: [pki/anchors/example-country.pem]
+#     anchor_sha256: ["<64 hex characters>"]
+sources: []

@@ -24,7 +24,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Any, Protocol
 
 import httpx
 from sqlalchemy import text
@@ -1345,6 +1345,42 @@ class SelfRunSubmitted:
     )
 
 
+class CloneVerdict(Protocol):
+    """The answer of a clone check: Active Authentication or the chip authentication mapping. `status` is GENUINE_KEY_HELD, CLONE_SUSPECTED or NOT_ASSESSED."""
+
+    @property
+    def status(self) -> str: ...
+
+    @property
+    def reasons(self) -> tuple[str, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _NoChallengeVerdict:
+    status: str = "NOT_ASSESSED"
+    reasons: tuple[str, ...] = ("AA_NO_CHALLENGE",)
+
+
+_NoChallenge = _NoChallengeVerdict()
+
+
+def _clone_outcome(verdicts: list[CloneVerdict]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """What the clone checks that ran add up to. Any one that finds the chip is not holding its key makes the session suspect, whatever the other said; otherwise the chip is
+    checked if any of them showed it held its key; otherwise it was not assessed, with every reason."""
+    suspect = [v for v in verdicts if v.status == "CLONE_SUSPECTED"]
+    if suspect:
+        return ("CLONE_SUSPECTED",), (
+            "SELF_RUN_CLONE_SUSPECTED",
+            *(r for v in suspect for r in v.reasons),
+        )
+    if any(v.status == "GENUINE_KEY_HELD" for v in verdicts):
+        return (), ("SELF_RUN_CLONE_CHECKED",)
+    return (), (
+        "SELF_RUN_CLONE_NOT_ASSESSED",
+        *(r for v in verdicts for r in v.reasons),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ActiveAuthInput:
     """What the client sends for the clone check: the chip's signed answer to the session's challenge, and DG15 with the proof that the signed
@@ -1450,6 +1486,7 @@ async def submit_self_run(
     now: datetime,
     country_check: Callable[[str], Awaitable[None] | None] | None = None,
     active_auth: ActiveAuthInput | None = None,
+    chip_auth: CloneVerdict | None = None,
     biometric: BiometricInput | None = None,
 ) -> SelfRunSubmitted:
     """Judge one chip's evidence for a waiting self-run session. The chip decides nothing by itself: the profile decides what the facts are worth,
@@ -1469,23 +1506,24 @@ async def submit_self_run(
         fraud: tuple[str, ...] = ()
         codes: tuple[str, ...] = ("SELF_RUN_CLONE_NOT_CHECKED",)
         challenge = (s.pending_result or {}).get("aa_challenge")
+        verdicts: list[CloneVerdict] = []
         if active_auth is not None:
             if not isinstance(challenge, str):
-                codes = ("SELF_RUN_CLONE_NOT_ASSESSED", "AA_NO_CHALLENGE")
+                verdicts.append(_NoChallenge)
             else:
-                aa = verify_active_authentication(
-                    active_auth.dg15,
-                    bytes.fromhex(challenge),
-                    active_auth.response,
-                    dg15_verified=active_auth.dg15_verified,
-                    hash_name=active_auth.hash_name,
+                verdicts.append(
+                    verify_active_authentication(
+                        active_auth.dg15,
+                        bytes.fromhex(challenge),
+                        active_auth.response,
+                        dg15_verified=active_auth.dg15_verified,
+                        hash_name=active_auth.hash_name,
+                    )
                 )
-                if aa.status == "CLONE_SUSPECTED":
-                    fraud, codes = ("CLONE_SUSPECTED",), ("SELF_RUN_CLONE_SUSPECTED", *aa.reasons)
-                elif aa.status == "GENUINE_KEY_HELD":
-                    codes = ("SELF_RUN_CLONE_CHECKED",)
-                else:
-                    codes = ("SELF_RUN_CLONE_NOT_ASSESSED", *aa.reasons)
+        if chip_auth is not None:  # CR-111: PACE-CAM is a second way to show the chip holds its key
+            verdicts.append(chip_auth)
+        if verdicts:
+            fraud, codes = _clone_outcome(verdicts)
         outcome = self_run_app.assess(
             chip,
             session_ref=s.session_id,

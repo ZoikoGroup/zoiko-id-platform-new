@@ -1,0 +1,29 @@
+# Signed market screening policies (ZID-DTV-WF-06 S01, ENG-01; CR-113). Versioned configuration, not tenant data.
+# status: PROPOSED. This file lists NO market: screening is off everywhere until Legal, Privacy and the AML owner sign a market.
+#
+# A market is a pack. It counts only while two different people have signed it (`signed_by`) and `valid_from` has passed (and `valid_to` has not). A pack names:
+#   purposes         what screening may be asked for in this market (for example KYB)
+#   regions          the data regions the market's screening may be processed in (a tenant outside them is refused, never rerouted)
+#   subject_types    INDIVIDUAL, BUSINESS, UBO, REPRESENTATIVE
+#   classes          SANCTIONS | PEP_RCA | ADVERSE_MEDIA | OWNERSHIP_CONTROL, each with the tier it may be used at (OFFICIAL or LICENSED).
+#                    PEP_RCA and ADVERSE_MEDIA stay unavailable until a licensed adapter is contracted and enabled; naming them here does not enable them.
+#   legal_basis      the lawful basis, as a reference. Empty means no screening.
+#   evidence_max_age_days   how old the subject's identity claim may be.
+#   enabled_tenants  the tenants this pack is enabled for. A tenant not named has no entitlement to any class.
+#
+# Example (NOT enabled; copy, fill in and have it signed):
+# markets:
+#   GB:
+#     version: gb-1
+#     purposes: [KYB]
+#     regions: [uk-1]
+#     subject_types: [BUSINESS, UBO]
+#     classes: {SANCTIONS: OFFICIAL}
+#     legal_basis: "reference to the lawful-basis record"
+#     signed_by: [legal-owner, aml-owner]
+#     valid_from: 2026-12-01T00:00:00Z
+#     evidence_max_age_days: 365
+#     enabled_tenants: [tenant-uuid]
+
+version: 0.1.0
+markets: {}

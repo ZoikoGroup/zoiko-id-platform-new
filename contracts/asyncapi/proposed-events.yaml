@@ -514,6 +514,12 @@ events:
     source: ZID-DTV-WF-03 section 18; CR-110
     lane: domain
     source_status: "proposed"
+  screening.case.outcome_changed:
+    cloudevents_type: com.zoiko.id.screening.case.outcome_changed.v1
+    meaning: "A screening case moved between in review and complete (case id, market, outcome IN_REVIEW or COMPLETE, revision; no name, list, candidate, disposition or reason, and nothing that says what a check found). The customer reads the case under its own access for the calibrated status."
+    source: ZID-DTV-WF-06 section 12; CR-120
+    lane: domain
+    source_status: "proposed"
   organization.kyb.assertion_issued:
     cloudevents_type: com.zoiko.id.organization.kyb.assertion_issued.v1
     meaning: "A company reached a verification grade it did not hold (version, grade K0 to K4, the claims proven, the claims gained, policy digest and next recheck date; no company data, document or person)."

@@ -615,36 +615,6 @@
         "title": "RelianceIn",
         "type": "object"
       },
-      "ReviewIn": {
-        "additionalProperties": false,
-        "properties": {
-          "decision": {
-            "enum": [
-              "APPROVE",
-              "REJECT",
-              "REQUEST_MORE_EVIDENCE",
-              "ESCALATE"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "reason_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 10,
-            "minItems": 1,
-            "title": "Reason Codes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "decision",
-          "reason_codes"
-        ],
-        "title": "ReviewIn",
-        "type": "object"
-      },
       "RouteIn": {
         "additionalProperties": false,
         "properties": {
@@ -1159,6 +1129,36 @@
           "liveness_base64"
         ],
         "title": "FaceIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__verification__ReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REQUEST_MORE_EVIDENCE",
+              "ESCALATE"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "reason_codes"
+        ],
+        "title": "ReviewIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__verification__StartIn": {
@@ -3664,6 +3664,30 @@
         ]
       }
     },
+    "/verification-method-certification": {
+      "get": {
+        "description": "How far each identity-proofing method is from certified (WF03 P10; CR-119): not built, built but never run on a real document or lab, awaiting records, or approved. Read only: it states\nwhat the versioned configuration and the trust store hold and what is still missing, and approves nothing.",
+        "operationId": "method_certification_board_verification_method_certification_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Method Certification Board Verification Method Certification Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Method Certification Board",
+        "tags": [
+          "verification"
+        ]
+      }
+    },
     "/verification-profiles": {
       "get": {
         "operationId": "profiles_verification_profiles_get",
@@ -3875,7 +3899,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__ReviewIn"
               }
             }
           },

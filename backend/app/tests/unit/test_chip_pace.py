@@ -219,9 +219,9 @@ def test_a_chip_with_no_card_access_file_is_read_with_basic_access_control_as_be
 def test_a_chip_that_offers_only_variants_this_reader_lacks_falls_back_and_names_them_if_that_fails() -> (
     None
 ):
-    mapping = H("04007F000702020406") + bytes(
-        [2]
-    )  # id-PACE-ECDH-CAM-AES-CBC-CMAC-128, the chip authentication mapping
+    mapping = H("04007F000702020404") + bytes(
+        [1]
+    )  # id-PACE-ECDH-IM-3DES-CBC-CBC, the integrated mapping with 3DES (the standard does not say how to build its function)
     infos = (pace_info(mapping, 12),)
     # it also accepts BAC: the read goes through Basic Access Control
     _chip, groups, sim = build(infos=infos, accept_bac=True)
@@ -232,7 +232,8 @@ def test_a_chip_that_offers_only_variants_this_reader_lacks_falls_back_and_names
     with pytest.raises(cr.ChipReadError) as e:
         read(only_pace)
     assert (
-        e.value.code == "BAC_NOT_ACCEPTED" and "ECDH chip authentication mapping" in e.value.detail
+        e.value.code == "BAC_NOT_ACCEPTED"
+        and "ECDH integrated mapping with 3DES session keys" in e.value.detail
     )
     # unsupported domain parameters (id 3, reserved) are named the same way
     oid = H("04007F000702020402") + bytes([2])
@@ -363,7 +364,8 @@ def test_the_parameter_helpers_describe_what_they_refuse() -> None:
         == "ECDH integrated mapping with 3DES session keys"
     )
     assert (
-        pace.describe_unsupported(H("04007F00070202040602")) == "ECDH chip authentication mapping"
+        pace.describe_unsupported(H("04007F00070202040601"))
+        == "ECDH chip authentication mapping with 3DES session keys"
     )
     assert pace.describe_unsupported(OID, 3) == "ECDH generic mapping with domain parameters 3"
     assert pace.describe_unsupported(H("04007F00070202040102")) == "DH generic mapping"
@@ -529,11 +531,11 @@ def test_the_can_needs_pace_so_a_chip_without_it_is_refused_by_name_and_not_prob
     assert (
         plain.sent == [b"\x6a\x82"]
     )  # one probe for EF.CardAccess, then it stopped: no Basic Access Control attempt with the wrong keys
-    mapping = H("04007F000702020406") + bytes([2])  # a variant this reader lacks
+    mapping = H("04007F000702020404") + bytes([1])  # a variant this reader lacks
     _chip, _groups, only = build(infos=(pace_info(mapping, 12),), can="123456")
     with pytest.raises(cr.ChipReadError) as e2:
         read(only, number="", dob="", valid="", can="123456")
-    assert e2.value.code == "CAN_NEEDS_PACE" and "chip authentication mapping" in e2.value.detail
+    assert e2.value.code == "CAN_NEEDS_PACE" and "integrated mapping" in e2.value.detail
     with pytest.raises(cr.ChipReadError) as e3:
         cr.ChipMachine.start("", "", "", can="12 34")
     assert e3.value.code == "CAN_INVALID"

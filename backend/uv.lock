@@ -2558,6 +2558,7 @@ source = { editable = "app" }
 dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "cbor2" },
     { name = "cedarpy" },
     { name = "defusedxml" },
     { name = "google-cloud-kms" },
@@ -2586,6 +2587,7 @@ dependencies = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14" },
     { name = "asyncpg", specifier = ">=0.30" },
+    { name = "cbor2", specifier = ">=6.1" },
     { name = "cedarpy", specifier = ">=4.1" },
     { name = "defusedxml", specifier = ">=0.7" },
     { name = "google-cloud-kms", specifier = ">=3.2" },

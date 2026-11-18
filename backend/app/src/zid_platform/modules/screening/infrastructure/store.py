@@ -29,6 +29,38 @@ from zid_platform.modules.screening.domain.ownership import Control, Edge, Graph
 # ---- lists -----------------------------------------------------------------------------------------------------------
 
 
+async def insert_entries(
+    conn: AsyncConnection, version_id: uuid.UUID, entries: list[Entry]
+) -> None:
+    """The entries of one list version, one row per source reference."""
+    rows = [
+        {
+            "v": version_id,
+            "r": e.source_ref,
+            "k": e.kind.value,
+            "n": e.primary_name,
+            "d": json.dumps(
+                {
+                    "aliases": list(e.aliases),
+                    "birth": list(e.birth),
+                    "countries": list(e.countries),
+                    "identifiers": list(e.identifiers),
+                    "programs": list(e.programs),
+                }
+            ),
+        }
+        for e in {e.source_ref: e for e in entries}.values()
+    ]
+    for start in range(0, len(rows), 1000):
+        await conn.execute(
+            text(
+                "INSERT INTO verify.sanction_list_entry (version_id, source_ref, kind, primary_name, data) "
+                "VALUES (:v, :r, :k, :n, CAST(:d AS jsonb))"
+            ),
+            rows[start : start + 1000],
+        )
+
+
 async def put_list(
     conn: AsyncConnection,
     list_id: ListId,
@@ -86,32 +118,7 @@ async def put_list(
             "now": now,
         },
     )
-    rows = [
-        {
-            "v": version_id,
-            "r": e.source_ref,
-            "k": e.kind.value,
-            "n": e.primary_name,
-            "d": json.dumps(
-                {
-                    "aliases": list(e.aliases),
-                    "birth": list(e.birth),
-                    "countries": list(e.countries),
-                    "identifiers": list(e.identifiers),
-                    "programs": list(e.programs),
-                }
-            ),
-        }
-        for e in {e.source_ref: e for e in entries}.values()
-    ]
-    for start in range(0, len(rows), 1000):
-        await conn.execute(
-            text(
-                "INSERT INTO verify.sanction_list_entry (version_id, source_ref, kind, primary_name, data) "
-                "VALUES (:v, :r, :k, :n, CAST(:d AS jsonb))"
-            ),
-            rows[start : start + 1000],
-        )
+    await insert_entries(conn, version_id, entries)
     return "LOADED"
 
 

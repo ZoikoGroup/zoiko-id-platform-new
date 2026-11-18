@@ -1,0 +1,40 @@
+# Compiles the two phone-side chip bridges (sdks/native-bridge) on hosted runners, so nobody needs a Mac or an Android SDK to learn whether they build (CR-114).
+# Manual only, like ci.yml. It proves they COMPILE. It does not read a passport: that needs a phone and a document (docs/qa/wf01-device-and-lab-pack.md).
+# Read-only token, no secrets, no signing: the iOS build is unsigned and the Android build is a debug library.
+name: mobile-bridges
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: android bridge compiles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build the library module (the hosted image carries JDK 17, the Android SDK and Gradle)
+        working-directory: sdks/native-bridge/android
+        run: |
+          java -version
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          gradle --no-daemon :chipbridge:assembleDebug
+
+  ios:
+    name: ios bridge compiles
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Build the Swift package for an iPhone (unsigned)
+        working-directory: sdks/native-bridge/ios
+        run: |
+          xcodebuild -version
+          xcodebuild -scheme ChipBridge -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build

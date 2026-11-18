@@ -194,6 +194,18 @@ def _norm(value: str) -> str:
 FIELDS = ("surname", "given_names", "document_number", "birth_date", "expiry_date")
 
 
+def compare_declared(printed: Mapping[str, str], declared: Mapping[str, str]) -> tuple[str, tuple[str, ...]]:
+    """What the applicant typed against the platform's own reading of the printed lines: MATCH only when all four of surname, given names, document number and birth date were compared and agree;
+    MISMATCH as soon as one differs; UNKNOWN when any could not be compared (a field not typed, or not read)."""
+    fields = ("surname", "given_names", "document_number", "birth_date")
+    differing = tuple(f for f in fields if printed.get(f) and declared.get(f) and _norm(printed[f]) != _norm(declared[f]))
+    if differing:
+        return "MISMATCH", differing
+    if all(printed.get(f) and declared.get(f) for f in fields):
+        return "MATCH", ()
+    return "UNKNOWN", ()
+
+
 def compare_printed_to_chip(
     printed: Mapping[str, str], chip: Mapping[str, str]
 ) -> tuple[str, tuple[str, ...]]:

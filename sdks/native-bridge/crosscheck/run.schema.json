@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One chip read, as the independent cross-check takes it (E03, CR-123)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reader", "reader_version", "device_model", "os_version", "document_ref", "access", "read", "crypto"],
+  "properties": {
+    "reader": { "enum": ["ZOIKO", "JMRTD", "NFCPASSPORTREADER"] },
+    "reader_version": { "type": "string", "minLength": 1 },
+    "device_model": { "type": "string", "minLength": 1, "description": "The same phone model for both runs of a pair" },
+    "os_version": { "type": "string" },
+    "document_ref": { "type": "string", "minLength": 1, "description": "An opaque lab id for the physical document. Never the document number, a name or a date of birth." },
+    "access": { "enum": ["BAC", "PACE_GM", "PACE_CAM", "PACE_IM"] },
+    "read": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sod_sha256", "groups"],
+      "properties": {
+        "sod_sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$", "description": "SHA-256 of the raw EF.SOD bytes" },
+        "groups": {
+          "type": "object",
+          "description": "Data group number (1 to 16) to the SHA-256 of that group's raw bytes. Hashes only: no content.",
+          "propertyNames": { "pattern": "^([1-9]|1[0-6])$" },
+          "additionalProperties": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+        }
+      }
+    },
+    "crypto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "passive_auth": { "enum": ["PASS", "FAIL", "NOT_RUN", "INDETERMINATE"] },
+        "issuer_chain": { "enum": ["TRUSTED", "UNTRUSTED", "NOT_CHECKED"] },
+        "revocation": { "enum": ["CHECKED_GOOD", "REVOKED", "NOT_CHECKED"] },
+        "active_auth": { "enum": ["PASS", "FAIL", "NOT_SUPPORTED", "NOT_RUN"] },
+        "chip_auth": { "enum": ["PASS", "FAIL", "NOT_SUPPORTED", "NOT_RUN"] }
+      }
+    }
+  }
+}

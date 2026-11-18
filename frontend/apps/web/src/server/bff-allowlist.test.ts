@@ -37,7 +37,12 @@ describe("the proxy allowlist", () => {
     ["the verification supplier budget", "/verification-budget"],
     ["the verification usage counts", "/verification-usage"],
     ["the face engine readiness view", "/verification-engine-readiness"],
+    ["the identity method certification board", "/verification-method-certification"],
+    ["the age check", "/v2/age-checks"],
     ["the company verification grade and mandates", "/v1/kyb/"],
+    ["screening eligibility", "/v1/screening/eligibility"],
+    ["screening cases and their minimal status", "/v1/screening/cases"],
+    ["screening owners roll-up", "/v1/screening/ownership/rollup"],
     ["identity proofing cases", "/v1/idv/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);

@@ -1,0 +1,10 @@
+# Which authority may publish trust material for which country (WF03 T02, T03, T38; CR-119). Ships OFF and EMPTY: nothing is enforced until the security owner records authorities.
+#
+# With `enforce: false` a validated master list carries advisory findings (ADVISORY:AUTHORITY_NOT_ALLOWLISTED:GB). With `enforce: true` a list that carries a certificate of a country whose publishing host
+# is not recorded here is REJECTED when it is validated, so it never becomes a candidate. The host is that of the address the list was fetched from.
+#
+# enforce: true
+# sources:
+#   - {country: GB, authority: example.gov.uk, kind: ROOT_LIST}
+enforce: false
+sources: []

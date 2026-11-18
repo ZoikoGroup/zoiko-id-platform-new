@@ -42,6 +42,7 @@ from cryptography.hazmat.decrepit.ciphers.algorithms import TripleDES
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from zid_platform.modules.evidence.application import pace
+from zid_platform.modules.evidence.application.chip_authentication import CamEvidence
 from zid_platform.modules.evidence.domain import mrz as mrz_rules
 
 Transceive = Callable[[bytes], Awaitable[bytes]]
@@ -590,6 +591,22 @@ class ChipMachine:
         plan = self._s["plan"]
         return plan[self._s["idx"]] if self._s["idx"] < len(plan) else None
 
+    def chip_authentication(self) -> CamEvidence | None:
+        """What the chip authentication mapping left, when PACE ran with it and finished: for `chip_authentication.assess`, which needs data group 14 judged by passive
+        authentication before it counts. None when PACE did not run or did not use that mapping."""
+        state = self._s.get("pace")
+        if not state or not self.done or not self._s.get("ksenc") or self._s.get("sm") != "AES":
+            return None
+        terminal = pace.PaceTerminal.from_state(state)
+        if not terminal.cam or not terminal.ca_data:
+            return None
+        return CamEvidence(
+            terminal.curve_id,
+            terminal.pk_map_ic,
+            terminal.ksenc,
+            terminal.ca_data,
+        )
+
     def result(self) -> tuple[ChipRead, bytes | None]:
         if not self.done:
             raise ChipReadError("READ_NOT_FINISHED")
@@ -850,6 +867,13 @@ class ChipMachine:
         return bytes([cla, 0x86, 0x00, 0x00, len(data)]) + data + b"\x00"
 
     @staticmethod
+    def _dynamic_optional(data: bytes, tag: int) -> bytes | None:
+        try:
+            return _parse(_parse(data)[0x7C]).get(tag)
+        except (KeyError, ChipReadError, IndexError) as e:
+            raise ChipReadError("PACE_RESPONSE_INVALID", "the answer has no dynamic data") from e
+
+    @staticmethod
     def _dynamic(data: bytes, tag: int) -> bytes:
         try:
             return _parse(_parse(data)[0x7C])[tag]
@@ -878,6 +902,9 @@ class ChipMachine:
                     raise ChipReadError(
                         "PACE_TOKEN_INVALID", "the chip did not prove it holds the same keys"
                     )
+                t.receive_ca_data(
+                    self._dynamic_optional(data, 0x8A)
+                )  # the chip authentication mapping: the chip's proof that it holds its static key (CR-111)
                 self._s["ksenc"], self._s["ksmac"], self._s["ssc"] = (
                     t.ksenc.hex(),
                     t.ksmac.hex(),

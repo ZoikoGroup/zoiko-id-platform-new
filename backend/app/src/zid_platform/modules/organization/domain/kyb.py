@@ -573,6 +573,10 @@ class Routing:
     def accepted_suppliers(self, country: str) -> frozenset[str]:
         return self.supplier_coverage.get(country, frozenset())
 
+    def enabled(self, adapter_id: str) -> bool:
+        """Only a source the routing marks ENABLED is ever asked (DISABLED_UNTIL_CONTRACT, NOT_QUALIFIED, NOT_LICENSED and anything unlisted are not): no request, no billable check."""
+        return self.adapter_status.get(adapter_id) == "ENABLED"
+
 
 # A supplier is called only where the register route is absent or inadequate (ED-03 section 04 step 03); an outage is not that.
 EXCEPTION_TRIGGERS = frozenset(

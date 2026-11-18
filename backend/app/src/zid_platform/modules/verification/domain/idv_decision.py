@@ -87,6 +87,7 @@ class AlternateRoute:
     route_id: str
     may_approve: bool = False
     reviewers_needed: int = 2
+    automatic: bool = False  # decided by the platform from the document and the applicant's own typed details: no reviewer; a lower grade
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +132,10 @@ class Signals:
     method_released: bool = True  # the method is RELEASE_APPROVED for this market
     reviewers: tuple[str, ...] = ()
     abandoned: bool = False
+    declared_matches_document: str = "UNKNOWN"  # MATCH | MISMATCH | UNKNOWN: what the applicant typed against the platform's own reading of the printed lines
+    reject_code: str | None = (
+        None  # a reviewer on a reviewed route rejected the case, for one of a fixed set of defined failures
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +247,12 @@ def decide(s: Signals, p: Policy) -> Result:
             Decision.INDETERMINATE, "ROUTE_NOT_ALLOWED_BY_POLICY"
         )  # an alternative exists only if the signed policy names it
 
+    if s.reject_code:
+        return out(
+            Decision.REJECTED, f"REVIEWER_REJECTED:{s.reject_code}"
+        )  # a defined failure, never a bare accusation
+
+    automatic = alternate is not None and alternate.automatic
     reasons: list[str] = []
     worst = Decision.APPROVED
     rank = {
@@ -273,6 +284,14 @@ def decide(s: Signals, p: Policy) -> Result:
             reasons.append("ALTERNATE_ROUTE_CARRIES_NO_CHIP_GRADE")
         if alternate is not None and not alternate.may_approve:
             lower(Decision.REVIEW_REQUIRED, "ALTERNATE_ROUTE_REVIEW_ONLY")
+        elif alternate is not None and alternate.automatic:
+            # no person decides here, so the evidence has to: a reading the platform trusts, and the applicant's own details agreeing with it
+            if s.mrz_check_digits_ok is not True:
+                lower(Decision.INDETERMINATE, "DOCUMENT_READING_NOT_RELIABLE")
+            if s.declared_matches_document == "MISMATCH":
+                lower(Decision.REJECTED, "DECLARED_DATA_DIFFERS_FROM_DOCUMENT")
+            elif s.declared_matches_document != "MATCH":
+                lower(Decision.INDETERMINATE, "DECLARED_DATA_NOT_COMPARED")
         elif alternate is not None and len(set(s.reviewers)) < alternate.reviewers_needed:
             lower(Decision.REVIEW_REQUIRED, "ALTERNATE_ROUTE_NEEDS_INDEPENDENT_REVIEWERS")
 
@@ -295,13 +314,13 @@ def decide(s: Signals, p: Policy) -> Result:
                 "DOCUMENT_MANIPULATION_INDICATED",
             )
         elif s.optical is Optical.REVIEW:
-            lower(Decision.REVIEW_REQUIRED, "OPTICAL_REVIEW")
+            lower(Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "OPTICAL_REVIEW")  # nobody reviews an automatic route: it asks for a retake
         elif p.optical is Requirement.REQUIRED and s.optical is not Optical.PASS:
             lower(Decision.INDETERMINATE, f"OPTICAL_{s.optical.value}")
     if s.mrz_check_digits_ok is False:
         lower(
-            Decision.REVIEW_REQUIRED, "MRZ_CHECK_DIGITS_FAILED"
-        )  # blocks automatic approval and is explained to the applicant
+            Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "MRZ_CHECK_DIGITS_FAILED"
+        )  # on an automatic route nobody reviews, so an unreliable reading asks for a retake  # blocks automatic approval and is explained to the applicant
     if s.optical_matches_chip == "MISMATCH":
         lower(
             Decision.REVIEW_REQUIRED, "PRINTED_DATA_DIFFERS_FROM_CHIP"

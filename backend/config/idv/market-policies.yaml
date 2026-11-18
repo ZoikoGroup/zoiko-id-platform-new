@@ -6,11 +6,16 @@
 #   expired_document: REFUSE | REVIEW | ACCEPT        (a country-by-country decision, never a universal rule)
 #   on_revocation_unknown: INDETERMINATE | REVIEW
 #   alternates: [{route_id, may_approve, reviewers_needed >= 2}]   (a signed alternative to a mandatory chip; carries no chip-grade claim)
+#                                                  The website offers route_id WEB_REVIEW for a person with no phone app: a browser photograph that independent reviewers decide. Without that alternate in a market's policy, the route is refused.
 #   biometric: {lawful_basis, impact_assessment_ref, notice_version, independent_pad_ref, self_hosted_engine}
 #              (all unset means biometrics stay OFF; no lawful basis or no impact assessment recorded means OFF)
 #   retries: {nfc, capture}                            (unset means none allowed)
 #   optical_checks: [TEMPLATE, TAMPER, ...]            (printed-document checks that must run and pass)
 #   attestation_required: true | false
+#   media_retention_days: 1 to 90     (a route that people decide keeps the document photograph, encrypted, for this many days. UNSET MEANS NONE IS KEPT, and that route refuses the photograph. Owners and the DPO decide;
+#                                      docs/privacy/dpia-addendum-idv-reviewed-route-DRAFT.md proposes 7 to 14 days with its reasoning, and nothing here sets it)
+#   result_valid_days: 1 to 730       (how long an approval counts as an identity claim for screening and company checks. UNSET MEANS AN APPROVAL LEAVES NO CLAIM; the case then says so)
+#   review_sla_hours: 1 to 720        (how long a case may wait for its reviewers before the reviewer queue calls it overdue; unset means no deadline is shown)
 # Example shape (a comment, not a decision):
 #   GB:
 #     policy_version: gb-2026-1

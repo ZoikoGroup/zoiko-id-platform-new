@@ -1,0 +1,13 @@
+# The gate our own passport chip reader must pass before a "self-run" chip claim is allowed (WF01 and WF03, E03; CR-123). Ships with NO policy: until the security and QA owners record one the gate never passes.
+#
+# A lab reads the same physical documents on the same phones with our reader and with an independent reader (JMRTD on Android, NFCPassportReader on iOS) and the results are compared by
+# `tools/scripts/chip_crosscheck.py`. The numbers below are the owners' to choose; none is proposed here, because the right amount of evidence is a risk decision, not an engineering default.
+#
+# policy:
+#   min_documents: <distinct physical documents, at least 1>
+#   min_devices: <distinct phone models, at least 1>
+#   required_access: [BAC, PACE_GM, PACE_CAM]      # each must have min_runs_per_access comparable runs
+#   min_runs_per_access: <at least 1>
+#   required_references: [JMRTD, NFCPASSPORTREADER] # every one named must have been used
+#   min_comparable_passive_auth_share: 1.0           # optional, above 0 and at most 1
+policy: null

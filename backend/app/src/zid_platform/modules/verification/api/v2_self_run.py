@@ -27,6 +27,8 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.evidence.ports import (
+    CamEvidence,
+    assess_chip_authentication,
     chip_photo,
     effective_csca,
     trust_config,
@@ -183,6 +185,7 @@ async def _judge_chip(
     aa_response: bytes | None,
     aa_hash: str | None,
     face: FaceIn | None,
+    cam: CamEvidence | None = None,
 ) -> dict[str, Any]:
     """Judge one chip's evidence for a waiting self-run session. The same judgement whether the app sent the evidence (the chip route) or our own reader
     got it off the chip (the relay): passive authentication against the trust the deployment or the governed store holds, then the profile decides."""
@@ -203,6 +206,9 @@ async def _judge_chip(
             dg15_verified=15 in covered and 15 in groups,
             hash_name=aa_hash,
         )
+    chip_auth = assess_chip_authentication(
+        cam, groups.get(14), dg14_verified=14 in covered and 14 in groups
+    )  # CR-111: None unless PACE ran with the chip authentication mapping
     biometric = None
     engine = getattr(request.app.state, "biometric_engine", None)
     photo = (
@@ -242,6 +248,7 @@ async def _judge_chip(
             now=datetime.now(UTC),
             country_check=lambda c: _country_gate(request, c),
             active_auth=active,
+            chip_auth=chip_auth,
             biometric=biometric,
         )
     except VerificationError as e:
@@ -417,4 +424,5 @@ async def chip_link_finish(
         aa_response=read.active_authentication,
         aa_hash=None,
         face=body.face,
+        cam=read.chip_authentication,
     )

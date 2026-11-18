@@ -21,7 +21,7 @@ CONFIG = Path(
     os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
 )
 FILE = "screening/screening-policy.yaml"
-EVALUATORS = frozenset({"ofac_50", "ofsi"})
+EVALUATORS = frozenset({"ofac_50", "ofsi", "eu_control"})
 OWNER_RULES = frozenset({"uk_psc"})
 
 

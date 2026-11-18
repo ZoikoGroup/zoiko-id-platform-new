@@ -79,10 +79,14 @@ def require_validate(state: State) -> None:
         raise TrustStoreError("INVALID_STATE", f"{state.value} cannot be validated")
 
 
-def after_validation(list_status: str, certificate_count: int) -> State:
-    """VERIFIED with at least one CA certificate is VALIDATED. Anything else is REJECTED: an unverified list is never a candidate."""
+def after_validation(
+    list_status: str, certificate_count: int, *, authority_ok: bool = True
+) -> State:
+    """VERIFIED with at least one CA certificate, from an authority the policy accepts, is VALIDATED. Anything else is REJECTED: an unverified list is never a candidate."""
     return (
-        State.VALIDATED if list_status == "VERIFIED" and certificate_count >= 1 else State.REJECTED
+        State.VALIDATED
+        if list_status == "VERIFIED" and certificate_count >= 1 and authority_ok
+        else State.REJECTED
     )
 
 
@@ -158,3 +162,41 @@ __all__ = [
     "require_retire",
     "require_validate",
 ]
+
+
+# ---- which authority may publish trust material for which country (WF03 T02, T03, T38; CR-119)
+
+
+@dataclass(frozen=True, slots=True)
+class TrustSource:
+    country: str
+    authority: str  # the publishing host, as the security owner recorded it
+    kind: str = "ROOT_LIST"
+
+
+@dataclass(frozen=True, slots=True)
+class SourcePolicy:
+    """With `enforce` off the findings are advice on the package; with it on, a list carrying a country with no matching authority is REJECTED at validation. It ships off and empty: the owners record the authorities first."""
+
+    enforce: bool = False
+    sources: tuple[TrustSource, ...] = ()
+
+
+def authority_of(uri: str) -> str:
+    from urllib.parse import urlsplit
+
+    return (urlsplit(uri).hostname or "").lower()
+
+
+def authority_problems(policy: SourcePolicy, countries: Iterable[str], uri: str) -> tuple[str, ...]:
+    """For each country the list carries: accepted only when the publishing host is the authority recorded for that country. A bundle that merely claims to be from a country is not."""
+    host = authority_of(uri)
+    problems: list[str] = []
+    for country in sorted(set(countries)):
+        recorded = [s for s in policy.sources if s.country == country and s.kind == "ROOT_LIST"]
+        if any(s.authority.lower() == host for s in recorded):
+            continue
+        problems.append(
+            f"{'AUTHORITY_NOT_ALLOWLISTED' if recorded else 'NO_AUTHORITY_RECORDED_FOR_COUNTRY'}:{country}"
+        )
+    return tuple(problems)

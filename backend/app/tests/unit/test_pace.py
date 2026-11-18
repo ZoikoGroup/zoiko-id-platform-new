@@ -150,7 +150,7 @@ def test_a_bad_point_a_repeated_key_or_an_unsupported_algorithm_is_refused() -> 
         t.receive_ephemeral(IFD_PK)  # the chip's key equal to ours
     assert e2.value.code == "PACE_KEY_INVALID" and "equal" in e2.value.detail
     for oid in (
-        H("04007F00070202040602"),
+        H("04007F00070202040601"),  # the chip authentication mapping allows AES only
         H("04007F00070202040401"),
         H("04007F0007020203"),
         b"",

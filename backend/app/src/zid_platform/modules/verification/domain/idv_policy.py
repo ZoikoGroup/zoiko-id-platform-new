@@ -34,6 +34,15 @@ class MarketRules:
     optical_required: frozenset[str]
     attestation_required: bool
     policy_hash: str
+    media_retention_days: int | None = (
+        None  # how long a reviewed route keeps the document photograph; none set means none is kept, and the route refuses it
+    )
+    result_valid_days: int | None = (
+        None  # how long an approval counts as an identity claim; none set means an approval leaves no claim
+    )
+    review_sla_hours: int | None = (
+        None  # how long a case may wait for its reviewers before the queue calls it overdue
+    )
 
 
 _TOP = {
@@ -52,6 +61,9 @@ _TOP = {
     "retries",
     "optical_checks",
     "attestation_required",
+    "media_retention_days",
+    "result_valid_days",
+    "review_sla_hours",
 }
 _BIO = {
     "lawful_basis",
@@ -93,11 +105,21 @@ def _one(market: str, doc: Mapping[str, Any]) -> MarketRules:
         if (
             not isinstance(a, Mapping)
             or not _text(a.get("route_id"))
-            or set(a) - {"route_id", "may_approve", "reviewers_needed"}
+            or set(a) - {"route_id", "may_approve", "reviewers_needed", "automatic"}
         ):
             raise PolicyError(
                 f"{market}: an alternate route needs route_id, may_approve and reviewers_needed only"
             )
+        automatic = a.get("automatic", False)
+        if not isinstance(automatic, bool):
+            raise PolicyError(f"{market}: automatic must be true or false")
+        if automatic:
+            if "reviewers_needed" in a or a.get("may_approve") is not True:
+                raise PolicyError(
+                    f"{market}: an automatic route sets may_approve: true and no reviewers_needed (nobody reviews it)"
+                )
+            alternates.append(AlternateRoute(str(a["route_id"]), True, 0, True))
+            continue
         need = int(a.get("reviewers_needed", 2))
         if need < 2:
             raise PolicyError(f"{market}: an alternate route needs at least two distinct reviewers")
@@ -150,7 +172,26 @@ def _one(market: str, doc: Mapping[str, Any]) -> MarketRules:
         optical_required=frozenset(str(x) for x in (doc.get("optical_checks") or [])),
         attestation_required=bool(doc.get("attestation_required", False)),
         policy_hash="sha256:" + hashlib.sha256(canonical.encode()).hexdigest(),
+        media_retention_days=_retention(market, doc.get("media_retention_days")),
+        result_valid_days=_bounded(market, "result_valid_days", doc.get("result_valid_days"), 730),
+        review_sla_hours=_bounded(market, "review_sla_hours", doc.get("review_sla_hours"), 720),
     )
+
+
+def _retention(market: str, value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 90:
+        raise PolicyError(f"{market}: media_retention_days is a whole number of days from 1 to 90")
+    return value
+
+
+def _bounded(market: str, name: str, value: Any, top: int) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= top:
+        raise PolicyError(f"{market}: {name} is a whole number from 1 to {top}")
+    return value
 
 
 def parse(doc: Mapping[str, Any] | None) -> dict[str, MarketRules]:
