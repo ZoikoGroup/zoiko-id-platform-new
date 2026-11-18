@@ -1,5 +1,5 @@
 import { ApiError } from "@zoiko/api-client";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const flow = { passkeyOptions: vi.fn(), passkeyVerify: vi.fn() };
@@ -17,7 +17,10 @@ function unknownClient(): ApiError {
 }
 
 describe("sign-in with a saved workspace this server does not know", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
 
   it("forgets the saved workspace and asks for it again instead of failing the same way every time", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
@@ -35,5 +38,19 @@ describe("sign-in with a saved workspace this server does not know", () => {
   it("explains the forgotten workspace when the page comes back", () => {
     render(<SignIn connections={[]} workspace={null} error="workspace_unknown" />);
     expect(screen.getByText(/remembered a workspace this server does not have/i)).toBeTruthy();
+  });
+});
+
+describe("a passkey refused on the default workspace", () => {
+  afterEach(cleanup);
+  it("points to Change instead of only saying it failed", async () => {
+    vi.stubGlobal("location", { ...window.location, assign: vi.fn() });
+    flow.passkeyOptions.mockResolvedValueOnce({ challenge: "c" });
+    flow.passkeyVerify.mockRejectedValueOnce(
+      new ApiError({ status: 401, code: "AUTHENTICATOR_NOT_ACTIVE", message: "Authentication failed." } as never),
+    );
+    render(<SignIn connections={[]} workspace={null} />);
+    fireEvent.click(screen.getByRole("button", { name: /passkey/i }));
+    await waitFor(() => expect(screen.getByText(/not registered in the default workspace/i)).toBeTruthy());
   });
 });

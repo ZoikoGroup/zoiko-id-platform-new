@@ -66,7 +66,11 @@ export function SignIn({
         window.location.assign(`/sign-in?error=workspace_unknown&returnTo=${encodeURIComponent(target)}`);
         return;
       }
-      setFailure(passkeyErrorMessage(e));
+      setFailure(
+        e instanceof ApiError && e.code === "AUTHENTICATOR_NOT_ACTIVE" && !workspace
+          ? "This passkey is not registered in the default workspace. If your account is in another workspace, use Change above to choose it, then sign in again."
+          : passkeyErrorMessage(e),
+      );
       setPending(false);
     }
   }
