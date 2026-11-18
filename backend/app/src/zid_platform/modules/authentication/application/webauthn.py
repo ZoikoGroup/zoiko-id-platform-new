@@ -323,7 +323,15 @@ async def assert_credential(
     principal the challenge was issued to, the signature verifies for exactly this challenge, origin and RP ID, and the counter is
     recorded. Creates no session: what the caller does with the result is its own business."""
     authenticator = await store.by_credential(conn, _raw_id(credential))
-    if authenticator is None or authenticator.status is not AuthenticatorStatus.ACTIVE:
+    # The passkey must belong to the tenant this ceremony runs in. Row-level security normally hides other tenants' authenticators, but a
+    # connection that bypasses it (a superuser, as in local development) must not let one tenant's passkey open a session in another.
+    # Same answer as an unknown passkey, so nothing is revealed about other tenants.
+    in_tenant = await store.current_tenant(conn)
+    if (
+        authenticator is None
+        or authenticator.status is not AuthenticatorStatus.ACTIVE
+        or authenticator.tenant_id != in_tenant
+    ):
         raise AuthnError("AUTHENTICATOR_NOT_ACTIVE")
     if bound_principal_id is not None and bound_principal_id != authenticator.principal_id:
         raise AuthnError("WEBAUTHN_CHALLENGE_INVALID", "step-up by another principal")
