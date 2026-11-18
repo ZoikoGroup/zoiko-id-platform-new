@@ -20,9 +20,7 @@ from zid_platform.modules.communication.application.contacts import (
     Recipient,
     add_role_contact,
     address_hash,
-    keep_destination,
     normalize_address,
-    read_destination,
     set_principal_contact,
 )
 from zid_platform.modules.communication.application.dispatch import EVENT_ROUTES, coverage
@@ -91,9 +89,7 @@ __all__ = [
     "coverage",
     "email_handler",
     "email_topics",
-    "keep_destination",
     "normalize_address",
-    "read_destination",
     "send_email",
     "sendable",
     "set_principal_contact",

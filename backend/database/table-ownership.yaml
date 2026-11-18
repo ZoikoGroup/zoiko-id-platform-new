@@ -1074,6 +1074,21 @@ tables:
     module: verification
     tenant_scoped: true
     source: "ZID-DTV-WF-05 §06 Challenge: one-time challenge bound to a contact revision and session, keyed hash only (proposed, CR-114)"
+  verify.check_address:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 AddressClaim: the address a case checks, as typed, revisioned (proposed, CR-115)"
+  verify.check_address_document:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 §06 AddressEvidence: a proof of address document reference, what was read and the rules' assessment (proposed, CR-115)"
+  verify.check_address_review:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-DTV-WF-05 A10: maker and checker review steps, append-only, checker never the maker (proposed, CR-115)"
   verify.conformance_run:
     role: cell
     module: verification

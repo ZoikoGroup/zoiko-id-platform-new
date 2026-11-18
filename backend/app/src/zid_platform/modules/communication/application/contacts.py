@@ -165,22 +165,3 @@ async def list_masked(conn: AsyncConnection, tenant_id: str) -> list[dict[str, s
                 {"contact_id": str(row["contact_id"]), "purpose": purpose, "address": mask(address)}
             )
     return out
-
-
-async def keep_destination(conn: AsyncConnection, tenant_id: str, value: str) -> str:
-    """Encrypt a deliverable destination (an email address or E.164 number) another module must reach later, such as a WF-05 case contact
-    (CR-114). The vault object id is the only thing the caller keeps."""
-    object_id, _ = await store_object(
-        conn,
-        tenant_id,
-        content=value.encode("utf-8"),
-        object_type="communication_contact",
-        classification="D3",
-        retention_class="contact",
-    )
-    return object_id
-
-
-async def read_destination(conn: AsyncConnection, tenant_id: str, object_id: str) -> str:
-    """At send time only."""
-    return (await read_object(conn, tenant_id, object_id)).decode("utf-8")

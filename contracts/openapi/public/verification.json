@@ -550,36 +550,6 @@
         "title": "RelianceIn",
         "type": "object"
       },
-      "ReviewIn": {
-        "additionalProperties": false,
-        "properties": {
-          "decision": {
-            "enum": [
-              "APPROVE",
-              "REJECT",
-              "REQUEST_MORE_EVIDENCE",
-              "ESCALATE"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "reason_codes": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 10,
-            "minItems": 1,
-            "title": "Reason Codes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "decision",
-          "reason_codes"
-        ],
-        "title": "ReviewIn",
-        "type": "object"
-      },
       "RouteIn": {
         "additionalProperties": false,
         "properties": {
@@ -1023,6 +993,36 @@
           "margin"
         ],
         "title": "EstimateIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__verification__ReviewIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "APPROVE",
+              "REJECT",
+              "REQUEST_MORE_EVIDENCE",
+              "ESCALATE"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Reason Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decision",
+          "reason_codes"
+        ],
+        "title": "ReviewIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__verification__StartIn": {
@@ -3461,7 +3461,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewIn"
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__verification__ReviewIn"
               }
             }
           },

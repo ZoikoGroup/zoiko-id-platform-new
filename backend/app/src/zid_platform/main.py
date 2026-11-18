@@ -453,6 +453,7 @@ def create_app(
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.verification.api.address_checks import router as address_checks_router
         from .modules.verification.api.biometric_methods import (
             router as biometric_methods_router,
         )
@@ -537,6 +538,7 @@ def create_app(
             check_methods_router,
             check_cases_router,
             contact_challenges_router,
+            address_checks_router,
             v2_ownership_router,
             v2_alternatives_router,
             v2_providers_router,

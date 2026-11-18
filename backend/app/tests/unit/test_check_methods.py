@@ -81,7 +81,7 @@ def test_an_assertion_a_method_cannot_show_is_refused():
         (cm.CheckMethod.ADDRESS_LOOKUP, Assertion.ADDRESS_ASSOCIATION_CONFIRMED),
         (cm.CheckMethod.EMAIL_CHALLENGE, Assertion.ADDRESS_ASSOCIATION_CONFIRMED),
         (cm.CheckMethod.DEVICE_RISK, Assertion.CONTACT_CONTROL_CONFIRMED),
-        (cm.CheckMethod.ADDRESS_DOCUMENT, Assertion.ADDRESS_ASSOCIATION_CONFIRMED),
+        (cm.CheckMethod.ADDRESS_DOCUMENT, Assertion.ADDRESS_LOCATION_MATCH),
     ):
         with pytest.raises(cm.CheckMethodError) as e:
             cm.check_produces(method, assertion)

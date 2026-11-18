@@ -18,6 +18,10 @@ from zid_platform.modules.evidence.application.active_auth import (
     verify as verify_active_authentication,
 )
 from zid_platform.modules.evidence.application.assessment import Assessment, assess
+from zid_platform.modules.evidence.application.destinations import (
+    keep_destination,
+    read_destination,
+)
 from zid_platform.modules.evidence.application.dg2 import chip_photo
 from zid_platform.modules.evidence.application.epassport import verify as verify_chip
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
@@ -92,9 +96,11 @@ __all__ = [
     "hold_status",
     "ingest_event",
     "is_held",
+    "keep_destination",
     "material_commitment",
     "principal_handle",
     "purge_expired_uploads",
+    "read_destination",
     "read_object",
     "receipt_summary",
     "record_audit",

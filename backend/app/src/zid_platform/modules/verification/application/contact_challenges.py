@@ -25,8 +25,7 @@ import yaml
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from zid_platform.modules.communication.ports import keep_destination, read_destination
-from zid_platform.modules.evidence.ports import current_runtime
+from zid_platform.modules.evidence.ports import current_runtime, keep_destination, read_destination
 from zid_platform.modules.verification.application import check_cases
 from zid_platform.modules.verification.domain import check_cases as cc
 from zid_platform.modules.verification.domain import check_methods as cm

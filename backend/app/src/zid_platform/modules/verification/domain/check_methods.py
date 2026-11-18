@@ -73,7 +73,10 @@ PRODUCES: Mapping[CheckMethod, frozenset[Assertion]] = {
     CheckMethod.ADDRESS_LOOKUP: frozenset(
         {Assertion.ADDRESS_FORMAT_VALID, Assertion.ADDRESS_LOCATION_MATCH}
     ),
-    CheckMethod.ADDRESS_DOCUMENT: frozenset({Assertion.ADDRESS_DOCUMENT_REVIEWED}),
+    # a reviewed document, and (only after a second reviewer, `address_review`) acceptable document evidence of the association (§02)
+    CheckMethod.ADDRESS_DOCUMENT: frozenset(
+        {Assertion.ADDRESS_DOCUMENT_REVIEWED, Assertion.ADDRESS_ASSOCIATION_CONFIRMED}
+    ),
     CheckMethod.ADDRESS_DATA_SOURCE: frozenset({Assertion.ADDRESS_ASSOCIATION_CONFIRMED}),
     CheckMethod.ADDRESS_POSTAL_CHALLENGE: frozenset({Assertion.ADDRESS_ASSOCIATION_CONFIRMED}),
     CheckMethod.DEVICE_RISK: frozenset({Assertion.DEVICE_RISK_OBSERVED}),

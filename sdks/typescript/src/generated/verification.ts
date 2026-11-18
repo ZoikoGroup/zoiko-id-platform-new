@@ -1071,16 +1071,6 @@ export interface components {
              */
             subject_principal_id: string;
         };
-        /** ReviewIn */
-        ReviewIn: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
-            /** Reason Codes */
-            reason_codes: string[];
-        };
         /** RouteIn */
         RouteIn: {
             /** Country */
@@ -1225,6 +1215,16 @@ export interface components {
             estimated_age: number;
             /** Margin */
             margin: number;
+        };
+        /** ReviewIn */
+        zid_platform__modules__verification__api__verification__ReviewIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
+            /** Reason Codes */
+            reason_codes: string[];
         };
         /** StartIn */
         zid_platform__modules__verification__api__verification__StartIn: {
@@ -2950,7 +2950,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReviewIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__verification__ReviewIn"];
             };
         };
         responses: {
