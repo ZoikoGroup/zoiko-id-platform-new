@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 
 import pytest
 import yaml
@@ -246,6 +247,17 @@ def test_a_review_before_the_regulated_check_does_not_count():
     early["start"] = "look"
     early["steps"]["look"] = {"type": "REVIEW", "role": "compliance_reviewer", "next": "screen"}
     assert "REGULATED_CHECK_AUTO_APPROVES" in problems(wf.parse(early))
+
+
+def test_an_address_check_never_approves_on_its_own_a_person_looks_after_it():
+    """ZID-DTV-WF-05 §02: an address result supports an address; it does not verify residence. VERIFIED from an address check cannot lead straight to
+    APPROVED."""
+    addr = json.loads(json.dumps(REGULATED).replace("AML_SCREENING", "ADDRESS"))
+    assert "ADDRESS_CHECK_AUTO_APPROVES" in problems(wf.parse(addr))
+    assert "REGULATED_CHECK_AUTO_APPROVES" not in problems(wf.parse(addr))
+    addr["steps"]["decide"]["branches"][0]["next"] = "look"
+    addr["steps"]["look"] = {"type": "REVIEW", "role": "compliance_reviewer", "next": "approved"}
+    assert wf.analyze(wf.parse(addr)) == ()
 
 
 def test_a_check_whose_product_line_is_not_available_cannot_be_published():

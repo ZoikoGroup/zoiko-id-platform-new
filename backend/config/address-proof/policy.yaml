@@ -1,12 +1,16 @@
-# Proof of address policy (ZID-GAP-001 v2.0 DTV-17; CR-100).
+# Proof of address policy (ZID-GAP-001 v2.0 DTV-17; CR-100; per market since CR-111, ZID-DTV-WF-05 A06 and DEC-03).
 # status: SAMPLE. Engineering wrote the types and ages below to exercise the machinery. They are NOT a compliance rule: no compliance officer has approved
 # which documents are accepted or how old they may be, and nothing here is advice. Replace this file with an APPROVED policy (it does not load as APPROVED
 # without approved_by and legal_basis_ref). A document SUPPORTS an address; it never verifies it.
-version: 0.1.0-SAMPLE
+#
+# The rule is per market (ISO country). There is no global list and no default age: a market not named here has no accepted document, and an assessment
+# for it says NO_POLICY_FOR_MARKET and goes to a person. Only GB is sampled, because the sample types (council tax) are British.
+version: 0.2.0-SAMPLE
 status: SAMPLE
-max_age_days:
-  UTILITY_BILL: 90
-  BANK_STATEMENT: 90
-  COUNCIL_TAX_BILL: 365
-  TAX_AUTHORITY_LETTER: 365
-  TENANCY_AGREEMENT: 365
+markets:
+  GB:
+    UTILITY_BILL: 90
+    BANK_STATEMENT: 90
+    COUNCIL_TAX_BILL: 365
+    TAX_AUTHORITY_LETTER: 365
+    TENANCY_AGREEMENT: 365

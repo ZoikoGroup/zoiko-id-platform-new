@@ -31,7 +31,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_crypto import CryptoError
@@ -123,6 +125,39 @@ def _decrypt(key: bytearray, aad: bytes, blob: bytes) -> bytes:
         return AESGCM(bytes(key)).decrypt(blob[:_NONCE], blob[_NONCE:], aad)
     except InvalidTag as e:
         raise LedgerError("EVIDENCE_SOURCE_INTEGRITY_FAILED", "ciphertext does not decrypt") from e
+
+
+CLASS_KEY_MARK = (
+    "#class-key-v1"  # on encryption_key_ref: the object is under its asset class's own key (CR-113)
+)
+
+
+def is_class_keyed(object_type: str) -> bool:
+    """WF-04 QA-021 (CR-113): a biometric asset class (`biometric.<name>`) gets its own key per subject. Every other object type stays under the
+    subject key itself."""
+    return object_type.startswith("biometric.")
+
+
+def class_key(subject_key: bytearray, tenant_id: str, object_type: str) -> bytearray:
+    """The subject's key for one asset class: HKDF-SHA256 over the subject key, labelled with the tenant and the class. Each class of a person's
+    biometric data is encrypted under a different key, so a key used for one class (raw capture, template, result) opens no other; crypto-erasure
+    of the subject key still erases every class at once. The caller zeroizes the result."""
+    return bytearray(
+        HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=f"zid-class-key-v1|{tenant_id}|{object_type}".encode(),
+        ).derive(bytes(subject_key))
+    )
+
+
+def _object_key(
+    subject_key: bytearray, tenant_id: str, object_type: str, key_ref: str | None
+) -> bytearray:
+    if key_ref is not None and key_ref.endswith(CLASS_KEY_MARK):
+        return class_key(subject_key, tenant_id, object_type)
+    return bytearray(subject_key)
 
 
 def _resolver_aad(tenant_id: str, h: str) -> bytes:
@@ -220,12 +255,14 @@ async def store_object(
         if got is None:
             raise LedgerError("EVIDENCE_RAW_OBJECT_ERASED", "the subject was lawfully erased")
         key, key_id = got
+        key_ref = f"subject:{key_id}" + (CLASS_KEY_MARK if is_class_keyed(object_type) else "")
+        okey = _object_key(key, tenant_id, object_type, key_ref)
         try:
             aad = _object_aad(tenant_id, object_id, object_type).encode()
-            ciphertext = _encrypt(key, aad, content)
+            ciphertext = _encrypt(okey, aad, content)
         finally:
             zeroize(key)
-        key_ref = f"subject:{key_id}"
+            zeroize(okey)
     else:
         envelope = await seal(
             content, _object_aad(tenant_id, object_id, object_type), rt.provider, rt.data_kek
@@ -285,10 +322,12 @@ async def read_object(
         if got is None:
             raise LedgerError("EVIDENCE_RAW_OBJECT_ERASED", "supporting evidence lawfully erased")
         key, _ = got
+        okey = _object_key(key, tenant_id, row.object_type, row.encryption_key_ref)
         try:
-            content = _decrypt(key, aad.encode(), bytes(row.ciphertext))
+            content = _decrypt(okey, aad.encode(), bytes(row.ciphertext))
         finally:
             zeroize(key)
+            zeroize(okey)
     else:
         try:
             content = await open_envelope(
@@ -843,13 +882,19 @@ async def rekey_subject(
     try:
         for row in await store.subject_object_blobs(conn, tenant_id, subject_ref_):
             aad = _object_aad(tenant_id, str(row.evidence_object_id), row.object_type).encode()
-            plaintext = _decrypt(old, aad, bytes(row.ciphertext))
-            await store.update_object_ciphertext(
-                conn,
-                str(row.evidence_object_id),
-                _encrypt(new, aad, plaintext),
-                f"subject:{new_key_id}",
-            )
+            old_ref = getattr(row, "encryption_key_ref", None)
+            marked = old_ref is not None and old_ref.endswith(CLASS_KEY_MARK)
+            new_ref = f"subject:{new_key_id}" + (CLASS_KEY_MARK if marked else "")
+            okey = _object_key(old, tenant_id, row.object_type, old_ref)
+            nkey = _object_key(new, tenant_id, row.object_type, new_ref)
+            try:
+                plaintext = _decrypt(okey, aad, bytes(row.ciphertext))
+                await store.update_object_ciphertext(
+                    conn, str(row.evidence_object_id), _encrypt(nkey, aad, plaintext), new_ref
+                )
+            finally:
+                zeroize(okey)
+                zeroize(nkey)
             moved += 1
         wrapped, exact = await rt.provider.wrap_data_key(
             rt.kek_for(tenant_id), new, _context(tenant_id, subject_ref_)

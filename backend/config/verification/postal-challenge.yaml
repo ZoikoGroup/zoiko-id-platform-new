@@ -1,0 +1,6 @@
+# How long a posted confirmation code stays valid, per market (ZID-DTV-WF-05 A08 "market-appropriate expiry"; CR-115).
+# status: SAMPLE. Operations and the owners set the real values with the mail house's delivery times (DEC-04, DEC-05). A market not listed has no postal
+# code (POSTAL_NOT_CONFIGURED_FOR_MARKET). Between 7 and 60 days.
+status: SAMPLE
+ttl_days:
+  GB: 30

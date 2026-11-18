@@ -294,7 +294,7 @@ async def subject_object_blobs(
         (
             await conn.execute(
                 text(
-                    "SELECT evidence_object_id, object_type, ciphertext FROM evidence.evidence_object "
+                    "SELECT evidence_object_id, object_type, ciphertext, encryption_key_ref FROM evidence.evidence_object "
                     "WHERE tenant_id = :t AND subject_ref = :s AND status = 'STORED' "
                     "ORDER BY created_at FOR UPDATE"
                 ),

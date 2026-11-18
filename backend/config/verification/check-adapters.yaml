@@ -1,0 +1,14 @@
+# WF-05 check method adapters this deployment ships (ZID-DTV-WF-05 §04; CR-112).
+#
+# One entry per method that has a working adapter: the engine id and version the lifecycle governs (`verify.check_method_state`), and its route:
+#   OPEN      open source or platform-native, no per-call fee
+#   LICENSED  a paid supplier; refused unless the tenant is entitled to it (no hidden paid fallback, §05)
+#   MANUAL    a person does the work
+#
+# A method not listed has NO adapter and is never offered (NO_ADAPTER). Nothing is listed yet: the email, phone, address, postal and device adapters are
+# built in later WF-05 steps, and each is added here only when it exists. Listing an adapter does not switch anything on: its lifecycle scope still
+# needs two people, and every data class it creates needs an approved retention rule (config/privacy/check-data-classes.yaml).
+#
+# Example (do not uncomment until the adapter exists):
+#   EMAIL_CHALLENGE: {engine_id: zid-email-challenge, engine_version: "1", route: OPEN}
+adapters: {}

@@ -17,6 +17,7 @@ const fake = vi.hoisted(() => ({
     approveBiometricProposal: vi.fn(),
     rejectBiometricProposal: vi.fn(),
     stepDownBiometricMethod: vi.fn(),
+    retireBiometricMarket: vi.fn(),
   },
 }));
 
@@ -113,6 +114,28 @@ describe("biometric methods", () => {
     await userEvent.click(pause);
     await waitFor(() =>
       expect(fake.regulatory.stepDownBiometricMethod).toHaveBeenCalledWith("face-gb", { target: "PAUSED", reason: "injection attack suspected", evidence_ref: "INC-9" }),
+    );
+  });
+
+  it("retires a whole market at once, by one person, with a reason and evidence (QA-039)", async () => {
+    const fr = version({ scope_id: "face-fr", scope: { ...SCOPE, country: "FR" } });
+    const off = version({ scope_id: "face-de", state: "OFF", scope: { ...SCOPE, country: "DE" } });
+    fake.regulatory.biometricMethods.mockResolvedValue({
+      items: [{ current: version(), versions: [version()] }, { current: fr, versions: [fr] }, { current: off, versions: [off] }],
+      open_proposals: [],
+    });
+    fake.regulatory.retireBiometricMarket.mockResolvedValue({ country: "GB", retired: [], withdrawn_proposals: [], already_off: [] });
+    mount(<BiometricMethodsPage />);
+    await userEvent.click(await screen.findByRole("button", { name: "Retire a market" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByRole("option", { name: "DE" })).toBeNull(); // a market already off is not offered
+    const go = within(dialog).getByRole("button", { name: "Retire FR" });
+    expect(go.hasAttribute("disabled") || go.getAttribute("aria-disabled") === "true").toBe(true);
+    await userEvent.type(within(dialog).getByLabelText(/Evidence reference/), "BOARD-7");
+    await userEvent.type(within(dialog).getByLabelText(/^Reason/), "market exit approved by the board");
+    await userEvent.click(go);
+    await waitFor(() =>
+      expect(fake.regulatory.retireBiometricMarket).toHaveBeenCalledWith("FR", { reason: "market exit approved by the board", evidence_ref: "BOARD-7" }),
     );
   });
 

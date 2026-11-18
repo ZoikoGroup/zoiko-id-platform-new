@@ -789,7 +789,14 @@ def test_contacts_and_unsubscribe_over_http(rt_url: str, owner_url: str) -> None
         )
         assert http.get("/v1/tenant/contacts", headers=adm).json()["items"] == []
         mine = http.put("/v1/account/contact", json={"address": "Me@Example.com"}, headers=adm)
-        assert mine.status_code == 201 and mine.json()["address"] == "m***@example.com"
+        # CR-114: a change waits for the new address to confirm it; nothing is replaced yet
+        assert mine.status_code == 202 and mine.json()["address"] == "m***@example.com"
+        assert mine.json()["status"] == "PENDING_CONFIRMATION"
+        wrong = "0" * 32 + "A" * 43
+        assert (
+            http.post("/v1/account/contact:confirm", json={"token": wrong}, headers=adm).status_code
+            == 422
+        )
 
         # the public one-click unsubscribe (RFC 8058)
         h = asyncio.run(contacts.address_hash("fan@example.com"))

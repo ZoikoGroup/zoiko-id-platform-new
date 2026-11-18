@@ -1,0 +1,9 @@
+# WF-05 device risk (ZID-DTV-WF-05 DTV-22, DEC-08; CR-116).
+# status: SAMPLE. The DPO, CISO and Legal decide which signals and SDKs are permitted, the rotation and the retention (DEC-08, DEC-11).
+# The device method is off until a lifecycle scope, an adapter and an approved retention rule for device.observation exist; with it off, the
+# observation route refuses and nothing is written (QA-030).
+status: SAMPLE
+# a device pseudonym changes every rotation_days for the same tenant (no long-lived identifier)
+rotation_days: 30
+# platforms an observation may come from; a platform not listed is refused
+platforms: [WEB, ANDROID, IOS]

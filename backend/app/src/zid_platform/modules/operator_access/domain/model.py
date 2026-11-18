@@ -448,6 +448,24 @@ def _release_capabilities() -> tuple[Capability, ...]:
             minutes=60,
         ),
         cap(
+            "regulatory.check_method.propose",
+            "Propose one step up for a WF-05 check method scope (email, phone, carrier, address, postal, device; adapter, version, country, purpose, tenant); changes nothing until approved (CR-112)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "regulatory.check_method.approve",
+            "Approve or reject a proposed WF-05 check method step up; never one's own proposal (CR-112)",
+            two_person=True,
+            minutes=120,
+        ),
+        cap(
+            "regulatory.check_method.pause",
+            "Pause, step down or retire a WF-05 check method scope at once (the kill switch); a resume is a new approval (CR-112)",
+            two_person=False,
+            minutes=60,
+        ),
+        cap(
             "regulatory.issuer.record",
             "Record a dated statement about an issuer, its names and its accreditations, with the official source and its proof; a correction of past facts needs a reason (CR-075)",
             two_person=True,

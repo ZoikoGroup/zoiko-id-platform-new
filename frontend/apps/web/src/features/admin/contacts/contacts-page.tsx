@@ -107,12 +107,12 @@ function Organization() {
 function Mine() {
   const [address, setAddress] = useState("");
   const save = useCellMutation((api, a: string) => api.contacts.setMine(a), {
-    success: "Your security email was saved",
+    success: "Check the new inbox: the change takes effect when you open the link we sent there",
     onSuccess: () => setAddress(""),
   });
   const valid = looksLikeEmail(address);
   return (
-    <Card title="My security notices" description="Where notices about your own sign-in methods and sessions go. This replaces the address you set before.">
+    <Card title="My security notices" description="Where notices about your own sign-in methods and sessions go. A new address takes effect only after you confirm it from that inbox; the old address is told.">
       <Banner tone="info" className="mb-3">
         Email is not a sign-in factor here and never approves anything: every link opens the console, where the action is confirmed.
       </Banner>

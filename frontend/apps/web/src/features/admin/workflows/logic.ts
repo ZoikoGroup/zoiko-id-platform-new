@@ -23,6 +23,7 @@ const PROBLEMS: Record<string, string> = {
   APPROVAL_NOT_GUARDED: "A path reaches Approved without every required check having come back Verified.",
   APPROVAL_SKIPS_A_REQUIRED_CHECK: "A path reaches Approved without running a required check.",
   REGULATED_CHECK_AUTO_APPROVES: "A regulated check can lead to Approved with no person looking after it.",
+  ADDRESS_CHECK_AUTO_APPROVES: "An address check can lead to Approved with no person looking after it. An address result supports an address; it does not prove someone lives there.",
   REQUIRED_CHECK_NOT_RUN: "A required check never runs in this workflow.",
   PRODUCT_LINE_NOT_AVAILABLE: "A check needs a regulated service that is not switched on.",
   APPROVER_IS_AUTHOR: "A different person must approve a workflow.",

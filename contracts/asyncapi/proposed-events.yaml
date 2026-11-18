@@ -70,6 +70,24 @@ events:
     source: ZID-DTV-WF-04 section 19; CR-110
     lane: domain
     source_status: "proposed"
+  verification.biometric.region_blocked:
+    cloudevents_type: com.zoiko.id.verification.biometric.region_blocked.v1
+    meaning: "A biometric route failed closed because the provider would process the country's data outside its approved regions (no lawful transfer, or no known region). Country, provider, the provider's region, the reason codes and the overlay hash only; never a person, a session or an image (ZID-DTV-WF-04 QA-029)."
+    source: ZID-DTV-WF-04 QA-029; CR-113
+    lane: domain
+    source_status: "proposed"
+  privacy.erasure.deletion_requested:
+    cloudevents_type: com.zoiko.id.privacy.erasure.deletion_requested.v1
+    meaning: "A provider's deletion for an erasure job is overdue or failed and is asked for again; job id, task id, provider, asset classes, the attempt number and the previous failure code only (ZID-DTV-WF-04 QA-023)."
+    source: ZID-DTV-WF-04 QA-023; CR-113
+    lane: domain
+    source_status: "proposed"
+  privacy.erasure.deletion_failed:
+    cloudevents_type: com.zoiko.id.privacy.erasure.deletion_failed.v1
+    meaning: "An erasure task could not be completed: a provider's deletion ran out of attempts, or a first-party store has no way to delete. The task stays FAILED, never completed; job id, task id, target, asset classes, the failure code and the attempts only (ZID-DTV-WF-04 QA-023)."
+    source: ZID-DTV-WF-04 QA-023; CR-113
+    lane: priority
+    source_status: "proposed"
   privacy.decision.changed:
     cloudevents_type: com.zoiko.id.privacy.decision.changed.v1
     meaning: "A contested decision was overturned or corrected after an independent review and a checker; the review id, the decision reference, the outcome and the correction reference only. Whoever relied on the decision must re-read it (ZID-DTV-WF-04 section 19 decision.changed)."
@@ -782,6 +800,12 @@ events:
     cloudevents_type: com.zoiko.id.verification.biometric_method.state_changed.v1
     meaning: "A biometric method scope moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never media or reason text (ZID-DTV-WF-04 section 06)."
     source: ZID-DTV-WF-04 BIO-03; CR-107, CR-108
+    lane: priority
+    source_status: "proposed"
+  verification.check_method.state_changed:
+    cloudevents_type: com.zoiko.id.verification.check_method.state_changed.v1
+    meaning: "A WF-05 check method scope (email, phone, carrier, address, postal, device) moved state (an approved step up, a pause, a step down or retirement); the scope id, version, state, scope fields and references only, never a contact, an address or reason text (ZID-DTV-WF-05 §04, §27)."
+    source: ZID-DTV-WF-05 §04, §27; CR-112
     lane: priority
     source_status: "proposed"
   credential.issuer_status_changed:

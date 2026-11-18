@@ -1,0 +1,337 @@
+"""Operator routes for a method lifecycle (propose, approve, reject, step down, list), built once per family (CR-107 biometric methods, CR-112 WF-05
+check methods).
+
+    POST {base}/proposals                    propose one step up           ({cap}.propose)
+    POST {base}/proposals/{id}:approve       the second person approves    ({cap}.approve, a two-person grant)
+    POST {base}/proposals/{id}:reject        refuse or withdraw            ({cap}.approve)
+    POST {base}/{scope_id}:step-down         PAUSED / lower state / OFF    ({cap}.pause)
+    GET  {base}                              every scope, its versions, and the open proposals
+
+A step up is two people and one step at a time; the domain and the table both refuse an approval by the proposer. A step down (the kill switch) is one
+person and takes effect at once; a resume from PAUSED is a new approval. Every action writes an audit record in the same transaction ({audit}.proposed,
+.approved, .rejected, .stepped_down); a refusal is recorded as {audit}.refused. The audit carries the scope, the states and the references, never the
+reason text.
+"""
+
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Annotated, Any, Literal
+
+from fastapi import APIRouter, Depends, Path, Request
+from pydantic import BaseModel, ConfigDict, Field, create_model
+from zid_db import tenant_transaction
+
+from zid_platform.api_auth import request_engine
+from zid_platform.modules.operator_access.ports import CAPABILITIES, require_operator
+from zid_platform.operator_actions import Actions
+
+SCOPE_ID = r"^[a-z0-9][a-z0-9-]{0,127}$"
+REF = r"^[A-Za-z0-9][A-Za-z0-9._:/#@+=-]{2,255}$"
+READERS = tuple(sorted(n for n in CAPABILITIES if n.startswith("regulatory.")))
+OperatorDep = Annotated[Any, Depends(require_operator)]
+ScopePath = Annotated[str, Path(pattern=SCOPE_ID)]
+
+
+@dataclass(frozen=True, slots=True)
+class Family:
+    """Everything that differs between two method families. `service` and `model` are resolved on first use (no import cycle at import time)."""
+
+    base_path: str  # /v1/regulatory/biometric-methods
+    capability: str  # regulatory.biometric_method
+    audit: str  # regulatory.biometric_method (events: .proposed, .approved, ...)
+    state_changed: str  # the announced event on an approval or a step down
+    target_type: str  # biometric_method (audit target types: <x>_proposal, <x>_state)
+    namespace: uuid.UUID
+    refused_code: str
+    methods: tuple[str, ...]
+    method_enum: Callable[[], Any]
+    service: Callable[[], Any]
+    model: Callable[[], Any]
+    list_resource: str
+
+
+class DecideIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=10, max_length=1000)
+
+
+class StepDownIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target: Literal["PAUSED", "OFF", "LAB_ONLY", "PILOT_GATED", "PRODUCTION_ELIGIBLE"]
+    reason: str = Field(min_length=10, max_length=1000)
+    evidence_ref: str = Field(pattern=REF)
+    exposure_percent: int | None = Field(
+        default=None, ge=1, le=99
+    )  # CR-110: narrowing a production rollout
+
+
+def _scope_view(s: Any) -> dict[str, Any]:
+    return {
+        "method": s.method.value,
+        "engine_id": s.engine_id,
+        "engine_version": s.engine_version,
+        "country": s.country,
+        "purpose": s.purpose,
+        "pilot_tenant": s.tenant_id,
+    }
+
+
+def record_view(r: Any) -> dict[str, Any]:
+    return {
+        "scope_id": r.scope_id,
+        "version": r.version,
+        "state": r.state.value,
+        "scope": _scope_view(r.scope),
+        "dpia_ref": r.dpia_ref,
+        "evaluation_ref": r.evaluation_ref,
+        "reason": r.reason,
+        "evidence_ref": r.evidence_ref,
+        "recorded_by": r.recorded_by,
+        "proposed_by": r.proposed_by,
+        "proposal_id": r.proposal_id,
+        "effective_at": r.effective_at.isoformat(),
+        "exposure_percent": r.exposure_percent,
+        "decision_hash": r.decision_hash,
+    }
+
+
+def proposal_view(p: Any) -> dict[str, Any]:
+    return {
+        "proposal_id": p.proposal_id,
+        "scope_id": p.scope_id,
+        "scope": _scope_view(p.scope),
+        "from_version": p.from_version,
+        "target": p.target.value,
+        "dpia_ref": p.dpia_ref,
+        "evaluation_ref": p.evaluation_ref,
+        "reason": p.reason,
+        "evidence_ref": p.evidence_ref,
+        "proposed_by": p.proposed_by,
+        "proposed_at": p.proposed_at.isoformat(),
+        "status": p.status.value,
+        "decided_by": p.decided_by,
+        "decided_at": p.decided_at.isoformat() if p.decided_at else None,
+        "decision_reason": p.decision_reason,
+        "exposure_percent": p.exposure_percent,
+    }
+
+
+def _audit(scope: Any, **extra: Any) -> dict[str, Any]:
+    return {"scope": {k: val for k, val in _scope_view(scope).items() if val is not None}, **extra}
+
+
+def build(f: Family) -> tuple[APIRouter, Actions]:
+    prefix = f.target_type.title().replace("_", "")
+    method_type: Any = Literal[f.methods]  # the family's methods, as an enum in the schema
+    target_type: Any = Literal["LAB_ONLY", "PILOT_GATED", "PRODUCTION_ELIGIBLE"]
+    ScopeIn = create_model(
+        f"{prefix}ScopeIn",
+        __config__=ConfigDict(extra="forbid"),
+        method=(method_type, ...),
+        engine_id=(str, Field(pattern=r"^[a-z0-9][a-z0-9._-]{1,63}$")),
+        engine_version=(str, Field(min_length=1, max_length=64)),
+        country=(str, Field(pattern=r"^[A-Z]{2}$")),
+        purpose=(str, Field(pattern=r"^[A-Z][A-Z0-9_]{1,63}$")),
+        # the one tenant a PILOT_GATED scope runs for; never the caller's own tenant context
+        pilot_tenant=(uuid.UUID | None, None),
+    )
+
+    def scope_of(body: Any) -> Any:
+        return f.model().Scope(
+            f.method_enum()(body.method),
+            body.engine_id,
+            body.engine_version,
+            body.country,
+            body.purpose,
+            str(body.pilot_tenant) if body.pilot_tenant else None,
+        )
+
+    ProposeIn: Any = create_model(
+        f"{prefix}ProposeIn",
+        __config__=ConfigDict(extra="forbid"),
+        scope_id=(str | None, Field(default=None, pattern=SCOPE_ID)),
+        scope=(ScopeIn, ...),
+        target=(target_type, ...),
+        dpia_ref=(str | None, Field(default=None, pattern=REF)),
+        evaluation_ref=(str | None, Field(default=None, pattern=REF)),
+        reason=(str, Field(min_length=10, max_length=1000)),
+        evidence_ref=(str, Field(pattern=REF)),
+        exposure_percent=(int, Field(default=100, ge=1, le=100)),
+    )
+
+    actions = Actions(
+        namespace=f.namespace,
+        refused_event=f"{f.audit}.refused",
+        status={
+            "METHOD_NOT_FOUND": 404,
+            "METHOD_PROPOSAL_NOT_FOUND": 404,
+            "METHOD_PROPOSAL_NOT_OPEN": 409,
+            "METHOD_PROPOSAL_OPEN": 409,
+            "METHOD_PROPOSAL_STALE": 409,
+            "METHOD_PROPOSAL_EXPIRED": 409,
+            "METHOD_SCOPE_ID_TAKEN": 409,
+            "METHOD_APPROVED_BY_PROPOSER": 403,
+        },
+        errors=lambda: (f.model().MethodError,),
+        refused_code=f.refused_code,
+        capability_hint="a regulatory capability",
+    )
+    router = APIRouter(tags=["regulatory"])
+
+    @router.post(f"{f.base_path}/proposals", status_code=201)
+    async def propose(body: ProposeIn, request: Request, op: OperatorDep) -> dict[str, Any]:
+        async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+            p = await f.service().propose(
+                conn,
+                scope=scope_of(body.scope),
+                target=f.model().State(body.target),
+                dpia_ref=body.dpia_ref,
+                evaluation_ref=body.evaluation_ref,
+                reason=body.reason,
+                evidence_ref=body.evidence_ref,
+                by=str(op.principal_id),
+                now=now,
+                scope_id=body.scope_id,
+                exposure_percent=body.exposure_percent,
+            )
+            details = _audit(
+                p.scope,
+                proposal_id=p.proposal_id,
+                from_version=p.from_version,
+                target=p.target.value,
+                dpia_ref=p.dpia_ref,
+                evaluation_ref=p.evaluation_ref,
+                evidence_ref=p.evidence_ref,
+                exposure_percent=p.exposure_percent,
+            )
+            return proposal_view(p), p.proposal_id, details
+
+        return await actions.act(
+            request,
+            op,
+            event=f"{f.audit}.proposed",
+            publish=None,
+            action="propose",
+            capability=f"{f.capability}.propose",
+            target_type=f"{f.target_type}_proposal",
+            target=body.scope_id or "new-scope",
+            work=work,
+        )
+
+    @router.post(f"{f.base_path}/proposals/{{proposal_id}}:approve")
+    async def approve(
+        proposal_id: uuid.UUID, body: DecideIn, request: Request, op: OperatorDep
+    ) -> dict[str, Any]:
+        async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+            p, rec = await f.service().approve(
+                conn, str(proposal_id), by=str(op.principal_id), reason=body.reason, now=now
+            )
+            details = _audit(
+                rec.scope,
+                proposal_id=p.proposal_id,
+                scope_id=rec.scope_id,
+                version=rec.version,
+                state=rec.state.value,
+                proposed_by=p.proposed_by,
+                exposure_percent=rec.exposure_percent,
+                decision_hash=rec.decision_hash,
+            )
+            return (
+                {"proposal": proposal_view(p), "state": record_view(rec)},
+                f"{rec.scope_id}:v{rec.version}",
+                details,
+            )
+
+        return await actions.act(
+            request,
+            op,
+            event=f"{f.audit}.approved",
+            publish=f.state_changed,
+            action="approve",
+            capability=f"{f.capability}.approve",
+            target_type=f"{f.target_type}_proposal",
+            target=str(proposal_id),
+            work=work,
+        )
+
+    @router.post(f"{f.base_path}/proposals/{{proposal_id}}:reject")
+    async def reject(
+        proposal_id: uuid.UUID, body: DecideIn, request: Request, op: OperatorDep
+    ) -> dict[str, Any]:
+        async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+            p = await f.service().reject(
+                conn, str(proposal_id), by=str(op.principal_id), reason=body.reason, now=now
+            )
+            return (
+                proposal_view(p),
+                p.proposal_id,
+                _audit(p.scope, proposal_id=p.proposal_id, target=p.target.value),
+            )
+
+        return await actions.act(
+            request,
+            op,
+            event=f"{f.audit}.rejected",
+            publish=None,
+            action="reject",
+            capability=f"{f.capability}.approve",
+            target_type=f"{f.target_type}_proposal",
+            target=str(proposal_id),
+            work=work,
+        )
+
+    @router.post(f"{f.base_path}/{{scope_id}}:step-down")
+    async def step_down(
+        scope_id: ScopePath, body: StepDownIn, request: Request, op: OperatorDep
+    ) -> dict[str, Any]:
+        async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+            rec = await f.service().step_down(
+                conn,
+                scope_id,
+                target=f.model().State(body.target),
+                by=str(op.principal_id),
+                reason=body.reason,
+                evidence_ref=body.evidence_ref,
+                now=now,
+                exposure_percent=body.exposure_percent,
+            )
+            details = _audit(
+                rec.scope,
+                version=rec.version,
+                state=rec.state.value,
+                evidence_ref=rec.evidence_ref,
+                exposure_percent=rec.exposure_percent,
+            )
+            return record_view(rec), f"{scope_id}:v{rec.version}", details
+
+        return await actions.act(
+            request,
+            op,
+            event=f"{f.audit}.stepped_down",
+            publish=f.state_changed,
+            action="step-down",
+            capability=f"{f.capability}.pause",
+            target_type=f"{f.target_type}_state",
+            target=scope_id,
+            work=work,
+        )
+
+    @router.get(f.base_path)
+    async def list_methods(request: Request, op: OperatorDep) -> dict[str, Any]:
+        async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+            await actions.need_any(conn, op, READERS, f.list_resource)
+            listing = await f.service().list_scopes(conn)
+            return {
+                "items": [
+                    {"current": record_view(vs[-1]), "versions": [record_view(x) for x in vs]}
+                    for vs in listing["scopes"]
+                ],
+                "open_proposals": [proposal_view(p) for p in listing["open_proposals"]],
+            }
+
+    return router, actions
+
+
+__all__ = ["READERS", "DecideIn", "Family", "StepDownIn", "build", "proposal_view", "record_view"]

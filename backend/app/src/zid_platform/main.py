@@ -456,6 +456,9 @@ def create_app(
         from .modules.operator_access.api.regulatory_biometric_methods import (
             router as regulatory_biometric_methods_router,
         )
+        from .modules.operator_access.api.regulatory_check_methods import (
+            router as regulatory_check_methods_router,
+        )
         from .modules.operator_access.api.regulatory_conformance import (
             router as regulatory_conformance_router,
         )
@@ -510,10 +513,18 @@ def create_app(
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.verification.api.address_checks import router as address_checks_router
         from .modules.verification.api.biometric_methods import (
             router as biometric_methods_router,
         )
+        from .modules.verification.api.check_cases import router as check_cases_router
+        from .modules.verification.api.check_methods import router as check_methods_router
+        from .modules.verification.api.check_policies import router as check_policies_router
+        from .modules.verification.api.contact_challenges import (
+            router as contact_challenges_router,
+        )
         from .modules.verification.api.countries import router as countries_router
+        from .modules.verification.api.device_checks import router as device_checks_router
         from .modules.verification.api.idv_cases import router as idv_cases_router
         from .modules.verification.api.offerings import router as offerings_router
         from .modules.verification.api.tiers import router as verification_tiers_router
@@ -589,6 +600,12 @@ def create_app(
             v2_self_run_router,
             idv_cases_router,
             biometric_methods_router,
+            check_methods_router,
+            check_cases_router,
+            contact_challenges_router,
+            address_checks_router,
+            device_checks_router,
+            check_policies_router,
             v2_ownership_router,
             kyb_company_router,
             v2_alternatives_router,
@@ -643,6 +660,7 @@ def create_app(
             screening_watches_router,
             screening_cases_router,
             regulatory_biometric_methods_router,
+            regulatory_check_methods_router,
             regulatory_conformance_router,
             regulatory_v2_router,
             communication_router,

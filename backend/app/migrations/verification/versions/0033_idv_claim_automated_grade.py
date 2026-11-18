@@ -1,7 +1,7 @@
 """A claim's grade can be the automated one (ZID-DTV-WF-03; CR-126).
 
-Revision ID: verification_0026
-Revises: verification_0025
+Revision ID: verification_0033
+Revises: verification_0032
 Create Date: 2026-11-18
 
 AUTOMATED_NO_CHIP: the platform approved the case itself from the document and the applicant's typed details (no chip, no reviewer, no face or authenticity check). Whether a consumer
@@ -10,8 +10,8 @@ accepts it is the consumer's decision.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0026"
-down_revision = "verification_0025"
+revision = "verification_0033"
+down_revision = "verification_0032"
 branch_labels = None
 depends_on = None
 

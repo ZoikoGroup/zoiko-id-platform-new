@@ -1,6 +1,22 @@
 {
   "components": {
     "schemas": {
+      "ConfirmChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "maxLength": 75,
+            "minLength": 75,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "ConfirmChangeBody",
+        "type": "object"
+      },
       "ContactBody": {
         "additionalProperties": false,
         "properties": {
@@ -241,6 +257,7 @@
     },
     "/v1/account/contact": {
       "put": {
+        "description": "A change waits for the new address to confirm it (ZID-EM-017 with a single-use link); the old address is told (ZID-EM-018). CR-114.",
         "operationId": "set_own_contact_v1_account_contact_put",
         "requestBody": {
           "content": {
@@ -253,7 +270,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -277,6 +294,50 @@
           }
         },
         "summary": "Set Own Contact",
+        "tags": [
+          "communication"
+        ]
+      }
+    },
+    "/v1/account/contact:confirm": {
+      "post": {
+        "description": "The single-use link from ZID-EM-017, opened by the signed-in person. Then ZID-EM-019 goes to both addresses.",
+        "operationId": "confirm_own_contact_v1_account_contact_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Confirm Own Contact V1 Account Contact Confirm Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Own Contact",
         "tags": [
           "communication"
         ]

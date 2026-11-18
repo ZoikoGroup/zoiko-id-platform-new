@@ -21,11 +21,16 @@ from zid_platform.modules.privacy.application.control import (
     release_gate,
     retry_failed_erasures,
 )
+from zid_platform.modules.privacy.application.erasure_retry import erasure_retry_pass
 from zid_platform.modules.privacy.application.model_governance import (
     active_model_version,
     method_evidence,
 )
 from zid_platform.modules.privacy.application.reauthorization import reauthorization_pass
+from zid_platform.modules.privacy.application.release_attestation import (
+    record_release_attestation,
+    release_attestation_for,
+)
 from zid_platform.modules.privacy.application.restore import (
     Reconciliation,
     mark_restored,
@@ -57,6 +62,7 @@ __all__ = [
     "configure_enforcement",
     "discover_subject",
     "enforce_processing",
+    "erasure_retry_pass",
     "mark_restored",
     "method_evidence",
     "missing_biometric_retention",
@@ -64,11 +70,13 @@ __all__ = [
     "privacy_pass",
     "reauthorization_pass",
     "reconcile_after_restore",
+    "record_release_attestation",
     "register_decision_hook",
     "register_erasure_hook",
     "register_personal_data",
     "register_rectification_source",
     "register_store",
+    "release_attestation_for",
     "release_gate",
     "retry_failed_erasures",
     "route_outcome",

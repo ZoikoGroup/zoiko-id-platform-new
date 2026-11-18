@@ -28,6 +28,7 @@ dependencies = [
   "pyasn1>=0.6",  # RFC 3161 timestamp token validation (evidence/infrastructure/tsa_token.py)
   "pyasn1-modules>=0.4",
   "pyld==3.3.0",
+  "phonenumbers>=8.13",
 ]
 
 [build-system]

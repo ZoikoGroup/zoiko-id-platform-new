@@ -1,7 +1,7 @@
 """The identity claim an approved proofing case leaves for the rest of the platform (ZID-DTV-WF-03; CR-125).
 
-Revision ID: verification_0025
-Revises: verification_0024
+Revision ID: verification_0032
+Revises: verification_0031
 Create Date: 2026-11-18
 
 idv_case_claim: when a case is APPROVED under a market whose rules set a validity period, one claim is recorded for its subject: IDENTITY_VERIFIED_FOR_SCOPE, with the GRADE it was earned at
@@ -11,8 +11,8 @@ assertions. A market that sets no validity period leaves no claim. A rights requ
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0025"
-down_revision = "verification_0024"
+revision = "verification_0032"
+down_revision = "verification_0031"
 branch_labels = None
 depends_on = None
 

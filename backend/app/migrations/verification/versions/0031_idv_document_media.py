@@ -1,7 +1,7 @@
 """The document photograph a reviewer looks at, and who looked and why (ZID-DTV-WF-03 browser-only route; CR-124).
 
-Revision ID: verification_0024
-Revises: verification_0023
+Revision ID: verification_0031
+Revises: verification_0030
 Create Date: 2026-11-18
 
 idv_case_media: the photograph of a case on a reviewed (non-chip) route, kept ENCRYPTED in the evidence vault under the applicant's own erasable key; this table holds only the vault reference, the digest, the image checks
@@ -12,8 +12,8 @@ Row-level security by company on both.
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "verification_0024"
-down_revision = "verification_0023"
+revision = "verification_0031"
+down_revision = "verification_0030"
 branch_labels = None
 depends_on = None
 

@@ -288,6 +288,12 @@ function PackageDialog({ id, onClose }: { id: string | null; onClose: () => void
             </div>
             {p.release.blockers.length ? (
               <Banner tone="warn" title={`${p.release.blockers.length} release blocker(s)`}>
+                {p.release.blockers.includes("DPIA_POLICY_CHANGED") ? (
+                  <span className="block">
+                    The purpose, retention or provider policy changed after this package was approved. Biometric methods resting on it are stopped until
+                    a new version is approved against the policy now in force.
+                  </span>
+                ) : null}
                 <span className="mt-1 flex flex-wrap gap-1">
                   {p.release.blockers.map((b) => (
                     <Badge key={b} tone="warn">

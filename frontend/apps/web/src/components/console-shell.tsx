@@ -69,6 +69,7 @@ const NAV: NavGroup[] = [
       { id: "approvals", label: "Approvals", href: "/organizations/current/approvals", icon: ClipboardCheck },
       { id: "billing", label: "Billing", href: "/admin/billing", icon: Receipt },
       { id: "contacts", label: "Email contacts", href: "/admin/contacts", icon: Mail },
+      { id: "checks", label: "Verification checks", href: "/admin/checks", icon: ListChecks },
       { id: "settings", label: "Company settings", href: "/admin/settings", icon: Settings },
     ],
   },
