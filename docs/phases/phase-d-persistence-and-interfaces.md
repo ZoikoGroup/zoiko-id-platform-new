@@ -241,7 +241,7 @@ The specs allow this **only as a modular monolith**. ZID-SVC-001 §4 says *"What
 |---|---|---|
 | `ZID_ROLE` | `cell` (27 modules) or `global` (`locator`, `discovery`) | The global plane must hold no personal data and keep to its own schema (`global_directory`) in the one platform database, so it runs the same image with only its two modules loaded |
 | Process | API, `consumer`, `worker`, `outbox_relay` | `python -m zid_platform.entrypoints.<name>`; background work runs as separate processes of the same image |
-| Container default | `supervisor` with `ZID_ROLES=cell,global` | One container runs each listed role as **its own process on its own port** (cell :8000, global :8100), on one shared database (`ZID_CELL_DATABASE_URL`; `ZID_GLOBAL_DATABASE_URL` is optional and defaults to it). It exits if any role dies, so the runtime restarts the container. Production cells set `ZID_ROLES=cell`. |
+| Container default | `supervisor` with `ZID_ROLES=cell` | One container runs **one process on one port** (cell :8000, which also serves the global plane) on **one database** (`ZID_CELL_DATABASE_URL`). A second role, a second port, `ZID_GLOBAL_PORT` and `ZID_GLOBAL_DATABASE_URL` are refused at start-up (this row originally described a separate global process on :8100; changed to one port and one database). It exits if the process dies, so the runtime restarts the container. |
 
 The cell role is deployed **once per regional cell** (`uk-1`, `eu-1`). Cells, residency and failover (DEC-G1) are unchanged; the monolith is the unit deployed into each cell.
 

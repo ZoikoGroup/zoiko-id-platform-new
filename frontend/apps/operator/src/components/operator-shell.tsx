@@ -11,6 +11,7 @@ import {
   Flag,
   FlaskConical,
   Gauge,
+  Globe2,
   KeyRound,
   Landmark,
   LayoutGrid,
@@ -55,6 +56,8 @@ const NAV: NavGroup[] = [
   {
     label: "Regulatory",
     items: [
+      { id: "reg-countries", label: "Country features", href: "/regulatory/countries", icon: Globe2 },
+      { id: "reg-face-lab", label: "Face lab", href: "/regulatory/face-lab", icon: ScanFace },
       { id: "reg-readiness", label: "Enforce readiness", href: "/regulatory/readiness", icon: Gauge },
       { id: "reg-offerings", label: "Service offerings", href: "/regulatory/offerings", icon: LayoutGrid },
       { id: "reg-packs", label: "Policy packs", href: "/regulatory/packs", icon: BookOpenCheck },

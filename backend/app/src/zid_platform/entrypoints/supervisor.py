@@ -1,16 +1,13 @@
-"""Run one or more roles of the platform in a single container: `python -m zid_platform.entrypoints.supervisor`.
+"""Run the platform in a single container: `python -m zid_platform.entrypoints.supervisor`.
 
-Each role is its own uvicorn **process** on its own port (cell and global must never share a
-process — the global plane holds no personal data and keeps to its own schema, global_directory,
-DEC-D6), in the one platform database. The supervisor forwards shutdown signals and exits if any role dies, so the container
-runtime restarts the whole unit instead of leaving it half-up.
+One process, one port, one database. The `cell` role is the only role this container runs; it also serves the global plane (locator +
+discovery, schema `global_directory`) on the same port, from the same database. There is no second process, no second port and no second
+database: a configuration that asks for one is refused at start-up rather than half-honoured.
 
 Configuration (environment):
-  ZID_ROLES                 comma-separated roles to run (default "cell": one process, one port)
-  ZID_SERVE_GLOBAL_PLANE    true: the cell process also serves the global plane (locator + discovery) on its port
-  ZID_CELL_PORT / ZID_GLOBAL_PORT                 default 8000 / 8100
-  ZID_CELL_DATABASE_URL     the platform database; ZID_GLOBAL_DATABASE_URL is optional and defaults to it
-  ZID_CELL_ID               cell identity for the cell role (the global role is always "global")
+  ZID_CELL_PORT             8000 (the only value; to publish another host port, map it in Docker)
+  ZID_CELL_DATABASE_URL     the one platform database
+  ZID_CELL_ID               cell identity
   ZID_FORWARDED_ALLOW_IPS   addresses of the proxies whose X-Forwarded-For is believed (the ingress), comma-separated or "*"; unset
                             trusts only 127.0.0.1, so behind an ingress every caller looks like the ingress to the sign-up limits
 """
@@ -27,11 +24,13 @@ from dataclasses import dataclass
 
 from zid_platform.roles import Role
 
-DEFAULT_PORTS = {Role.CELL: 8000, Role.GLOBAL: 8100}
-# Per-role settings consumed by the supervisor; never passed through to any role process.
+PORT = 8000  # the one port
+# Per-role settings consumed by the supervisor; never passed through to the process.
 ROLE_SCOPED = frozenset(
     f"ZID_{r.value.upper()}_{s}" for r in Role for s in ("DATABASE_URL", "PORT")
 )
+# Settings of the retired second plane process: refused, never silently ignored.
+REFUSED = ("ZID_GLOBAL_PORT", "ZID_GLOBAL_DATABASE_URL")
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,35 +41,29 @@ class RoleProcess:
 
 
 def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
-    """Build the per-role process definitions from the environment (pure; unit-tested)."""
+    """The one process definition, from the environment (pure; unit-tested): the cell, on one port, in one database, serving the global plane."""
     names = [r.strip() for r in environ.get("ZID_ROLES", "cell").split(",") if r.strip()]
-    if not names:
-        raise ValueError("ZID_ROLES is empty")
-    roles = [Role(n) for n in names]  # raises ValueError on an unknown role
-    if len(set(roles)) != len(roles):
-        raise ValueError("ZID_ROLES lists a role twice")
-    out = []
-    for role in roles:
-        key = role.value.upper()
-        port = int(environ.get(f"ZID_{key}_PORT", DEFAULT_PORTS[role]))
-        env = {k: v for k, v in environ.items() if k not in ROLE_SCOPED}
-        env.update(
-            ZID_ROLE=role.value,
-            ZID_CELL_ID="global" if role is Role.GLOBAL else environ.get("ZID_CELL_ID", "local-1"),
+    if names != ["cell"]:
+        raise ValueError(
+            "ZID_ROLES must be exactly 'cell': one process on one port (the cell also serves the global plane)"
         )
-        db = environ.get(f"ZID_{key}_DATABASE_URL")
-        if not db and role is Role.GLOBAL:
-            # one database serves both roles: they keep separate schemas (global_directory vs the cell schemas)
-            db = environ.get("ZID_CELL_DATABASE_URL")
-        if db:
-            env["ZID_DATABASE_URL"] = db
-        else:
-            # a bare ZID_DATABASE_URL meant for one role is never inherited by another
-            env.pop("ZID_DATABASE_URL", None)
-        out.append(RoleProcess(role, port, env))
-    if len({p.port for p in out}) != len(out):
-        raise ValueError("two roles configured on the same port")
-    return out
+    for name in REFUSED:
+        if environ.get(name):
+            raise ValueError(f"{name} is not supported: the platform runs on one port and one database")
+    env = {k: v for k, v in environ.items() if k not in ROLE_SCOPED}
+    env.update(
+        ZID_ROLE=Role.CELL.value,
+        ZID_CELL_ID=environ.get("ZID_CELL_ID", "local-1"),
+        ZID_SERVE_GLOBAL_PLANE="true",
+    )
+    db = environ.get("ZID_CELL_DATABASE_URL")
+    if db:
+        env["ZID_DATABASE_URL"] = db
+    else:
+        env.pop("ZID_DATABASE_URL", None)  # a bare ZID_DATABASE_URL is never inherited
+    if environ.get("ZID_CELL_PORT", str(PORT)) != str(PORT):
+        raise ValueError(f"the platform listens on port {PORT} only; map a different host port in Docker instead")
+    return [RoleProcess(Role.CELL, PORT, env)]
 
 
 def uvicorn_command(rp: RoleProcess, environ: Mapping[str, str]) -> list[str]:

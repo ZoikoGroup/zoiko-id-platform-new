@@ -14,12 +14,12 @@ Needs Docker Desktop, Git Bash (or any POSIX shell) and `openssl`. The first run
 
 | Open | What |
 |---|---|
-| http://localhost:13000 | the web console (Next.js production build, standalone) |
-| http://localhost:18000/docs | the cell API (OpenAPI); the global plane (locator and discovery) is served here too |
-| http://localhost:18025 | Mailpit: every email the platform sends (sign-up, recovery) lands here |
+| http://localhost:3000 | the web console (Next.js production build, standalone) |
+| http://localhost:3100 | the operator console (email and password sign-in) |
+| http://localhost:8000/docs | the cell API (OpenAPI); the global plane (locator and discovery) is served here too |
 | `localhost:15432` | PostgreSQL, user `postgres`, password in the generated `.env` |
 
-Ports are offset (`13000`, `18000`, `15432`) so this runs beside the everyday dev stack (3000, 8000).
+The ports are the real ones: web console **3000**, operator console **3100**, backend **8000** (one port for the API and the global plane). Postgres (`15432`) and OpenBao (`18200`) are offset. Stop any other stack that uses 3000, 3100 or 8000 first.
 
 ## What `up` does, and where production differs
 
@@ -32,7 +32,7 @@ Ports are offset (`13000`, `18000`, `15432`) so this runs beside the everyday de
 | Keys | development keys persisted in a Docker volume (`ZID_LOCAL_KEYSTORE`) plus generated `ZID_DEV_SIGNING_KEYS` | **Cloud KMS HSM**: one key per purpose, never exported; created by OpenTofu |
 | Secrets | generated into `.env` | OpenBao, auto-unsealed by Cloud KMS, logged into with the VM's Google identity |
 | `ZID_ENVIRONMENT` | `local` for the backend (see below) | `production` |
-| Email | SMTP relay is a Mailpit sink, no TLS | a real SMTP provider with SPF, DKIM and DMARC on the sender domain |
+| Email | the same real SMTP provider as production, from your gitignored `.env.smtp`; every email reaches its real recipient (there is no test mail catcher) | a real SMTP provider with SPF, DKIM and DMARC on the sender domain |
 | Edge | none: plain HTTP on localhost | Google load balancer with managed certificates, Cloud Armor, or Caddy with automatic TLS |
 | DNS and passkeys | relying-party id `localhost` | `id.`, `api.`, `global.` under your domain; the domain is the passkey relying-party id |
 | Operator console | not started | `--profile operator`, restricted by IP allow-list or Identity-Aware Proxy |
@@ -45,7 +45,7 @@ Running it the production way exposed three things the everyday dev stack hides,
 
 1. **A migration failed for the production owner role** (`commercial` 0021, the payment backfill): `invoice` and `payment_attempt` force row-level security, which also binds their owner, and `SET LOCAL row_security = off` only helps a superuser or BYPASSRLS role. Fixed: the force is lifted for that one statement and restored. A real deploy would have stopped at the migrate step.
 2. **`deploy/gcp/db/02_grants.sql` never granted anything on the global database** (`global_directory` was not in its schema list), so the global API reported `not_ready` and, once ready, could not have deleted retired routing aliases (the runtime role has no DELETE). Fixed: the schema is listed and `routing_alias` alone gets DELETE.
-3. **Email fails fast.** With email on, the cell refuses to start without an SMTP username and password file. That is intended; the rehearsal supplies a placeholder for the sink, and a real deployment must supply the real ones.
+3. **Email fails fast.** With email on, the cell refuses to start without an SMTP username and password file. That is intended; the rehearsal reads your real provider's settings from `.env.smtp` (`./rehearse.sh up` stops at once if it is missing) and copies the password file named in it onto the secrets volume.
 
 Also visible in the logs: the worker repeats `sanctions list … FETCH_BLOCKED` because no list download addresses are configured (see the open list below).
 

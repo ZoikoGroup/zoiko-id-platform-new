@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -254,6 +255,9 @@ def _natural_name(name: str) -> str:
     return name
 
 
+_NUMBER_LIKE = re.compile(r"[A-Za-z0-9][A-Za-z0-9 .\-/]{2,19}")
+
+
 @dataclass
 class GleifKyb:
     """GLEIF LEI records: reference data that can corroborate an entity, never an applicant's authority."""
@@ -267,15 +271,24 @@ class GleifKyb:
     )
 
     async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        """Companies that hold an LEI, found by name or by their national registration number, in the applicant's country only (the country filter is
+        GLEIF's own, so a common name is not crowded out by other countries' records). Reference data: it finds a company, it does not verify one."""
+        text_query = query.strip()
+        searches = [f"filter[fulltext]={quote(text_query)}"]
+        if _NUMBER_LIKE.fullmatch(text_query) and any(ch.isdigit() for ch in text_query):
+            searches.insert(0, f"filter[entity.registeredAs]={quote(text_query)}")  # a national number finds its company exactly
+        country_filter = f"&filter[entity.legalAddress.country]={quote(jurisdiction)}" if jurisdiction else ""
+        data: list[Any] = []
         async with _client(self.base_url, self.transport) as c:
-            _, _, doc = await _fetch(
-                c,
-                "GET",
-                f"/lei-records?filter[entity.legalName]={quote(query)}&page[size]={MAX_CANDIDATES}",
-                headers={"Accept": "application/vnd.api+json"},
-            )
-        data = _list(doc, "data")
-        out: list[Candidate] = []
+            for search in searches:
+                _, _, doc = await _fetch(
+                    c,
+                    "GET",
+                    f"/lei-records?{search}{country_filter}&page[size]={MAX_CANDIDATES}",
+                    headers={"Accept": "application/vnd.api+json"},
+                )
+                data.extend(_list(doc, "data"))
+        out: dict[str, Candidate] = {}
         for rec in data:
             attrs = (rec or {}).get("attributes") or {}
             entity = attrs.get("entity") or {}
@@ -284,19 +297,21 @@ class GleifKyb:
                 continue
             name = _text((entity.get("legalName") or {}).get("name"))
             lei = _text((rec or {}).get("id"))
-            out.append(
-                Candidate(
-                    adapter_id=self.adapter_id,
-                    jurisdiction=country,
-                    registry_authority="gleif",
-                    registration_number=lei,
-                    legal_name=name,
-                    registration_status=_text(entity.get("status")),
-                    source_uri=f"{self.base_url}/lei-records/{quote(lei)}",
-                    confidence=name_similarity(query, name),
-                )
+            national = _text(entity.get("registeredAs"))
+            if lei in out:
+                continue
+            out[lei] = Candidate(
+                adapter_id=self.adapter_id,
+                jurisdiction=country,
+                registry_authority="gleif",
+                registration_number=national or lei,  # the number the applicant knows; the LEI is carried beside it
+                legal_name=name,
+                registration_status=_text(entity.get("status")),
+                source_uri=f"{self.base_url}/lei-records/{quote(lei)}",
+                confidence=name_similarity(text_query, name) if not national or national != text_query else 1.0,
+                lei=lei,
             )
-        return sorted(out, key=lambda x: (-x.confidence, x.registration_number))
+        return sorted(out.values(), key=lambda x: (-x.confidence, x.registration_number))
 
     async def get(
         self, registration_number: str, jurisdiction: str, now: datetime

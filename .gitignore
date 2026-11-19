@@ -91,6 +91,7 @@ ehthumbs.db
 
 # GCP deployment: per-host configuration and secret files
 deploy/gcp/.env
+deploy/local-prod/idv-policies.local.yaml
 deploy/gcp/secrets/
 
 # local development key material (shared dev KEKs); never commit

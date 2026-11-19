@@ -9,13 +9,10 @@ from typing import Any
 
 import yaml
 
-FILE = Path(
-    os.environ.get("ZID_ENGINE_REGISTER")
-    or Path(__file__).resolve().parents[6]
-    / "config"
-    / "self-run-verification"
-    / "engine-register.yaml"
-)
+# ZID_ENGINE_REGISTER names the file itself; otherwise the config root is ZID_PLATFORM_CONFIG (the deployed image sets it to /app/config, like every other loader),
+# otherwise the repository's own config folder.
+CONFIG = Path(os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config")
+FILE = Path(os.environ.get("ZID_ENGINE_REGISTER") or CONFIG / "self-run-verification" / "engine-register.yaml")
 
 
 def register() -> dict[str, Any]:

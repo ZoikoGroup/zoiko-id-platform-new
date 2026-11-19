@@ -13,6 +13,7 @@ import pytest
 from zid_platform.modules.organization.application import kyb as service
 from zid_platform.modules.organization.domain.kyb import (
     Applicant,
+    Candidate,
     Capabilities,
     CompanyFacts,
     KybError,
@@ -771,3 +772,80 @@ def test_creditsafe_status_enum_is_taken_as_documented_and_type_is_not_a_legal_f
     gone = asyncio.run(cs.get("222", "IE", NOW))
     assert live is not None and live.active and live.legal_form is None
     assert gone is not None and not gone.active  # NonActive is not active
+
+
+# ---- GLEIF as the reference that lets an applicant find a company in any listed country --------------------------------------
+
+
+def _gleif_record(lei: str, name: str, country: str = "GB", number: str | None = None) -> dict[str, Any]:
+    entity: dict[str, Any] = {"legalName": {"name": name}, "jurisdiction": country, "status": "ACTIVE", "legalAddress": {"country": country}}
+    if number:
+        entity["registeredAs"] = number
+    return {"id": lei, "attributes": {"entity": entity, "registration": {"status": "ISSUED"}}}
+
+
+def test_gleif_searches_the_applicants_country_only_and_finds_a_company_by_its_national_number() -> None:
+    seen: list[str] = []
+    rec = _gleif_record("2138002P5RNKC5W2JZ46", "TESCO PLC", number="00445790")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"data": [rec]})
+
+    got = asyncio.run(GleifKyb(_mock(handler)).search("00445790", "GB", NOW))
+    assert all("filter%5Bentity.legalAddress.country%5D=GB" in u or "filter[entity.legalAddress.country]=GB" in u for u in seen)
+    assert any("registeredAs" in u for u in seen) and any("fulltext" in u for u in seen)  # the number is tried exactly, then as text
+    assert len(got) == 1  # the same company from both searches is listed once
+    assert got[0].registration_number == "00445790"  # the number the applicant knows, not the LEI
+    assert got[0].lei == "2138002P5RNKC5W2JZ46" and got[0].confidence == 1.0
+
+
+def test_a_company_name_is_searched_as_text_not_as_a_number() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"data": [_gleif_record("5493001KJTIIGC8Y1R12", "Acme Widgets Limited")]})
+
+    got = asyncio.run(GleifKyb(_mock(handler)).search("Acme Widgets Limited", "GB", NOW))
+    assert not any("registeredAs" in u for u in seen)
+    assert got[0].registration_number == "5493001KJTIIGC8Y1R12"  # no national number held: the LEI stands in, beside lei
+
+
+class _Finder(FakeAdapter):
+    def __init__(self, adapter_id: str, kind: SourceKind, found: list[Candidate]) -> None:
+        super().__init__(adapter_id, kind, {"*"}, None)
+        self._found = found
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        return list(self._found)
+
+
+def _candidate(adapter: str, number: str, name: str, confidence: float, lei: str | None = None) -> Candidate:
+    return Candidate(adapter, "GB", adapter, number, name, "active", "https://x", confidence, lei)
+
+
+def test_search_adds_the_lei_reference_and_lists_a_company_found_twice_once_from_the_register() -> None:
+    register = _Finder("companies-house", SourceKind.OFFICIAL_REGISTER, [_candidate("companies-house", "00445790", "TESCO PLC", 0.9)])
+    gleif = _Finder(
+        "gleif",
+        SourceKind.LEI_REFERENCE,
+        [_candidate("gleif", "00445790", "TESCO PLC", 1.0, "2138002P5RNKC5W2JZ46"), _candidate("gleif", "07656305", "TESCO TREASURY SERVICES PLC", 0.5, "213800DJFYY7MSLDKD28")],
+    )
+    got = asyncio.run(service.search("tesco", "GB", adapters={"companies-house": register, "gleif": gleif}, routing=_routing(), now=NOW))
+    assert [(c.registration_number, c.adapter_id) for c in got] == [("00445790", "companies-house"), ("07656305", "gleif")]
+
+
+def test_a_country_with_only_gleif_still_offers_companies_but_never_verifies_one() -> None:
+    r = routing()
+    for country in ("CA", "IN", "AU", "SG", "AE", "SA", "JP", "BR", "MX", "ZA", "NG", "KE"):
+        route = r.route(country)
+        assert route is not None and route.first_pass == () and route.lei == "gleif", country
+    gleif = _Finder("gleif", SourceKind.LEI_REFERENCE, [_candidate("gleif", "A1", "Maple Corp", 0.9, "5493001KJTIIGC8Y1R12")])
+    gleif.answer = facts(adapter="gleif", kind=SourceKind.LEI_REFERENCE, country="CA", number="5493001KJTIIGC8Y1R12", lei="5493001KJTIIGC8Y1R12")
+    found = asyncio.run(service.search("maple", "CA", adapters={"gleif": gleif}, routing=r, now=NOW))
+    assert [c.legal_name for c in found] == ["Maple Corp"]  # the applicant can find it
+    d = asyncio.run(
+        service.decide(Applicant("CA", "A1", "Maple Corp", None, lei="5493001KJTIIGC8Y1R12"), adapters={"gleif": gleif}, routing=r, now=NOW)
+    )
+    assert d.status is KybStatus.UNAVAILABLE and d.review_reason == "NO_COVERAGE"  # an LEI is reference data: no register, no "verified"

@@ -762,6 +762,9 @@ export function createCellApi(t: Transport) {
         post<C.CheckContact>(`/v1/verification-cases/${seg(id)}/contacts`, body),
       challenge: (contactId: string, body: { channel: "EMAIL" | "SMS" | "VOICE"; session_ref: string }, idempotencyKey: string) =>
         post<C.CheckChallenge>(`/v1/contacts/${seg(contactId)}/challenges`, body, { idempotencyKey }),
+      /** Send the same challenge again, within the sends the platform allows (sends_left says how many remain). */
+      resendChallenge: (contactId: string, challengeId: string, sessionRef: string) =>
+        post<C.CheckChallenge>(`/v1/contacts/${seg(contactId)}/challenges/${seg(challengeId)}:resend`, { session_ref: sessionRef }),
       confirm: (contactId: string, body: { challenge_id: string; code: string; session_ref: string }) =>
         post<C.CheckChallenge>(`/v1/contacts/${seg(contactId)}/confirm`, body),
       setAddress: (id: string, body: C.CheckAddressIn) =>
@@ -922,7 +925,7 @@ export function createCellApi(t: Transport) {
       open: (market: string, route = "CHIP") => post<M.IdvCase>("/v1/idv/cases", { market, route }),
       nonce: (id: string) => post<{ case_id: string; nonce: string; issued_at: string }>(`/v1/idv/cases/${seg(id)}/nonce`),
       /** The platform measures the photograph, reads its printed lines and checks the envelope itself; nothing here states a result. */
-      documentImage: (id: string, body: { nonce: string; image_base64: string; captured_at: string }) =>
+      documentImage: (id: string, body: { nonce: string; image_base64: string; captured_at: string; declared?: { surname: string; given_names: string; document_number: string; birth_date: string }; selfie_base64?: string; consent?: boolean; details?: { name?: string; number?: string; birth_date?: string } }) =>
         post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/document-image`, { ...body, virtual_camera: null, channel: "WEB" }),
       consent: (id: string, noticeVersion: string, consented: boolean) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent`, { notice_version: noticeVersion, consented }),
       withdraw: (id: string) => post<M.IdvCase>(`/v1/idv/cases/${seg(id)}/consent:withdraw`),
@@ -1345,6 +1348,14 @@ export function createOperatorApi(t: Transport) {
     /** ZID-RCG-003 regulatory records (CR-067 to CR-085). Every write is one operator capability; the cell enforces who may do what. */
     regulatory: {
       readiness: () => get<M.RegulatoryReadiness>("/v1/regulatory/readiness"),
+      /** The Face lab (CR-128): the lab engine's state and the approval gate's missing records. */
+      faceLab: () => get<M.FaceLabStatus>("/v1/regulatory/face-lab"),
+      /** Two photographs in, a measurement out. Stores nothing; approves nobody. */
+      faceLabCompare: (body: { probe_base64: string; reference_base64: string }) => post<M.FaceLabResult>("/v1/regulatory/face-lab/compare", body),
+      /** Which countries are open for sign-up, and the decision recorded for each (CR-127). */
+      countryOpenings: () => get<M.CountryOpeningsView>("/v1/regulatory/country-openings"),
+      recordCountryOpening: (country: string, body: M.CountryOpeningIn) =>
+        t.request<M.CountryOpening>("PUT", `/v1/regulatory/country-openings/${seg(country)}`, { body }),
       offerings: (country?: string) => get<M.Items<M.ServiceOffering>>("/v1/regulatory/offerings", { country }),
       trustLists: () => get<M.TrustListsView>("/v1/regulatory/trust-lists"),
       registerSources: () => get<M.Items<M.RegisterSource>>("/v1/regulatory/register-sources"),

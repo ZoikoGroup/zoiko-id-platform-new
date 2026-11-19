@@ -87,6 +87,7 @@ class Candidate:
     registration_status: str
     source_uri: str
     confidence: float  # ranking only: a candidate is never chosen for the applicant
+    lei: str | None = None  # the LEI, when the source is GLEIF: the registration number is then the national one, when GLEIF holds it
 
 
 @dataclass(frozen=True, slots=True)

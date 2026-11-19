@@ -68,4 +68,56 @@ routes:
     lei: gleif
     exception: [inpi, creditsafe]       # inpi is asked only once an owner enables it with credentials
 
+    # The other countries in the country registry (ZID-EDR-001 waves 2 to 4): GLEIF is the only connected source. It lets an applicant FIND a company that holds
+    # an LEI and shows its LEI, but it is reference data and never verifies a company (ED-03): with no register source the answer is UNAVAILABLE / NO_COVERAGE and the
+    # claim goes to two reviewers. A national register adapter is added per country when an owner obtains a lawful, licensed route.
+  CA:                                   # Canada
+    first_pass: []
+    lei: gleif
+    exception: []
+  IN:                                   # India
+    first_pass: []
+    lei: gleif
+    exception: []
+  AU:                                   # Australia
+    first_pass: []
+    lei: gleif
+    exception: []
+  SG:                                   # Singapore
+    first_pass: []
+    lei: gleif
+    exception: []
+  AE:                                   # United Arab Emirates
+    first_pass: []
+    lei: gleif
+    exception: []
+  SA:                                   # Saudi Arabia
+    first_pass: []
+    lei: gleif
+    exception: []
+  JP:                                   # Japan
+    first_pass: []
+    lei: gleif
+    exception: []
+  BR:                                   # Brazil
+    first_pass: []
+    lei: gleif
+    exception: []
+  MX:                                   # Mexico
+    first_pass: []
+    lei: gleif
+    exception: []
+  ZA:                                   # South Africa
+    first_pass: []
+    lei: gleif
+    exception: []
+  NG:                                   # Nigeria
+    first_pass: []
+    lei: gleif
+    exception: []
+  KE:                                   # Kenya
+    first_pass: []
+    lei: gleif
+    exception: []
+
 supplier_coverage_proven: {}            # country -> [adapter ids]; filled only when the owners record the proof

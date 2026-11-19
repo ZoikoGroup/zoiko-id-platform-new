@@ -207,7 +207,8 @@ async def _commit(
 ) -> Case:  # fmt: skip
     """Re-derive the decision from the signals, store it with the new signals, append the history row, and say so when the decision changed."""
     allowed, why = _biometrics(c if not cols else replace(c, **cols), rules)
-    if not allowed and (
+    face_route = any(a.route_id == c.route and a.face_match for a in rules.policy.alternates)  # the owner-acknowledged face-match route carries its own consent (CR-129)
+    if not allowed and not face_route and (
         signals.face is not FaceMatch.NOT_RUN or signals.liveness is not Liveness.NOT_RUN
     ):
         signals = replace(
@@ -216,7 +217,7 @@ async def _commit(
     result: Result = decide(signals, rules.policy)
     off = (
         ()
-        if allowed or rules.policy.face.value == "NOT_USED"
+        if allowed or face_route or rules.policy.face.value == "NOT_USED"
         else tuple(f"BIOMETRICS_OFF:{w}" for w in why)
     )
     reasons = tuple(dict.fromkeys(result.reasons + extra_reasons + off))
@@ -400,10 +401,12 @@ def expired_from_printed(
 async def submit_document(
     conn: AsyncConnection, case_id: str, rules: MarketRules, envelope: ev.Envelope, *, checks: dict[str, str],
     printed: dict[str, str] | None, now: datetime, web: bool = False, declared: dict[str, str] | None = None,
+    face: FaceMatch | None = None,
 ) -> Case:  # fmt: skip
     """A document photograph: the capture's envelope is checked (the digest is the one the platform computed from the bytes, never the client's), the image checks become the printed-document signal, and the printed
     machine-readable data, which the platform read itself, is kept as digests for the chip comparison."""
-    await submit_capture(conn, case_id, rules, envelope, now=now, web=web)
+    # A document photograph sent again on the same case is a person trying again (a retake after a not-clear answer), not a replay; one first seen on another case still is.
+    await submit_capture(conn, case_id, rules, envelope, now=now, web=web, retry_same_media=True)
     current = await get(conn, case_id)
     if printed and current is not None and current.route == "CHIP":
         await store_printed(
@@ -422,7 +425,7 @@ async def submit_document(
         declared_matches = ev.compare_declared(printed or {}, declared)[0] if reliable else "UNKNOWN"
     mrz = checks.get("MRZ_CHECK_DIGITS")
     mrz_ok = None if current is None or current.route == "CHIP" or mrz is None else mrz == "PASS"
-    return await submit_optical(conn, case_id, rules, checks, now=now, document_expired=expired, declared_matches=declared_matches, mrz_ok=mrz_ok)
+    return await submit_optical(conn, case_id, rules, checks, now=now, document_expired=expired, declared_matches=declared_matches, mrz_ok=mrz_ok, face=face)
 
 
 async def chip_not_read(
@@ -469,6 +472,7 @@ async def submit_capture(
     *,
     now: datetime,
     web: bool = False,
+    retry_same_media: bool = False,
 ) -> Case:
     """Check the capture's envelope against the nonce this case issued and the digests already seen. A finding is sticky: a later clean capture does not clear it."""
     c = await _require_open(conn, case_id)
@@ -494,7 +498,14 @@ async def submit_capture(
                 {"t": tenant, "h": envelope.media_sha256, "c": uuid.UUID(case_id), "now": now},
             )
     except IntegrityError:
-        seen = True
+        # The same photograph sent again on the SAME case is a person retrying, not a replay; only one first seen on another case counts.
+        first = (
+            await conn.execute(
+                text("SELECT case_id FROM verify.idv_media_hash WHERE tenant_id = :t AND media_sha256 = :h"),
+                {"t": tenant, "h": envelope.media_sha256},
+            )
+        ).scalar_one_or_none()
+        seen = first is None or str(first) != str(c.case_id) or not retry_same_media
     v = ev.capture_integrity(
         envelope,
         issued,
@@ -531,6 +542,7 @@ async def submit_optical(
     document_expired: bool | None = None,
     declared_matches: str | None = None,
     mrz_ok: bool | None = None,
+    face: FaceMatch | None = None,
 ) -> Case:
     c = await _require_open(conn, case_id)
     state, _why = ev.optical_state(results, rules.optical_required)
@@ -543,8 +555,10 @@ async def submit_optical(
         else c.signals.document_expired,
         declared_matches_document=declared_matches or c.signals.declared_matches_document,
         mrz_check_digits_ok=mrz_ok if mrz_ok is not None else c.signals.mrz_check_digits_ok,
+        face=face if face is not None else c.signals.face,
+        reference_source="OPTICAL" if face is not None else c.signals.reference_source,  # the document's own printed photograph, never an authenticated portrait
     )
-    return await _commit(conn, c, s, rules, trigger="optical", now=now)
+    return await _commit(conn, c, s, rules, trigger="optical", now=now, extra_reasons=("FACE_CONSENT_GIVEN",) if face is not None else ())
 
 
 async def record_notice_and_consent(

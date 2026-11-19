@@ -14,13 +14,14 @@
     POST /v1/idv/cases/{id}:abandon             the applicant leaves
 
 No route lets a caller state a result: signals come from the platform's own checks, and the decision is re-derived by the pinned rules. A market with no policy in `config/idv/market-policies.yaml` cannot open a case.
-Responses carry codes and states only: no document data, no image, no score."""
+Responses carry codes and states only: no document data, no image. The face-match route's answer also carries the similarity and the threshold (two numbers) so the person, and the owner testing it, can see the comparison working."""
 
 from __future__ import annotations
 
 import base64
 import binascii
 import hashlib
+import logging
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any, Literal
@@ -43,7 +44,7 @@ from zid_platform.modules.evidence.ports import (
 from zid_platform.modules.verification.application import idv_case as svc
 from zid_platform.modules.verification.application import idv_claims, idv_media
 from zid_platform.modules.verification.application.idv_document import read_document
-from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions
+from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions, face_signal
 from zid_platform.modules.verification.domain.idv_evidence import Envelope
 from zid_platform.modules.verification.domain.idv_policy import MarketRules, PolicyError
 from zid_platform.modules.verification.infrastructure import (
@@ -51,11 +52,14 @@ from zid_platform.modules.verification.infrastructure import (
     idv_policy_file,
     self_run_config,
 )
-from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable
+from zid_platform.modules.verification.domain import document_details
+from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
 from zid_platform.modules.verification.infrastructure.image_inspect import (
     sanitize as sanitize_image,
 )
 from zid_platform.protected import protected_action
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["idv"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
@@ -208,10 +212,23 @@ class DeclaredIn(BaseModel):
     birth_date: date
 
 
+class DetailsIn(BaseModel):
+    """The face-match route's optional details: typed by the person, compared once with the platform's own reading of the document, never stored."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, max_length=120)
+    number: str | None = Field(default=None, max_length=40)
+    birth_date: date | None = None
+
+
 class DocumentImageIn(CaptureFacts):
     image_base64: str = Field(min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
     channel: Literal["APP", "WEB"] = "APP"
     declared: DeclaredIn | None = None
+    # the face-match route (CR-129) only: a live photograph taken now, and the person's agreement to the comparison. Never kept.
+    selfie_base64: str | None = Field(default=None, min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
+    consent: bool = False
+    details: DetailsIn | None = None
 
 
 class OpticalIn(BaseModel):
@@ -395,6 +412,40 @@ async def chip(
     return out
 
 
+FACE_ROUTE_ACK = "accept-no-liveness-no-evaluation"
+
+
+async def _face_against_document(request: Request, body: DocumentImageIn, selfie: bytes | None, document: bytes, threshold: float) -> tuple[Any, float | None]:
+    """The face-match route's comparison (CR-129): the live photograph against the document's own photograph, in memory, for this one call. It needs the owner's acknowledgement, the person's
+    agreement and a live photograph; the live photograph is scanned and re-encoded like the document, and neither image is kept. A face that cannot be found is a retake, never a failure."""
+    from zid_platform.modules.verification.infrastructure import face_lab
+
+    if getattr(request.app.state, "idv_face_route_ack", None) != FACE_ROUTE_ACK:
+        raise ZidError("FACE_ROUTE_NOT_ENABLED", "Verification with a face match is not enabled in this deployment.", http_status=403)
+    if not body.consent:
+        raise ZidError("FACE_CONSENT_REQUIRED", "Agree to the comparison of your photographs first.", http_status=422)
+    if selfie is None:
+        raise ZidError("LIVE_PHOTO_REQUIRED", "A live photograph is needed with the document photograph.", http_status=422)
+    verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), selfie)
+    if verdict.state == "INFECTED":
+        raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
+    if verdict.state != "CLEAN":
+        raise ZidError("SCAN_UNAVAILABLE", "The file could not be checked right now. Try again soon.", http_status=503, retryable=True)
+    try:
+        clean_selfie = await sanitize_image(selfie, transport=getattr(request.app.state, "imaging_transport", None))
+    except ImagingUnavailable as e:
+        raise ZidError(e.code, "The live photograph could not be inspected right now.", http_status=503, retryable=True) from e
+    try:
+        got = await face_lab.compare(clean_selfie, document)
+    except face_lab.FaceLabError as e:
+        if e.http_status == 422:
+            return face_signal(None, threshold), None  # no face, more than one face, unreadable: take it again
+        raise ZidError("FACE_ENGINE_UNAVAILABLE", "The face comparison is not available right now. Try again soon.", http_status=503, retryable=True) from e
+    cosine = float(got["cosine"])
+    log.info("idv face comparison: similarity %.3f, threshold %.3f", cosine, threshold)  # the number only, so a person can see whether the comparison works; no photograph, no name
+    return face_signal(cosine, threshold), cosine
+
+
 @router.post("/v1/idv/cases/{case_id}/document-image")
 async def document_image(
     case_id: uuid.UUID, body: DocumentImageIn, request: Request, caller: CallerDep
@@ -403,6 +454,7 @@ async def document_image(
     image = _b64(body.image_base64)
     # what arrives is scanned for malware first, then re-encoded by the sidecar as a plain JPEG with its metadata (location, device, time) removed. The checks, the printed-line reading and anything kept all use the clean
     # copy; only the replay digest is taken from what was received. A deployed cell with no scanner refuses rather than pretend to scan.
+    selfie = _b64(body.selfie_base64) if body.selfie_base64 else None
     verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), image)
     if verdict.state == "INFECTED":
         raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
@@ -428,8 +480,29 @@ async def document_image(
     now = datetime.now(UTC)
     tenant = str(caller.ctx.tenant_id or "")
 
+    shown: dict[str, Any] = {}  # the similarity and the threshold, shown to the person on this answer only: a number, so the comparison can be seen working
+
     async def work(conn: Any, rules: MarketRules) -> svc.Case:
         before = await svc.get(conn, str(case_id))
+        face_route = next((a for a in rules.policy.alternates if before is not None and a.route_id == before.route and a.face_match), None)
+        face = None
+        checks = dict(reading.checks)
+        shown.clear()
+        if face_route is not None:
+            if body.details is not None:
+                try:
+                    text = await read_page_text(clean, transport=getattr(request.app.state, "imaging_transport", None))
+                except ImagingUnavailable:
+                    text = ""  # nothing could be read: every typed detail is then "not read", held against nobody
+                found = document_details.compare(text, name=body.details.name, number=body.details.number, birth_date=body.details.birth_date)
+                wrong = document_details.contradicted(found)
+                if wrong:
+                    # refused before anything is decided or spent: a typing slip is corrected and sent again on the same case
+                    raise ZidError("DETAILS_DO_NOT_MATCH_DOCUMENT", "These details are not on the document photograph: " + ", ".join(w.replace("_", " ") for w in wrong) + ". Correct them or leave them empty, then send again.", http_status=422)
+                shown["details"] = found
+            face, cosine = await _face_against_document(request, body, selfie, clean, face_route.face_threshold)
+            shown.update(face_similarity=None if cosine is None else round(cosine, 3), face_threshold=face_route.face_threshold)
+            checks = {k: v for k, v in checks.items() if not k.startswith("MRZ_")}  # this route reads no machine-readable lines: their absence is not a doubt about the picture
         automatic = before is not None and any(
             a.route_id == before.route and a.automatic for a in rules.policy.alternates
         )
@@ -449,7 +522,7 @@ async def document_image(
             str(case_id),
             rules,
             env,
-            checks=reading.checks,
+            checks=checks,
             printed=reading.printed,
             now=now,
             web=body.channel == "WEB",
@@ -458,6 +531,7 @@ async def document_image(
                 if body.declared
                 else None
             ),
+            face=face,
         )
         if keep and kind is not None:
             await idv_media.save(
@@ -473,7 +547,8 @@ async def document_image(
             )
         return out
 
-    return await _mutate(request, caller, case_id, work)
+    result = await _mutate(request, caller, case_id, work)
+    return {**result, **shown} if shown else result
 
 
 @router.post("/v1/idv/cases/{case_id}/optical")

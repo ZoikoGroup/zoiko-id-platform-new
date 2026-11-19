@@ -1,9 +1,8 @@
 # The single Zoiko iD backend image (modular monolith, DEC-D6). Build context: backend/.
 #   docker build -t zid/platform .            # runtime image
 #   docker build --target test .              # runs the backend test suite (fails the build on failure)
-# One container runs the roles listed in ZID_ROLES, each as its own process on its own port:
-#   ZID_ROLES=cell (default) -> one process, cell :8000; ZID_SERVE_GLOBAL_PLANE=true adds locator + discovery on that port
-#   One database: ZID_CELL_DATABASE_URL (the global role uses it too unless ZID_GLOBAL_DATABASE_URL is set)   (see zid_platform/entrypoints/supervisor.py)
+# One container runs one process on one port: the cell, :8000, which also serves the global plane (locator + discovery).
+#   One database: ZID_CELL_DATABASE_URL (the global plane is a schema in it)   (see zid_platform/entrypoints/supervisor.py)
 # Other processes use the same image:  python -m zid_platform.entrypoints.<consumer|worker|outbox_relay>
 # Versions are pinned; dependencies come only from uv.lock (--frozen) for reproducible builds (DEC-G4).
 

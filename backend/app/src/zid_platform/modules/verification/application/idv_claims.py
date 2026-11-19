@@ -14,12 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 CLAIM = "IDENTITY_VERIFIED_FOR_SCOPE"
 CHIP, REVIEWED, AUTOMATED = "CHIP_VERIFIED", "REVIEWED_NO_CHIP", "AUTOMATED_NO_CHIP"
+# the lowest grade (CR-129): a live face looked like the photograph on an uploaded document, with no liveness test and no check that the document is genuine
+FACE_MATCH = "FACE_MATCH_NO_LIVENESS"
 
 
 def grade_of(assertions: tuple[str, ...], *, automatic: bool = False) -> str:
     """CHIP_VERIFIED only when the chip's data was proved issuer-signed; every other approval is the reviewed grade."""
     if "CHIP_DATA_ISSUER_SIGNED" in assertions:
         return CHIP
+    if "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" in assertions:
+        return FACE_MATCH
     return AUTOMATED if automatic else REVIEWED  # automatic: no person looked at it, and no face or authenticity check ran
 
 

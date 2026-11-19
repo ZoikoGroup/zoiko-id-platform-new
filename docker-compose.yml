@@ -319,17 +319,6 @@ services:
 
   # Local workload identity (profile `workload`; see local/workload/setup.sh). The listener checks a workload's SPIRE identity on the way in; the attestor
   # looks at the running container through the engine's read-only socket and signs what it found. Both reach the cell, which runs from source on the host.
-  # A stand-in agent to try workload identity with (development only; see local/workload/agent/Dockerfile). It builds and starts with the
-  # stack. Its container name, label and user id are what local/workload/workloads.json and the SPIRE entry select on.
-  invoice-agent:
-    build: ./local/workload/agent
-    image: acme/invoice-agent:1.0.0
-    container_name: payments-agent
-    labels:
-      team: finance
-    user: "10001"
-    restart: unless-stopped
-
   workload-edge:
     profiles: ["workload"]
     image: caddy:2.8-alpine

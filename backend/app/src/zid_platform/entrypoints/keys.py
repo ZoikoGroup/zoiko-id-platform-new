@@ -6,8 +6,8 @@
     python -m zid_platform.entrypoints.keys rotate-signing --key-id signing_token-eu-1 [--plane ...]
     python -m zid_platform.entrypoints.keys rewrap        [--plane ...]            # after adding a new first line to the master key file
 
-Environment: ZID_KEY_MASTER_FILE; the database is ZID_KEY_STORE_DATABASE_URL, else ZID_CELL_DATABASE_URL (plane cell) or
-ZID_GLOBAL_DATABASE_URL (plane global), else ZID_CELL_DATABASE_URL (one database serves both planes), else ZID_DATABASE_URL. The role needs SELECT, INSERT and UPDATE on the key table.
+Environment: ZID_KEY_MASTER_FILE; the database is ZID_KEY_STORE_DATABASE_URL, else ZID_CELL_DATABASE_URL (the one database serves both planes),
+else ZID_DATABASE_URL. The role needs SELECT, INSERT and UPDATE on the key table.
 
 Master key rotation: put a new `<id> <base64>` line FIRST in the file (keep the old line below it), restart the processes, run
 `rewrap`, then remove the old line only after every backup that was wrapped under it has aged out or been destroyed: a backup is
@@ -38,14 +38,11 @@ def _actor() -> str:
 def _store(plane: str) -> PostgresKeyStore:
     url = (
         os.environ.get("ZID_KEY_STORE_DATABASE_URL")
-        or os.environ.get(f"ZID_{plane.upper()}_DATABASE_URL")
-        or os.environ.get("ZID_CELL_DATABASE_URL")  # one database serves both planes
+        or os.environ.get("ZID_CELL_DATABASE_URL")  # the one database serves both planes
         or os.environ.get("ZID_DATABASE_URL")
     )
     if not url:
-        raise SystemExit(
-            "set ZID_KEY_STORE_DATABASE_URL (or ZID_CELL_DATABASE_URL / ZID_GLOBAL_DATABASE_URL)"
-        )
+        raise SystemExit("set ZID_KEY_STORE_DATABASE_URL (or ZID_CELL_DATABASE_URL)")
     return PostgresKeyStore(url, "global_directory" if plane == "global" else "keys", _actor())
 
 

@@ -9,6 +9,8 @@ import { ApiErrorView } from "@/lib/op";
 /** Query keys for the regulatory screens (ZID-RCG-003 WF-01..08). */
 export const REG = {
   readiness: ["regulatory", "readiness"],
+  countryOpenings: ["regulatory", "country-openings"],
+  faceLab: ["regulatory", "face-lab"],
   packs: ["regulatory", "packs"],
   releases: ["regulatory", "releases"],
   attestations: ["regulatory", "attestations"],
@@ -25,6 +27,18 @@ export const REG = {
 
 /** What a refusal from the regulatory API means, in words an operator can act on. Unknown codes fall back to the server's message. */
 export const REG_ERROR_HELP: Record<string, string> = {
+  FACE_ENGINE_NOT_CONFIGURED: "The face engine is not set up in this deployment (ZID_FACE_URL).",
+  FACE_ENGINE_UNAVAILABLE: "The face engine did not answer. Check that the face service is running, then try again.",
+  NO_FACE_PROBE: "No face was found in the live photograph. Use a clear, front-facing photograph in good light.",
+  NO_FACE_REFERENCE: "No face was found in the document photograph. Photograph the page with the portrait, flat and sharp.",
+  MULTIPLE_FACES_PROBE: "More than one face was found in the live photograph. Only one person may be in it.",
+  MULTIPLE_FACES_REFERENCE: "More than one face was found in the document photograph.",
+  IMAGE_UNREADABLE: "That photograph could not be read. Use a JPEG or PNG.",
+  IMAGE_TYPE_NOT_ALLOWED: "Only JPEG and PNG photographs are accepted.",
+  IMAGE_TOO_LARGE: "That photograph is too large (8 MB at most).",
+  COUNTRY_OPENING_INCOMPLETE: "Opening a country needs a date, a home cell and a reference for each of the six approvals.",
+  COUNTRY_NOT_LISTED: "This country is not in the registry file. Adding a new country is a configuration change, not done here.",
+  CELL_UNKNOWN: "This deployment does not know that cell. Pick one from the list.",
   PACK_DRAFT_OPEN: "A draft of this pack is already open. Finish or revise that draft first.",
   PACK_APPROVAL_HASH_MISMATCH: "The pack changed after you looked at it. Reload and sign the hash shown now.",
   PACK_APPROVER_IS_AUTHOR: "The author of a pack cannot approve it.",

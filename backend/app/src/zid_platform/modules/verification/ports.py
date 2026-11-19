@@ -64,7 +64,12 @@ from zid_platform.modules.verification.domain.countries import (
     Availability,
     Capability,
     CountryError,
+    OPENABLE,
+    Opening,
+    OpeningKey,
+    apply_openings,
     availability,
+    check_opening,
     require,
 )
 from zid_platform.modules.verification.domain.policy_packs import (
@@ -123,7 +128,14 @@ from zid_platform.modules.verification.infrastructure.certification_registry imp
 )
 from zid_platform.modules.verification.infrastructure.claim_templates import claim_templates
 from zid_platform.modules.verification.infrastructure.conformance_matrix import conformance_matrix
-from zid_platform.modules.verification.infrastructure.country_registry import registry
+from zid_platform.modules.verification.infrastructure import country_opening_store
+from zid_platform.modules.verification.infrastructure import face_lab
+from zid_platform.modules.verification.infrastructure.country_registry import (
+    file_registry,
+    openings,
+    registry,
+    set_openings,
+)
 from zid_platform.modules.verification.infrastructure.offerings_catalog import offerings_catalog
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
 from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
@@ -142,6 +154,16 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "OPENABLE",
+    "Opening",
+    "OpeningKey",
+    "apply_openings",
+    "check_opening",
+    "country_opening_store",
+    "face_lab",
+    "file_registry",
+    "openings",
+    "set_openings",
     "Entitlement",
     "EntitlementNotFound",
     "EntitlementStatus",

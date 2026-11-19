@@ -19,12 +19,11 @@ depends_on = None
 def upgrade() -> None:
     _run("""
         ALTER TABLE privacy.erasure_task
-            ADD COLUMN attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-            ADD COLUMN next_attempt_at timestamptz;
-    """)
+            ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+            ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz;
+    """)  # privacy_0011 (CR-113) adds the same two columns; on a fresh database they already exist, so this step must not add them again
 
 
 def downgrade() -> None:
-    _run("""
-        ALTER TABLE privacy.erasure_task DROP COLUMN next_attempt_at, DROP COLUMN attempts;
-    """)
+    # The columns belong to privacy_0011 on a fresh database (and its downgrade drops them); dropping them here would make that step fail.
+    pass
