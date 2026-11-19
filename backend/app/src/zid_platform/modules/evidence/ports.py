@@ -31,7 +31,10 @@ from zid_platform.modules.evidence.application.chip_reader import (
     ChipReader,
     ChipReadError,
 )
-from zid_platform.modules.evidence.application.destinations import keep_destination, read_destination
+from zid_platform.modules.evidence.application.destinations import (
+    keep_destination,
+    read_destination,
+)
 from zid_platform.modules.evidence.application.dg2 import chip_photo
 from zid_platform.modules.evidence.application.epassport import verify as verify_chip
 from zid_platform.modules.evidence.application.issuer_hook import register_issuer_binding
@@ -141,8 +144,8 @@ __all__ = [
     "hold_status",
     "ingest_event",
     "is_held",
-    "master_list_refresh_pass",
     "keep_destination",
+    "master_list_refresh_pass",
     "material_commitment",
     "open_sealed",
     "parse_mrz",

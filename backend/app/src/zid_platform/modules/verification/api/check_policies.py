@@ -3,8 +3,8 @@
     GET  /v1/check-policies                    the company's policies, newest first          verification:read
     POST /v1/check-policies                    write a draft                                 verification:execute
     POST /v1/check-policies/{id}:submit        the author submits it                         verification:execute
-    POST /v1/check-policies/{id}:approve       a different person approves it                verification:review
-    POST /v1/check-policies/{id}:reject        a different person rejects it                 verification:review
+    POST /v1/check-policies/{id}:approve       a different person approves it                verification:execute
+    POST /v1/check-policies/{id}:reject        a different person rejects it                 verification:execute
 
 Only an approved policy has effect: new cases then ask for its required checks, and proof of address documents are limited to its types and ages
 (never wider than the platform's). Requiring a check never switches it on.
@@ -106,7 +106,7 @@ async def submit(policy_id: Id, request: Request, caller: CallerDep) -> dict[str
 async def _decide(
     policy_id: str, body: PolicyDecisionIn, request: Request, caller: Caller, approve: bool
 ) -> dict[str, Any]:
-    _scope(caller, "verification:review")
+    _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
             p = await svc.decide(

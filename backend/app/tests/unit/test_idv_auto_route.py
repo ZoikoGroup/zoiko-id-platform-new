@@ -14,7 +14,7 @@ POLICY = d.Policy(
 
 
 def sig(**kw: object) -> d.Signals:
-    base = dict(optical=d.Optical.PASS, route="WEB_AUTO", web_only_capture=True, mrz_check_digits_ok=True, document_expired=False, declared_matches_document="MATCH")
+    base = {"optical": d.Optical.PASS, "route": "WEB_AUTO", "web_only_capture": True, "mrz_check_digits_ok": True, "document_expired": False, "declared_matches_document": "MATCH"}
     return d.Signals(**{**base, **kw})  # type: ignore[arg-type]
 
 

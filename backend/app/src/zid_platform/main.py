@@ -361,6 +361,16 @@ def create_app(
     app.state.webhook_client = None  # real network; tests inject
     if settings.dev_simulators and role is Role.CELL:
         _configure_simulators(app)
+        if settings.smtp_host:  # WF-05 codes to the local mail sink; no real sender ships
+            from .modules.verification.infrastructure.dev_code_sink import (
+                DevChallengeSender,
+                DevPostalSender,
+            )
+
+            app.state.contact_challenge_sender = DevChallengeSender(
+                settings.smtp_host, settings.smtp_port
+            )
+            app.state.postal_sender = DevPostalSender(settings.smtp_host, settings.smtp_port)
     if role is Role.GLOBAL or with_global:
         _configure_global_plane(app, settings)
     if role is Role.CELL:
