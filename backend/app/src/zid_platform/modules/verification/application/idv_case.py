@@ -10,7 +10,7 @@ import json
 import secrets
 import uuid
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -295,6 +295,9 @@ async def _commit(
     return latest
 
 
+FACE_ALLOWANCE_WINDOW = timedelta(hours=24)
+
+
 async def open_case(
     conn: AsyncConnection,
     *,
@@ -309,6 +312,19 @@ async def open_case(
             "ROUTE_NOT_ALLOWED_BY_POLICY",
             "That route is not one this market's signed policy names.",
         )
+    if any(a.route_id == route and a.face_match for a in rules.policy.alternates):
+        # A person's attempts on the face-match route are one allowance, not one per case: starting a new case must not give three fresh tries, or anyone could keep trying until a score passes.
+        used = (
+            await conn.execute(
+                text(
+                    "SELECT COALESCE(SUM(COALESCE((attempts->>'CAPTURE')::int, 0)), 0) FROM verify.idv_case "
+                    "WHERE applicant = :a AND route = :r AND created_at > :since"
+                ),
+                {"a": uuid.UUID(applicant), "r": route, "since": now - FACE_ALLOWANCE_WINDOW},
+            )
+        ).scalar_one()
+        if int(used) >= rules.retry.max_capture_attempts:
+            raise CaseError("FACE_ATTEMPTS_USED_UP", "All the attempts allowed in 24 hours have been used.")
     signals = Signals(route=route)
     result = decide(signals, rules.policy)
     case_id = uuid.uuid4()

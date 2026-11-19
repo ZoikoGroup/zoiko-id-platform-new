@@ -170,8 +170,6 @@ describe("simple identity page", () => {
     await user.upload(screen.getByLabelText("Live photograph"), jpeg("me.jpg"));
     expect(send.disabled).toBe(true); // no agreement
     await user.click(screen.getByRole("checkbox"));
-    await user.type(screen.getByLabelText("Full name"), "Anil Kumar");
-    await user.type(screen.getByLabelText("Document number"), "7421 5530 9187");
     await waitFor(() => expect(send.disabled).toBe(false));
     await user.click(send);
     await waitFor(() => expect(fake.idv.documentImage).toHaveBeenCalledTimes(1));
@@ -181,7 +179,8 @@ describe("simple identity page", () => {
     expect(body.selfie_base64?.length).toBeGreaterThan(0);
     expect(body.consent).toBe(true);
     expect(body.declared).toBeUndefined(); // no machine-readable-line details on this route
-    expect(body.details).toEqual({ name: "Anil Kumar", number: "7421 5530 9187" }); // the optional details, only those typed
+    expect(body.details).toBeUndefined(); // the face is the only thing compared
+    expect(screen.queryByLabelText("Full name")).toBeNull();
   }, 60_000);
 
   it("explains a face that was not found or did not match as a retake, never a rejection", async () => {
@@ -196,7 +195,7 @@ describe("simple identity page", () => {
     fake.idv.cases.mockResolvedValue({
       items: [
         { ...base, case_id: "a", route: "WEB_AUTO", decision: "INDETERMINATE" },
-        { ...base, case_id: "b", route: "WEB_REVIEW", decision: "REVIEW_REQUIRED", signals: sent },
+        { ...base, case_id: "b", route: "WEB_REVIEW", decision: "REVIEW_REQUIRED" },
         { ...base, case_id: "c", route: "CHIP" },
       ],
     });
@@ -211,5 +210,24 @@ describe("simple identity page", () => {
     fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_AUTO", decision: "APPROVED", state: "CLOSED", signals: sent }] });
     mount();
     expect(await screen.findByText("Identity verified")).toBeTruthy();
+  });
+
+  it("tells the person to start a new check when a face-match check was stopped for review, and offers no upload into it", async () => {
+    fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_FACE", decision: "REVIEW_REQUIRED", signals: sent, reasons: ["CAPTURE_INJECTION_RISK"] }] });
+    mount();
+    expect(await screen.findByText("Please start a new check")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Send for verification" })).toBeNull();
+    expect(screen.getByRole("button", { name: /different document/ })).toBeTruthy();
+  });
+
+  it("counts the attempts: three, then the check has ended and no fourth upload is offered", async () => {
+    fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_FACE", signals: sent, reasons: ["FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO"], attempts: { CAPTURE: 1 } }] });
+    const first = mount();
+    expect(await screen.findByText("Attempt 2 of 3")).toBeTruthy();
+    first.unmount();
+    fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_FACE", signals: sent, reasons: ["FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO"], attempts: { CAPTURE: 3 } }] });
+    mount();
+    expect(await screen.findByText("All attempts used")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Send for verification" })).toBeNull(); // no fourth attempt
   });
 });

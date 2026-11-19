@@ -90,6 +90,18 @@ class Faces:
         return self.recogniser.feature(self.recogniser.alignCrop(img, face))
 
 
+def main_face(found: np.ndarray) -> np.ndarray:
+    """On a DOCUMENT, the face to use when several are found: identity cards print the holder's photograph large and often a small ghost copy beside it. The largest face is taken only when it is
+    clearly the main one (at least twice the area of the next); otherwise the faces are returned unchanged and the caller refuses, never guessing."""
+    if len(found) < 2:
+        return found
+    areas = found[:, 2] * found[:, 3]
+    order = np.argsort(areas)[::-1]
+    if areas[order[0]] >= 2.0 * areas[order[1]]:
+        return found[order[:1]]
+    return found
+
+
 def describe(img: np.ndarray, found: np.ndarray) -> dict:
     h, w = img.shape[:2]
     best = found[int(np.argmax(found[:, -1]))] if len(found) else None
@@ -105,7 +117,7 @@ def match(models: Faces, body: dict) -> tuple[int, dict]:
         probe, reference = models.decode(body.get("probe_base64")), models.decode(body.get("reference_base64"))
     except ValueError as e:
         return 422, {"error": str(e)}
-    pf, rf = models.faces(probe), models.faces(reference)
+    pf, rf = models.faces(probe), main_face(models.faces(reference))
     if len(pf) == 0:
         return 422, {"error": "NO_FACE_PROBE", "probe": describe(probe, pf)}
     if len(rf) == 0:

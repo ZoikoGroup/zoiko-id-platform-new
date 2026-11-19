@@ -35,6 +35,7 @@ def parse(doc: dict[str, Any]) -> Routing:
             first_pass=tuple(body.get("first_pass") or ()),
             lei=body.get("lei"),
             exception=tuple(body.get("exception") or ()),
+            lei_primary=bool(body.get("lei_as_primary", False)),
         )
     coverage = {
         c: frozenset(ids or ()) for c, ids in (doc.get("supplier_coverage_proven") or {}).items()

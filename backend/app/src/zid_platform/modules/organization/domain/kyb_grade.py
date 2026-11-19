@@ -82,6 +82,7 @@ class RegistryFact:
     status_reported: str  # ACTIVE | DISSOLVED | UNKNOWN | SOURCE_UNAVAILABLE
     checked_at: datetime
     max_age: timedelta  # how old the check may be for the market and purpose
+    reference_only: bool = False  # an LEI record stood as the company check: no register answered, so the claim is `LEI_RECORD_FOUND`, never `REGISTER_FOUND`
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +160,9 @@ def assess(
 
     if registry_ok:
         grade = Grade.K2
-        claims += ["REGISTER_FOUND", "COMPANY_ACTIVE_SOURCE_REPORTED"]
+        claims += ["LEI_RECORD_FOUND" if reg is not None and reg.reference_only else "REGISTER_FOUND", "COMPANY_ACTIVE_SOURCE_REPORTED"]
+        if reg is not None and reg.reference_only:
+            reasons.append("REGISTER_NOT_CHECKED_LEI_REFERENCE_ONLY")
     else:
         if reg is None:
             reasons.append("NO_REGISTRY_CHECK")

@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type OrgClaimProofKind } from "@zoiko/api-client";
+import { ApiError, type OrgClaimProofKind, type OrgClaimProofRead } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DateTime, Select } from "@zoiko/ui";
 import { FileUp } from "lucide-react";
 import { useId, useRef, useState } from "react";
@@ -19,16 +19,19 @@ export function ProofsCard({ claimId }: { claimId: string }) {
   const [kind, setKind] = useState<OrgClaimProofKind>("CERTIFICATE_OF_INCORPORATION");
   const [file, setFile] = useState<File | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [read, setRead] = useState<OrgClaimProofRead | null>(null);
   const list = useCellQuery(["org-claims", claimId, "proofs"], (api) => api.orgClaims.proofs(claimId));
   const upload = useCellMutation((api, f: File) => api.orgClaims.uploadProof(claimId, f, kind, proofKey(claimId, f, attempt)), {
     invalidate: [["org-claims", claimId, "proofs"]],
     success: "Document added",
-    onSuccess: () => {
+    onSuccess: (done) => {
+      setRead(done?.read ?? null);
       setFile(null);
       setAttempt(attemptId());
       if (input.current) input.current.value = "";
     },
   });
+  const check = useCellMutation((api, f: File) => api.orgClaims.checkCertificate(claimId, f), { onSuccess: (done) => setRead(done?.read ?? null) });
   const serverProblem = upload.error instanceof ApiError ? proofMessage(upload.error.code) : upload.error ? proofMessage(undefined) : null;
   const shown = problem ?? serverProblem;
 
@@ -70,11 +73,18 @@ export function ProofsCard({ claimId }: { claimId: string }) {
             PDF, PNG or JPEG, up to 10 MB. Files are scanned and stored encrypted in your data region.
           </p>
         </div>
-        <Button type="submit" className="min-h-11" pending={upload.isPending} isDisabled={!file} icon={<FileUp aria-hidden className="size-4" />}>
-          Add document
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" className="min-h-11" pending={upload.isPending} isDisabled={!file} icon={<FileUp aria-hidden className="size-4" />}>
+            Add document
+          </Button>
+          <Button variant="secondary" className="min-h-11" pending={check.isPending} isDisabled={!file || proofProblem(file) !== null} onPress={() => file && check.mutate(file)}>
+            Check without saving
+          </Button>
+        </div>
       </form>
       <div role="status" aria-live="polite" className="mt-3">
+        {check.error ? <Banner tone="warn" title="That document could not be checked">{check.error instanceof ApiError ? proofMessage(check.error.code) : proofMessage(undefined)}</Banner> : null}
+        {read ? <CertificateRead read={read} /> : null}
         {shown ? (
           <Banner tone="warn" title="That document was not added">
             {shown}
@@ -103,5 +113,39 @@ export function ProofsCard({ claimId }: { claimId: string }) {
         }
       </QueryView>
     </Card>
+  );
+}
+
+const READING_WHY: Record<string, string> = {
+  TOO_LITTLE_TEXT: "The picture could not be read well enough. Upload a clear, flat, well-lit photograph or scan.",
+  READING_UNAVAILABLE: "The document was added, but it could not be read just now.",
+  PDF_NOT_READABLE_UPLOAD_A_PHOTO_OR_SCAN: "The document was added. We can read photographs and scans (JPEG or PNG) but not PDF files: upload a picture of the certificate to have it checked.",
+};
+const FIELD: Record<string, string> = { MATCH: "matches your claim", MISMATCH: "is different from your claim", NOT_READ: "could not be read clearly" };
+
+/** What the platform's own reading of a certificate found, compared with the claim. It helps the reviewer and catches a typing mistake: it never verifies the company. */
+function CertificateRead({ read }: { read: OrgClaimProofRead }) {
+  if (read.verdict === "CONSISTENT") {
+    return (
+      <Banner tone="ok" title="This certificate matches your claim">
+        <p>The company name and number on the document are the ones you gave{read.incorporated_on ? `, incorporated on ${read.incorporated_on}` : ""}. A reviewer still checks the document, and the company is verified against the register, not by this reading.</p>
+      </Banner>
+    );
+  }
+  if (read.verdict === "CONTRADICTS") {
+    return (
+      <Banner tone="warn" title="This certificate does not match your claim">
+        <ul className="list-disc pl-5">
+          {read.number ? <li>The company number {FIELD[read.number]}.</li> : null}
+          {read.name ? <li>The company name {FIELD[read.name]}.</li> : null}
+        </ul>
+        <p className="mt-1">Check that this is the right company&apos;s certificate, or correct your claim.</p>
+      </Banner>
+    );
+  }
+  return (
+    <Banner tone="info" title="We could not check this document against your claim">
+      <p>{READING_WHY[read.reading] ?? "Not enough could be read to compare it. A reviewer will look at the document."}</p>
+    </Banner>
   );
 }

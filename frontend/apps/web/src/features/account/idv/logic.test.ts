@@ -130,3 +130,12 @@ describe("the face-match route", () => {
     }
   });
 });
+
+describe("wording for what the face route can refuse", () => {
+  it("has words for each refusal, never the general fallback", async () => {
+    const { applicantText } = await import("./logic");
+    for (const code of ["DETAILS_DO_NOT_MATCH_DOCUMENT", "FACE_CONSENT_REQUIRED", "LIVE_PHOTO_REQUIRED", "FACE_ENGINE_UNAVAILABLE", "FACE_ROUTE_NOT_ENABLED", "SCAN_UNAVAILABLE"]) {
+      expect(applicantText(code)).not.toMatch(/person to look at this case/);
+    }
+  });
+});

@@ -115,3 +115,17 @@ def test_the_operator_api_refuses_a_photograph_it_cannot_decode_or_that_is_too_l
         api._decode(base64.b64encode(b"x" * (api.MAX_IMAGE + 1)).decode())
     assert e.value.code == "IMAGE_TOO_LARGE"
     assert api._decode(base64.b64encode(PHOTO).decode()) == PHOTO
+
+
+def test_the_calibrate_request_takes_scores_only_and_refuses_anything_else() -> None:
+    from pydantic import ValidationError
+
+    ok = api.CalibrateIn(pairs=[{"score": 0.6, "same": True}, {"score": 0.7, "same": True}, {"score": 0.1, "same": False}, {"score": 0.0, "same": False}])
+    assert ok.targets == [0.1, 0.01, 0.001]
+    for bad in (
+        {"pairs": [{"score": 0.6, "same": True, "name": "A. Person"}] * 4},  # nothing that names a person
+        {"pairs": [{"score": 2.0, "same": True}] * 4},  # not a cosine
+        {"pairs": [{"score": 0.5, "same": True}] * 3},  # too few to mean anything
+    ):
+        with pytest.raises(ValidationError):
+            api.CalibrateIn(**bad)

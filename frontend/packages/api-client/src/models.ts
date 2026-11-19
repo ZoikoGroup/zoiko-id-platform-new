@@ -2498,6 +2498,16 @@ export type OrgClaimProof = {
   scan_status: "CLEAN" | "NOT_SCANNED";
   content_hash: string;
   uploaded_at: Iso;
+  /** Only on the upload answer for a certificate or register extract: what the platform's own reading found, compared with the claim. Evidence, never a verification. */
+  read?: OrgClaimProofRead;
+};
+export type OrgClaimProofRead = {
+  verdict: "CONSISTENT" | "CONTRADICTS" | "NOT_ENOUGH";
+  reading: string;
+  document?: string;
+  number?: "MATCH" | "MISMATCH" | "NOT_READ";
+  name?: "MATCH" | "MISMATCH" | "NOT_READ";
+  incorporated_on?: string | null;
 };
 /** A document on an approval request (WF-013C AT-12). The list carries metadata only; opening one is for an approver and is audited. */
 export type ApprovalAttachmentKind = "SUPPORTING_DOCUMENT" | "AUTHORITY_DOCUMENT" | "IDENTITY_REPROOF_RECORD" | "OTHER";

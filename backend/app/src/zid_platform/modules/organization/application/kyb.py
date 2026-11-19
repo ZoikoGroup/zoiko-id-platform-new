@@ -120,12 +120,14 @@ async def decide(
 
     await run(route.first_pass)
     decision = reconcile(
-        applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+        applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
     )
     if route.exception and decision.review_reason in EXCEPTION_TRIGGERS:
         await run(route.exception)
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
         )
     if (
         applicant.lei
@@ -135,7 +137,8 @@ async def decide(
     ):
         outcomes.append(await _ask(adapter, applicant.lei, applicant.jurisdiction, now))
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
         )
     return decision
 

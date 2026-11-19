@@ -47,77 +47,94 @@ adapters:
     status: NOT_LICENSED                # optional; only with commercial redistribution rights; not built
 
 routes:
-  GB:
-    first_pass: [companies-house]
+  # OWNER-ACKNOWLEDGED (19 Nov 2026), LOCAL TEST: every country uses GLEIF ONLY. No national register or supplier is called and no credential is needed. ED-03 says an LEI record never verifies a
+  # company alone, so this is a deliberate departure the owners must sign off before real use: a company that holds an LEI whose national registration number and LEI both match the claim is
+  # reported as LEI-reference-only (claim LEI_RECORD_FOUND), never as a register finding; a company with NO LEI cannot be verified this way and stays UNAVAILABLE / NO_COVERAGE for review.
+  # To use a register for a country again, name it in `first_pass` (it is then used first and nothing is marked LEI-only).
+  GB:                                   # United Kingdom
+    first_pass: []
     lei: gleif
-    exception: [creditsafe]
-  US:
-    first_pass: [creditsafe]            # a state register adapter does not exist yet; the supplier is primary
-    lei: gleif
+    lei_as_primary: true
     exception: []
-  IE:
-    first_pass: [creditsafe]            # a national register adapter does not exist yet
+  US:                                   # United States
+    first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
-  DE:
-    first_pass: [creditsafe]
+  IE:                                   # Ireland
+    first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
-  FR:
-    first_pass: [sirene]                # the official register answers on its own: no supplier coverage needed
+  DE:                                   # Germany
+    first_pass: []
     lei: gleif
-    exception: [inpi, creditsafe]       # inpi is asked only once an owner enables it with credentials
-
-    # The other countries in the country registry (ZID-EDR-001 waves 2 to 4): GLEIF is the only connected source. It lets an applicant FIND a company that holds
-    # an LEI and shows its LEI, but it is reference data and never verifies a company (ED-03): with no register source the answer is UNAVAILABLE / NO_COVERAGE and the
-    # claim goes to two reviewers. A national register adapter is added per country when an owner obtains a lawful, licensed route.
+    lei_as_primary: true
+    exception: []
+  FR:                                   # France
+    first_pass: []
+    lei: gleif
+    lei_as_primary: true
+    exception: []
   CA:                                   # Canada
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   IN:                                   # India
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   AU:                                   # Australia
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   SG:                                   # Singapore
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   AE:                                   # United Arab Emirates
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   SA:                                   # Saudi Arabia
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   JP:                                   # Japan
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   BR:                                   # Brazil
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   MX:                                   # Mexico
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   ZA:                                   # South Africa
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   NG:                                   # Nigeria
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
   KE:                                   # Kenya
     first_pass: []
     lei: gleif
+    lei_as_primary: true
     exception: []
 
 supplier_coverage_proven: {}            # country -> [adapter ids]; filled only when the owners record the proof

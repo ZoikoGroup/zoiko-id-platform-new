@@ -99,6 +99,7 @@ def test_a_face_that_cannot_be_found_is_a_retake(rt_url: str, monkeypatch: pytes
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
         _, done = run(api, me)
         assert done.json()["decision"] == "INDETERMINATE" and "FACE_NOT_FOUND_OR_UNCLEAR" in done.json()["reasons"]
+        assert done.json()["face_problem"] == "NO_FACE_PROBE"  # the answer names which photograph had no face
 
 
 def test_without_the_owners_acknowledgement_the_route_refuses(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -179,3 +180,22 @@ def test_typed_details_that_are_on_the_document_are_reported_and_a_contradiction
         assert good.json()["details"] == {"name": "MATCH", "number": "MATCH", "birth_date": "MATCH"}
         bad = with_details(api, me, {"name": "Someone Else"})
         assert bad.status_code == 422 and bad.json()["error"]["code"] == "DETAILS_DO_NOT_MATCH_DOCUMENT" and "name" in bad.json()["error"]["message"]
+
+
+def test_a_new_case_does_not_reset_a_persons_attempts(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Attempts are one allowance across a person's face-match cases for 24 hours; otherwise starting again would give three fresh tries every time."""
+    similarity(monkeypatch, 0.1)  # never matches
+    o = onboard(rt_url)
+    me = o.bearer(o.owner, scope=SCOPE)
+    with app_for(rt_url, o, face_entry(0.363)) as api:
+        api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
+        for n in range(3):
+            case = api.post("/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"})
+            assert case.status_code == 201, (n, case.text)
+            nonce = api.post(f"/v1/idv/cases/{case.json()['case_id']}/nonce", headers=me).json()["nonce"]
+            body = {"nonce": nonce, "image_base64": base64.b64encode(photo()).decode(), "selfie_base64": base64.b64encode(photo()).decode(), "captured_at": datetime.now(UTC).isoformat(), "channel": "WEB", "consent": True}
+            sent = api.post(f"/v1/idv/cases/{case.json()['case_id']}/document-image", headers=me, json=body)
+            assert sent.json()["decision"] == "INDETERMINATE", sent.text
+            api.post(f"/v1/idv/cases/{case.json()['case_id']}:abandon", headers=me)  # "start again"
+        fourth = api.post("/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"})
+        assert fourth.status_code == 429 and fourth.json()["error"]["code"] == "FACE_ATTEMPTS_USED_UP", fourth.text

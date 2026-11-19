@@ -2,6 +2,7 @@
 
     GET  /v1/regulatory/face-lab           whether the engine is reachable, and where the approval gate stands (mode and every record still missing)
     POST /v1/regulatory/face-lab/compare   two photographs in, a similarity measurement out
+    POST /v1/regulatory/face-lab/calibrate scores of same-person and different-person pairs in, the threshold for each false-match target out (CR-130); no photograph is involved
 
 What this is not: an approval. It runs the lab engine on photographs the operator supplies and answers with a score. It stores no photograph, it logs no score against a person (the audit
 record says only which engine ran and whether the result was above the engine's suggested threshold), it has no liveness test, and nothing it returns lets anyone through: the platform's
@@ -42,6 +43,7 @@ router = APIRouter(tags=["regulatory"])
 OperatorDep = Annotated[Any, Depends(require_operator)]
 
 RUN = "regulatory.face_lab.run"
+MAX_PAIRS = 200_000
 MAX_IMAGE = 8 * 1024 * 1024
 LAB_NOTE = (
     "A lab measurement, not an approval. This engine has no liveness test, is not evaluated, and cannot approve anyone: a face match alone can be shown another person's "
@@ -80,6 +82,18 @@ class CompareIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     probe_base64: str = Field(min_length=100, max_length=12_000_000)  # the live photograph
     reference_base64: str = Field(min_length=100, max_length=12_000_000)  # the document photograph
+
+
+class PairIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    score: float = Field(ge=-1.0, le=1.0)  # cosine similarity
+    same: bool  # true: two photographs of the same person
+
+
+class CalibrateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pairs: list[PairIn] = Field(min_length=4, max_length=MAX_PAIRS)
+    targets: list[float] = Field(default_factory=lambda: [0.1, 0.01, 0.001], min_length=1, max_length=6)
 
 
 def _decode(value: str) -> bytes:
@@ -122,6 +136,31 @@ async def compare(body: CompareIn, request: Request, op: OperatorDep) -> dict[st
         op,
         event="regulatory.face_lab.compared",
         action="compare",
+        capability=RUN,
+        target_type="face_lab",
+        target="face-lab",
+        work=work,
+    )
+
+
+@router.post("/v1/regulatory/face-lab/calibrate")
+async def calibrate(body: CalibrateIn, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """The measured trade-off for a set of scored pairs, so a threshold is chosen from data. Scores only: the pairs carry no photograph, no name and nothing that identifies a person."""
+    fc = v.face_calibration
+
+    async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        try:
+            out = fc.report([fc.Pair(p.score, p.same) for p in body.pairs], tuple(body.targets))
+        except fc.CalibrationError as e:
+            raise ZidError(e.code, "That set of pairs cannot be measured: " + e.code.replace("_", " ").lower() + ".", http_status=422) from e
+        # the record names the engine and the size of the set, never a score
+        return out, "face-lab", {"engine": v.face_lab.ENGINE_ID, "same_pairs": out["same_pairs"], "different_pairs": out["different_pairs"]}
+
+    return await actions.act(
+        request,
+        op,
+        event="regulatory.face_lab.calibrated",
+        action="calibrate",
         capability=RUN,
         target_type="face_lab",
         target="face-lab",

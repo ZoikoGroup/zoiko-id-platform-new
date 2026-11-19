@@ -74,6 +74,7 @@ _STATUS = {
     "REVIEWER_IS_THE_APPLICANT": 403,
     "ALREADY_REVIEWED": 409,
     "RETRY_CEILING_REACHED": 429,
+    "FACE_ATTEMPTS_USED_UP": 429,
     "RETRY_CEILING_NOT_CONFIGURED": 409,
     "INVALID_ACCESS_STATE": 422,
     "MEDIA_RETENTION_NOT_SET": 409,
@@ -415,7 +416,7 @@ async def chip(
 FACE_ROUTE_ACK = "accept-no-liveness-no-evaluation"
 
 
-async def _face_against_document(request: Request, body: DocumentImageIn, selfie: bytes | None, document: bytes, threshold: float) -> tuple[Any, float | None]:
+async def _face_against_document(request: Request, body: DocumentImageIn, selfie: bytes | None, document: bytes, threshold: float) -> tuple[Any, float | None, str | None]:
     """The face-match route's comparison (CR-129): the live photograph against the document's own photograph, in memory, for this one call. It needs the owner's acknowledgement, the person's
     agreement and a live photograph; the live photograph is scanned and re-encoded like the document, and neither image is kept. A face that cannot be found is a retake, never a failure."""
     from zid_platform.modules.verification.infrastructure import face_lab
@@ -439,11 +440,12 @@ async def _face_against_document(request: Request, body: DocumentImageIn, selfie
         got = await face_lab.compare(clean_selfie, document)
     except face_lab.FaceLabError as e:
         if e.http_status == 422:
-            return face_signal(None, threshold), None  # no face, more than one face, unreadable: take it again
+            log.info("idv face comparison: no result (%s)", e.code)  # the sidecar's reason only: which photograph, no image
+            return face_signal(None, threshold), None, e.code  # no face, more than one face, unreadable: take it again
         raise ZidError("FACE_ENGINE_UNAVAILABLE", "The face comparison is not available right now. Try again soon.", http_status=503, retryable=True) from e
     cosine = float(got["cosine"])
     log.info("idv face comparison: similarity %.3f, threshold %.3f", cosine, threshold)  # the number only, so a person can see whether the comparison works; no photograph, no name
-    return face_signal(cosine, threshold), cosine
+    return face_signal(cosine, threshold), cosine, None
 
 
 @router.post("/v1/idv/cases/{case_id}/document-image")
@@ -500,8 +502,8 @@ async def document_image(
                     # refused before anything is decided or spent: a typing slip is corrected and sent again on the same case
                     raise ZidError("DETAILS_DO_NOT_MATCH_DOCUMENT", "These details are not on the document photograph: " + ", ".join(w.replace("_", " ") for w in wrong) + ". Correct them or leave them empty, then send again.", http_status=422)
                 shown["details"] = found
-            face, cosine = await _face_against_document(request, body, selfie, clean, face_route.face_threshold)
-            shown.update(face_similarity=None if cosine is None else round(cosine, 3), face_threshold=face_route.face_threshold)
+            face, cosine, problem = await _face_against_document(request, body, selfie, clean, face_route.face_threshold)
+            shown.update(face_similarity=None if cosine is None else round(cosine, 3), face_threshold=face_route.face_threshold, face_problem=problem)
             checks = {k: v for k, v in checks.items() if not k.startswith("MRZ_")}  # this route reads no machine-readable lines: their absence is not a doubt about the picture
         automatic = before is not None and any(
             a.route_id == before.route and a.automatic for a in rules.policy.alternates

@@ -46,6 +46,7 @@ from zid_platform.modules.verification.domain import biometric_methods as biomet
 from zid_platform.modules.verification.domain import check_methods as check_method_model
 from zid_platform.modules.verification.domain import conformance as conformance_model
 from zid_platform.modules.verification.domain import entitlement as entitlement_model
+from zid_platform.modules.verification.domain import face_calibration as face_calibration
 from zid_platform.modules.verification.domain import market_release as release_model
 from zid_platform.modules.verification.domain import offerings as offerings_model
 from zid_platform.modules.verification.domain import privacy_overlay as privacy_overlay_model
@@ -123,6 +124,7 @@ from zid_platform.modules.verification.infrastructure import (
     contract_entitlement_store as entitlements,
 )
 from zid_platform.modules.verification.infrastructure import register_sources
+from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
@@ -144,6 +146,9 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
 )
 
 __all__ = [
+    "ImagingUnavailable",
+    "face_calibration",
+    "read_page_text",
     "APPROVER_ROLES",
     "GATE_MODES",
     "PACK_PURPOSE",

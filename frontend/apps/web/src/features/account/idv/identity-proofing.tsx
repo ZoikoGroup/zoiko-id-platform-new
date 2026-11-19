@@ -27,6 +27,7 @@ import {
   NO_DETAILS,
   routeFor,
   simpleState,
+  FACE_ATTEMPTS,
   trimDetails,
   type Declared,
   type DocKind,
@@ -98,6 +99,16 @@ function Choose() {
 function Answer({ c }: { c: IdvCase }) {
   const state = simpleState(c);
   const reasons = [...new Set(c.reasons.map(applicantText))];
+  if (state === "RETAKE" && isFace(c.route) && (c.attempts?.CAPTURE ?? 0) >= FACE_ATTEMPTS) {
+    return (
+      <Banner tone="danger" title="All attempts used">
+        <div className="space-y-2">
+          <p>The faces did not match closely enough in {FACE_ATTEMPTS} attempts, so this check has ended. This is not a finding about who you are. Try again later with a clearer, face-on photograph in good light, or contact support.</p>
+          {reasons.length ? <ul className="list-disc pl-5">{reasons.map((t) => <li key={t}>{t}</li>)}</ul> : null}
+        </div>
+      </Banner>
+    );
+  }
   const what = isFace(c.route) ? "identity check" : DOC_LABEL[docKindOf(c)].toLowerCase();
   if (state === "VERIFIED") return <Banner tone="ok" title="Verified">Your {what} has passed.</Banner>;
   if (state === "REJECTED") {
@@ -107,6 +118,13 @@ function Answer({ c }: { c: IdvCase }) {
           <p>Your {what} did not pass.</p>
           {reasons.length ? <ul className="list-disc pl-5">{reasons.map((t) => <li key={t}>{t}</li>)}</ul> : null}
         </div>
+      </Banner>
+    );
+  }
+  if (state === "RESTART") {
+    return (
+      <Banner tone="warn" title="Please start a new check">
+        <p>This check was stopped and cannot continue, so photographs sent to it now will not change the answer. This is not a finding against you. Choose "Choose a different document" below and start again.</p>
       </Banner>
     );
   }
@@ -131,7 +149,6 @@ function Capture({ c }: { c: IdvCase }) {
   const [file, setFile] = useState<File | null>(null);
   const [live, setLive] = useState<File | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const [typed, setTyped] = useState({ name: "", number: "", birth: "" });
   const [details, setDetails] = useState<Declared>(NO_DETAILS);
   const refresh = { invalidate: [MY_IDV_KEY] };
   const send = useCellMutation(
@@ -143,17 +160,16 @@ function Capture({ c }: { c: IdvCase }) {
         captured_at: new Date().toISOString(),
         ...(isAuto(c.route) ? { declared: trimDetails(details) } : {}),
         ...(face && live ? { selfie_base64: await fileToBase64(live), consent: agreed } : {}),
-        ...(face && (typed.name.trim() || typed.number.trim() || typed.birth)
-          ? { details: { ...(typed.name.trim() ? { name: typed.name.trim() } : {}), ...(typed.number.trim() ? { number: typed.number.trim() } : {}), ...(typed.birth ? { birth_date: typed.birth } : {}) } }
-          : {}),
       });
     },
     { ...refresh, success: face || isAuto(c.route) ? "Received. Checking now" : "Photograph received", onSuccess: () => { setFile(null); setLive(null); setAgreed(false); } },
   );
   const problem = imageProblem(file) ?? (face && live ? imageProblem(live) : null) ?? (isAuto(c.route) ? detailsProblem(details) : null);
   const blocked = problem !== null || (face && (!file || !live || !agreed));
+  const used = c.attempts?.CAPTURE ?? 0;
   return (
     <div className="space-y-3">
+      {face ? <p className="font-medium">Attempt {Math.min(used + 1, FACE_ATTEMPTS)} of {FACE_ATTEMPTS}</p> : null}
       <p>
         {face
           ? kind === "PASSPORT"
@@ -177,12 +193,6 @@ function Capture({ c }: { c: IdvCase }) {
           <p className="text-ink-muted">Or take it with your camera:</p>
           <LiveCapture onCaptured={setLive} disabled={send.isPending} />
           {live ? <p role="status">Live photograph ready: {live.name}</p> : null}
-          <fieldset className="space-y-2">
-            <legend>Details on the document (optional, and they make the check stronger). Each one is compared with the document photograph and is not kept.</legend>
-            <label className="block">Full name<input className="block w-full" value={typed.name} onChange={(e) => setTyped({ ...typed, name: e.target.value })} autoComplete="off" /></label>
-            <label className="block">Document number<input className="block w-full" value={typed.number} onChange={(e) => setTyped({ ...typed, number: e.target.value })} autoComplete="off" /></label>
-            <label className="block">Date of birth<input type="date" className="block w-full" value={typed.birth} onChange={(e) => setTyped({ ...typed, birth: e.target.value })} /></label>
-          </fieldset>
           <label className="flex items-start gap-2">
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
             <span>I agree that a program compares my live photograph with the photograph on my document. Neither photograph is kept.</span>
@@ -200,8 +210,16 @@ function Capture({ c }: { c: IdvCase }) {
 }
 
 /** The two numbers the face comparison gave, so the person can see it working: how alike the faces are, and how alike they must be. */
+const PROBLEM: Record<string, string> = {
+  NO_FACE_PROBE: "no face was found in your live photograph. Face the camera, in good light, with nothing covering your face.",
+  NO_FACE_REFERENCE: "no face was found in the document photograph. Photograph the card flat and sharp, so the printed photo is clear.",
+  MULTIPLE_FACES_PROBE: "more than one face is in your live photograph. Only you should be in the picture.",
+  MULTIPLE_FACES_REFERENCE: "the document photograph shows more than one face and the main one could not be chosen. Crop to the card, or photograph the front only.",
+  IMAGE_UNREADABLE: "one of the photographs could not be read. Use a JPEG or PNG.",
+};
+
 function FaceScore({ data }: { data: unknown }) {
-  const d = data as { face_similarity?: number | null; face_threshold?: number; details?: Record<string, string> } | undefined;
+  const d = data as { face_similarity?: number | null; face_threshold?: number; face_problem?: string | null; details?: Record<string, string> } | undefined;
   if (!d || d.face_threshold === undefined) return null;
   const words: Record<string, string> = { MATCH: "matches the document", MISMATCH: "is not on the document", NOT_READ: "could not be read clearly" };
   const labels: Record<string, string> = { name: "Name", number: "Document number", birth_date: "Date of birth" };
@@ -214,10 +232,10 @@ function FaceScore({ data }: { data: unknown }) {
   );
 }
 
-function FaceLine({ d }: { d: { face_similarity?: number | null; face_threshold?: number } }) {
+function FaceLine({ d }: { d: { face_similarity?: number | null; face_threshold?: number; face_problem?: string | null } }) {
   if (d.face_threshold === undefined) return null;
   return d.face_similarity === null || d.face_similarity === undefined ? (
-    <p role="status" className="text-ink-muted">Face comparison: no single clear face was found in one of the photographs.</p>
+    <p role="status" className="text-ink-muted">Face comparison: {PROBLEM[d.face_problem ?? ""] ?? "no single clear face was found in one of the photographs."}</p>
   ) : (
     <p role="status" className="text-ink-muted">
       Face comparison: similarity {d.face_similarity.toFixed(3)}, needed {d.face_threshold.toFixed(3)} ({d.face_similarity >= d.face_threshold ? "matched" : "did not match"}).
@@ -228,12 +246,13 @@ function FaceLine({ d }: { d: { face_similarity?: number | null; face_threshold?
 /** The newest check: its answer, and what is still to do. One card, however many earlier attempts exist. */
 function Check({ c }: { c: IdvCase }) {
   const state = simpleState(c);
+  const exhausted = state === "RETAKE" && isFace(c.route) && (c.attempts?.CAPTURE ?? 0) >= FACE_ATTEMPTS;
   const again = useCellMutation((api) => api.idv.abandon(c.case_id), { invalidate: [MY_IDV_KEY] });
   return (
     <Card title={isFace(c.route) ? "Identity verification" : `${DOC_LABEL[docKindOf(c)]} verification`}>
       <div className="space-y-4 text-sm">
         <Answer c={c} />
-        {state === "SEND" || state === "RETAKE" ? <Capture c={c} /> : null}
+        {exhausted ? null : state === "SEND" || state === "RETAKE" ? <Capture c={c} /> : null}
         {state !== "VERIFIED" ? (
           <div>
             <Button variant="secondary" pending={again.isPending} onPress={() => again.mutate(undefined)}>

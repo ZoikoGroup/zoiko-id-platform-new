@@ -345,6 +345,7 @@ class GleifKyb:
             observed_at=now,
             response_hash=response_hash(raw),
             lei=registration_number,
+            national_number=_text(entity.get("registeredAs")) or None,
         )
 
 

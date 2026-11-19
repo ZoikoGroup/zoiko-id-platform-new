@@ -518,6 +518,11 @@ export function createCellApi(t: Transport) {
       /** Appeal a rejection or ask for a correction; the case goes back to a person. */
       appeal: (id: string, body: M.OrgClaimAppeal) => post<M.OrgClaimStatus>(`/v1/org-claims/${seg(id)}/appeal`, body),
       proofs: (id: string) => get<M.OrgClaimProofs>(`/v1/org-claims/${seg(id)}/proofs`),
+      /** Read a certificate picture and compare it with the claim without saving it: nothing is stored. */
+      checkCertificate: (id: string, file: File) =>
+        t.request<{ stored: false; read: M.OrgClaimProofRead }>("POST", `/v1/org-claims/${seg(id)}/certificate:check`, {
+          raw: { data: file, contentType: file.type || "application/octet-stream" },
+        }),
       /** One supporting document, sent as the file itself. A repeat with the same key is the same document. */
       uploadProof: (id: string, file: File, kind: M.OrgClaimProofKind, idempotencyKey: string) =>
         t.request<M.OrgClaimProof>("POST", `/v1/org-claims/${seg(id)}/proofs`, {

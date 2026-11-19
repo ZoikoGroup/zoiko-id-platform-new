@@ -110,6 +110,7 @@ class CompanyFacts:
     lei: str | None = None
     duns: str | None = None
     supplier_entity_id: str | None = None
+    national_number: str | None = None  # an LEI record's own `registeredAs`: the number the national register gave the company
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,6 +288,7 @@ def reconcile(
     accepted_suppliers: frozenset[str],
     policy: Policy,
     now: datetime,
+    lei_primary: bool = False,
 ) -> Decision:
     """Deterministic reconciliation (ED-03 §04 step 04). Legal id and jurisdiction decide; the rest supports."""
     reasons: list[str] = []
@@ -298,7 +300,7 @@ def reconcile(
             )  # never a silent substitute for the register
             continue
         usable.append(o)
-    primary = [o for o in usable if o.kind is not SourceKind.LEI_REFERENCE]
+    primary = [o for o in usable if o.kind is not SourceKind.LEI_REFERENCE or lei_primary]
     lei = [o for o in usable if o.kind is SourceKind.LEI_REFERENCE]
     sources = tuple(outcomes)
 
@@ -325,13 +327,15 @@ def reconcile(
         return result(KybStatus.UNAVAILABLE, "NO_COVERAGE", extra=["NO_COVERAGE"])
 
     found = [o for o in primary if o.state is SourceState.FOUND and o.facts is not None]
-    matching = [
-        o.facts
-        for o in found
-        if o.facts is not None
-        and o.facts.jurisdiction == applicant.jurisdiction
-        and o.facts.registration_number == applicant.registration_number
-    ]
+    def same_company(f: CompanyFacts) -> bool:
+        if f.jurisdiction != applicant.jurisdiction:
+            return False
+        if f.source_kind is SourceKind.LEI_REFERENCE:
+            # an LEI record is matched on the national number it carries and on the LEI the applicant gave, never on a name
+            return bool(applicant.lei) and f.lei == applicant.lei and f.national_number == applicant.registration_number
+        return f.registration_number == applicant.registration_number
+
+    matching = [o.facts for o in found if o.facts is not None and same_company(o.facts)]
     if (
         found and not matching
     ):  # a source answered, but for a different company: a conflict, not a match
@@ -348,6 +352,8 @@ def reconcile(
         )  # another source is down; the answer rests on the ones that replied
 
     best = next((f for f in matching if f.source_kind is SourceKind.OFFICIAL_REGISTER), matching[0])
+    if best.source_kind is SourceKind.LEI_REFERENCE:
+        reasons.append("LEI_REFERENCE_ONLY")  # no register confirmed this company: the record says so, so nothing downstream reads it as a register finding
     confidence = name_similarity(applicant.legal_name, best.legal_name)
 
     if any(_incomplete(f) for f in matching):
@@ -558,6 +564,9 @@ class Route:
     first_pass: tuple[str, ...]
     lei: str | None = None
     exception: tuple[str, ...] = ()
+    # An OWNER-ACKNOWLEDGED setting (ED-03 says an LEI record never verifies a company alone): for this country the LEI record may stand as the company check when no register answered. The outcome is
+    # reported as LEI-reference-only and never as a register finding, and it needs the applicant's LEI to be one the record confirms for the same national number.
+    lei_primary: bool = False
 
 
 @dataclass(frozen=True, slots=True)

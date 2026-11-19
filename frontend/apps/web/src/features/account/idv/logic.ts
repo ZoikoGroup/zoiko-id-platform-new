@@ -95,11 +95,16 @@ export function docKindOf(c: Pick<IdvCase, "route">): DocKind {
 
 /** Where the newest check stands, in the words the page uses. REJECTED only when the platform or the reviewers rejected it: a photograph the platform could not
  * read is RETAKE, never a finding against the person. */
-export type SimpleState = "VERIFIED" | "REJECTED" | "WAITING" | "RETAKE" | "SEND";
+/** Attempts a person gets on the face-match route before an administrator reviews the photographs. The market policy's capture ceiling is set to the same number and is what the platform enforces. */
+export const FACE_ATTEMPTS = 3;
+
+export type SimpleState = "VERIFIED" | "REJECTED" | "WAITING" | "RETAKE" | "SEND" | "RESTART";
 export function simpleState(c: Pick<IdvCase, "route" | "decision" | "signals">): SimpleState {
   if (c.decision === "APPROVED") return "VERIFIED";
   if (c.decision === "REJECTED") return "REJECTED";
   if (c.signals.optical === "NOT_STARTED") return "SEND";
+  // the face-match route has no reviewers: a check the platform marked for review (a flagged capture) cannot recover, and sending photographs into it again changes nothing, so a new one is needed
+  if (isFace(c.route) && c.decision === "REVIEW_REQUIRED") return "RESTART";
   return isAuto(c.route) || isFace(c.route) ? "RETAKE" : "WAITING"; // an automatic check nobody reviews asks for a better photograph; the other waits for two reviewers
 }
 
@@ -140,6 +145,13 @@ export function handoff(c: Pick<IdvCase, "state" | "route" | "signals">): "NOT_N
 }
 
 const FOR_APPLICANT: Record<string, string> = {
+  FACE_ATTEMPTS_USED_UP: "You have used all the attempts allowed in 24 hours. Try again tomorrow with a clear, face-on photograph in good light, or contact support.",
+  DETAILS_DO_NOT_MATCH_DOCUMENT: "One of the details you typed (name, document number or date of birth) is not on the document photograph. Correct it or clear it, then send again. Nothing was used up.",
+  FACE_CONSENT_REQUIRED: "Tick the box to agree to the comparison of your two photographs, then send again.",
+  LIVE_PHOTO_REQUIRED: "Add a live photograph of yourself as well as the document photograph, then send again.",
+  FACE_ENGINE_UNAVAILABLE: "The face comparison is not available right now. Nothing was used up. Try again in a minute.",
+  FACE_ROUTE_NOT_ENABLED: "Verifying with a face match is not switched on in this deployment.",
+  SCAN_UNAVAILABLE: "The photograph could not be checked for safety right now. Nothing was used up. Try again in a minute.",
   ALTERNATE_ROUTE_NEEDS_INDEPENDENT_REVIEWERS: "Two people who work independently of each other will look at your photograph. You do not need to do anything.",
   ALTERNATE_ROUTE_REVIEW_ONLY: "A person will look at your photograph. This way of verifying is checked by people only.",
   ROUTE_NOT_ALLOWED_BY_POLICY: "Checking with a browser only is not available for that country.",
