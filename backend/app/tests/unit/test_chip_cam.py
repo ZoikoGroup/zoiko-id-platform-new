@@ -7,8 +7,8 @@ chip's static public key from its ChipAuthenticationPublicKeyInfo; and that the 
 from __future__ import annotations
 
 import pytest
-from tests.unit.chip_simulator import PaceSimulatedChip, card_access, pace_info
-from tests.unit.test_chip_pace import INFO, build, read
+from chip_simulator import PaceSimulatedChip, card_access, pace_info
+from test_chip_pace import INFO, build, read
 from zid_platform.modules.evidence.application import chip_authentication as ca
 from zid_platform.modules.evidence.application import chip_reader as cr
 from zid_platform.modules.evidence.application import pace

@@ -17,14 +17,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # privacy_0011 already adds both columns on the merged history (both branches added them), so only add them when missing.
     _run("""
         ALTER TABLE privacy.erasure_task
-            ADD COLUMN attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-            ADD COLUMN next_attempt_at timestamptz;
+            ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+            ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz;
     """)
 
 
 def downgrade() -> None:
-    _run("""
-        ALTER TABLE privacy.erasure_task DROP COLUMN next_attempt_at, DROP COLUMN attempts;
-    """)
+    # The columns belong to privacy_0011, which drops them on its own downgrade.
+    pass
