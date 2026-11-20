@@ -3,10 +3,9 @@
 import type { OrgClaimCandidate, OrgClaimStatus } from "@zoiko/api-client";
 import { Badge, Banner, Button, ButtonLink, Card, DateTime, PageHeader, Select, TextField } from "@zoiko/ui";
 import { Building2, Plus, Search, Send, Trash2 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { AutoContinue } from "@/components/auto-continue";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 import { verifyThenGo } from "@/lib/continue";
 
@@ -62,7 +61,7 @@ export function FindOrganizationPage() {
       // The company is found and recorded. If this person is not identity-verified yet, that is the next step, and when it completes they go straight to the
       // onboarding dashboard. Already verified: there is nothing to wait for, so the claim's own status page opens.
       onSuccess: (s: OrgClaimStatus) => {
-        const status = claimBase(s.claim_id) + "/status?welcome=1"; // `welcome` lets the status page take them on to the workspace once everything is verified
+        const status = claimBase(s.claim_id) + "/status?welcome=1";
         router.push(s.checks.person_assurance === "COMPLETED" ? status : verifyThenGo("/admin/onboarding"));
       },
     },
@@ -289,21 +288,20 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
   );
 }
 
-/** WF-13B-03 Review and track. Each check has its own state, so "company found" can sit beside "authority pending". */
+/** WF-13B-03 Review and track. Each check has its own state, so "company found" can sit beside "identity pending". */
 export function VerificationStatusPage({ claimId }: { claimId: string }) {
   const status = useCellQuery(["org-claims", claimId], (api) => api.orgClaims.status(claimId));
   const refresh = useCellMutation((api) => api.orgClaims.refresh(claimId), { invalidate: [["org-claims", claimId]] });
   const send = useCellMutation((api) => api.orgClaims.submit(claimId), { invalidate: [["org-claims", claimId]], success: "Sent for review" });
   const withdraw = useCellMutation((api) => api.orgClaims.withdraw(claimId), { invalidate: [["org-claims", claimId]], success: "Claim withdrawn" });
   const [confirming, setConfirming] = useState(false);
-  const welcome = useSearchParams().get("welcome") === "1";
 
   return (
     <div className="space-y-6">
       <PageHeader
         icon={Building2}
         title="Verification status"
-        description="Four checks, each decided on its own evidence."
+        description="Two checks: your company and your identity."
         breadcrumbs={[{ label: "Company verification", href: "/admin/organization" }, { label: "Status" }]}
       />
       <QueryView query={status}>
@@ -312,15 +310,9 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
           const step = nextStep(s);
           return (
             <div className="space-y-6">
-              {s.outcome === "VERIFIED" && !s.closed_at && welcome && !s.development_shortcut ? (
-                <AutoContinue to="/overview" title="Your company is verified" once={`claim-verified:${s.claim_id}`}>
-                  Every check is complete. Taking you to your workspace.
-                </AutoContinue>
-              ) : (
-                <Banner tone={out.tone} title={out.title}>
-                  {out.body}
-                </Banner>
-              )}
+              <Banner tone={out.tone} title={out.title}>
+                {out.body}
+              </Banner>
               <Card title="Checks">
                 <ul className="divide-y divide-line" aria-label="Verification checks">
                   {CHECKS.map((c) => (
@@ -357,7 +349,6 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
                 <ButtonLink href="/admin/organization/claim">Start a new claim</ButtonLink>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  {step === "authority" ? <ButtonLink href={claimBase(s.claim_id) + "/authority"}>Add your authority and owners</ButtonLink> : null}
                   {step === "submit" ? (
                     <Button pending={send.isPending} onPress={() => send.mutate(undefined)} icon={<Send aria-hidden className="size-4" />}>
                       Send for review

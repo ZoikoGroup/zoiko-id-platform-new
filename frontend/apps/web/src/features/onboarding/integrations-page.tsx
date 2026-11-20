@@ -196,7 +196,7 @@ function CredentialDialog({ connector, onClose }: { connector: Connector; onClos
           Write-only: the value is sealed with the cell&apos;s data key and never shown again, not even to administrators. Storing a new one rotates
           it; the previous version keeps working for the overlap window.
         </Banner>
-        <TextField label="Secret" type="password" isRequired mono value={secret} onChange={setSecret} autoComplete="off" description="At least 16 characters." />
+        <TextField label="Secret" type="password" isRequired mono value={secret} onChange={setSecret} autoComplete="new-password" description="At least 16 characters." />
         <TextField label="Expires" type="datetime-local" value={notAfter} onChange={setNotAfter} description="Optional. Expiry alerts start 30 days before." />
         {save.error ? <ApiErrorView error={save.error} title="The credential was not stored" /> : null}
       </div>

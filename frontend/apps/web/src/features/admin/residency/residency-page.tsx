@@ -22,7 +22,6 @@ import {
 import { Globe2, Plus } from "lucide-react";
 import { useState } from "react";
 
-import { GuidedApproval } from "@/features/approvals/guided-approval";
 import { useTenant } from "@/features/onboarding/shared";
 import { ApiErrorView, listInput, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
@@ -127,7 +126,6 @@ function packFor(zone: string | null | undefined): string {
 function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const tenant = useTenant();
   const cells = useCellQuery([...RES_KEY, "cells"], (api) => api.residency.cells());
-  const existing = useCellQuery([...RES_KEY, "current"], (api) => api.residency.current());
   // A company's profile is placed on the cell that serves it. Moving to another cell is a migration, not a profile
   // change, so only the company's own cell is offered.
   const ownCell = tenant.data?.home_cell_id;
@@ -149,16 +147,6 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
 
   const recoveryCells = listInput(recovery);
   const operatorList = listInput(operators).map((j) => j.toUpperCase());
-  // The exact change the approver is shown and approves; it must match what the server binds to.
-  const change = [
-    profile,
-    home,
-    [...recoveryCells].sort().join(","),
-    [...operatorList].sort().join(","),
-    pack.trim(),
-  ].join("|");
-  const summary = `Set the company's residency to ${PROFILE_LABELS[profile] ?? profile}, home cell ${home}, ${PACKS.find((p) => p.id === pack)?.label ?? pack}${recoveryCells.length ? `, recovery in ${recoveryCells.join(", ")}` : ""}.`;
-
   const save = useCellMutation(
     (api, approvalRequestId: string | null) =>
       api.residency.set({
@@ -174,15 +162,14 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
       }),
     { invalidate: [RES_KEY], success: "Residency profile updated", onSuccess: onClose },
   );
-  const ready = legal.trim().length >= 3 && home.length > 0;
-  // The very first record, on the company's own cell and with no recovery cell, is the owner's own baseline (ZID-ENG-DEC-010, 13C solo variant). Anything else is a change.
-  const baseline = existing.isSuccess && existing.data.residency === null && home === ownCell && recoveryCells.length === 0;
+  // CR-139: choosing a region is a plain selection. No legal reference to type, no second administrator, no cell approval: the platform fills in the legal pack and the reference.
+  const ready = home.length > 0;
   return (
     <Dialog
       isOpen={isOpen}
       onOpenChange={(o) => !o && onClose()}
-      title={baseline ? "Confirm your residency" : "Change the residency profile"}
-      description={baseline ? "Where your company's data is kept. This is your starting point, so you can confirm it yourself; any later change needs a second administrator." : "Where your company's data is kept. A second administrator has to approve this exact change."}
+      title="Choose where your data is kept"
+      description="Pick the region for your company's data. It is applied as soon as you confirm; there is nothing to approve."
       size="lg"
       footer={
         <Button variant="secondary" onPress={onClose}>
@@ -212,6 +199,10 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
           onChange={setProfileChoice}
           options={profiles.map((p) => ({ id: p, label: PROFILE_LABELS[p] ?? p }))}
         />
+      </div>
+      <details className="mt-4 rounded-card border border-border">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">More options <span className="font-normal text-ink-subtle">(optional; most people skip these)</span></summary>
+        <div className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
         <Select label="Legal pack" value={pack} onChange={setPackChoice} options={PACKS} />
         <TextField label="Recovery cells (optional)" value={recovery} onChange={setRecovery} mono description="Leave empty unless your cell lists approved recovery cells." />
         {profile === "SRP-2" || profile === "SRP-3" ? (
@@ -221,28 +212,16 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
           label="Legal mapping reference"
           value={legal}
           onChange={setLegal}
-          isRequired
           mono
           className="sm:col-span-2"
-          description="Your legal team's reference for this choice, for the record (at least 3 characters)."
+          description="Optional. Your legal team's reference for this choice. Left empty, the platform records one for you."
         />
-      </div>
+        </div>
+      </details>
       <div className="mt-5">
-        {ready && baseline ? (
-          <Button pending={save.isPending} onPress={() => save.mutate(null)}>
-            Confirm residency
-          </Button>
-        ) : ready ? (
-          <GuidedApproval action="tenant.residency.manage" resource="tenant_residency" change={change} summary={summary} label="Apply profile">
-            {(id) => (
-              <Button pending={save.isPending} onPress={() => save.mutate(id)}>
-                Apply profile
-              </Button>
-            )}
-          </GuidedApproval>
-        ) : (
-          <p className="text-sm text-ink-muted">Fill in the legal mapping reference to ask for approval.</p>
-        )}
+        <Button pending={save.isPending} isDisabled={!ready} onPress={() => save.mutate(null)}>
+          Confirm region
+        </Button>
       </div>
       {save.error ? <ApiErrorView error={save.error} /> : null}
     </Dialog>

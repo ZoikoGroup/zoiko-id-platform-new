@@ -18,6 +18,7 @@ function Detail({ hash }: { hash: string }) {
   const refresh = [KEY, [...KEY, hash]];
   const approve = useCellMutation((api, r: SignOffRole) => api.regulatory.kybPolicyApprove(hash, r), { invalidate: refresh as never, success: "Signed this exact version" });
   const publish = useCellMutation<void, unknown>((api) => api.regulatory.kybPolicyPublish(hash), { invalidate: refresh as never, success: "Put in force for its market" });
+  const activateNow = useCellMutation<void, unknown>((api) => api.regulatory.kybPolicyActivateNow(hash), { invalidate: refresh as never, success: "Put in force without sign-off" });
   return (
     <QueryView query={q}>
       {(d) => {
@@ -43,9 +44,12 @@ function Detail({ hash }: { hash: string }) {
                 <Select label="Sign as" value={role} onChange={(v) => setRole(v as SignOffRole)} options={SIGN_OFF_ROLES.map((r) => ({ id: r, label: r.charAt(0) + r.slice(1).toLowerCase() }))} />
                 <Button variant="secondary" pending={approve.isPending} onPress={() => approve.mutate(role)}>Sign this version</Button>
                 <Button pending={publish.isPending} isDisabled={!d.publishable || d.in_force} onPress={() => publish.mutate()}>Publish</Button>
+                <Button variant="secondary" pending={activateNow.isPending} isDisabled={d.in_force} onPress={() => activateNow.mutate()}>Activate now (without sign-off)</Button>
               </div>
+              <p className="text-ink-muted">Activate now puts this pack in force at once. It does not sign or fill in anything: the audit record and the activation note name every control the pack lacked.</p>
               {approve.error ? <RegError error={approve.error} /> : null}
               {publish.error ? <RegError error={publish.error} /> : null}
+              {activateNow.error ? <RegError error={activateNow.error} /> : null}
             </div>
           </Card>
         );

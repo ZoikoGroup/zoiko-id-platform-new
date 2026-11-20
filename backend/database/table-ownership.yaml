@@ -929,6 +929,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "ZID-DTV-WF-02 K06, K10 an appeal against a company-verification decision; changes only by being decided, once (CR-109)"
+  org.kyb_document_reading:
+    role: cell
+    module: organization
+    tenant_scoped: true
+    source: "CR-132 what OCR read from a stored company certificate; a CONSISTENT reading completes the claim's company check; append-only"
   org.kyb_assessment:
     role: cell
     module: organization

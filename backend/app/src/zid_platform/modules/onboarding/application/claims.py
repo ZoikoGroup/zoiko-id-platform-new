@@ -25,6 +25,7 @@ from zid_outbox import emit, next_version
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.organization.ports import (
+    proof_service,
     KybStatus,
     kyb_close,
     kyb_drafts_before,
@@ -64,6 +65,8 @@ _CHECK_EVENT = {
     "authority": "organization.claim.authority_evaluated",
     "risk": "organization.claim.risk_assessed",
 }
+# What a source can say against the claim: a certificate reading never overrides these (CR-132).
+_SOURCE_AGAINST = frozenset({"ENTITY_INACTIVE", "IDENTIFIER_MISMATCH", "SOURCES_CONFLICT", "LEI_CONFLICT"})
 _DECISIONS = frozenset({"VERIFIED", "DECLINED", "RESTRICTED"})
 _CLOSED = frozenset({"WITHDRAWN", "ABANDONED"})
 
@@ -107,23 +110,35 @@ async def status(
 ) -> dict[str, Any]:
     kyb = await kyb_get_case(conn, tenant_id, case_id, now=now)
     screening = await case_for_kyb(conn, tenant_id, case_id, now=now)
+    company = _COMPANY[kyb.status]
+    company_basis = "SOURCE" if company == "COMPLETED" else None
+    if (
+        company in ("PENDING", "HELD")
+        and kyb.review_reason not in _SOURCE_AGAINST
+        and not kyb.closed_reason
+        and await proof_service.has_consistent_reading(conn, tenant_id, case_id)
+    ):
+        # CR-132 (owner decision, 20 Nov 2026): a stored certificate whose OCR reading agrees with the claim completes this check without a reviewer. The basis is said out loud and
+        # a source that contradicts the claim (inactive, another company, conflicting sources) is never overridden.
+        company, company_basis = "COMPLETED", "DOCUMENT_OCR"
+    # CR-134 (owner decision, 20 Nov 2026): a claim is decided by TWO checks only, the company and the applicant's own identity. The authority and the risk and ownership review
+    # are no longer part of it; whatever screening was declared is still returned below, as information, and decides nothing.
     checks = {
-        "company": _COMPANY[kyb.status],
+        "company": company,
         # the applicant's own identity check, read from the verification service: a valid, unexpired assertion from an identity check, nothing else
         "person_assurance": "COMPLETED"
         if await person_assurance_current(conn, kyb.requested_by, now)
         else "PENDING",
-        "authority": screening[0].authority_state if screening else "PENDING",
-        "risk": _SCREENING[screening[0].status] if screening else "PENDING",
     }
     closed = kyb.closed_reason
     # LOCAL/TEST ONLY: the company, authority and risk checks are not run; the claimant's identity check is the only one that counts. The result says so
     # (`development_shortcut`) and is never announced as if those checks had been done (see `record_outcome`).
     shortcut = _DEV_SHORTCUT and not closed and checks["person_assurance"] == "COMPLETED"
     if shortcut:
-        checks = {**checks, "company": "COMPLETED", "authority": "COMPLETED", "risk": "COMPLETED"}
+        checks = {**checks, "company": "COMPLETED"}
     return {
         "development_shortcut": shortcut,
+        "company_basis": company_basis,
         "claim_id": case_id,
         "jurisdiction": kyb.jurisdiction,
         "registration_number": kyb.registration_number,
@@ -200,6 +215,8 @@ async def record_outcome(
     before_outcome = str(row.outcome)
     announced: list[str] = []
     for check, event in _CHECK_EVENT.items():
+        if check not in checks:  # CR-134: the authority and risk checks are not part of a claim any more
+            continue
         was = before_checks.get(check, "PENDING")
         if checks[check] != was:
             await _announce(

@@ -20,9 +20,7 @@ def facts(**states: str) -> list[TrustFact]:
     base = {
         "company": "COMPLETED",
         "person_assurance": "COMPLETED",
-        "authority": "COMPLETED",
-        "risk": "COMPLETED",
-    }
+    }  # CR-134: two checks decide a claim
     base.update(states)
     return [TrustFact(k, v, started=True) for k, v in base.items()]
 
@@ -42,7 +40,7 @@ def run(
 
 def test_the_state_is_derived_from_facts_and_walks_forward() -> None:
     assert run([], Setup(False, False, False, 0), claim=False, ack=False).state is Readiness.DRAFT
-    assert run(facts(authority="PENDING"), GOOD).state is Readiness.LIMITED_SETUP
+    assert run(facts(person_assurance="PENDING"), GOOD).state is Readiness.LIMITED_SETUP
     assert (
         run(facts(), Setup(False, True, True, 2)).state is Readiness.LIMITED_SETUP
     )  # trust done, a required item not
@@ -59,9 +57,9 @@ def test_the_state_is_derived_from_facts_and_walks_forward() -> None:
 
 
 def test_a_declined_check_restricts_but_a_held_or_stale_one_is_remediation() -> None:
-    declined = run(facts(risk="DECLINED"))
+    declined = run(facts(person_assurance="DECLINED"))
     assert declined.state is Readiness.RESTRICTED and not declined.can_activate
-    assert [i.word for i in declined.trust if i.key == "risk"] == ["Restricted"]
+    assert [i.word for i in declined.trust if i.key == "person_assurance"] == ["Restricted"]
     held = run(facts(company="HELD"))
     assert (
         held.state is Readiness.LIMITED_SETUP and not held.can_activate
@@ -89,12 +87,12 @@ def test_an_unknown_or_missing_fact_is_never_verified() -> None:
     ] and not odd.can_activate
     missing = run(
         [TrustFact("company", "COMPLETED", started=True)]
-    )  # the other three were never read
+    )  # the other one was never read
     assert not missing.can_activate and sum(1 for i in missing.trust if i.done) == 1
-    pending_started = run(facts(authority="PENDING"))
-    assert [i.word for i in pending_started.trust if i.key == "authority"] == ["In review"]
+    pending_started = run(facts(person_assurance="PENDING"))
+    assert [i.word for i in pending_started.trust if i.key == "person_assurance"] == ["In review"]
     pending_new = run(
-        [TrustFact(k, "PENDING") for k in ("company", "person_assurance", "authority", "risk")],
+        [TrustFact(k, "PENDING") for k in ("company", "person_assurance")],
         claim=False,
     )
     assert {i.word for i in pending_new.trust} == {"Required"}

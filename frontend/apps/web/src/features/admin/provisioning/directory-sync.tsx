@@ -108,7 +108,7 @@ function ConnectDialog({ isOpen, onClose, sources }: { isOpen: boolean; onClose:
           placeholder="your-tenant.us.auth0.com"
           errorMessage={domainBad ? "Use your Auth0 tenant address, ending in .auth0.com." : undefined}
         />
-        <TextField label="Client ID" isRequired mono value={clientId} onChange={setClientId} description="Of the read-only Machine to Machine application." />
+        <TextField label="Client ID" isRequired mono autoComplete="off" value={clientId} onChange={setClientId} description="Of the read-only Machine to Machine application." />
         <TextField
           label="Client secret"
           isRequired
@@ -116,7 +116,7 @@ function ConnectDialog({ isOpen, onClose, sources }: { isOpen: boolean; onClose:
           type="password"
           value={secret}
           onChange={setSecret}
-          autoComplete="off"
+          autoComplete="new-password"
           description="Sealed as soon as you connect and never shown again. You can replace it later."
         />
         <Select
@@ -173,7 +173,7 @@ function SecretDialog({ sync, onClose }: { sync: DirectorySync | null; onClose: 
         <p className="text-sm text-ink-muted">
           The old secret stops working for <strong className="text-ink"><UserText>{sync?.display_name}</UserText></strong> at once. Use this after you rotate the secret in Auth0.
         </p>
-        <TextField label="New client secret" isRequired mono type="password" value={secret} onChange={setSecret} autoComplete="off" />
+        <TextField label="New client secret" isRequired mono type="password" value={secret} onChange={setSecret} autoComplete="new-password" />
         {set.error ? <ApiErrorView error={set.error} /> : null}
       </div>
     </Dialog>

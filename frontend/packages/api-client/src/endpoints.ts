@@ -1398,6 +1398,8 @@ export function createOperatorApi(t: Transport) {
       kybPolicyPropose: (pack: Record<string, unknown>) => post<M.KybPolicyProposed>("/v1/kyb/market-policies", { pack }),
       kybPolicyApprove: (hash: string, role: string) => post<{ policy_hash: string; role: string; approved: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:approve`, { role }),
       kybPolicyPublish: (hash: string) => post<{ policy_hash: string; in_force: boolean }>(`/v1/kyb/market-policies/${seg(hash)}:publish`),
+      kybPolicyActivateNow: (hash: string) =>
+        post<{ policy_hash: string; in_force: boolean; without_signoff: boolean; skipped: string[] }>(`/v1/kyb/market-policies/${seg(hash)}:activate-now`, { acknowledge: "activate-without-signoff" }),
       kybPolicyRollback: (marketKey: string, toHash: string, reason: string) =>
         post<{ market_key: string; policy_hash: string; in_force: boolean }>("/v1/kyb/market-policies:rollback", { market_key: marketKey, to_hash: toHash, reason }),
 

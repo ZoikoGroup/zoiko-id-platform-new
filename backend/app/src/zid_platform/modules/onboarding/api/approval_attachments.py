@@ -25,7 +25,7 @@ from zid_platform.country_gate import environment_of
 from zid_platform.modules.onboarding.application import approval_attachments as service
 from zid_platform.modules.onboarding.infrastructure.attachment_config import attachment_policy
 from zid_platform.modules.organization.ports import ProofError, proof_scanner_from_address
-from zid_platform.modules.tenant.ports import case_access, check_category_transfer
+from zid_platform.modules.tenant.ports import case_access, check_category_transfer, load_residency
 
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 router = APIRouter(prefix="/v1", tags=["approvals"])
@@ -142,6 +142,8 @@ async def attach(
             )
 
         async def gate() -> None:
+            if await load_residency(conn, tenant) is None:
+                return  # CR-134: a company with no residency profile keeps its documents in its own home cell, where this request already is; nothing leaves it, so nothing is refused
             decision = await check_category_transfer(
                 conn,
                 tenant,

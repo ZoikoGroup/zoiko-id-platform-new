@@ -166,13 +166,19 @@ export interface components {
         };
         /** ResidencyBody */
         ResidencyBody: {
-            /** Approval Ref */
+            /**
+             * Approval Ref
+             * @default
+             */
             approval_ref: string;
             /** Approval Request Id */
             approval_request_id?: string | null;
             /** Home Cell Id */
             home_cell_id: string;
-            /** Jurisdiction Pack Id */
+            /**
+             * Jurisdiction Pack Id
+             * @default
+             */
             jurisdiction_pack_id: string;
             /**
              * Key Profile

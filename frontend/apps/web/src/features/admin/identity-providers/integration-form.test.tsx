@@ -46,10 +46,10 @@ vi.mock("@zoiko/ui", () => ({
     </div>
   ),
   Select: () => null,
-  TextField: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  TextField: ({ label, value, onChange, autoComplete }: { label: string; value: string; onChange: (v: string) => void; autoComplete?: string }) => (
     <label>
       {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} />
+      <input value={value} autoComplete={autoComplete} onChange={(e) => onChange(e.target.value)} />
     </label>
   ),
 }));
@@ -115,5 +115,38 @@ describe("CreateIntegrationDialog", () => {
     act(() => shared.onSuccess?.({ acs_url: "https://id.test/federation/saml/acs" }));
     expect(screen.getByText("https://id.test/federation/saml/acs")).toBeTruthy();
     expect(screen.getByText("https://api.test/saml/sp")).toBeTruthy();
+  });
+});
+
+describe("CreateIntegrationDialog, an OpenID Connect provider (CR-138)", () => {
+  it("asks for the client secret straight away, with no hidden settings to open", () => {
+    render(<CreateIntegrationDialog onClose={() => undefined} />);
+    expect(screen.getByLabelText("Client secret")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "A client secret" })).toBeTruthy();
+  });
+
+  it("keeps the browser from filling a saved password into the client secret (it would replace the real secret)", () => {
+    render(<CreateIntegrationDialog onClose={() => undefined} />);
+    expect(screen.getByLabelText("Client secret").getAttribute("autocomplete")).toBe("new-password");
+    expect(screen.getByLabelText("Client ID").getAttribute("autocomplete")).toBe("off");
+  });
+
+  it("sends the secret as client_secret (sealed by the platform), never as a stored name", async () => {
+    render(<CreateIntegrationDialog onClose={() => undefined} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Another OpenID Connect provider" }));
+    await user.type(screen.getByLabelText("Name people will see"), "Auth0");
+    await user.type(screen.getByLabelText("The provider's address (issuer)"), "https://dev-x.us.auth0.com/");
+    await user.type(screen.getByLabelText("Client ID"), "client-abc-12345");
+    await user.type(screen.getByLabelText("Client secret"), "the-client-secret");
+    await user.type(screen.getByLabelText("Sign-in address (authorization endpoint)"), "https://dev-x.us.auth0.com/authorize");
+    await user.type(screen.getByLabelText("Token address (token endpoint)"), "https://dev-x.us.auth0.com/oauth/token");
+    await user.click(screen.getByLabelText("Public keys"));
+    await user.paste('{"keys":[{"kty":"RSA","kid":"k1","n":"AQAB","e":"AQAB"}]}');
+    await user.click(screen.getByRole("button", { name: "Connect provider" }));
+    expect(shared.mutate).toHaveBeenCalledTimes(1);
+    const sent = shared.mutate.mock.calls[0]![0] as Record<string, unknown>;
+    expect(sent).toMatchObject({ client_auth: "client_secret_basic", client_secret: "the-client-secret" });
+    expect(sent.client_secret_ref).toBeUndefined();
   });
 });

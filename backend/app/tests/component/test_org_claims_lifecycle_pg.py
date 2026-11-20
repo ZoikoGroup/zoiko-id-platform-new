@@ -127,9 +127,9 @@ def test_a_claim_is_submitted_once_not_before_it_says_whom_to_screen_and_its_sta
     )
     assert same.status_code == 304 and same.content == b"" and same.headers["etag"] == tag
 
-    # not before it says whom to screen
+    # CR-134: nothing about whom to screen is needed to send a claim; a declaration made later is still accepted
     early = lab.api.post(f"/v1/org-claims/{claim}/submit", headers=lab.owner)
-    assert early.status_code == 409 and error(early) == "CLAIM_INCOMPLETE"
+    assert early.status_code == 202
     assert lab.declare(claim).status_code == 201
 
     done = lab.api.post(f"/v1/org-claims/{claim}/submit", headers=lab.owner)
@@ -144,7 +144,7 @@ def test_a_claim_is_submitted_once_not_before_it_says_whom_to_screen_and_its_sta
     )  # once: a repeat changes nothing
     assert lab.events("organization.claim.submitted", claim) == 1
     # accepted for review is not decided: the same four checks, nothing made verified by sending it
-    assert done.json()["outcome"] != "VERIFIED" and done.json()["checks"]["authority"] == "PENDING"
+    assert done.json()["outcome"] != "VERIFIED" and "authority" not in done.json()["checks"]
     moved = lab.api.get(
         f"/v1/org-claims/{claim}/status", headers={**lab.owner, "If-None-Match": tag}
     )
@@ -285,8 +285,7 @@ def test_a_delegated_mandate_is_evidence_for_a_reviewer_and_counts_only_after_on
     shown = made.json()
     assert (
         shown["relationship"] == "DELEGATED_EMPLOYEE"
-        and shown["checks"]["authority"] == "HELD"
-        and shown["outcome"] == "IN_REVIEW"
+        and "authority" not in shown["checks"]  # CR-134: the authority is no longer one of the checks
     )
     case = lab.screening_case(claim)
 
@@ -308,7 +307,7 @@ def test_a_delegated_mandate_is_evidence_for_a_reviewer_and_counts_only_after_on
     )
     assert done.status_code == 200, done.text
     after = lab.status(claim)
-    assert after["checks"]["authority"] == "COMPLETED" and after["checks"]["risk"] == "COMPLETED"
+    assert "authority" not in after["checks"] and "risk" not in after["checks"]
     ends_at = datetime.fromisoformat(ends)
     assert (
         datetime.fromisoformat(after["screening"]["expires_at"]) <= ends_at
@@ -322,7 +321,7 @@ def test_a_delegated_mandate_is_evidence_for_a_reviewer_and_counts_only_after_on
         json={"outcome": "VERIFIED", "rationale": "I read the register entry and it matches.", "confirm_mandate": True},
     )  # fmt: skip
     assert refused.status_code == 409 and error(refused) == "MANDATE_NOT_CONFIRMABLE"
-    assert lab.status(other)["checks"]["authority"] == "PENDING"
+    assert "authority" not in lab.status(other)["checks"]
 
 
 def test_a_change_of_outcome_is_announced_once_whoever_caused_it(lab: Setup) -> None:
@@ -330,8 +329,6 @@ def test_a_change_of_outcome_is_announced_once_whoever_caused_it(lab: Setup) -> 
     pending = {
         "company": "PENDING",
         "person_assurance": "PENDING",
-        "authority": "PENDING",
-        "risk": "PENDING",
     }
 
     def seen(outcome: str, **over: str) -> dict[str, Any]:

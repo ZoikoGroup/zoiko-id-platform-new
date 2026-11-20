@@ -255,3 +255,35 @@ def test_policy_packs_are_proposed_approved_published_and_rolled_back(rt_url: st
         ).all()
 
     asyncio.run(run())
+
+
+def test_an_unsigned_pack_can_be_activated_by_the_owner_override_and_the_record_names_what_was_skipped(rt_url: str) -> None:
+    """CR-133: `without_signoff` puts the pack in force with nothing signed. The activation says what it lacked; it signs and fills in nothing."""
+    tenant = uid()
+    author, zed = uid(), uid()
+    pack_in = replace(GOOD, jurisdiction="IE", version="ie-ltd-v1")  # its own market: the markets of the other tests stay as they are
+    key = svc.market_key(pack_in)
+
+    async def run() -> None:
+        async with engine(rt_url) as eng:
+
+            async def tx(fn):
+                async with tenant_transaction(eng, ctx(tenant)) as c:
+                    return await fn(c)
+
+            h1 = await tx(lambda c: svc.propose(c, pack_in, author=author))
+            assert await tx(lambda c: svc.effective_at(c, key, T0)) is None
+            with pytest.raises(svc.PolicyError, match="POLICY_NOT_PUBLISHABLE"):  # the normal route still refuses
+                await tx(lambda c: svc.activate(c, h1, by=zed, tenant_id=tenant, now=T0))
+            skipped = await tx(lambda c: svc.activate(c, h1, by=zed, tenant_id=tenant, now=T0, without_signoff=True))
+            assert "SIGN_OFF_LEGAL_MISSING" in skipped and "SIGN_OFF_COMPLIANCE_MISSING" in skipped
+            h, pack = await tx(lambda c: svc.effective_at(c, key, T0 + timedelta(days=1)))
+            assert h == h1 and pack == pack_in
+            note = await tx(lambda c: c.execute(text("SELECT note FROM org.kyb_market_policy_activation WHERE market_key = :k"), {"k": key}))
+            assert note.scalar_one().startswith("ACTIVATED_WITHOUT_SIGNOFF: ")
+            approvals = await tx(lambda c: c.execute(text("SELECT count(*) FROM org.kyb_market_policy_approval WHERE policy_hash = :h"), {"h": h1}))
+            assert approvals.scalar_one() == 0, "nothing was signed on anyone's behalf"
+            with pytest.raises(svc.PolicyError, match="POLICY_ALREADY_ACTIVE"):
+                await tx(lambda c: svc.activate(c, h1, by=zed, tenant_id=tenant, now=T0, without_signoff=True))
+
+    asyncio.run(run())

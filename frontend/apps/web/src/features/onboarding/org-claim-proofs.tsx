@@ -38,7 +38,7 @@ export function ProofsCard({ claimId }: { claimId: string }) {
   return (
     <Card
       title="Supporting documents"
-      description="Optional. A reviewer may ask for these. A document is read by a person; it never verifies the company on its own."
+      description="Add your certificate of incorporation. We read it automatically; when its name and number match your claim, the company check completes."
     >
       <form
         className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto] sm:items-end"
@@ -123,7 +123,7 @@ const READING_WHY: Record<string, string> = {
 };
 const FIELD: Record<string, string> = { MATCH: "matches your claim", MISMATCH: "is different from your claim", NOT_READ: "could not be read clearly" };
 
-/** What the platform's own reading of a certificate found, compared with the claim. It helps the reviewer and catches a typing mistake: it never verifies the company. */
+/** What the platform's own reading of a certificate found, compared with the claim. A stored certificate that matches the claim completes the company check (document-based, not a register match). */
 function CertificateRead({ read }: { read: OrgClaimProofRead }) {
   if (read.verdict === "CONSISTENT") {
     return (

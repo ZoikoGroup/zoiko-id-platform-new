@@ -93,11 +93,10 @@ def _when(value: Any) -> datetime | None:
 
 
 def trust_facts(claim: dict[str, Any] | None, *, identity_current: bool) -> list[TrustFact]:
-    """The four assertions, as the trust services returned them. No claim means none of them has started."""
+    """The two assertions a claim is decided by (CR-134), as the trust services returned them. No claim means none of them has started."""
     started = claim is not None
     checks = (claim or {}).get("checks", {})
     company = (claim or {}).get("company") or {}
-    screening = (claim or {}).get("screening") or {}
     person = "COMPLETED" if identity_current else str(checks.get("person_assurance", "PENDING"))
     return [
         TrustFact(
@@ -107,10 +106,6 @@ def trust_facts(claim: dict[str, Any] | None, *, identity_current: bool) -> list
             started,
         ),
         TrustFact("person_assurance", person, None, started or identity_current),
-        TrustFact("authority", str(checks.get("authority", "PENDING")), None, started),
-        TrustFact(
-            "risk", str(checks.get("risk", "PENDING")), _when(screening.get("expires_at")), started
-        ),
     ]
 
 

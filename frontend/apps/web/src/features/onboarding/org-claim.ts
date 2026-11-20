@@ -10,13 +10,10 @@ import type {
   OrgClaimStatus,
 } from "@zoiko/api-client";
 
-/** The four independent checks of WF-13B-03, in the order they are shown. A found company is not a verified person,
- * a verified person is not an authorized one, and none of it is a cleared risk review. */
+/** The two checks a claim is decided by (CR-134), in the order they are shown: the company, and the applicant's own identity. A found company is not a verified person. */
 export const CHECKS: { key: keyof OrgClaimStatus["checks"]; label: string; help: string }[] = [
   { key: "company", label: "Company and legal status", help: "The company exists and is active in an official source." },
   { key: "person_assurance", label: "Your identity", help: "Your identity is verified in its own step; signing up or a matching email is not proof." },
-  { key: "authority", label: "Your authority to act for it", help: "You are a current officer of the company, or hold a delegation that a person at Zoiko iD has read and confirmed." },
-  { key: "risk", label: "Risk and ownership review", help: "Directors, owners and sanctions checks the country requires." },
 ];
 
 export const CHECK_TONE: Record<OrgClaimCheckState, "ok" | "info" | "warn" | "danger"> = {
@@ -220,12 +217,10 @@ export function appealMessage(code: string | undefined): string {
   return (code && APPEAL_MESSAGES[code]) || "That request could not be sent.";
 }
 
-/** What the next step is, from the claim alone. A closed or verified claim has none; a claim that has said who to screen and has not been
- * sent is ready to submit. */
-export function nextStep(status: OrgClaimStatus): "authority" | "submit" | "wait" | "done" {
+/** What the next step is, from the claim alone. A closed or verified claim has none; a claim that has not been sent is ready to submit. */
+export function nextStep(status: OrgClaimStatus): "submit" | "wait" | "done" {
   if (status.closed_at !== null || status.outcome === "VERIFIED") return "done";
-  if (status.screening === null && status.checks.company === "COMPLETED") return "authority";
-  if (status.screening !== null && status.submitted_at === null) return "submit";
+  if (status.submitted_at === null) return "submit"; // CR-134: no authority or screening step any more
   return "wait";
 }
 

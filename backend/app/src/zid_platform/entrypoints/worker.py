@@ -417,6 +417,13 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         claims.configure_dev_shortcut(settings.org_claim_dev_autoverify, settings.environment)
         return await auto_establish_pass(conn, now, catalog=catalog())
 
+    async def owner_grant_top_up(conn: AsyncConnection, now: datetime) -> object:
+        """CR-137: every company's owner holds every customer-side action, new ones in the catalogue included."""
+        from zid_platform.modules.onboarding.application.organization import owner_grant_top_up_pass
+        from zid_platform.protected import catalog
+
+        return await owner_grant_top_up_pass(conn, now, catalog=catalog())
+
     async def approval_reminders(conn: AsyncConnection, now: datetime) -> object:
         """WF-013C: remind, once, about approval requests that are about to expire (an in-app alert)."""
         from zid_platform.modules.tenant.application.reminders import remind_due
@@ -555,6 +562,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("claim_housekeeping", claim_housekeeping),
         ("claim_outcomes", claim_outcomes),
         ("claim_autoverify", claim_autoverify),
+        ("owner_grant_top_up", owner_grant_top_up),
         ("approval_reminders", approval_reminders),
         ("agent_lifecycle", agent_lifecycle),
         (

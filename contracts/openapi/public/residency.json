@@ -18,8 +18,8 @@
         "additionalProperties": false,
         "properties": {
           "approval_ref": {
+            "default": "",
             "maxLength": 200,
-            "minLength": 3,
             "title": "Approval Ref",
             "type": "string"
           },
@@ -41,6 +41,8 @@
             "type": "string"
           },
           "jurisdiction_pack_id": {
+            "default": "",
+            "maxLength": 64,
             "title": "Jurisdiction Pack Id",
             "type": "string"
           },
@@ -82,9 +84,7 @@
         },
         "required": [
           "residency_profile_id",
-          "home_cell_id",
-          "jurisdiction_pack_id",
-          "approval_ref"
+          "home_cell_id"
         ],
         "title": "ResidencyBody",
         "type": "object"
