@@ -249,6 +249,12 @@ async def add_proof(
     return view(stored), True
 
 
+async def claimed_company(conn: AsyncConnection, tenant_id: str, case_id: str) -> tuple[str, str]:
+    """(legal name, registration number) as the claim states them: what an uploaded certificate is compared with."""
+    case = await kyb_store.load_case(conn, tenant_id, case_id)
+    return case.applicant_name, case.registration_number
+
+
 async def list_proofs(conn: AsyncConnection, tenant_id: str, case_id: str) -> list[ProofView]:
     await kyb_store.load_case(conn, tenant_id, case_id)
     return [view(p) for p in await proof_store.for_case(conn, tenant_id, case_id)]

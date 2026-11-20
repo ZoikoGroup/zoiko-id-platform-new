@@ -234,6 +234,7 @@ async def search(body: SearchIn, request: Request, caller: CallerDep) -> dict[st
                 "status": c.registration_status,
                 "confidence": c.confidence,  # ranking only: nothing is chosen for the applicant
                 "register": c.registry_authority,
+                "lei": c.lei,
             }
             for c in found[:10]
         ],

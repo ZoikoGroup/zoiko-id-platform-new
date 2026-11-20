@@ -2498,6 +2498,16 @@ export type OrgClaimProof = {
   scan_status: "CLEAN" | "NOT_SCANNED";
   content_hash: string;
   uploaded_at: Iso;
+  /** Only on the upload answer for a certificate or register extract: what the platform's own reading found, compared with the claim. Evidence, never a verification. */
+  read?: OrgClaimProofRead;
+};
+export type OrgClaimProofRead = {
+  verdict: "CONSISTENT" | "CONTRADICTS" | "NOT_ENOUGH";
+  reading: string;
+  document?: string;
+  number?: "MATCH" | "MISMATCH" | "NOT_READ";
+  name?: "MATCH" | "MISMATCH" | "NOT_READ";
+  incorporated_on?: string | null;
 };
 /** A document on an approval request (WF-013C AT-12). The list carries metadata only; opening one is for an approver and is audited. */
 export type ApprovalAttachmentKind = "SUPPORTING_DOCUMENT" | "AUTHORITY_DOCUMENT" | "IDENTITY_REPROOF_RECORD" | "OTHER";
@@ -3508,6 +3518,61 @@ export type RegulatoryReadiness = {
   }[];
   modes: Record<string, string>;
   empty_configuration: string[];
+};
+
+/** Opening a feature for a country (CR-127). Each feature is one regulated capability with its own six approvals; an approval is the operator's record of a decision the owner made elsewhere. */
+export type CountryApprovalKey = "legal_assessment" | "supplier_coverage" | "privacy_and_data" | "security_and_resilience" | "local_support" | "signoff";
+export type CountryFeatureKey = "REGISTRATION" | "INDIVIDUAL_VERIFICATION" | "BUSINESS_VERIFICATION" | "CREDENTIAL_ISSUANCE" | "ENTERPRISE_USE";
+export type CountryOpening = {
+  capability: CountryFeatureKey;
+  version: number;
+  status: "OPEN" | "CLOSED";
+  effective_from: string | null;
+  approvals: Partial<Record<CountryApprovalKey, string>>;
+  home_cells: string[];
+  reason: string | null;
+  recorded_by: string;
+  recorded_at: string | null;
+};
+export type CountryFeatureState = {
+  capability: CountryFeatureKey;
+  /** What the registry file says: DISABLED, SANDBOX (counts in local and test only) or ENABLED. */
+  file_status: "DISABLED" | "SANDBOX" | "ENABLED";
+  /** What applies here right now, after the recorded decision. */
+  in_force: "DISABLED" | "SANDBOX" | "ENABLED";
+  opening: CountryOpening | null;
+};
+export type CountryOpeningRow = { country: string; name: string; wave: number | null; features: CountryFeatureState[] };
+export type CountryOpeningsView = {
+  environment: string;
+  features: { capability: CountryFeatureKey; label: string; unlocks: string }[];
+  approvals: { key: CountryApprovalKey; label: string; owner: string }[];
+  cells: { cell_id: string; region: string | null; country: string | null }[];
+  countries: CountryOpeningRow[];
+};
+export type CountryOpeningIn =
+  | { capability: CountryFeatureKey; action: "OPEN"; effective_from: string; approvals: Partial<Record<CountryApprovalKey, string>>; home_cells: string[]; reason?: string }
+  | { capability: CountryFeatureKey; action: "CLOSE"; reason?: string };
+
+/** The Face lab (CR-128): a measurement of how alike two photographs are, for evaluation. Never an approval. */
+export type FaceLabStatus = {
+  configured: boolean;
+  engine: { id: string; version: string };
+  liveness: { available: boolean; note: string };
+  gate: { mode: string; approvable: boolean; problems: string[] };
+  note: string;
+};
+export type FaceLabSide = { faces: number; detection: number | null; face_ratio: number | null };
+export type FaceLabResult = {
+  cosine: number;
+  score: number;
+  above_suggested_threshold: boolean;
+  recommended_cosine_threshold: number;
+  probe: FaceLabSide;
+  reference: FaceLabSide;
+  engine: string;
+  liveness: { available: boolean };
+  note: string;
 };
 
 /** Independent assurance (ZID-UAT-005). Statuses come from signed evidence only; nothing here is typed in by a person. */

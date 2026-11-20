@@ -141,3 +141,108 @@ def public_view(registry: Registry, *, now: datetime, environment: str) -> list[
             }
         )
     return out
+
+
+# ------------------------------------------------------------------------------------ openings (CR-127)
+# An operator opens (or closes) one regulated capability for a country that the registry file lists. The decision is data, recorded with its approvals; the
+# file stays the list of countries and the source of everything else. Pure: the store and the API live elsewhere.
+
+
+@dataclass(frozen=True)
+class Opening:
+    country: str
+    version: int
+    status: str  # OPEN | CLOSED
+    effective_from: datetime | None = None
+    approvals: Mapping[str, str] = field(default_factory=dict)
+    home_cells: tuple[str, ...] = ()
+    reason: str | None = None
+    recorded_by: str = ""
+    recorded_at: datetime | None = None
+    capability: str = "REGISTRATION"
+
+
+# Every regulated capability is its own go/no-go. DISCOVERY is open without approvals, so it is never opened here.
+OPENABLE = (
+    Capability.REGISTRATION,
+    Capability.INDIVIDUAL_VERIFICATION,
+    Capability.BUSINESS_VERIFICATION,
+    Capability.CREDENTIAL_ISSUANCE,
+    Capability.ENTERPRISE_USE,
+)
+OpeningKey = tuple[str, str]  # (country, capability)
+
+
+_REFERENCE = re.compile(r"^[^\x00-\x1f]{3,200}$")
+_CELL = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+
+
+def check_opening(
+    registry: Registry,
+    country: str,
+    *,
+    capability: str = "REGISTRATION",
+    effective_from: datetime | None,
+    approvals: Mapping[str, str],
+    home_cells: list[str],
+) -> tuple[Mapping[str, str], tuple[str, ...]]:
+    """Refuse an opening that is not complete. Returns the cleaned approvals and cells. Nothing here decides *whether* a country should open:
+    that is what the six references stand for, and they are the operator's record of owners' decisions."""
+    if country not in registry.countries:
+        raise CountryError("COUNTRY_NOT_LISTED", f"{country} is not in the country registry.")
+    if capability not in {c.value for c in OPENABLE}:
+        raise CountryError("CAPABILITY_NOT_OPENABLE", f"{capability} cannot be opened here.")
+    if effective_from is None:
+        raise CountryError("COUNTRY_OPENING_INCOMPLETE", "an effective date is required")
+    unknown = sorted(set(approvals) - set(APPROVALS))
+    if unknown:
+        raise CountryError("COUNTRY_OPENING_INCOMPLETE", f"unknown approvals: {unknown}")
+    cleaned = {a: str(approvals.get(a, "")).strip() for a in APPROVALS}
+    missing = [a for a, ref in cleaned.items() if not _REFERENCE.match(ref)]
+    if missing:
+        raise CountryError(
+            "COUNTRY_OPENING_INCOMPLETE", f"each approval needs its reference (3 to 200 characters): {missing}"
+        )
+    if capability != Capability.REGISTRATION.value:
+        return cleaned, ()  # only sign-up decides which cell holds an account
+    cells = tuple(dict.fromkeys(c.strip() for c in home_cells if c.strip()))
+    if not cells or not all(_CELL.match(c) for c in cells):
+        raise CountryError("COUNTRY_OPENING_INCOMPLETE", "name the cell that holds this country's accounts")
+    return cleaned, cells
+
+
+def apply_openings(registry: Registry, openings: Mapping[OpeningKey, Opening]) -> Registry:
+    """The registry with each (country, capability)'s newest recorded decision applied. An OPEN opening makes the capability ENABLED with its
+    approvals and date (so it counts in a deployed environment); a CLOSED one makes it DISABLED, even where the file says SANDBOX. A country the
+    file does not list, or a capability that cannot be opened here, is ignored. Everything else is left exactly as the file has it."""
+    if not openings:
+        return registry
+    countries = dict(registry.countries)
+    openable = {c.value: c for c in OPENABLE}
+    for (code, name), opening in openings.items():
+        base = countries.get(code)
+        cap = openable.get(name)
+        if base is None or cap is None:
+            continue
+        caps = dict(base.capabilities)
+        current = caps.get(cap, CapabilityEntry())
+        if opening.status == "OPEN":
+            caps[cap] = CapabilityEntry(
+                availability=Availability.ENABLED,
+                provider=current.provider,
+                legal_status=current.legal_status,
+                effective_from=opening.effective_from,
+                approvals=dict(opening.approvals),
+            )
+        else:
+            caps[cap] = CapabilityEntry(
+                availability=Availability.DISABLED,
+                provider=current.provider,
+                legal_status=current.legal_status,
+            )
+        countries[code] = Country(
+            code=base.code, name=base.name, wave=base.wave, capabilities=caps, contact=base.contact
+        )
+    merged = Registry(version=registry.version, countries=countries)
+    validate(merged)
+    return merged

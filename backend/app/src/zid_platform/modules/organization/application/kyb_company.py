@@ -87,6 +87,7 @@ async def _case_facts(
                 _status_reported(r.body),
                 _utc(r.body.get("observed_at") or r.created_at),
                 max_age,
+                reference_only=r.body.get("source_authority") == "gleif",
             )
             break
     if registry is None and rows[-1].decision_status is KybStatus.UNAVAILABLE:

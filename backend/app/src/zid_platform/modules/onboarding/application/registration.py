@@ -73,7 +73,13 @@ from zid_platform.modules.tenant.ports import (
     self_signup,
     set_fields,
 )
-from zid_platform.modules.verification.ports import Capability, CountryError, registry, require
+from zid_platform.modules.verification.ports import (
+    Capability,
+    CountryError,
+    openings,
+    registry,
+    require,
+)
 
 log = logging.getLogger("zid.registration")
 
@@ -93,7 +99,12 @@ def _routing_table() -> dict[str, list[str]]:
         yaml.safe_load((root / "registration" / "country-routing.yaml").read_text(encoding="utf-8"))
         or {}
     )
-    return {str(k): [str(c) for c in v] for k, v in (doc.get("routes") or {}).items()}
+    table = {str(k): [str(c) for c in v] for k, v in (doc.get("routes") or {}).items()}
+    # a country an operator has opened names the cell that holds its accounts (CR-127); it replaces the file's row for that country
+    table.update(
+        {code: list(o.home_cells) for (code, cap), o in openings().items() if cap == "REGISTRATION" and o.status == "OPEN" and o.home_cells}
+    )
+    return table
 
 
 @dataclass(frozen=True, slots=True)

@@ -88,6 +88,8 @@ class AlternateRoute:
     may_approve: bool = False
     reviewers_needed: int = 2
     automatic: bool = False  # decided by the platform from the document and the applicant's own typed details: no reviewer; a lower grade
+    face_match: bool = False  # an automatic route decided on a live face against the document's own photograph (CR-129): no liveness test, no authenticity check, the lowest grade
+    face_threshold: float = 0.5  # the similarity the face must reach (the owner's choice; the engine's own suggestion is only a starting point)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +151,13 @@ class Result:
     policy_version: str = ""
 
 
+def face_signal(cosine: float | None, threshold: float) -> FaceMatch:
+    """The face-match route's signal from the engine's similarity. No similarity (no face found, an unreadable picture) is INCONCLUSIVE: a retake, never a failure."""
+    if cosine is None:
+        return FaceMatch.INCONCLUSIVE
+    return FaceMatch.MATCH if cosine >= threshold else FaceMatch.NON_MATCH
+
+
 def _claims(s: Signals) -> dict[str, str]:
     return {
         "optical": s.optical.value,
@@ -177,6 +186,15 @@ def assertions(s: Signals) -> tuple[str, ...]:
         out.append("CHIP_NOT_CLONED")
     if s.liveness is Liveness.PASS and s.injection_risk is not True:
         out.append("LIVE_PRESENCE")
+    if (
+        s.face is FaceMatch.MATCH
+        and s.liveness is Liveness.NOT_RUN
+        and s.reference_source == "OPTICAL"
+        and s.injection_risk is not True
+    ):
+        # the face-match route (CR-129): a live face looked like the photograph printed on the document, and that is all this says. It is not LIVE_PRESENCE, and the
+        # photograph itself was never authenticated, so it is NOT a holder claim: whoever uploads a document can choose the face on it.
+        out.append("FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS")
     if (
         s.face is FaceMatch.MATCH
         and s.liveness is Liveness.PASS
@@ -253,6 +271,7 @@ def decide(s: Signals, p: Policy) -> Result:
         )  # a defined failure, never a bare accusation
 
     automatic = alternate is not None and alternate.automatic
+    face_route = alternate is not None and alternate.automatic and alternate.face_match
     reasons: list[str] = []
     worst = Decision.APPROVED
     rank = {
@@ -284,6 +303,16 @@ def decide(s: Signals, p: Policy) -> Result:
             reasons.append("ALTERNATE_ROUTE_CARRIES_NO_CHIP_GRADE")
         if alternate is not None and not alternate.may_approve:
             lower(Decision.REVIEW_REQUIRED, "ALTERNATE_ROUTE_REVIEW_ONLY")
+        elif face_route:
+            # the face-match route: no machine-readable lines, no typed details. A match is the one thing that approves; anything else asks for a retake and is never an
+            # automatic rejection on a biometric score.
+            if not (s.face is FaceMatch.MATCH and s.reference_source == "OPTICAL"):
+                if s.face is FaceMatch.NON_MATCH:
+                    lower(Decision.INDETERMINATE, "FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO")
+                elif s.face is FaceMatch.INCONCLUSIVE:
+                    lower(Decision.INDETERMINATE, "FACE_NOT_FOUND_OR_UNCLEAR")
+                else:
+                    lower(Decision.INDETERMINATE, "FACE_MATCH_NOT_RUN")
         elif alternate is not None and alternate.automatic:
             # no person decides here, so the evidence has to: a reading the platform trusts, and the applicant's own details agreeing with it
             if s.mrz_check_digits_ok is not True:
@@ -317,7 +346,7 @@ def decide(s: Signals, p: Policy) -> Result:
             lower(Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "OPTICAL_REVIEW")  # nobody reviews an automatic route: it asks for a retake
         elif p.optical is Requirement.REQUIRED and s.optical is not Optical.PASS:
             lower(Decision.INDETERMINATE, f"OPTICAL_{s.optical.value}")
-    if s.mrz_check_digits_ok is False:
+    if s.mrz_check_digits_ok is False and not face_route:
         lower(
             Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "MRZ_CHECK_DIGITS_FAILED"
         )  # on an automatic route nobody reviews, so an unreliable reading asks for a retake  # blocks automatic approval and is explained to the applicant
@@ -345,11 +374,11 @@ def decide(s: Signals, p: Policy) -> Result:
             lower(Decision.REJECTED, "DOCUMENT_EXPIRED")
         elif p.expired_document == "REVIEW":
             lower(Decision.REVIEW_REQUIRED, "DOCUMENT_EXPIRED_POLICY_REVIEW")
-    elif s.document_expired is None and p.expired_document != "ACCEPT":
+    elif s.document_expired is None and p.expired_document != "ACCEPT" and not face_route:
         lower(Decision.INDETERMINATE, "DOCUMENT_DATE_NOT_ESTABLISHED")
 
     # --- the person: presence first, a match only after a viable live capture
-    if p.face is not Requirement.NOT_USED:
+    if p.face is not Requirement.NOT_USED and not face_route:
         if s.liveness is Liveness.FAIL:
             lower(
                 Decision.REVIEW_REQUIRED, "PRESENTATION_ATTACK_DETECTED"

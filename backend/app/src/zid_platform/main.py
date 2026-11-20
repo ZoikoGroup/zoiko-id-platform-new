@@ -472,6 +472,10 @@ def create_app(
         from .modules.operator_access.api.regulatory_conformance import (
             router as regulatory_conformance_router,
         )
+        from .modules.operator_access.api.country_openings import (
+            router as country_openings_router,
+        )
+        from .modules.operator_access.api.face_lab import router as face_lab_router
         from .modules.operator_access.api.regulatory_releases import (
             router as regulatory_releases_router,
         )
@@ -660,6 +664,8 @@ def create_app(
             commercial_payment_ops_router,
             regulatory_router,
             regulatory_releases_router,
+            country_openings_router,
+            face_lab_router,
             regulatory_issuers_router,
             regulatory_suspensions_router,
             kyb_policy_router,
@@ -939,6 +945,18 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
     app.router.lifespan_context = lifespan
 
     @app.middleware("http")
+    async def country_openings(request: Request, call_next: Any) -> Any:
+        """Keep the countries an operator has opened (CR-127) current in this process, on every route: a gate that asks "is this feature open
+        here?" must see the recorded decision, not only the registry file. It reads at most every few seconds; a database that cannot be read
+        leaves the last known decisions (never opens anything new)."""
+        engine = getattr(request.app.state, "engine", None)
+        if engine is not None:
+            from .modules.verification.ports import country_opening_store
+
+            await country_opening_store.refresh(engine)
+        return await call_next(request)
+
+    @app.middleware("http")
     async def usage_meter(request: Request, call_next: Any) -> Any:
         response = await call_next(request)
         metered = getattr(request.state, "metered", None)
@@ -1078,6 +1096,12 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         logging.getLogger("zid.operator").warning(
             "ZID_OPERATOR_MODE=direct: operators hold every non-customer-data capability without access requests or "
             "a second approver (environment=%s)",
+            settings.environment,
+        )
+    app.state.idv_face_route_ack = settings.idv_face_route_ack
+    if settings.idv_face_route_ack:
+        logging.getLogger("zid.idv").warning(
+            "ZID_IDV_FACE_ROUTE_ACK is set: a market's face-match route approves on a live face against an uploaded document photograph, with no liveness test and no check that the document is genuine (environment=%s)",
             settings.environment,
         )
     app.state.operator_settings = OperatorSettings(

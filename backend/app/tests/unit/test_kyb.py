@@ -13,6 +13,7 @@ import pytest
 from zid_platform.modules.organization.application import kyb as service
 from zid_platform.modules.organization.domain.kyb import (
     Applicant,
+    Candidate,
     Capabilities,
     CompanyFacts,
     KybError,
@@ -468,14 +469,11 @@ def test_the_applicants_lei_is_looked_up_only_through_the_routes_lei_source() ->
 # ---- the shipped routing -------------------------------------------------------------------------------------------------
 
 
-def test_the_shipped_routing_follows_ed03_and_claims_no_supplier_coverage() -> None:
+def test_the_shipped_routing_uses_gleif_only_everywhere_and_claims_no_supplier_coverage() -> None:
     r = routing()
-    assert r.route("GB") == Route(("companies-house",), "gleif", ("creditsafe",))
-    for country in ("US", "IE", "DE"):
-        assert r.route(country) is not None and r.route(country).first_pass == ("creditsafe",)  # type: ignore[union-attr]
-    assert r.route("FR") == Route(
-        ("sirene",), "gleif", ("inpi", "creditsafe")
-    )  # an official register answers on its own; INPI waits for credentials
+    # OWNER-ACKNOWLEDGED local setting (19 Nov 2026): every country asks GLEIF only, as an LEI reference that may stand as the company check; no register and no supplier is called
+    for country in ("GB", "US", "IE", "DE", "FR", "CA", "IN", "AU", "SG", "AE", "SA", "JP", "BR", "MX", "ZA", "NG", "KE"):
+        assert r.route(country) == Route((), "gleif", (), lei_primary=True), country
     assert r.adapter_status["inpi"] == "DISABLED_UNTIL_CREDENTIALS"
     assert r.supplier_coverage == {}  # nothing is proven until the owners record it
     assert r.adapter_status["creditsafe"] == "DISABLED_UNTIL_CONTRACT"
@@ -692,10 +690,15 @@ def test_the_french_register_answers_a_siren_lookup_from_its_open_api() -> None:
 def test_a_french_company_verifies_from_the_official_register_without_any_supplier_coverage() -> (
     None
 ):
+    from dataclasses import replace
+
     applicant = Applicant("FR", "552100554", "Acme Widgets SAS")
-    d = run(applicant, {"sirene": _sirene([_sirene_result()])}, routing())
+    # the shipped routing is GLEIF-only (owner decision, 19 Nov 2026); this tests the register adapter, so the route that names it is put back here
+    r = routing()
+    with_register = replace(r, routes={**r.routes, "FR": Route(("sirene",), "gleif", ("inpi", "creditsafe"))})
+    d = run(applicant, {"sirene": _sirene([_sirene_result()])}, with_register)
     assert d.status is KybStatus.VERIFIED and "REGISTRY_MATCH_EXACT" in d.reasons
-    ceased = run(applicant, {"sirene": _sirene([_sirene_result(state="C")])}, routing())
+    ceased = run(applicant, {"sirene": _sirene([_sirene_result(state="C")])}, with_register)
     assert ceased.status is KybStatus.NEEDS_REVIEW and ceased.review_reason == "ENTITY_INACTIVE"
 
 
@@ -771,3 +774,139 @@ def test_creditsafe_status_enum_is_taken_as_documented_and_type_is_not_a_legal_f
     gone = asyncio.run(cs.get("222", "IE", NOW))
     assert live is not None and live.active and live.legal_form is None
     assert gone is not None and not gone.active  # NonActive is not active
+
+
+# ---- GLEIF as the reference that lets an applicant find a company in any listed country --------------------------------------
+
+
+def _gleif_record(lei: str, name: str, country: str = "GB", number: str | None = None) -> dict[str, Any]:
+    entity: dict[str, Any] = {"legalName": {"name": name}, "jurisdiction": country, "status": "ACTIVE", "legalAddress": {"country": country}}
+    if number:
+        entity["registeredAs"] = number
+    return {"id": lei, "attributes": {"entity": entity, "registration": {"status": "ISSUED"}}}
+
+
+def test_gleif_searches_the_applicants_country_only_and_finds_a_company_by_its_national_number() -> None:
+    seen: list[str] = []
+    rec = _gleif_record("2138002P5RNKC5W2JZ46", "TESCO PLC", number="00445790")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"data": [rec]})
+
+    got = asyncio.run(GleifKyb(_mock(handler)).search("00445790", "GB", NOW))
+    assert all("filter%5Bentity.legalAddress.country%5D=GB" in u or "filter[entity.legalAddress.country]=GB" in u for u in seen)
+    assert any("registeredAs" in u for u in seen) and any("fulltext" in u for u in seen)  # the number is tried exactly, then as text
+    assert len(got) == 1  # the same company from both searches is listed once
+    assert got[0].registration_number == "00445790"  # the number the applicant knows, not the LEI
+    assert got[0].lei == "2138002P5RNKC5W2JZ46" and got[0].confidence == 1.0
+
+
+def test_a_company_name_is_searched_as_text_not_as_a_number() -> None:
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return httpx.Response(200, json={"data": [_gleif_record("5493001KJTIIGC8Y1R12", "Acme Widgets Limited")]})
+
+    got = asyncio.run(GleifKyb(_mock(handler)).search("Acme Widgets Limited", "GB", NOW))
+    assert not any("registeredAs" in u for u in seen)
+    assert got[0].registration_number == "5493001KJTIIGC8Y1R12"  # no national number held: the LEI stands in, beside lei
+
+
+class _Finder(FakeAdapter):
+    def __init__(self, adapter_id: str, kind: SourceKind, found: list[Candidate]) -> None:
+        super().__init__(adapter_id, kind, {"*"}, None)
+        self._found = found
+
+    async def search(self, query: str, jurisdiction: str, now: datetime) -> list[Candidate]:
+        return list(self._found)
+
+
+def _candidate(adapter: str, number: str, name: str, confidence: float, lei: str | None = None) -> Candidate:
+    return Candidate(adapter, "GB", adapter, number, name, "active", "https://x", confidence, lei)
+
+
+def test_search_adds_the_lei_reference_and_lists_a_company_found_twice_once_from_the_register() -> None:
+    register = _Finder("companies-house", SourceKind.OFFICIAL_REGISTER, [_candidate("companies-house", "00445790", "TESCO PLC", 0.9)])
+    gleif = _Finder(
+        "gleif",
+        SourceKind.LEI_REFERENCE,
+        [_candidate("gleif", "00445790", "TESCO PLC", 1.0, "2138002P5RNKC5W2JZ46"), _candidate("gleif", "07656305", "TESCO TREASURY SERVICES PLC", 0.5, "213800DJFYY7MSLDKD28")],
+    )
+    got = asyncio.run(service.search("tesco", "GB", adapters={"companies-house": register, "gleif": gleif}, routing=_routing(), now=NOW))
+    assert [(c.registration_number, c.adapter_id) for c in got] == [("00445790", "companies-house"), ("07656305", "gleif")]
+
+
+def test_a_country_with_only_gleif_offers_companies_and_verifies_one_only_as_an_lei_reference() -> None:
+    from dataclasses import replace
+
+    r = routing()
+    for country in ("CA", "IN", "AU", "SG", "AE", "SA", "JP", "BR", "MX", "ZA", "NG", "KE"):
+        route = r.route(country)
+        assert route is not None and route.first_pass == () and route.lei == "gleif" and route.lei_primary, country
+    lei = "5493001KJTIIGC8Y1R12"
+    gleif = _Finder("gleif", SourceKind.LEI_REFERENCE, [_candidate("gleif", "A1", "Maple Corp", 0.9, lei)])
+    gleif.answer = replace(facts(adapter="gleif", kind=SourceKind.LEI_REFERENCE, country="CA", number=lei, lei=lei), national_number="A1", legal_name="Maple Corp")
+    found = asyncio.run(service.search("maple", "CA", adapters={"gleif": gleif}, routing=r, now=NOW))
+    assert [c.legal_name for c in found] == ["Maple Corp"]  # the applicant can find it
+    d = asyncio.run(service.decide(Applicant("CA", "A1", "Maple Corp", None, lei=lei), adapters={"gleif": gleif}, routing=r, now=NOW))
+    assert d.status is KybStatus.VERIFIED and "LEI_REFERENCE_ONLY" in d.reasons  # the owner's GLEIF-only setting: stood as the company check, marked as only an LEI reference
+    # a company with no LEI cannot be verified this way
+    none = asyncio.run(service.decide(Applicant("CA", "A1", "Maple Corp"), adapters={"gleif": gleif}, routing=r, now=NOW))
+    assert none.status is KybStatus.UNAVAILABLE and none.review_reason == "NO_COVERAGE"
+
+
+# ---- an LEI record standing as the company check, where an owner has acknowledged it (lei_as_primary) ------------------
+
+LEI = "2138009Z5S73BCYC8F12"
+
+
+def lei_facts(**kw: Any) -> CompanyFacts:
+    from dataclasses import replace
+
+    base = facts(adapter="gleif", kind=SourceKind.LEI_REFERENCE, number=LEI, lei=LEI)
+    return replace(base, national_number=kw.pop("national", "00123456"), **kw)
+
+
+def decide_lei(applicant: Applicant, outcomes: list[SourceOutcome], *, primary: bool = True) -> Any:
+    return reconcile(applicant, outcomes, accepted_suppliers=frozenset(), policy=POLICY, now=NOW, lei_primary=primary)
+
+
+def test_an_lei_record_alone_never_verifies_unless_the_route_says_so() -> None:
+    from dataclasses import replace
+
+    d = decide_lei(replace(GB, lei=LEI), [found(lei_facts())], primary=False)
+    assert d.status is KybStatus.UNAVAILABLE and d.review_reason == "NO_COVERAGE"
+
+
+def test_an_acknowledged_lei_record_verifies_and_says_it_is_only_an_lei_reference() -> None:
+    from dataclasses import replace
+
+    d = decide_lei(replace(GB, lei=LEI), [found(lei_facts())])
+    assert d.status is KybStatus.VERIFIED and "LEI_REFERENCE_ONLY" in d.reasons
+
+
+def test_an_lei_record_for_another_national_number_or_with_no_lei_given_is_not_a_match() -> None:
+    from dataclasses import replace
+
+    other = decide_lei(replace(GB, lei=LEI), [found(lei_facts(national="99999999"))])
+    assert other.status is KybStatus.NEEDS_REVIEW and other.review_reason == "IDENTIFIER_MISMATCH"
+    no_lei = decide_lei(GB, [found(lei_facts())])  # the applicant gave no LEI: a number alone is not enough
+    assert no_lei.status is KybStatus.NEEDS_REVIEW
+
+
+def test_a_register_beside_the_lei_record_is_the_one_used_and_nothing_is_marked_lei_only() -> None:
+    from dataclasses import replace
+
+    d = decide_lei(replace(GB, lei=LEI), [found(lei_facts()), found(facts(lei=None))])
+    assert d.status is KybStatus.VERIFIED and "LEI_REFERENCE_ONLY" not in d.reasons
+
+
+def test_the_gb_route_in_the_shipped_routing_file_carries_the_flag() -> None:
+    import pathlib
+
+    import yaml
+
+    path = pathlib.Path(__file__).resolve().parents[2].parent / "config" / "kyb" / "kyb-routing.yaml"
+    assert parse(yaml.safe_load(path.read_text(encoding="utf-8"))).route("GB").lei_primary is True  # type: ignore[union-attr]

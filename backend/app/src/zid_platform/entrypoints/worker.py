@@ -617,6 +617,9 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
     try:
         n = 0
         while passes is None or n < passes:
+            from zid_platform.modules.verification.ports import country_opening_store
+
+            await country_opening_store.refresh(engine)  # the countries an operator has opened (CR-127), for checks the worker runs
             await run_pass(engine, settings)
             n += 1
             if passes is None or n < passes:

@@ -30,13 +30,18 @@ from zid_platform.modules.authentication.domain.authenticator import AuthnError
 from zid_platform.modules.authentication.domain.step_up import StepUpError, Tier, classify
 from zid_platform.modules.authentication.infrastructure.step_up_config import step_up_catalogue
 from zid_platform.modules.authentication.infrastructure.step_up_routes import route_actions
-from zid_platform.modules.session.ports import signed_key_service_caller
+from zid_platform.modules.session.ports import (
+    SessionStatus,
+    load_session,
+    signed_key_service_caller,
+)
 
 router = APIRouter(tags=["step-up"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 log = logging.getLogger("zid.step_up")
 
 PROOF_HEADER = "X-Step-Up-Proof"
+OPERATOR_PASSWORD_CONTEXT = "operator:password"  # authentication/api/operator_password.py (not imported: it imports webauthn, which imports this module)
 
 _STATUS = {
     "STEP_UP_ACTION_UNKNOWN": 422,
@@ -100,12 +105,31 @@ class VerifyIn(BaseModel):
     credential: dict[str, Any]
 
 
+async def _operator_password_session(request: Request, conn: Any, caller: Caller) -> bool:
+    """True only for a live Operator Console email-and-password session of the operator tenant. Operators have no passkey: the password
+    sign-in (see operator_access `_password_session`) is their whole proof, so no per-action passkey check is asked of them. Every other
+    session, in every tenant, is unaffected."""
+    operator = getattr(request.app.state, "operator_settings", None)
+    if operator is None or not operator.tenant_id or not caller.session_id:
+        return False
+    if str(caller.ctx.tenant_id or "").lower() != str(operator.tenant_id).lower():
+        return False
+    session = await load_session(conn, caller.session_id)
+    return (
+        session is not None
+        and session.authentication_context == OPERATOR_PASSWORD_CONTEXT
+        and session.status is SessionStatus.ACTIVE
+    )
+
+
 @router.post("/v1/step-up/challenges", status_code=201)
 async def create_challenge(
     body: ChallengeIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
     who = who_of(caller)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        if await _operator_password_session(request, conn, caller):
+            return {"required": False, "tier": "S0", "action": body.action, "reasons": ["operator-password-session"]}
         try:
             return await service.create_challenge(
                 conn,
@@ -224,6 +248,8 @@ async def require_step_up(
     mode = "enforce" if force_enforce else _enforcement(request)
     if mode == "off":
         return None
+    if await _operator_password_session(request, conn, caller):
+        return None  # the operator's password sign-in is their proof; they have no passkey (CR-035)
     cat = step_up_catalogue()
     who = who_of(caller)
     try:

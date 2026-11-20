@@ -105,7 +105,7 @@ def _one(market: str, doc: Mapping[str, Any]) -> MarketRules:
         if (
             not isinstance(a, Mapping)
             or not _text(a.get("route_id"))
-            or set(a) - {"route_id", "may_approve", "reviewers_needed", "automatic"}
+            or set(a) - {"route_id", "may_approve", "reviewers_needed", "automatic", "face_match", "face_threshold"}
         ):
             raise PolicyError(
                 f"{market}: an alternate route needs route_id, may_approve and reviewers_needed only"
@@ -118,8 +118,18 @@ def _one(market: str, doc: Mapping[str, Any]) -> MarketRules:
                 raise PolicyError(
                     f"{market}: an automatic route sets may_approve: true and no reviewers_needed (nobody reviews it)"
                 )
-            alternates.append(AlternateRoute(str(a["route_id"]), True, 0, True))
+            face_match = a.get("face_match", False)
+            if not isinstance(face_match, bool):
+                raise PolicyError(f"{market}: face_match must be true or false")
+            threshold = a.get("face_threshold", 0.5)
+            if face_match and (isinstance(threshold, bool) or not isinstance(threshold, int | float) or not 0.2 <= float(threshold) <= 0.99):
+                raise PolicyError(f"{market}: face_threshold must be a number from 0.2 to 0.99")
+            if not face_match and "face_threshold" in a:
+                raise PolicyError(f"{market}: face_threshold belongs to a face_match route")
+            alternates.append(AlternateRoute(str(a["route_id"]), True, 0, True, face_match, float(threshold)))
             continue
+        if "face_match" in a or "face_threshold" in a:
+            raise PolicyError(f"{market}: face_match belongs to an automatic route")
         need = int(a.get("reviewers_needed", 2))
         if need < 2:
             raise PolicyError(f"{market}: an alternate route needs at least two distinct reviewers")

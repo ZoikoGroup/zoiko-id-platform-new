@@ -120,12 +120,14 @@ async def decide(
 
     await run(route.first_pass)
     decision = reconcile(
-        applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+        applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
     )
     if route.exception and decision.review_reason in EXCEPTION_TRIGGERS:
         await run(route.exception)
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
         )
     if (
         applicant.lei
@@ -135,7 +137,8 @@ async def decide(
     ):
         outcomes.append(await _ask(adapter, applicant.lei, applicant.jurisdiction, now))
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now
+            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            lei_primary=route.lei_primary,
         )
     return decision
 
@@ -154,9 +157,12 @@ async def search(
     if route is None or len(query.strip()) < 2:
         return []
     out: list[Candidate] = []
-    for adapter_id in route.first_pass:
+    # The country's registers first, then its LEI reference (GLEIF): it lets an applicant find a company in a country whose register is not connected
+    # yet. It is reference data, so a company found only there is still decided by `decide` (no registry source: a reviewer, never "verified").
+    asked = [*route.first_pass, *([route.lei] if route.lei and route.lei not in route.first_pass else [])]
+    for adapter_id in asked:
         adapter = adapters.get(adapter_id)
-        if adapter is None or not _covers(adapter, jurisdiction):
+        if adapter is None or not routing.enabled(adapter_id) or not _covers(adapter, jurisdiction):
             continue
         if adapter.kind is SourceKind.SUPPLIER and adapter_id not in routing.accepted_suppliers(
             jurisdiction
@@ -169,7 +175,13 @@ async def search(
         except Exception:  # noqa: BLE001 - an outage gives fewer candidates, never a made-up one
             log.warning("kyb search unavailable: %s", adapter_id)
             continue
-    return sorted(out, key=lambda c: (-c.confidence, c.registration_number))
+    # one company found by two sources is listed once, from the register (the LEI reference only adds its LEI)
+    seen: dict[tuple[str, str], Candidate] = {}
+    for c in sorted(out, key=lambda c: (c.adapter_id == "gleif", -c.confidence)):
+        key = (c.jurisdiction, "".join(ch for ch in c.registration_number if ch.isalnum()).upper())
+        if key not in seen:
+            seen[key] = c
+    return sorted(seen.values(), key=lambda c: (-c.confidence, c.registration_number))
 
 
 def _view(

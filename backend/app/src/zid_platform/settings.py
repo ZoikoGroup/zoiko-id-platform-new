@@ -116,6 +116,9 @@ class Settings(ServiceSettings):
     # ZID_OPERATOR_DIRECT_ACK: a deployed cell (anything but local/test/dev) refuses direct mode unless this holds the
     # exact sentence below, so removing dual control is a deliberate, reviewed act and never a stray setting.
     operator_direct_ack: str | None = None
+    # ZID_IDV_FACE_ROUTE_ACK: the owner's acknowledgement that a market's face-match route (CR-129) decides without a liveness test, an evaluated engine or a check that
+    # the document is genuine. It must equal `accept-no-liveness-no-evaluation`; without it that route refuses every request.
+    idv_face_route_ack: str | None = None
     # First operator account from configuration (entrypoints/bootstrap_operator.py; one-shot, idempotent):
     # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID (uuid of the operator's principal), ZID_OPERATOR_ORIGIN (the Operator
     # Console's public origin; its redirect is <origin>/auth/callback unless ZID_OPERATOR_REDIRECT_URIS lists them),

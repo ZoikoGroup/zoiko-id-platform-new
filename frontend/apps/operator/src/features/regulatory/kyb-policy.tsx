@@ -7,6 +7,7 @@ import { useState } from "react";
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { Mono, RegError } from "./common";
+import { PackBuilder } from "./kyb-pack-builder";
 import { groupProblems, parsePack, problemText, rollbackProblem, rolesStillNeeded, shortHash, SIGN_OFF_ROLES, type SignOffRole } from "./kyb-policy-logic";
 
 const KEY = ["regulatory", "kyb-policies"] as const;
@@ -59,6 +60,8 @@ export function KybPolicyPage() {
   const [text, setText] = useState("");
   const [rollback, setRollback] = useState<{ market: string; to: string; reason: string }>({ market: "", to: "", reason: "" });
   const parsed = text.trim() ? parsePack(text) : null;
+  const versions = list.data?.items ?? [];
+  const markets = [...new Set(versions.map((r) => r.market_key))];
   const propose = useCellMutation((api, pack: Record<string, unknown>) => api.regulatory.kybPolicyPropose(pack), { invalidate: [KEY as never], success: "Version stored", onSuccess: (r) => setOpen(r.policy_hash) });
   const back = useCellMutation((api, v: { market: string; to: string; reason: string }) => api.regulatory.kybPolicyRollback(v.market, v.to, v.reason), { invalidate: [KEY as never], success: "Rolled back" });
   const columns: Column<KybPolicyVersion>[] = [
@@ -81,8 +84,10 @@ export function KybPolicyPage() {
           {(d) => <DataTable<KybPolicyVersion> caption="Versions, newest first" rows={d.items} rowKey={(r) => r.policy_hash} empty="No pack proposed yet. Every market is off." columns={columns} />}
         </QueryView>
         {open ? <Detail hash={open} /> : null}
-        <Card title="Propose a version" description="Paste the pack as JSON. The platform names everything that is incomplete; nothing is in force until it is signed and published.">
-          <div className="space-y-3">
+        <PackBuilder onStored={setOpen} />
+        <details className="rounded border p-3">
+          <summary className="cursor-pointer font-medium">Advanced: paste a pack as JSON</summary>
+          <div className="mt-3 space-y-3">
             <TextField label="Pack (JSON)" multiline rows={10} value={text} onChange={setText} />
             {parsed && !parsed.ok ? <p className="text-danger">{parsed.reason}</p> : null}
             <Button pending={propose.isPending} isDisabled={!parsed || !parsed.ok} onPress={() => parsed?.ok && propose.mutate(parsed.pack)}>Store this version</Button>
@@ -93,11 +98,11 @@ export function KybPolicyPage() {
               </Banner>
             ) : null}
           </div>
-        </Card>
+        </details>
         <Card title="Roll a market back" description="Puts an earlier version back in force as a new interval. What happened in between stays as it was.">
           <div className="space-y-3">
-            <TextField label="Market key" value={rollback.market} onChange={(v) => setRollback({ ...rollback, market: v })} />
-            <TextField label="Version to restore (digest)" value={rollback.to} onChange={(v) => setRollback({ ...rollback, to: v })} />
+            <Select label="Market" value={rollback.market} onChange={(v) => setRollback({ ...rollback, market: v, to: "" })} options={[{ id: "", label: "Choose a market" }, ...markets.map((m) => ({ id: m, label: m }))]} />
+            <Select label="Version to restore" value={rollback.to} onChange={(v) => setRollback({ ...rollback, to: v })} options={[{ id: "", label: rollback.market ? "Choose a version" : "Choose a market first" }, ...versions.filter((r) => r.market_key === rollback.market && !r.active).map((r) => ({ id: r.policy_hash, label: `${r.version} · ${shortHash(r.policy_hash)}` }))]} />
             <TextField label="Reason" value={rollback.reason} onChange={(v) => setRollback({ ...rollback, reason: v })} />
             {rollback.reason && rollbackProblem(rollback.reason) ? <p className="text-danger">{rollbackProblem(rollback.reason)}</p> : null}
             <Button variant="secondary" pending={back.isPending} isDisabled={rollbackProblem(rollback.reason) !== null || !rollback.market.trim() || !rollback.to.trim()} onPress={() => back.mutate({ market: rollback.market.trim(), to: rollback.to.trim(), reason: rollback.reason.trim() })}>
