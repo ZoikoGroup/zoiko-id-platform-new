@@ -241,7 +241,7 @@ def test_the_tenants_residency_is_checked_before_the_scanner_or_the_vault_sees_t
         assert r.status_code == 421 and error(r) == "CELL_NOT_AUTHORITATIVE", r.text
         api.app.state.home_cell = "uk-1"
 
-        # in the home cell, an organization with no recorded residency has no region to hold restricted data in: refused, fail closed
+        # CR-134: in the home cell, an organization with no recorded residency keeps its document in that cell: nothing leaves it, so nothing is refused
         async def forget_residency() -> None:
             async with engine(owner_url) as eng, eng.begin() as c:
                 await c.execute(
@@ -251,10 +251,9 @@ def test_the_tenants_residency_is_checked_before_the_scanner_or_the_vault_sees_t
 
         asyncio.run(forget_residency())
         r = put(api, owner, claim, PDF)
-        assert r.status_code == 403 and error(r) == "PROOF_RESIDENCY_DENIED", r.text
-        assert scanner.calls == 0, "the file never left the region for a scan"
+        assert r.status_code == 201, r.text
         rows, objects, rejected, events = stored(owner_url, tenant, claim)
-        assert (rows, objects, events) == (0, 0, 0) and rejected == 1
+        assert rows == 1 and objects == 1 and rejected == 0
 
 
 def test_another_organization_reaches_none_of_it_and_only_a_reviewer_may_open_a_document(

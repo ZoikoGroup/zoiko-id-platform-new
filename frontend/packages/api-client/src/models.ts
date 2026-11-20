@@ -2475,7 +2475,7 @@ export type OrgClaimStatus = {
   relationship: OrgClaimRelationship | null;
   submitted_at: Iso | null;
   closed_at: Iso | null;
-  checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState; authority: OrgClaimCheckState; risk: OrgClaimCheckState };
+  checks: { company: OrgClaimCheckState; person_assurance: OrgClaimCheckState };
   company: { status: string; review_reason: string | null; reasons: string[]; expires_at: Iso | null };
   screening: { status: string; next_action: string; expires_at: Iso | null; tasks: OrgClaimTask[] } | null;
 };

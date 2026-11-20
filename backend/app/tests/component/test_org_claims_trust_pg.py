@@ -82,7 +82,7 @@ def test_a_single_person_founder_may_claim_provisionally_but_cannot_approve_thei
     status = w.http.get(
         f"/v1/org-claims/{r.json()['claim_id']}/status", headers=w.h(w.o.owner)
     ).json()
-    assert status["outcome"] == "PROVISIONAL" and status["checks"]["authority"] == "PENDING"
+    assert status["outcome"] == "PROVISIONAL" and "authority" not in status["checks"]
 
 
 def test_another_organization_claiming_the_same_company_learns_nothing_and_reaches_nothing(
@@ -369,5 +369,5 @@ def test_the_applicants_identity_check_completes_only_from_their_own_valid_ident
     done = status()
     assert done["checks"]["person_assurance"] == "COMPLETED"
     assert (
-        done["checks"]["authority"] == "PENDING" and done["outcome"] == "PROVISIONAL"
+        "authority" not in done["checks"] and done["outcome"] == "PROVISIONAL"
     )  # identity alone verifies no company

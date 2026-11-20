@@ -121,21 +121,21 @@ async def status(
         # CR-132 (owner decision, 20 Nov 2026): a stored certificate whose OCR reading agrees with the claim completes this check without a reviewer. The basis is said out loud and
         # a source that contradicts the claim (inactive, another company, conflicting sources) is never overridden.
         company, company_basis = "COMPLETED", "DOCUMENT_OCR"
+    # CR-134 (owner decision, 20 Nov 2026): a claim is decided by TWO checks only, the company and the applicant's own identity. The authority and the risk and ownership review
+    # are no longer part of it; whatever screening was declared is still returned below, as information, and decides nothing.
     checks = {
         "company": company,
         # the applicant's own identity check, read from the verification service: a valid, unexpired assertion from an identity check, nothing else
         "person_assurance": "COMPLETED"
         if await person_assurance_current(conn, kyb.requested_by, now)
         else "PENDING",
-        "authority": screening[0].authority_state if screening else "PENDING",
-        "risk": _SCREENING[screening[0].status] if screening else "PENDING",
     }
     closed = kyb.closed_reason
     # LOCAL/TEST ONLY: the company, authority and risk checks are not run; the claimant's identity check is the only one that counts. The result says so
     # (`development_shortcut`) and is never announced as if those checks had been done (see `record_outcome`).
     shortcut = _DEV_SHORTCUT and not closed and checks["person_assurance"] == "COMPLETED"
     if shortcut:
-        checks = {**checks, "company": "COMPLETED", "authority": "COMPLETED", "risk": "COMPLETED"}
+        checks = {**checks, "company": "COMPLETED"}
     return {
         "development_shortcut": shortcut,
         "company_basis": company_basis,
@@ -215,6 +215,8 @@ async def record_outcome(
     before_outcome = str(row.outcome)
     announced: list[str] = []
     for check, event in _CHECK_EVENT.items():
+        if check not in checks:  # CR-134: the authority and risk checks are not part of a claim any more
+            continue
         was = before_checks.get(check, "PENDING")
         if checks[check] != was:
             await _announce(

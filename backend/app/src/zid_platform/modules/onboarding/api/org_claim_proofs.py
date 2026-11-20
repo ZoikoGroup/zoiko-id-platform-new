@@ -31,7 +31,7 @@ from zid_platform.modules.organization.ports import (
     proof_scanner_from_address,
     proof_service,
 )
-from zid_platform.modules.tenant.ports import Mode, check_category_transfer, matrix_gate
+from zid_platform.modules.tenant.ports import Mode, check_category_transfer, load_residency, matrix_gate
 from zid_platform.modules.verification.ports import ImagingUnavailable, read_page_text
 from zid_platform.protected import protected_action
 
@@ -158,6 +158,8 @@ async def upload_proof(
         me = await _require_admin(conn, caller)
 
         async def gate() -> None:
+            if await load_residency(conn, tenant) is None:
+                return  # CR-134: a company with no residency profile keeps its documents in its own home cell, where this request already is; nothing leaves it, so nothing is refused
             decision = await check_category_transfer(
                 conn,
                 tenant,

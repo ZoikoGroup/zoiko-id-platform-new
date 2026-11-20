@@ -289,7 +289,7 @@ export function AuthorityPage({ claimId }: { claimId: string }) {
   );
 }
 
-/** WF-13B-03 Review and track. Each check has its own state, so "company found" can sit beside "authority pending". */
+/** WF-13B-03 Review and track. Each check has its own state, so "company found" can sit beside "identity pending". */
 export function VerificationStatusPage({ claimId }: { claimId: string }) {
   const status = useCellQuery(["org-claims", claimId], (api) => api.orgClaims.status(claimId));
   const refresh = useCellMutation((api) => api.orgClaims.refresh(claimId), { invalidate: [["org-claims", claimId]] });
@@ -303,7 +303,7 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
       <PageHeader
         icon={Building2}
         title="Verification status"
-        description="Four checks, each decided on its own evidence."
+        description="Two checks: your company and your identity."
         breadcrumbs={[{ label: "Company verification", href: "/admin/organization" }, { label: "Status" }]}
       />
       <QueryView query={status}>
@@ -357,7 +357,6 @@ export function VerificationStatusPage({ claimId }: { claimId: string }) {
                 <ButtonLink href="/admin/organization/claim">Start a new claim</ButtonLink>
               ) : (
                 <div className="flex flex-wrap gap-3">
-                  {step === "authority" ? <ButtonLink href={claimBase(s.claim_id) + "/authority"}>Add your authority and owners</ButtonLink> : null}
                   {step === "submit" ? (
                     <Button pending={send.isPending} onPress={() => send.mutate(undefined)} icon={<Send aria-hidden className="size-4" />}>
                       Send for review

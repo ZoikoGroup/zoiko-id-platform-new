@@ -38,14 +38,14 @@ const base: OrgClaimStatus = {
   relationship: null,
   submitted_at: null,
   closed_at: null,
-  checks: { company: "COMPLETED", person_assurance: "PENDING", authority: "PENDING", risk: "PENDING" },
+  checks: { company: "COMPLETED", person_assurance: "PENDING" },
   company: { status: "VERIFIED", review_reason: null, reasons: [], expires_at: null },
   screening: null,
 };
 
 describe("the four checks stay separate", () => {
   it("lists company, identity, authority and risk, each with its own help", () => {
-    expect(CHECKS.map((c) => c.key)).toEqual(["company", "person_assurance", "authority", "risk"]);
+    expect(CHECKS.map((c) => c.key)).toEqual(["company", "person_assurance"]);
     for (const c of CHECKS) expect(c.help.length).toBeGreaterThan(10);
   });
 });
@@ -105,12 +105,9 @@ describe("keys and next steps", () => {
     expect(attemptId()).toMatch(/^[0-9a-z-]{6,8}$/);
     expect(attemptId()).not.toBe(attemptId());
   });
-  it("asks for the authority details only once the company is found, then waits, then is done", () => {
-    expect(nextStep(base)).toBe("authority");
-    expect(nextStep({ ...base, checks: { ...base.checks, company: "PENDING" } })).toBe("wait");
-    const declared = { ...base, screening: { status: "REVIEW_REQUIRED", next_action: "x", expires_at: null, tasks: [] } };
-    expect(nextStep(declared)).toBe("submit"); // whom to screen is said, and it has not been sent
-    expect(nextStep({ ...declared, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
+  it("offers submitting a claim that has not been sent, then waits, then is done (no authority step)", () => {
+    expect(nextStep(base)).toBe("submit");
+    expect(nextStep({ ...base, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
     expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
   });
 });
@@ -197,13 +194,11 @@ describe("states a claim can be in", () => {
       expect(outcomeCopy(o).body).toMatch(/start a new claim/);
     }
   });
-  it("offers submitting once whom to screen is said, and nothing once a claim is closed or verified", () => {
-    const declared = { ...base, screening: { status: "SCREENING", next_action: "", expires_at: null, tasks: [] } };
-    expect(nextStep(base)).toBe("authority");
-    expect(nextStep(declared)).toBe("submit");
-    expect(nextStep({ ...declared, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
-    expect(nextStep({ ...declared, state: "WITHDRAWN", outcome: "WITHDRAWN", closed_at: "2026-11-03T10:00:00Z" })).toBe("done");
-    expect(nextStep({ ...declared, outcome: "VERIFIED" })).toBe("done");
+  it("offers submitting a claim that has not been sent, and nothing once it is closed or verified", () => {
+    expect(nextStep(base)).toBe("submit");
+    expect(nextStep({ ...base, state: "SUBMITTED", submitted_at: "2026-11-03T10:00:00Z" })).toBe("wait");
+    expect(nextStep({ ...base, state: "WITHDRAWN", outcome: "WITHDRAWN", closed_at: "2026-11-03T10:00:00Z" })).toBe("done");
+    expect(nextStep({ ...base, outcome: "VERIFIED" })).toBe("done");
   });
 });
 

@@ -414,7 +414,7 @@ async def establish_claim(
 )
 async def submit_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     """The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing
-    here makes the company verified. The claim must say whom to screen and how the person acts for the company first. Once: a repeat is
+    here makes the company verified. Once: a repeat is
     the same answer and changes nothing."""
     now = datetime.now(UTC)
     tenant = caller.ctx.tenant_id or ""
@@ -424,10 +424,6 @@ async def submit_claim(claim_id: uuid.UUID, request: Request, caller: CallerDep)
             seen = await claims.status(conn, tenant, str(claim_id), now)
             if seen["closed_at"] is not None:
                 raise KybError("CLAIM_CLOSED", seen["state"])
-            if seen["screening"] is None:
-                raise KybError(
-                    "CLAIM_INCOMPLETE", "Say who to screen and how you act for the company first."
-                )
             _, first = await kyb_submit(conn, tenant, str(claim_id), now=now)
         except KybError as e:
             raise _kyb_error(e) from e
