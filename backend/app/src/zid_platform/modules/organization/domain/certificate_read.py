@@ -70,11 +70,42 @@ def _fold(number: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", number.upper())
 
 
+MIN_NUMBER_CHARS = 4  # a claimed number shorter than this is too weak to look for in free text
+
+
+def _number_present(text: str, claimed_number: str) -> bool:
+    """The claimed registration number written anywhere in the text, whatever the layout or language: its characters in order, with only spaces, dots, dashes or slashes between them, and not
+    part of a longer number. The claim supplies the number, so no label ("Company Number", "Handelsregister", "SIREN", "CIN") has to be recognised."""
+    chars = _fold(claimed_number)
+    if len(chars) < MIN_NUMBER_CHARS:
+        return False
+    pattern = r"(?<![A-Z0-9])" + r"[\s.\-/]{0,2}".join(re.escape(c) for c in chars) + r"(?![A-Z0-9])"
+    return re.search(pattern, text.upper()) is not None
+
+
+def _name_present(text: str, claimed_name: str) -> bool:
+    """The claimed company name written anywhere in the text: a run of words as long as the name (one more or one fewer allowed for a noisy reading) that is as close to it as a read name must be."""
+    want = len(claimed_name.split())
+    if want == 0:
+        return False
+    for line in text.splitlines():
+        words = line.split()
+        for size in {max(1, want - 1), want, want + 1}:
+            for i in range(0, max(0, len(words) - size) + 1):
+                if name_similarity(claimed_name, " ".join(words[i : i + size])) >= NAME_MATCH:
+                    return True
+    return False
+
+
 def compare(text: str, *, claimed_name: str, claimed_number: str) -> dict[str, object]:
     """What the certificate says, and whether it agrees with the claim. Nothing but codes, the two numbers and the date it read: the text itself is never returned or kept."""
     got = extract(text)
     if len(text.strip()) < MIN_TEXT:
         return {"verdict": NOT_ENOUGH, "reading": "TOO_LITTLE_TEXT", "document": got.document, "number": NOT_READ, "name": NOT_READ, "incorporated_on": None}
+    if _number_present(text, claimed_number) and _name_present(text, claimed_name):
+        # CR-135: any country's certificate, in any layout: the claimed number and the claimed name are both written on it
+        return {"verdict": CONSISTENT, "reading": "OK", "document": got.document, "number": MATCH, "name": MATCH,
+                "incorporated_on": got.incorporated_on.isoformat() if got.incorporated_on else None}  # fmt: skip
     number = NOT_READ
     if got.company_number is not None:
         number = MATCH if _fold(got.company_number) == _fold(claimed_number) else MISMATCH
