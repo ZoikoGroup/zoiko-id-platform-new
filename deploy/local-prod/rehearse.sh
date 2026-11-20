@@ -7,7 +7,12 @@ export MSYS_NO_PATHCONV=1   # Git Bash on Windows must not rewrite container pat
 cd "$(dirname "$0")"
 HERE="$PWD"
 ROOT="$(cd ../.. && pwd)"
-compose() { docker compose -f docker-compose.yml "$@"; }  # relative: this script runs from its own folder
+# relative: this script runs from its own folder. .env (generated passwords) and .env.smtp (your real SMTP provider) feed the compose file.
+compose() {
+  local f=(-f docker-compose.yml) e
+  for e in .env .env.smtp .env.operator; do [ -f "$e" ] && f+=(--env-file "$e"); done
+  docker compose "${f[@]}" "$@"
+}
 say() { printf '\n== %s\n' "$*"; }
 
 build_images() {
@@ -15,6 +20,10 @@ build_images() {
   if [ "$force" = "--rebuild" ] || ! docker image inspect zid/platform:prodlocal >/dev/null 2>&1; then
     say "building the backend image (backend/Dockerfile, runtime target: non-root, no build tools)"
     docker build -t zid/platform:prodlocal ../../backend
+  fi
+  if [ "$force" = "--rebuild" ] || ! docker image inspect zid/operator:prodlocal >/dev/null 2>&1; then
+    say "building the operator console image (the same Dockerfile, APP=operator)"
+    docker build --build-arg APP=operator -t zid/operator:prodlocal ../../frontend
   fi
   if [ "$force" = "--rebuild" ] || ! docker image inspect zid/web:prodlocal >/dev/null 2>&1; then
     say "building the web image (frontend/Dockerfile: npm ci, next build, standalone output)"
@@ -30,6 +39,32 @@ make_env() {
   for n in ZID_PG_ADMIN_PASSWORD ZID_OWNER_PASSWORD ZID_RUNTIME_PASSWORD ZID_WORKER_PASSWORD ZID_RELAY_PASSWORD            ZID_OPENBAO_DB_PASSWORD ZID_SPICEDB_DB_PASSWORD ZID_SPICEDB_PRESHARED_KEY ZID_VALKEY_PASSWORD; do
     grep -q "^$n=" .env || { echo "generating $n"; echo "$n=$(openssl rand -hex 16)" >> .env; }
   done
+}
+
+# Email goes through a real SMTP provider, never a catcher. .env.smtp (gitignored) holds, one per line:
+#   ZID_SMTP_HOST=smtp.example.com  ZID_SMTP_PORT=587  ZID_SMTP_USERNAME=...  ZID_EMAIL_FROM="Zoiko iD <no-reply@example.com>"
+#   ZID_SMTP_PASSWORD_SRC=/path/to/a/file/holding/the/smtp/password        (read from your machine, copied to the secrets volume)
+require_smtp() {
+  local n missing=""
+  [ -f .env.smtp ] || { echo "!! .env.smtp is missing: create it with ZID_SMTP_HOST, ZID_SMTP_PORT, ZID_SMTP_USERNAME, ZID_EMAIL_FROM and ZID_SMTP_PASSWORD_SRC (see rehearse.sh)"; exit 1; }
+  for n in ZID_SMTP_HOST ZID_SMTP_PORT ZID_SMTP_USERNAME ZID_EMAIL_FROM ZID_SMTP_PASSWORD_SRC; do
+    grep -q "^$n=." .env.smtp || missing="$missing $n"
+  done
+  [ -z "$missing" ] || { echo "!! .env.smtp is missing:$missing"; exit 1; }
+  SMTP_SRC="$(grep -E '^ZID_SMTP_PASSWORD_SRC=' .env.smtp | head -1 | cut -d= -f2- | tr -d '"')"
+  command -v cygpath >/dev/null 2>&1 && SMTP_SRC="$(cygpath -u "$SMTP_SRC")"
+  [ -s "$SMTP_SRC" ] || { echo "!! the SMTP password file named by ZID_SMTP_PASSWORD_SRC does not exist or is empty"; exit 1; }
+}
+
+# The operator account (email and password sign-in; no passkey). .env.operator (gitignored) holds ZID_OPERATOR_EMAIL, ZID_OPERATOR_PASSWORD,
+# ZID_OPERATOR_TENANT_ID and ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID. The migrate step creates the account from them.
+require_operator() {
+  local n missing=""
+  [ -f .env.operator ] || { echo "!! .env.operator is missing (see rehearse.sh)"; exit 1; }
+  for n in ZID_OPERATOR_EMAIL ZID_OPERATOR_PASSWORD ZID_OPERATOR_TENANT_ID ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID; do
+    grep -q "^$n=." .env.operator || missing="$missing $n"
+  done
+  [ -z "$missing" ] || { echo "!! .env.operator is missing:$missing"; exit 1; }
 }
 
 envval() { grep -E "^$1=" .env | head -1 | cut -d= -f2-; }
@@ -73,13 +108,13 @@ grants() {
 
 # The files the processes read from the secrets volume: on a real VM, root-only files placed by a person.
 secret_files() {
-  say "master key, mail relay certificate, SMTP password (files on the secrets volume)"
+  say "master key and SMTP password (files on the secrets volume)"
   compose run --rm init-volumes >/dev/null
   if ! tools sh -c 'test -s /zid/master_key'; then
     tools python -m zid_platform.entrypoints.keys init-master --file /zid/master_key
   fi
-  tools sh -c 'test -s /zid/mail.key' || tools python /tools/make_mail_tls.py
-  tools sh -c 'test -s /zid/smtp_password' || tools sh -c 'printf rehearsal > /zid/smtp_password && chmod 600 /zid/smtp_password'
+  # the SMTP password is copied in on every start, so a changed password takes effect; it is never printed or logged
+  compose run --rm -T --no-deps tools sh -c 'cat > /zid/smtp_password && chmod 600 /zid/smtp_password' < "$SMTP_SRC"
 }
 
 bao() { compose exec -T -e BAO_ADDR=http://127.0.0.1:8200 ${BAO_TOKEN:+-e BAO_TOKEN="$BAO_TOKEN"} openbao bao "$@"; }
@@ -119,6 +154,9 @@ openbao_setup() {
 }
 
 up() {
+  require_smtp  # fail before anything starts if the real SMTP settings are missing
+  require_operator
+  [ -f idv-policies.local.yaml ] || { echo "!! idv-policies.local.yaml is missing: the approved markets for identity checks (a test policy locally; see the identity owner pack)"; exit 1; }
   build_images "${1:-}"
   make_env
   say "starting postgres, valkey and redpanda"
@@ -136,20 +174,23 @@ up() {
     line="$(compose run --rm migrate python -m zid_platform.entrypoints.seed_registration_tenant --apply | grep '^ZID_REGISTRATION_TENANT_ID=' | head -1)"
     set_env ZID_REGISTRATION_TENANT_ID "${line#ZID_REGISTRATION_TENANT_ID=}"
   fi
-  say "starting the mail relay, cell (it also serves the global plane), worker, event relay and consumer, and the web console"
-  compose up -d mailpit cell worker outbox-relay consumer web
-  wait_for "http://localhost:18000/health/ready" "cell API" 300
-  wait_for "http://localhost:13000/" "web console" 300
+  say "starting the cell (it also serves the global plane), worker, event relay and consumer, and the web console"
+  compose up -d --remove-orphans ocr face clamd cell worker outbox-relay consumer web operator
+  wait_for "http://localhost:8000/health/ready" "cell API" 300
+  wait_for "http://localhost:3000/" "web console" 300
+  wait_for "http://localhost:3100/sign-in" "operator console" 300
   say "up"
-  echo "  web console   http://localhost:13000"
-  echo "  cell API      http://localhost:18000/docs"
-  echo "  mail relay    http://localhost:18025   (sign-up and recovery emails land here)"
+  echo "  web console   http://localhost:3000"
+  echo "  operator      http://localhost:3100   (email and password; no passkey)"
+  echo "  identity      photo service (ocr) and malware scanner (clamd) run inside the stack; clamd takes about 3 minutes to load its signatures"
+  echo "  cell API      http://localhost:8000/docs"
+  echo "  email         sent through your SMTP provider (.env.smtp); nothing is caught locally"
   echo "  next:         ./rehearse.sh verify"
 }
 
 verify() {
   say "health"
-  for u in 18000/health/ready 13000/; do printf '  %-26s' "$u"; curl -s -o /dev/null --max-time 15 -w '%{http_code}\n' "http://localhost:$u" || true; done
+  for u in 8000/health/ready 3000/ 3100/sign-in; do printf '  %-26s' "$u"; curl -s -o /dev/null --max-time 15 -w '%{http_code}\n' "http://localhost:$u" || true; done
   say "database roles (owner and runtime must not bypass row-level security)"
   psql_admin -d zid_cell -Atc "select rolname, rolsuper, rolbypassrls from pg_roles where rolname like 'zid_%' or rolname='openbao' order by 1"
   say "keys in the database (no material is shown; every row must hold wrapped material)"

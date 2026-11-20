@@ -396,3 +396,68 @@ def test_a_reviewer_lists_the_documents_on_a_case_and_the_retention_policy_sets_
         assert asyncio.run(expires()) is not None, (
             "a set retention period gives the stored document an expiry"
         )
+
+
+CERT_TEXT = (
+    "Certificate of Incorporation\nof a Private Limited Company\nCompany Number 00123456\n"
+    "The Registrar of Companies for England and Wales hereby certifies that\nACME WIDGETS LIMITED\n"
+    "is this day incorporated under the Companies Act 2006 as a private company, limited by shares.\nGiven at Companies House, on 3rd March 2019\n"
+)
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 400
+
+
+def test_a_certificate_image_is_read_and_compared_with_the_claim_but_never_verifies_the_company(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from zid_platform.modules.onboarding.api import org_claim_proofs as route
+
+    said = {"text": CERT_TEXT}
+
+    async def read_page_text(image: bytes, **_: Any) -> str:
+        return said["text"]
+
+    monkeypatch.setattr(route, "read_page_text", read_page_text)
+    _o, api, _tenant, owner = make(rt_url, FakeScanner())
+    with api:
+        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()["claim_id"]
+        before = api.get(f"/v1/org-claims/{claim}/status", headers=owner).json()
+        good = put(api, owner, claim, JPEG, ctype="image/jpeg", name="cert.jpg")
+        assert good.status_code == 201, good.text
+        assert good.json()["read"]["verdict"] == "CONSISTENT" and good.json()["read"]["incorporated_on"] == "2019-03-03"
+        assert "ACME" not in str(good.json()["read"])  # codes and a date, never the text
+        said["text"] = CERT_TEXT.replace("00123456", "00999999")
+        other = put(api, owner, claim, JPEG + b"\x01", ctype="image/jpeg", name="other.jpg")
+        assert other.json()["read"]["verdict"] == "CONTRADICTS" and other.json()["read"]["number"] == "MISMATCH"
+        # a PDF is stored as before and answered plainly: the reader takes pictures only
+        pdf = put(api, owner, claim, PDF, name="c.pdf")
+        assert pdf.status_code == 201 and pdf.json()["read"]["reading"].startswith("PDF_NOT_READABLE")
+        # a letter of authority is not read at all
+        letter = put(api, owner, claim, JPEG + b"\x02", ctype="image/jpeg", kind="LETTER_OF_AUTHORITY", name="l.jpg")
+        assert "read" not in letter.json()
+        # reading a certificate changes nothing about what the company is
+        assert api.get(f"/v1/org-claims/{claim}/status", headers=owner).json() == before
+
+
+def test_a_certificate_can_be_checked_without_being_saved(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The check-only route reads and compares in memory and stores nothing, so it needs no place in the data region."""
+    from zid_platform.modules.onboarding.api import org_claim_proofs as route
+
+    async def read_page_text(image: bytes, **_: Any) -> str:
+        return CERT_TEXT
+
+    monkeypatch.setattr(route, "read_page_text", read_page_text)
+    scanner = FakeScanner()
+    _o, api, tenant, owner = make(rt_url, scanner)
+    with api:
+        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()["claim_id"]
+        h = {**owner, "Content-Type": "image/jpeg"}
+        ok = api.post(f"/v1/org-claims/{claim}/certificate:check", content=JPEG, headers=h)
+        assert ok.status_code == 200, ok.text
+        assert ok.json()["stored"] is False and ok.json()["read"]["verdict"] == "CONSISTENT"
+        assert scanner.calls == 1  # it is scanned like any upload
+        # nothing was stored
+        listed = api.get(f"/v1/org-claims/{claim}/proofs", headers=owner).json()
+        assert listed["proofs"] == []
+        # a PDF or an empty file is refused with a reason
+        assert api.post(f"/v1/org-claims/{claim}/certificate:check", content=PDF, headers={**owner, "Content-Type": "application/pdf"}).status_code == 415
+        assert api.post(f"/v1/org-claims/{claim}/certificate:check", content=b"", headers=h).status_code == 422

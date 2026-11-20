@@ -10,6 +10,7 @@ import {
   AssuranceBadge,
   Banner,
   Button,
+  ButtonLink,
   Card,
   Code,
   CopyId,
@@ -496,8 +497,21 @@ export function VerificationPage() {
                       compact
                     >
                       Your organization hasn&apos;t set up an identity
-                      verification check yet.
+                      verification check with a provider yet.
                     </EmptyState>
+                    <Banner tone="info" title="You can verify with your passport instead">
+                      <div className="space-y-2">
+                        <p>
+                          Photograph your passport in this browser, or use the phone app to read its chip. Reviewers decide the browser route; it
+                          counts for your company claim once approved.
+                        </p>
+                        <ButtonLink
+                          href={`/account/identity-proofing${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+                        >
+                          Verify with my passport
+                        </ButtonLink>
+                      </div>
+                    </Banner>
                     <DevSetup />
                   </div>
                 ) : (

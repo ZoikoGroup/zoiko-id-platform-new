@@ -46,6 +46,7 @@ from zid_platform.modules.verification.domain import biometric_methods as biomet
 from zid_platform.modules.verification.domain import check_methods as check_method_model
 from zid_platform.modules.verification.domain import conformance as conformance_model
 from zid_platform.modules.verification.domain import entitlement as entitlement_model
+from zid_platform.modules.verification.domain import face_calibration as face_calibration
 from zid_platform.modules.verification.domain import market_release as release_model
 from zid_platform.modules.verification.domain import offerings as offerings_model
 from zid_platform.modules.verification.domain import privacy_overlay as privacy_overlay_model
@@ -64,7 +65,12 @@ from zid_platform.modules.verification.domain.countries import (
     Availability,
     Capability,
     CountryError,
+    OPENABLE,
+    Opening,
+    OpeningKey,
+    apply_openings,
     availability,
+    check_opening,
     require,
 )
 from zid_platform.modules.verification.domain.policy_packs import (
@@ -118,12 +124,20 @@ from zid_platform.modules.verification.infrastructure import (
     contract_entitlement_store as entitlements,
 )
 from zid_platform.modules.verification.infrastructure import register_sources
+from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
 from zid_platform.modules.verification.infrastructure.claim_templates import claim_templates
 from zid_platform.modules.verification.infrastructure.conformance_matrix import conformance_matrix
-from zid_platform.modules.verification.infrastructure.country_registry import registry
+from zid_platform.modules.verification.infrastructure import country_opening_store
+from zid_platform.modules.verification.infrastructure import face_lab
+from zid_platform.modules.verification.infrastructure.country_registry import (
+    file_registry,
+    openings,
+    registry,
+    set_openings,
+)
 from zid_platform.modules.verification.infrastructure.offerings_catalog import offerings_catalog
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
 from zid_platform.modules.verification.infrastructure.privacy_overlays import privacy_overlays
@@ -132,6 +146,9 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
 )
 
 __all__ = [
+    "ImagingUnavailable",
+    "face_calibration",
+    "read_page_text",
     "APPROVER_ROLES",
     "GATE_MODES",
     "PACK_PURPOSE",
@@ -142,6 +159,16 @@ __all__ = [
     "CertRegistry",
     "CertificationError",
     "CountryError",
+    "OPENABLE",
+    "Opening",
+    "OpeningKey",
+    "apply_openings",
+    "check_opening",
+    "country_opening_store",
+    "face_lab",
+    "file_registry",
+    "openings",
+    "set_openings",
     "Entitlement",
     "EntitlementNotFound",
     "EntitlementStatus",

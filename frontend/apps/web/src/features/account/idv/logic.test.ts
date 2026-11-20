@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applicantText, chipLink, handoff, imageProblem, nextStep, onPhone, outcomeOf, stepsFor, WEB_ROUTE } from "./logic";
+import { applicantText, AUTO_ROUTE, chipLink, detailsProblem, handoff, imageProblem, isAuto, nextStep, onPhone, outcomeOf, stepsFor, trimDetails, WEB_ROUTE } from "./logic";
 
 const sig = { optical: "NOT_STARTED", nfc_read: "NOT_STARTED", passive_auth: "NOT_TESTED", chip_auth: "NOT_TESTED", liveness: "NOT_RUN", face_match: "NOT_RUN" };
 const base = { state: "OPEN" as const, route: "CHIP", signals: sig, decision: "INDETERMINATE" as const, attempts: {} };
@@ -77,5 +77,65 @@ describe("what the applicant is told when a reviewer acts", () => {
   it("tells a person to retake the photograph when the date could not be read, and not to rely on a browser route that is not offered", () => {
     expect(applicantText("DOCUMENT_DATE_NOT_ESTABLISHED")).toMatch(/Take the photograph again/);
     expect(applicantText("MEDIA_RETENTION_NOT_SET")).toMatch(/not available for your country/);
+  });
+});
+
+describe("the automatic route", () => {
+  const ok = { surname: "Mueller", given_names: "Erika", document_number: "C01X00T47", birth_date: "1985-03-12" };
+  it("asks for all four details before anything is sent", () => {
+    expect(detailsProblem(ok)).toBeNull();
+    expect(detailsProblem({ ...ok, surname: " " })).not.toBeNull();
+    expect(detailsProblem({ ...ok, document_number: "ab" })).not.toBeNull();
+    expect(detailsProblem({ ...ok, birth_date: "" })).not.toBeNull();
+    expect(detailsProblem({ ...ok, birth_date: "2999-01-01" })).not.toBeNull();
+  });
+  it("trims what is typed", () => {
+    expect(trimDetails({ ...ok, surname: "  Mueller " }).surname).toBe("Mueller");
+  });
+  it("asks again after an undecided result, since nobody reviews it, and otherwise waits at the status", () => {
+    const base = { state: "OPEN", route: AUTO_ROUTE, signals: { optical: "REVIEW" }, attempts: {} };
+    expect(nextStep({ ...base, decision: "INDETERMINATE" } as never)).toBe("DOCUMENT");
+    expect(nextStep({ ...base, decision: "APPROVED", state: "CLOSED" } as never)).toBe("STATUS");
+  });
+  it("explains a mismatch plainly", () => {
+    expect(applicantText("DECLARED_DATA_DIFFERS_FROM_DOCUMENT")).toMatch(/do not match/);
+    expect(isAuto(WEB_ROUTE)).toBe(false);
+  });
+});
+
+describe("the face-match route", () => {
+  it("is what both documents take", async () => {
+    const { FACE_ROUTE, isFace, routeFor } = await import("./logic");
+    expect(routeFor()).toBe(FACE_ROUTE);
+    expect(isFace("WEB_FACE")).toBe(true);
+    expect(isFace("WEB_AUTO")).toBe(false);
+  });
+
+  it("asks for a retake, never a rejection, until a match, and counts as automatic for what happens next", async () => {
+    const { nextStep, simpleState } = await import("./logic");
+    const signals = { optical: "DONE", nfc_read: "NOT_RUN", passive_auth: "NOT_RUN", chip_auth: "NOT_RUN", liveness: "NOT_RUN", face_match: "NOT_RUN" } as never;
+    const open = { route: "WEB_FACE", decision: "INDETERMINATE", signals, state: "OPEN", attempts: {} } as never;
+    expect(simpleState(open)).toBe("RETAKE");
+    expect(nextStep(open)).toBe("DOCUMENT");
+    expect(simpleState({ route: "WEB_FACE", decision: "APPROVED", signals } as never)).toBe("VERIFIED");
+    expect(simpleState({ route: "WEB_FACE", decision: "REJECTED", signals } as never)).toBe("REJECTED");
+  });
+
+  it("explains each reason in words and not as a finding against the person", async () => {
+    const { applicantText } = await import("./logic");
+    for (const code of ["FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO", "FACE_NOT_FOUND_OR_UNCLEAR", "FACE_MATCH_NOT_RUN"]) {
+      const text = applicantText(code);
+      expect(text).not.toMatch(/person to look at this case/); // the general fallback means the code was not recognised
+      expect(text.length).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe("wording for what the face route can refuse", () => {
+  it("has words for each refusal, never the general fallback", async () => {
+    const { applicantText } = await import("./logic");
+    for (const code of ["DETAILS_DO_NOT_MATCH_DOCUMENT", "FACE_CONSENT_REQUIRED", "LIVE_PHOTO_REQUIRED", "FACE_ENGINE_UNAVAILABLE", "FACE_ROUTE_NOT_ENABLED", "SCAN_UNAVAILABLE"]) {
+      expect(applicantText(code)).not.toMatch(/person to look at this case/);
+    }
   });
 });

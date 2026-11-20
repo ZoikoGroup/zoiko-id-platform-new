@@ -77,6 +77,7 @@ from zid_platform.modules.organization.application.registry import (
     refresh_registry_roots,
     request_registry_refresh,
 )
+from zid_platform.modules.organization.domain import certificate_read as certificate_read
 from zid_platform.modules.organization.domain import market_policy as kyb_policy_rules
 from zid_platform.modules.organization.domain.dual_review import position as dual_position
 from zid_platform.modules.organization.domain.kyb import (
@@ -132,6 +133,7 @@ from zid_platform.modules.organization.infrastructure.registry_adapters import (
 from zid_platform.modules.organization.infrastructure.root_store import organization_exists
 
 __all__ = [
+    "certificate_read",
     "CompaniesHouse",
     "CompaniesHouseKyb",
     "CreditsafeKyb",

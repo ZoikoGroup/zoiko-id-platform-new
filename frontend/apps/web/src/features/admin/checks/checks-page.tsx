@@ -69,6 +69,7 @@ function Contact({ c }: { c: CheckCase }) {
   const [contactId, setContactId] = useState<string | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [sendsLeft, setSendsLeft] = useState<number | null>(null);
   const session = `console-${c.case_id.slice(0, 8)}`;
   const add = useCellMutation((api) => api.checks.addContact(c.case_id, { type, value: value.trim() }), {
     success: (r) => `Saved ${r.masked}. A format that is accepted does not mean it belongs to the person.`,
@@ -79,8 +80,15 @@ function Contact({ c }: { c: CheckCase }) {
   });
   const send = useCellMutation(
     (api, channel: "EMAIL" | "SMS") => api.checks.challenge(contactId ?? "", { channel, session_ref: session }, newKey()),
-    { success: (r) => `Sent to ${r.masked_target ?? "the contact"}; it expires in 5 minutes`, onSuccess: (r) => setChallengeId(r.challenge_id) },
+    { success: (r) => `Sent to ${r.masked_target ?? "the contact"}; it expires in 5 minutes`, onSuccess: (r) => {
+      setChallengeId(r.challenge_id);
+      setSendsLeft(r.sends_left);
+    } },
   );
+  const resend = useCellMutation((api) => api.checks.resendChallenge(contactId ?? "", challengeId ?? "", session), {
+    success: (r) => `Sent again to ${r.masked_target ?? "the contact"}`,
+    onSuccess: (r) => setSendsLeft(r.sends_left),
+  });
   const confirm = useCellMutation((api) => api.checks.confirm(contactId ?? "", { challenge_id: challengeId ?? "", code: code.trim(), session_ref: session }), {
     invalidate: [caseKey(c.case_id)],
     success: "Confirmed: control of this inbox or number now, not who the person is",
@@ -105,11 +113,15 @@ function Contact({ c }: { c: CheckCase }) {
               <Button onPress={() => confirm.mutate(undefined)} pending={confirm.isPending} isDisabled={!code.trim()}>
                 Confirm
               </Button>
+              <Button variant="secondary" onPress={() => resend.mutate(undefined)} pending={resend.isPending} isDisabled={sendsLeft === 0}>
+                Send again
+              </Button>
+              {sendsLeft !== null ? <span className="text-sm text-ink-muted">{sendsLeft === 0 ? "No sends left for this code." : `${sendsLeft} send${sendsLeft === 1 ? "" : "s"} left`}</span> : null}
             </>
           ) : null}
         </div>
       ) : null}
-      {[add.error, send.error, confirm.error].map((e, i) => (e ? <ApiErrorView key={i} error={e} /> : null))}
+      {[add.error, send.error, resend.error, confirm.error].map((e, i) => (e ? <ApiErrorView key={i} error={e} /> : null))}
     </Card>
   );
 }

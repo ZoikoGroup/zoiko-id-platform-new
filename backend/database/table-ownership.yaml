@@ -969,6 +969,11 @@ tables:
     module: organization
     tenant_scoped: true
     source: "WF-13B proof documents (AT-12), CR-043"
+  verify.country_opening:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-EDR-001 section 4: a country opened for sign-up by an operator, append-only (CR-127)"
   verify.sanction_list_version:
     role: cell
     module: screening

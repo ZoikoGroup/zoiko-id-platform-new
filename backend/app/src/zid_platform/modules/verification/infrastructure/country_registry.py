@@ -4,6 +4,7 @@ the config root). Versioned configuration: a country is switched on or off by ed
 from __future__ import annotations
 
 import os
+import time
 from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
@@ -17,7 +18,10 @@ from zid_platform.modules.verification.domain.countries import (
     CapabilityEntry,
     Country,
     CountryError,
+    Opening,
+    OpeningKey,
     Registry,
+    apply_openings,
     validate,
 )
 
@@ -65,9 +69,56 @@ def parse(doc: dict[str, Any]) -> Registry:
 
 
 @lru_cache(maxsize=1)
-def registry() -> Registry:
+def file_registry() -> Registry:
+    """The registry exactly as the file says it."""
     doc: dict[str, Any] = yaml.safe_load((CONFIG / FILE).read_text(encoding="utf-8")) or {}
     return parse(doc)
 
 
-__all__ = ["CONFIG", "parse", "registry"]
+# The newest recorded opening of each country (verify.country_opening, CR-127), held in this process. The file lists the countries; an operator's
+# recorded decision opens or closes REGISTRATION for one of them. `set_openings` is called at start-up, after a change and on a short timer.
+_openings: dict[OpeningKey, Opening] = {}
+_merged: Registry | None = None
+_loaded_at = 0.0
+REFRESH_SECONDS = 20.0
+
+
+def set_openings(openings: dict[OpeningKey, Opening]) -> None:
+    global _openings, _merged, _loaded_at  # noqa: PLW0603
+    _openings, _merged, _loaded_at = dict(openings), None, time.monotonic()
+
+
+def openings() -> dict[OpeningKey, Opening]:
+    return dict(_openings)
+
+
+def openings_stale() -> bool:
+    return time.monotonic() - _loaded_at > REFRESH_SECONDS
+
+
+def registry() -> Registry:
+    """The file's registry with each country's recorded opening applied."""
+    global _merged  # noqa: PLW0603
+    if _merged is None:
+        _merged = apply_openings(file_registry(), _openings)
+    return _merged
+
+
+def _reset() -> None:
+    global _merged, _openings, _loaded_at  # noqa: PLW0603
+    file_registry.cache_clear()
+    _merged, _openings, _loaded_at = None, {}, 0.0
+
+
+registry.cache_clear = _reset  # type: ignore[attr-defined]  # as before: a test or a config reload starts again from the file
+
+
+__all__ = [
+    "CONFIG",
+    "file_registry",
+    "openings",
+    "openings_stale",
+    "parse",
+    "registry",
+    "set_openings",
+]

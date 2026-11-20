@@ -491,8 +491,8 @@ def main() -> int:
         ensure_schemas(url, "001_cell_schemas.sql")
         upgrade(url)
         print("migrations applied to the cell database")
-        # the global plane (locator + discovery only, DEC-G3) lives in the same database unless told otherwise
-        upgrade(os.environ.get("ZID_GLOBAL_DATABASE_URL") or url, role="global")
+        # the global plane (locator + discovery only, DEC-G3) is a schema in the same, one database
+        upgrade(url, role="global")
         print("migrations applied to the global plane")
     ticket = asyncio.run(seed(url, args))
     print()

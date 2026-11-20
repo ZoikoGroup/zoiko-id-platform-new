@@ -8,7 +8,7 @@
 #   postgres  database VM                       valkey    web-session cache (rebuildable, holds no business data)
 #   openbao   secrets VM (stores in Postgres)   redpanda  Kafka VM (the event platform)
 #   spicedb   relationship store (stores in Postgres; the event consumer projects into it)
-#   cell / worker / outbox-relay / consumer / web   the app VM(s)         mailpit   the SMTP relay (TLS)
+#   cell / worker / outbox-relay / consumer / web   the app VM(s)         email   sent through the real SMTP provider in .env.smtp
 # Not rehearsed: the public edge (Caddy and TLS certificates), DNS, and the second database VM (standby). Synthetic data only.
 name: zoiko-id-rehearsal
 
@@ -33,34 +33,45 @@ x-backend: &backend
     ZID_OPENBAO_AUTH: token
     ZID_OPENBAO_TOKEN_FILE: /zid/openbao_token
     # public addresses
-    ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:18000}
-    ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-http://localhost:18000}
-    ZID_PUBLIC_BASE_URL: http://localhost:18000
-    ZID_CONSENT_URL: http://localhost:13000/consent
+    ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:8000}
+    ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-http://localhost:8000}
+    ZID_PUBLIC_BASE_URL: http://localhost:8000
+    ZID_CONSENT_URL: http://localhost:3000/consent
     ZID_WEBAUTHN_RP_ID: localhost
     ZID_WEBAUTHN_RP_NAME: Zoiko iD (rehearsal)
-    ZID_WEBAUTHN_ORIGINS: '["http://localhost:13000"]'
+    ZID_WEBAUTHN_ORIGINS: '["http://localhost:3000","http://localhost:3100"]'
     ZID_TENANT_SIGNUP_ENABLED: "true"
-    ZID_TENANT_CONSOLE_REDIRECT_URIS: '["http://127.0.0.1:13000/auth/callback"]'
+    ZID_TENANT_CONSOLE_REDIRECT_URIS: '["http://127.0.0.1:3000/auth/callback"]'
     ZID_API_RATE_LIMIT_PER_MINUTE: "600"
     # events: Kafka (Redpanda). The relay and consumer run as their own processes
     ZID_KAFKA_BOOTSTRAP: redpanda:9092
     ZID_KAFKA_CREATE_TOPICS: "true"
-    # email through an SMTP relay with TLS (production refuses a plaintext relay). The relay's certificate is signed by a
-    # throw-away CA made by rehearse.sh; SSL_CERT_FILE makes the process trust it, as a real deployment trusts its provider's CA.
+    # email is sent through a real SMTP provider with TLS (production refuses a plaintext relay). The provider, sender and
+    # login come from .env.smtp (gitignored; see rehearse.sh) and the password is a file on the secrets volume. There is no
+    # test mail catcher: every email goes to its real recipient.
     ZID_EMAIL_ENABLED: "true"
     ZID_EMAIL_ENABLED_TEMPLATES: '["*"]'
-    ZID_EMAIL_FROM: "Zoiko iD <no-reply@rehearsal.local>"
-    ZID_EMAIL_PUBLIC_BASE_URL: http://localhost:13000
-    ZID_SMTP_HOST: mailpit
-    ZID_SMTP_PORT: "1025"
-    ZID_SMTP_USERNAME: rehearsal
+    ZID_EMAIL_FROM: "${ZID_EMAIL_FROM:?set ZID_EMAIL_FROM in .env.smtp}"
+    ZID_EMAIL_PUBLIC_BASE_URL: http://localhost:3000
+    ZID_SMTP_HOST: "${ZID_SMTP_HOST:?set ZID_SMTP_HOST in .env.smtp}"
+    ZID_SMTP_PORT: "${ZID_SMTP_PORT:?set ZID_SMTP_PORT in .env.smtp}"
+    ZID_SMTP_USERNAME: "${ZID_SMTP_USERNAME:?set ZID_SMTP_USERNAME in .env.smtp}"
     ZID_SMTP_PASSWORD_FILE: /zid/smtp_password
-    SSL_CERT_FILE: /zid/mail-ca.pem
+    # identity checks (ZID-DTV-WF-03): the market policy is supplied from outside the image (the repo's own policy file ships with no market, on purpose),
+    # the photo service reads the document's printed lines, and a real malware scanner checks every upload (a deployed cell with no scanner refuses uploads)
+    ZID_IDV_POLICIES: /etc/zid/idv-policies.yaml
+    ZID_OCR_URL: http://ocr:8090
+    ZID_PROOF_SCANNER_ADDRESS: clamd:3310
+    # the face-match lab engine (open source, no liveness, never an approval): used only by the Operator Console's Face lab until the engine gate is satisfied
+    ZID_FACE_URL: http://face:8091
+    # THE OWNER'S ACKNOWLEDGEMENT (CR-129): a market's WEB_FACE route approves a person on a live face against an uploaded document photograph, with no liveness test and no check that the
+    # document is genuine. Delete this line to switch every face-match route off. It is a local test setting; set it nowhere that real people are verified without Legal and Privacy.
+    ZID_IDV_FACE_ROUTE_ACK: accept-no-liveness-no-evaluation
   volumes:
     - ../../contracts:/app/contracts:ro
     - ../../backend/config:/app/config:ro
-    - keys:/zid:ro # master key, OpenBao token, SMTP password and CA: root-only files on a real VM
+    - keys:/zid:ro # master key, OpenBao token and SMTP password: root-only files on a real VM
+    - ./idv-policies.local.yaml:/etc/zid/idv-policies.yaml:ro # the approved markets for identity checks: a test policy here, the owners' signed one on a real VM
 
 services:
   # --- database VM ---------------------------------------------------------------------------------------------------------
@@ -140,17 +151,39 @@ services:
     command: ["serve", "--http-enabled", "--datastore-engine", "postgres",
               "--datastore-conn-uri", "postgres://spicedb:${ZID_SPICEDB_DB_PASSWORD}@postgres:5432/spicedb?sslmode=disable"]
 
-  # --- the SMTP relay, with TLS ---------------------------------------------------------------------------------------------
-  mailpit:
-    image: axllent/mailpit:v1.21
+  # --- identity-check support services (the photo service and the malware scanner; both free and open source) -----------------------
+  ocr:
+    build: ../../tools/ocr-sidecar
+    image: zid/ocr:prodlocal
     restart: unless-stopped
-    environment:
-      MP_SMTP_AUTH_ACCEPT_ANY: "1"
-      MP_SMTP_TLS_CERT: /zid/mail.crt
-      MP_SMTP_TLS_KEY: /zid/mail.key
-      MP_SMTP_REQUIRE_STARTTLS: "true"
-    volumes: [keys:/zid:ro]
-    ports: ["127.0.0.1:18025:8025"]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+
+  face:
+    build: ../../tools/face-sidecar
+    image: zid/face:prodlocal
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+
+  clamd:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
 
   # --- app VM --------------------------------------------------------------------------------------------------------------
   # The files in /zid must belong to the unprivileged user the images run as (uid 10001) and be unreadable by anyone else.
@@ -162,13 +195,12 @@ services:
     restart: "no"
 
   # Operator tools, run on demand (`./rehearse.sh keys status`): the same image with the volume writable, to create the master
-  # key, the rehearsal CA and the secret files. On a real VM these are steps done once by a person.
+  # key and the secret files. On a real VM these are steps done once by a person.
   tools:
     <<: *backend
     profiles: ["tools"]
     restart: "no"
     volumes:
-      - ./make_mail_tls.py:/tools/make_mail_tls.py:ro
       - keys:/zid
     healthcheck: {disable: true}
 
@@ -183,6 +215,15 @@ services:
       <<: *backend-env
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_cell
       ZID_KEY_ACTOR: process:migrate
+      # Operator Console sign-in (email and password, no passkey): the account is created by the migrate step from these.
+      ZID_OPERATOR_MODE: direct
+      ZID_OPERATOR_DIRECT_ACK: accept-no-dual-control  # one operator account, so no second approver exists (CR-035); remove both lines to require two people
+      ZID_OPERATOR_TENANT_ID: "${ZID_OPERATOR_TENANT_ID:?set it in .env.operator}"
+      ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID: "${ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID:?set it in .env.operator}"
+      ZID_OPERATOR_CLIENT_IDS: '["zoiko-operator"]'
+      ZID_OPERATOR_ORIGIN: http://127.0.0.1:3100
+      ZID_OPERATOR_EMAIL: "${ZID_OPERATOR_EMAIL:?set it in .env.operator}"
+      ZID_OPERATOR_PASSWORD: "${ZID_OPERATOR_PASSWORD:?set it in .env.operator}"
     command: ["python", "-m", "zid_platform.entrypoints.migrate"]
     healthcheck: {disable: true}
 
@@ -190,17 +231,25 @@ services:
     <<: *backend
     depends_on:
       migrate: {condition: service_completed_successfully}
-      mailpit: {condition: service_started}
     environment:
       <<: *backend-env
       ZID_ROLES: cell
       ZID_SERVE_GLOBAL_PLANE: "true"  # locator + discovery are served on this same port, from the same database
+      # Operator Console sign-in (email and password, no passkey): the account is created by the migrate step from these.
+      ZID_OPERATOR_MODE: direct
+      ZID_OPERATOR_DIRECT_ACK: accept-no-dual-control  # one operator account, so no second approver exists (CR-035); remove both lines to require two people
+      ZID_OPERATOR_TENANT_ID: "${ZID_OPERATOR_TENANT_ID:?set it in .env.operator}"
+      ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID: "${ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID:?set it in .env.operator}"
+      ZID_OPERATOR_CLIENT_IDS: '["zoiko-operator"]'
+      ZID_OPERATOR_ORIGIN: http://127.0.0.1:3100
+      ZID_OPERATOR_EMAIL: "${ZID_OPERATOR_EMAIL:?set it in .env.operator}"
+      ZID_OPERATOR_PASSWORD: "${ZID_OPERATOR_PASSWORD:?set it in .env.operator}"
       # People enter an image name (ghcr.io/acme/bot:1.4) and the console works the digest out from the registry, so nobody types a sha256.
       # Only the hosts named here are ever contacted; anonymous access only (a private image is registered by the build pipeline instead).
       ZID_BUILD_REGISTRIES: '${ZID_BUILD_REGISTRIES:-["ghcr.io"]}'
       # the runtime role: row-level security applies, so one company can never read another's rows
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_runtime:${ZID_RUNTIME_PASSWORD}@postgres:5432/zid_cell
-    ports: ["127.0.0.1:18000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
 
   worker:
     <<: *backend
@@ -251,13 +300,30 @@ services:
       cell: {condition: service_started}
     environment:
       ZID_CELL_API_URL: http://cell:8000
-      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:18000}
-      ZID_PUBLIC_ORIGIN: http://localhost:13000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:8000}
+      ZID_PUBLIC_ORIGIN: http://localhost:3000
       ZID_OAUTH_CLIENT_ID: zoiko-web
-      ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:13000/auth/callback
+      ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:3000/auth/callback
       ZID_ENVIRONMENT: production
       ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
-    ports: ["127.0.0.1:13000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
+
+  # Operator Console: its own origin (3100) and OAuth client; operators sign in with email and password only.
+  operator:
+    image: zid/operator:prodlocal
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:8000}
+      ZID_PUBLIC_ORIGIN: http://localhost:3100
+      ZID_OAUTH_CLIENT_ID: zoiko-operator
+      ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:3100/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    ports: ["127.0.0.1:3100:3000"]
 
 volumes:
   pgdata:

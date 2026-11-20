@@ -74,3 +74,23 @@ components:
     licence_verified_on: null
     status: IN_USE_SUPPORTING
     sbom_ref: null
+  - id: opencv-yunet
+    role: face_match
+    repository: https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet
+    code_licence: MIT
+    model_licence: "The detector model (face_detection_yunet_2023mar) is published in OpenCV Zoo under MIT. Read it before relying on this line."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: false
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: tools/face-sidecar/Dockerfile   # the pinned versions and the model file digests of the lab image
+  - id: opencv-sface
+    role: face_match
+    repository: https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface
+    code_licence: Apache-2.0
+    model_licence: "The recogniser model (face_recognition_sface_2021dec) is published in OpenCV Zoo under Apache-2.0, but it was trained on a public face dataset whose terms for commercial use are not confirmed here. A person must read them."
+    commercial_use: UNKNOWN
+    model_licence_confirmed: false
+    licence_verified_on: null
+    status: LAB_ONLY
+    sbom_ref: tools/face-sidecar/Dockerfile

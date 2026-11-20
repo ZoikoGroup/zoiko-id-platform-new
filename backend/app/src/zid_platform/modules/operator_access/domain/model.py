@@ -477,6 +477,18 @@ def _release_capabilities() -> tuple[Capability, ...]:
             two_person=True,
             minutes=120,
         ),
+        cap(
+            "regulatory.face_lab.run",
+            "Run the open-source face engine on two photographs the operator supplies, to measure how alike they are for evaluation; stores nothing and approves nobody (CR-128)",
+            two_person=False,
+            minutes=120,
+        ),
+        cap(
+            "regulatory.country_opening.record",
+            "Open or close sign-up for a country: record the six go/no-go approvals with their references, the date it takes effect and the cell that holds its accounts (ZID-EDR-001 section 4; CR-127)",
+            two_person=True,
+            minutes=120,
+        ),
     )
 
 
