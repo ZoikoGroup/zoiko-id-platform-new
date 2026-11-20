@@ -171,3 +171,43 @@ def test_the_worker_does_nothing_without_the_switch_or_a_complete_identity(
                 assert not (await tenant_ports.load_tenant(c, tenant)).organization_id
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("reading", [True, False])
+def test_the_worker_creates_the_organization_for_a_claim_verified_from_a_certificate_reading(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch, reading: bool
+) -> None:
+    """CR-136: with the development shortcut OFF, a claim whose company check rests on a stored certificate reading and whose identity is complete is established by the worker, with
+    no page and no reviewer; without such a reading nothing is established."""
+
+    async def run() -> None:
+        tenant, owner = await sign_up(rt_url)
+        claim = str(uuid.uuid4())
+        patch(monkeypatch, owner, identity=True)
+
+        async def has_reading(*_a: Any, **_k: Any) -> bool:
+            return reading
+
+        async def open_claims(conn: Any) -> list[tuple[str, str]]:
+            return [(tenant, claim)]
+
+        monkeypatch.setattr(claims.proof_service, "has_consistent_reading", has_reading)
+        monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
+        claims.configure_dev_shortcut(False, "test")
+        async with engine(rt_url) as eng:
+            async with eng.begin() as c:
+                done = await org.auto_establish_pass(c, NOW, catalog=catalog())
+            assert done == ({tenant: 1} if reading else {})
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                after = await tenant_ports.load_tenant(c, tenant)
+                assert bool(after.organization_id) is reading
+                if reading:
+                    row = (
+                        await c.execute(
+                            text("SELECT source_revision FROM org.authority_root_assertion WHERE tenant_id = :t"),
+                            {"t": uuid.UUID(tenant)},
+                        )
+                    ).one()
+                    assert row.source_revision.startswith("certificate-ocr:")
+
+    asyncio.run(run())

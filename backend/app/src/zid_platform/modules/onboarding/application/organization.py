@@ -428,14 +428,13 @@ log = logging.getLogger("zid.onboarding")
 async def auto_establish_pass(
     conn: AsyncConnection, now: datetime, *, catalog: Mapping[str, Mapping[str, Any]]
 ) -> dict[str, int]:
-    """LOCAL/TEST ONLY (worker pass, ZID_ORG_CLAIM_DEV_AUTOVERIFY): the moment a claim reads as VERIFIED (its claimant's identity check is complete; the
-    company, authority and risk checks are not run), create the organization from it, so nobody has to open a page or press a button to get on. Does
-    nothing unless the shortcut is on, which the app refuses outside local and test. A workspace that already has its organization is left alone, and one
-    claim that fails is logged and never stops the others. tenant id -> organizations established."""
+    """Worker pass: the moment a claim reads as VERIFIED and its company check rests on a stored certificate reading (CR-136), create the organization from it, so nobody has to open a page
+    or press a button and nobody at Zoiko iD has to review it. A claim verified from a register record is created by the status page, which has the register adapters. With the LOCAL/TEST
+    development shortcut on (ZID_ORG_CLAIM_DEV_AUTOVERIFY, refused anywhere else) every VERIFIED claim is created, as before. A workspace that already has its organization is left alone, and
+    one claim that fails is logged and never stops the others. tenant id -> organizations established."""
     from zid_platform.modules.onboarding.application import claims
 
-    if not claims.dev_shortcut_enabled():
-        return {}
+    shortcut = claims.dev_shortcut_enabled()
     out: dict[str, int] = {}
     for tenant, claim in await claims.kyb_open_claims(conn):  # type: ignore[attr-defined]
         try:
@@ -443,7 +442,10 @@ async def auto_establish_pass(
                 current = await load_tenant(conn, tenant)
                 if current is None or current.organization_id:
                     continue
-                if (await claims.status(conn, tenant, claim, now))["outcome"] != "VERIFIED":
+                seen = await claims.status(conn, tenant, claim, now)
+                if seen["outcome"] != "VERIFIED":
+                    continue
+                if not shortcut and seen.get("company_basis") != "DOCUMENT_OCR":
                     continue
                 await establish_from_verified_claim(
                     conn, tenant, claim, adapters={}, catalog=catalog, now=now
