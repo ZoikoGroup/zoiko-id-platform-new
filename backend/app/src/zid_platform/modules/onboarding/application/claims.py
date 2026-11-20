@@ -25,6 +25,7 @@ from zid_outbox import emit, next_version
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.organization.ports import (
+    proof_service,
     KybStatus,
     kyb_close,
     kyb_drafts_before,
@@ -64,6 +65,8 @@ _CHECK_EVENT = {
     "authority": "organization.claim.authority_evaluated",
     "risk": "organization.claim.risk_assessed",
 }
+# What a source can say against the claim: a certificate reading never overrides these (CR-132).
+_SOURCE_AGAINST = frozenset({"ENTITY_INACTIVE", "IDENTIFIER_MISMATCH", "SOURCES_CONFLICT", "LEI_CONFLICT"})
 _DECISIONS = frozenset({"VERIFIED", "DECLINED", "RESTRICTED"})
 _CLOSED = frozenset({"WITHDRAWN", "ABANDONED"})
 
@@ -107,8 +110,19 @@ async def status(
 ) -> dict[str, Any]:
     kyb = await kyb_get_case(conn, tenant_id, case_id, now=now)
     screening = await case_for_kyb(conn, tenant_id, case_id, now=now)
+    company = _COMPANY[kyb.status]
+    company_basis = "SOURCE" if company == "COMPLETED" else None
+    if (
+        company in ("PENDING", "HELD")
+        and kyb.review_reason not in _SOURCE_AGAINST
+        and not kyb.closed_reason
+        and await proof_service.has_consistent_reading(conn, tenant_id, case_id)
+    ):
+        # CR-132 (owner decision, 20 Nov 2026): a stored certificate whose OCR reading agrees with the claim completes this check without a reviewer. The basis is said out loud and
+        # a source that contradicts the claim (inactive, another company, conflicting sources) is never overridden.
+        company, company_basis = "COMPLETED", "DOCUMENT_OCR"
     checks = {
-        "company": _COMPANY[kyb.status],
+        "company": company,
         # the applicant's own identity check, read from the verification service: a valid, unexpired assertion from an identity check, nothing else
         "person_assurance": "COMPLETED"
         if await person_assurance_current(conn, kyb.requested_by, now)
@@ -124,6 +138,7 @@ async def status(
         checks = {**checks, "company": "COMPLETED", "authority": "COMPLETED", "risk": "COMPLETED"}
     return {
         "development_shortcut": shortcut,
+        "company_basis": company_basis,
         "claim_id": case_id,
         "jurisdiction": kyb.jurisdiction,
         "registration_number": kyb.registration_number,

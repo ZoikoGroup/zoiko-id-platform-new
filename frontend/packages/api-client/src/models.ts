@@ -2470,6 +2470,8 @@ export type OrgClaimStatus = {
   outcome: OrgClaimOutcome;
   /** Local and test environments only: the claim reads as verified from the claimant's identity check alone, with no company check or review. */
   development_shortcut?: boolean;
+  /** What completed the company check: an official source, or the platform's own reading of a stored certificate (document, not a register). Null while it is not complete. */
+  company_basis?: "SOURCE" | "DOCUMENT_OCR" | null;
   relationship: OrgClaimRelationship | null;
   submitted_at: Iso | null;
   closed_at: Iso | null;

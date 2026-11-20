@@ -191,6 +191,8 @@ async def upload_proof(
     shown = _shown(proof)
     if proof.kind in READABLE_KINDS:
         shown["read"] = await _read_certificate(request, caller, claim_id, content, proof.media_type)
+        async with tenant_transaction(request_engine(request), caller.ctx) as conn:  # CR-132: a stored certificate's reading is kept; a CONSISTENT one completes the company check
+            await proof_service.keep_reading(conn, tenant, str(claim_id), proof.proof_id, shown["read"], now)
     return shown
 
 

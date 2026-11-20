@@ -187,3 +187,37 @@ def test_nothing_is_established_unless_every_check_is_complete_and_the_source_an
                 )
 
     asyncio.run(run())
+
+
+def test_a_claim_whose_company_check_came_from_a_certificate_reading_establishes_a_lower_assurance_root(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CR-132: no register record exists, so the organization is named by the applicant's legal name and rooted at AR2 (institutional KYB), never as a register root."""
+
+    async def run() -> None:
+        tenant, owner = await sign_up(rt_url)
+
+        async def status(conn: Any, tenant_id: str, case_id: str, now: datetime) -> dict[str, Any]:
+            return {"outcome": "VERIFIED", "checks": {}, "company_basis": "DOCUMENT_OCR"}
+
+        async def case(conn: Any, tenant_id: str, case_id: str, *, now: datetime) -> Any:
+            return SimpleNamespace(requested_by=owner, jurisdiction="GB", registration_number="00123456", legal_name="Acme Widgets Limited")
+
+        monkeypatch.setattr(claims, "status", status)
+        monkeypatch.setattr(org_ports, "kyb_get_case", case)
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                result = await org.establish_from_verified_claim(c, tenant, uid(), adapters={}, catalog=catalog(), now=NOW)
+                assert result.root is not None and result.root.legal_name == "Acme Widgets Limited"
+                assert (result.root.source_id, result.root.namespace) == ("certificate-ocr", "CERTIFICATE_OCR")
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                roles = await tenant_ports.live_roles(c, owner)
+                assert any(a.role.value == "OWNER" and a.status.value == "ACTIVE" for a in roles)
+                row = (
+                    await c.execute(
+                        text("SELECT root_type::text AS root_type, assurance_class::text AS assurance FROM org.authority_root_assertion WHERE tenant_id = :t"), {"t": uuid.UUID(tenant)}
+                    )
+                ).first()
+                assert row is not None and row.root_type == "INSTITUTIONAL_KYB" and row.assurance != "AR3"
+
+    asyncio.run(run())

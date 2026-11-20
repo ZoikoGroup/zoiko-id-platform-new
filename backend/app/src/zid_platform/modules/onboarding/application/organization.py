@@ -241,6 +241,7 @@ async def _seed_and_advance(
     catalog: Mapping[str, Mapping[str, Any]],
     detail: str,
     now: datetime,
+    risk_level: int = 3,
 ) -> OrganizationResult:
     """Steps 4-5: baseline release, the holder's PERSON_BOUND tenant-admin grant, OWNER active,
     ORGANIZATION_VERIFYING -> CONFIGURING with the gate report."""
@@ -272,7 +273,7 @@ async def _seed_and_advance(
             delegation_allowed=True,
             max_delegation_depth=1,
         ),
-        risk_level=3,
+        risk_level=risk_level,  # a register root carries risk 3; a certificate-reading root (CR-132) only 2, so its owner cannot act at risk 3 until a higher root exists
         now=now,
     )
     await activate_bootstrap_owner(conn, tenant_id, now=now)
@@ -368,6 +369,21 @@ async def establish_from_verified_claim(
         if facts is not None and facts.active:
             break
         facts = None
+    if facts is None and seen.get("company_basis") == "DOCUMENT_OCR":
+        # CR-132: the company check was completed from a stored certificate the platform's OCR read, so there is no register record to name the organization from.
+        from zid_platform.modules.organization.ports import establish_document_root
+
+        if tenant.status is TenantStatus.DRAFT:
+            await transition(conn, tenant_id, Move.ADVANCE, reason_code="ORGANIZATION_SUBMITTED", actor=case.requested_by, now=now)
+        name = (case.legal_name or "Company").strip()[:200] or "Company"
+        root = await establish_document_root(
+            conn, tenant_id, holder_principal_id=case.requested_by, legal_name=name,
+            jurisdiction=case.jurisdiction, identifier=case.registration_number, claim_id=claim_id, now=now,
+        )  # fmt: skip
+        await set_fields(conn, tenant_id, display_name=name)
+        return await _seed_and_advance(
+            conn, tenant_id, principal_id=case.requested_by, root=root, catalog=catalog, detail=f"claim-document:{claim_id}", now=now, risk_level=2
+        )
     if facts is None:
         raise OnboardingError(
             "SOURCE_UNAVAILABLE",

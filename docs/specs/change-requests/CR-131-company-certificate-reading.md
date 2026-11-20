@@ -2,6 +2,8 @@
 
 Source: owner request, 19 Nov 2026: upload the company's legal certificates, extract them with OCR, and complete the verification step from them. Builds on the company proof upload (WF-13B section 06), the platform's imaging service (OCR) and CR-109 (company verification grades). Status: built 19 Nov 2026. Not run on real certificates.
 
+> Superseded in part by CR-132 (20 Nov 2026): a stored certificate whose reading is CONSISTENT now completes the company check.
+
 ## The product decision
 
 An uploaded certificate is **evidence the applicant supplies**. Anyone can make or alter one, and OCR proves only that the words on the picture agree with the claim. So the reading is built to do two useful things and one thing it must not do:
