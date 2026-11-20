@@ -178,7 +178,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
   // OIDC
   const [oidcMode, setOidcMode] = useState<OidcMode>("static");
   const [clientId, setClientId] = useState("");
-  const [clientAuth, setClientAuth] = useState<ClientAuth>("private_key_jwt");
+  const [clientAuth, setClientAuth] = useState<ClientAuth>("client_secret_basic");
   const [secretRef, setSecretRef] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const [authzEndpoint, setAuthzEndpoint] = useState("");
@@ -346,7 +346,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
           const key = v as ProviderKey;
           setProvider(key);
           setProtocol(PROVIDERS[key].protocol);
-          setClientAuth(PROVIDERS[key].clientAuth ?? "private_key_jwt");
+          setClientAuth(PROVIDERS[key].clientAuth ?? "client_secret_basic");
           setFound(null);
           // a provider with one fixed address (Google) needs no typing; the others need the company's own
           if (!/YOUR|example/i.test(PROVIDERS[key].issuer)) setIssuer(PROVIDERS[key].issuer);
@@ -374,7 +374,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
         </div>
       </details>
 
-      <SectionTitle n={2} title="What you need from your provider" hint="Four things. Fill these in, then press Find the rest for me." />
+      <SectionTitle n={2} title="What you need from your provider" hint="Fill these in, press Find the rest for me, then give your client secret." />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Name people will see" isRequired value={displayName} onChange={setDisplayName} description="For example “Sign in with Okta”." />
         {protocol === "OIDC" ? (
@@ -434,6 +434,44 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
           <p className="text-xs text-ink-subtle">We read the provider&apos;s public settings once, then pin them. Nothing is fetched when people sign in.</p>
         )}
       </div>
+
+      {protocol === "OIDC" ? (
+        <div className="space-y-4">
+          <RadioCards
+            label="How does Zoiko iD prove itself to your provider?"
+            columns={2}
+            value={clientAuth}
+            onChange={(v) => setClientAuth(v as ClientAuth)}
+            options={[
+              { id: "client_secret_basic", label: "A client secret", description: "What Auth0, Okta and most providers give you. Type it below; it is sealed and never shown again." },
+              { id: "private_key_jwt", label: "A signed key", description: "Only if your provider is set up to check a signed key. No secret is kept." },
+            ]}
+          />
+          {clientAuth === "client_secret_basic" ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label="Client secret"
+                type="password"
+                mono
+                autoComplete="off"
+                value={clientSecret}
+                onChange={setClientSecret}
+                description="From your provider's application settings. Sealed as soon as you connect and never shown again. You can replace it later."
+                className="sm:col-span-2"
+              />
+              <TextField
+                label="Or the name of a stored secret (optional)"
+                mono
+                value={secretRef}
+                onChange={setSecretRef}
+                isDisabled={Boolean(clientSecret.trim())}
+                description="Only if your operator keeps the secret in their own secret store. Leave empty when you type the secret above."
+                className="sm:col-span-2"
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <SectionTitle n={3} title="Connection details" hint="Filled in for you when you press Find the rest for me. You can also type them in or correct them here." />
       <section aria-label="Connection details" className="rounded-card border border-border bg-sunken/40">
@@ -497,39 +535,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
           />
           {protocol === "OIDC" ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="How Zoiko iD proves itself to the provider"
-                value={clientAuth}
-                onChange={(v) => setClientAuth(v as ClientAuth)}
-                options={[
-                  { id: "private_key_jwt", label: "A signed key (recommended)", description: "No password is stored anywhere." },
-                  { id: "client_secret_basic", label: "A shared secret", description: "The provider gave you a client secret. You enter it here once; it is sealed and never shown again." },
-                ]}
-              />
               <TextField label="Scopes" mono value={scopes} onChange={setScopes} description="Comma separated; openid is always added." />
-              {clientAuth === "client_secret_basic" ? (
-                <>
-                  <TextField
-                    label="Client secret"
-                    type="password"
-                    mono
-                    autoComplete="off"
-                    value={clientSecret}
-                    onChange={setClientSecret}
-                    description="From your provider's application settings. It is sealed as soon as you connect and never shown again. You can replace it later."
-                    className="sm:col-span-2"
-                  />
-                  <TextField
-                    label="Or the name of a stored secret (optional)"
-                    mono
-                    value={secretRef}
-                    onChange={setSecretRef}
-                    isDisabled={Boolean(clientSecret.trim())}
-                    description="Only if your operator keeps the secret in their own secret store. Leave empty when you type the secret above."
-                    className="sm:col-span-2"
-                  />
-                </>
-              ) : null}
               <RadioCards
                 label="How should we learn the provider's details?"
                 columns={2}
