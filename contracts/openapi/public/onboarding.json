@@ -2614,6 +2614,52 @@
         ]
       }
     },
+    "/v1/org-claims/{claim_id}/certificate:check": {
+      "post": {
+        "description": "Read a certificate picture and compare it with the claim, WITHOUT saving it. The file is scanned for malware, read in memory for this one answer and dropped: nothing is stored, so it needs no\nplace in the company's data region. It is the same check an upload gets (`read`), offered before the person decides to add the document. Evidence only: it never verifies the company.",
+        "operationId": "check_certificate_v1_org_claims__claim_id__certificate_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Certificate V1 Org Claims  Claim Id  Certificate Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Certificate",
+        "tags": [
+          "org-claims"
+        ]
+      }
+    },
     "/v1/org-claims/{claim_id}/establish": {
       "post": {
         "description": "The claim is VERIFIED (all four checks complete): create the organization from it, name the workspace after the register and activate the claimant as\nowner. Refused with CLAIM_NOT_VERIFIED until then. A repeat answers as it stands (13B hands off to 13C; nothing here grants authority a check has not).",
