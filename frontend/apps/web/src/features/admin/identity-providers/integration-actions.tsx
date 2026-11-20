@@ -240,10 +240,10 @@ export function RotateDialog({ integration, onClose }: { integration: Federation
               label="New client secret"
               type="password"
               mono
-              autoComplete="off"
+              autoComplete="new-password"
               value={newSecret}
               onChange={setNewSecret}
-              description="Type the provider's client secret to replace the current one. It is sealed and never shown again. Leave empty to keep the current one."
+              description="Paste the provider's client secret to replace the current one. If your browser fills in a saved password here, clear the box and paste the secret. Sealed and never shown again. Leave empty to keep the current one."
             />
             <TextField
               label="Or the name of a stored secret"

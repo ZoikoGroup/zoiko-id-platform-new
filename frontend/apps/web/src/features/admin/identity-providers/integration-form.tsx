@@ -405,7 +405,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
           />
         )}
         {protocol === "OIDC" ? (
-          <TextField label="Client ID" isRequired mono value={clientId} onChange={setClientId} description="The provider gives you this after Zoiko iD is registered there." />
+          <TextField label="Client ID" isRequired mono autoComplete="off" value={clientId} onChange={setClientId} description="The provider gives you this after Zoiko iD is registered there." />
         ) : (
           <TextField
             label="Your entity id (we suggest one)"
@@ -453,10 +453,10 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
                 label="Client secret"
                 type="password"
                 mono
-                autoComplete="off"
+                autoComplete="new-password"
                 value={clientSecret}
                 onChange={setClientSecret}
-                description="From your provider's application settings. Sealed as soon as you connect and never shown again. You can replace it later."
+                description="Paste it from your provider's application settings. If your browser fills in a saved password here, clear the box and paste the secret. Sealed as soon as you connect and never shown again."
                 className="sm:col-span-2"
               />
               <TextField

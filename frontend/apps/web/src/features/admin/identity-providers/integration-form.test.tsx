@@ -46,10 +46,10 @@ vi.mock("@zoiko/ui", () => ({
     </div>
   ),
   Select: () => null,
-  TextField: ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  TextField: ({ label, value, onChange, autoComplete }: { label: string; value: string; onChange: (v: string) => void; autoComplete?: string }) => (
     <label>
       {label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} />
+      <input value={value} autoComplete={autoComplete} onChange={(e) => onChange(e.target.value)} />
     </label>
   ),
 }));
@@ -123,6 +123,12 @@ describe("CreateIntegrationDialog, an OpenID Connect provider (CR-138)", () => {
     render(<CreateIntegrationDialog onClose={() => undefined} />);
     expect(screen.getByLabelText("Client secret")).toBeTruthy();
     expect(screen.getByRole("button", { name: "A client secret" })).toBeTruthy();
+  });
+
+  it("keeps the browser from filling a saved password into the client secret (it would replace the real secret)", () => {
+    render(<CreateIntegrationDialog onClose={() => undefined} />);
+    expect(screen.getByLabelText("Client secret").getAttribute("autocomplete")).toBe("new-password");
+    expect(screen.getByLabelText("Client ID").getAttribute("autocomplete")).toBe("off");
   });
 
   it("sends the secret as client_secret (sealed by the platform), never as a stored name", async () => {
