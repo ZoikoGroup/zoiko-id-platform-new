@@ -22,6 +22,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_db import in_tenant
@@ -39,6 +40,7 @@ from zid_platform.modules.authority.ports import (
 from zid_platform.modules.onboarding.domain.gates import (
     OWNER_ONLY_ACTIONS,
     TENANT_ADMIN_ACTIONS,
+    owner_actions,
     Gate,
     GateStatus,
     OnboardingError,
@@ -246,7 +248,7 @@ async def _seed_and_advance(
     """Steps 4-5: baseline release, the holder's PERSON_BOUND tenant-admin grant, OWNER active,
     ORGANIZATION_VERIFYING -> CONFIGURING with the gate report."""
     await set_fields(conn, tenant_id, organization_id=root.organization_id)
-    actions = tuple(a for a in TENANT_ADMIN_ACTIONS if a in catalog)
+    actions = owner_actions(catalog)  # CR-137: every customer-side action, not only the administrator list
     await seed_baseline_release(
         conn, tenant_id, example_action="tenant.member.manage", catalog=catalog, now=now
     )
@@ -453,6 +455,60 @@ async def auto_establish_pass(
             out[tenant] = out.get(tenant, 0) + 1
         except Exception:
             log.exception("could not establish the organization for claim %s", claim)
+    return out
+
+
+async def owner_grant_top_up_pass(
+    conn: AsyncConnection, now: datetime, *, catalog: Mapping[str, Mapping[str, Any]]
+) -> dict[str, int]:
+    """CR-137: every company's active OWNER holds every customer-side action (`owner_actions`), including the ones added to the catalogue after the company was set up. A grant's scope never changes and a
+    replacement would orphan the administrators delegated from it, so an owner who lacks some of them is issued ONE more top-level grant with just the missing actions, through the normal issuance gate.
+    Repeating it changes nothing once the owner holds them all; one company that fails is logged and never stops the others. tenant id -> grants issued."""
+    wanted = frozenset(owner_actions(catalog))
+    owners = (
+        await conn.execute(
+            text(
+                "SELECT DISTINCT r.tenant_id, r.principal_id FROM platform.tenant_role_assignment r "
+                "JOIN platform.tenant t ON t.tenant_id = r.tenant_id "
+                "WHERE r.role = 'OWNER' AND r.status = 'ACTIVE' AND t.organization_id IS NOT NULL"
+            )
+        )
+    ).all()
+    out: dict[str, int] = {}
+    for tenant_uuid, principal_uuid in owners:
+        tenant, principal = str(tenant_uuid), str(principal_uuid)
+        try:
+            async with conn.begin_nested(), in_tenant(conn, tenant):
+                standing = [
+                    g
+                    for g in await load_grants_for_grantee(conn, principal)
+                    if g.tenant_id == tenant
+                    and g.status is GrantStatus.ACTIVE
+                    and g.grant_type is GrantType.ROLE_ISSUED
+                    and g.parent_grant_id is None
+                ]
+                if not standing or any(g.authority.actions is None for g in standing):
+                    continue  # no standing owner grant to extend, or one that already names no limit
+                held: set[str] = set().union(*(g.authority.actions for g in standing))
+                missing = wanted - held
+                if not missing:
+                    continue
+                base = max(standing, key=lambda g: g.issued_at)
+                await issue_grant(
+                    conn,
+                    Grant(
+                        str(uuid7()), tenant, GrantType.ROLE_ISSUED, principal, principal,
+                        base.represented_principal_id,
+                        Authority(actions=frozenset(missing), window=Window(now - timedelta(seconds=1), now + ADMIN_GRANT_TERM)),
+                        ContinuityMode.PERSON_BOUND, GrantStatus.ACTIVE, now,
+                        root_id=base.root_id, delegation_allowed=True, max_delegation_depth=1,
+                    ),
+                    risk_level=3,
+                    now=now,
+                )  # fmt: skip
+            out[tenant] = out.get(tenant, 0) + 1
+        except Exception:
+            log.exception("could not top up the owner grants of company %s", tenant)
     return out
 
 

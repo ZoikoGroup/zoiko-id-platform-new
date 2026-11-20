@@ -8,7 +8,7 @@ blocks; FAIL and PENDING always do. Pure rules, no I/O.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -156,3 +156,22 @@ TENANT_ADMIN_ACTIONS = (
     "access_readiness.approve",
     "access_readiness.review",
 )
+
+# CR-137 (owner decision, 20 Nov 2026): a company's owner holds every customer-side action by default, so the owner can also issue and delegate grants. What stays out is what belongs to Zoiko staff, not
+# to a company: platform assurance and policy-release actions, just-in-time operator elevation, and the KYB reviewer actions (a company never reviews or decides its own verification).
+STAFF_ONLY_PREFIXES = ("assurance.", "policy.release.")
+STAFF_ONLY_ACTIONS = frozenset(
+    {
+        "operator.jit.elevate",
+        "organization.kyb.review",
+        "organization.kyb.assess",
+        "organization.kyb.appeal.decide",
+        "organization.kyb.escalation.decide",
+    }
+)
+
+
+def owner_actions(catalog: Mapping[str, object]) -> tuple[str, ...]:
+    """The actions a company's owner is granted: the standing administrator list, plus every other action in the catalogue that is not Zoiko staff's. Sorted, so the same catalogue gives the same grant."""
+    extra = {a for a in catalog if a not in STAFF_ONLY_ACTIONS and not a.startswith(STAFF_ONLY_PREFIXES)}
+    return tuple(sorted({a for a in TENANT_ADMIN_ACTIONS if a in catalog} | extra))
