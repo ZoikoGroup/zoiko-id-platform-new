@@ -1,3 +1,4 @@
 .env
 .env.tmp
 .openbao-init.json
+local-config/

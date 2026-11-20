@@ -27,7 +27,7 @@ from zid_errors import ZidError
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.authentication.ports import require_step_up
 from zid_platform.modules.tenant.application import residency as service
-from zid_platform.modules.tenant.domain.offers import public_view, require_cell_ready
+from zid_platform.modules.tenant.domain.offers import public_view
 from zid_platform.modules.tenant.domain.residency import (
     Residency,
     ResidencyError,
@@ -37,7 +37,6 @@ from zid_platform.modules.tenant.domain.residency import (
 from zid_platform.modules.tenant.infrastructure import residency_store as store
 from zid_platform.modules.tenant.infrastructure.catalog import catalog
 from zid_platform.modules.tenant.infrastructure.offers import offers
-from zid_platform.modules.tenant.infrastructure.tenant_store import load_tenant
 from zid_platform.protected import approved_by_second_admin, protected_action
 
 router = APIRouter(tags=["residency"])
@@ -137,11 +136,11 @@ class ResidencyBody(BaseModel):
     key_profile: str = Field(
         default="PLATFORM_MANAGED", pattern="^(PLATFORM_MANAGED|DEDICATED_TENANT_KEY|BYOK|HYOK)$"
     )
-    jurisdiction_pack_id: str
-    approval_ref: str = Field(min_length=3, max_length=200)  # legal/compliance mapping approval
-    approval_request_id: uuid.UUID | None = (
-        None  # needed for a change; the first baseline of a one-person organization needs none
-    )
+    # CR-139 (owner decision, 20 Nov 2026): choosing a region is a plain selection. The legal pack follows the home cell's legal zone and the reference is filled in when left
+    # empty, so neither has to be typed; a second administrator's approval is no longer asked for.
+    jurisdiction_pack_id: str = Field(default="", max_length=64)
+    approval_ref: str = Field(default="", max_length=200)  # legal/compliance mapping reference, optional
+    approval_request_id: uuid.UUID | None = None  # accepted for older clients; no longer required
 
     def change(self) -> str:
         return (
@@ -163,67 +162,37 @@ async def residency_offers(request: Request) -> dict[str, Any]:
     }
 
 
-async def _is_first_baseline(conn: Any, caller: Caller, body: ResidencyBody) -> bool:
-    """True only for the very first residency record of a workspace, kept on the home cell it was created on, with no recovery cell added."""
-    tenant = caller.ctx.tenant_id or ""
-    if await store.load(conn, tenant) is not None or body.permitted_recovery_cells:
-        return False
-    home = await load_tenant(conn, tenant)
-    return home is not None and home.home_cell_id == body.home_cell_id
+_PACK_BY_ZONE = {"UK": "uk-gdpr", "EU": "eu-gdpr", "US": "us-ca-ccpa"}
 
 
 @router.put("/v1/tenant/residency")
 async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        try:  # EDR-002 §2: a home cell that has not passed its readiness gate holds the segment, never downgrades
-            require_cell_ready(
-                offers(),
-                body.residency_profile_id,
-                body.home_cell_id,
-                environment=_environment(request),
-            )
-        except ResidencyError as e:
-            raise http(e) from e
-        if await _is_first_baseline(conn, caller, body):
-            # ZID-ENG-DEC-010 and the 13C solo variant: confirming where the organization already lives is the owner's own baseline, not a change to a boundary. Nothing
-            # moves (same home cell, no recovery cells), the permission and the fresh passkey proof still apply, and every later change needs a second administrator.
-            await protected_action(
-                conn, caller, action=ACTION, resource="tenant_residency", change=body.change()
-            )
-        else:
-            if body.approval_request_id is None:
-                raise ZidError(
-                    "APPROVAL_REQUIRED",
-                    "Changing residency needs an independent second administrator to approve.",
-                    http_status=403,
-                )
-            await approved_by_second_admin(
-                conn,
-                caller,
-                action=ACTION,
-                resource="tenant_residency",
-                change=body.change(),
-                approval_request_id=str(body.approval_request_id),
-            )
+        # CR-139: no cell readiness gate and no second administrator. The company is placed on the cell that already serves it; the owner's permission and a fresh passkey proof still apply.
+        cell = catalog().cells.get(body.home_cell_id)
+        pack = body.jurisdiction_pack_id.strip() or _PACK_BY_ZONE.get(str(getattr(cell, "legal_zone", "") or "").upper(), "uk-gdpr")
+        ref = body.approval_ref.strip() or f"self-service:{body.residency_profile_id}:{body.home_cell_id}"
+        chosen = body.model_copy(update={"jurisdiction_pack_id": pack, "approval_ref": ref})
+        await protected_action(conn, caller, action=ACTION, resource="tenant_residency", change=chosen.change())
         await require_step_up(
             request,
             conn,
             caller,
             action="change-customer-home-region-cross-region-transfer-policy",
             resource="tenant_residency",
-            change=body.model_dump(mode="json"),
+            change=chosen.model_dump(mode="json"),
         )
         r = await service.set_residency(
             conn,
             caller.ctx.tenant_id or "",
-            profile=body.residency_profile_id,
-            home_cell_id=body.home_cell_id,
-            recovery_cells=body.permitted_recovery_cells,
-            prohibited_cells=body.prohibited_cells,
-            operator_juris=body.operator_jurisdictions,
-            key_profile=body.key_profile,
-            jurisdiction_pack_id=body.jurisdiction_pack_id,
-            approval_ref=body.approval_ref,
+            profile=chosen.residency_profile_id,
+            home_cell_id=chosen.home_cell_id,
+            recovery_cells=chosen.permitted_recovery_cells,
+            prohibited_cells=chosen.prohibited_cells,
+            operator_juris=chosen.operator_jurisdictions,
+            key_profile=chosen.key_profile,
+            jurisdiction_pack_id=chosen.jurisdiction_pack_id,
+            approval_ref=chosen.approval_ref,
             actor=caller.ctx.principal_id or "",
         )
         return {"residency": residency_view(r)}

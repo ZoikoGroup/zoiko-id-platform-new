@@ -378,6 +378,8 @@ export interface components {
             client_auth?: ("private_key_jwt" | "client_secret_basic") | null;
             /** Client Id */
             client_id?: string | null;
+            /** Client Secret */
+            client_secret?: string | null;
             /** Client Secret Ref */
             client_secret_ref?: string | null;
             /** Display Name */
@@ -442,6 +444,8 @@ export interface components {
             approval_request_id?: string | null;
             /** Client Auth */
             client_auth?: ("private_key_jwt" | "client_secret_basic") | null;
+            /** Client Secret */
+            client_secret?: string | null;
             /** Client Secret Ref */
             client_secret_ref?: string | null;
             /** Idp Certificates */

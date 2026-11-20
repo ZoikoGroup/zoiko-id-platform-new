@@ -21,9 +21,7 @@ def claim(**checks: str) -> dict[str, Any]:
     base = {
         "company": "COMPLETED",
         "person_assurance": "COMPLETED",
-        "authority": "COMPLETED",
-        "risk": "COMPLETED",
-    }
+    }  # CR-134: two checks decide a claim
     base.update(checks)
     return {
         "checks": base,
@@ -77,8 +75,6 @@ def test_a_new_organization_starts_in_draft_with_honest_words_and_no_fake_second
     assert [t["title"] for t in r["trust"]] == [
         "Legal entity",
         "Your identity",
-        "Authority to represent the company",
-        "Screening",
     ]
     assert {t["status"] for t in r["trust"]} == {"Required"} and all(
         t["next_action"] for t in r["trust"]
@@ -143,17 +139,13 @@ def test_a_register_match_without_verified_authority_cannot_activate(
     """AT-01 and AT-02: whatever the client sends or toggles, the gate reads server facts; a declined or missing one blocks, with reasons."""
     w = world
     accept(w)
-    use_claim(
-        monkeypatch, claim(authority="PENDING", person_assurance="PENDING")
-    )  # the company matched, nobody proved who may act for it
+    use_claim(monkeypatch, claim(person_assurance="PENDING"))  # the company matched, the applicant's own identity is not proven
     r = get(w)
     assert r["readiness"] == "LIMITED_SETUP" and r["can_activate"] is False
     blocked = activate(w)
     assert blocked.status_code == 409 and code(blocked) == "ACTIVATION_BLOCKED"
     issues = {d["issue"] for d in blocked.json()["error"]["details"]}
-    assert any("Authority to represent the company" in i for i in issues) and any(
-        "Your identity" in i for i in issues
-    )
+    assert any("Your identity" in i for i in issues)
     assert get(w)["readiness"] == "LIMITED_SETUP" and get(w)["activated_at"] is None
     assert any(
         a.event_type == "onboarding.organization.activation_refused" and a.outcome == "DENIED"
@@ -168,11 +160,11 @@ def test_a_register_match_without_verified_authority_cannot_activate(
         ).status_code
         == 409
     )
-    use_claim(monkeypatch, claim(risk="DECLINED"))
+    use_claim(monkeypatch, claim(person_assurance="DECLINED"))
     declined = get(w)
     assert (
         declined["readiness"] == "RESTRICTED"
-        and {t["key"]: t["status"] for t in declined["trust"]}["risk"] == "Restricted"
+        and {t["key"]: t["status"] for t in declined["trust"]}["person_assurance"] == "Restricted"
     )
     assert code(activate(w)) == "ACTIVATION_BLOCKED"
 
@@ -181,7 +173,7 @@ def test_activation_needs_every_fact_and_is_recorded_once(
     world: World,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """13C section 02 exit contract: ready only when entity, person, authority and screening are verified and the required items are done."""
+    """13C section 02 exit contract: ready only when the entity and the person are verified (CR-134) and the required items are done."""
     w = world
     use_claim(monkeypatch, claim())
     assert (
@@ -213,9 +205,9 @@ def test_activation_needs_every_fact_and_is_recorded_once(
         == 1
     )
     # the organization stays active only while what it rested on holds
-    use_claim(monkeypatch, claim(authority="HELD"))
+    use_claim(monkeypatch, claim(company="HELD"))
     assert get(w)["readiness"] == "ACTIVE_LIMITED"
-    use_claim(monkeypatch, claim(risk="DECLINED"))
+    use_claim(monkeypatch, claim(person_assurance="DECLINED"))
     assert get(w)["readiness"] == "RESTRICTED"
 
 

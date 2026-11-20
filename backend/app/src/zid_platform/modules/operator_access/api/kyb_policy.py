@@ -75,6 +75,11 @@ class ApproveIn(BaseModel):
     role: str = Field(pattern=r"^(COMPLIANCE|LEGAL|PRIVACY|SECURITY)$")
 
 
+class ActivateNowIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    acknowledge: str = Field(pattern=r"^activate-without-signoff$")
+
+
 class RollbackIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     market_key: str = Field(min_length=3, max_length=200)
@@ -156,6 +161,25 @@ async def publish(policy_hash: HashPath, request: Request, op: OperatorDep) -> d
             conn, policy_hash, by=str(op.principal_id), tenant_id=_operator_tenant(request), now=now
         )
         return {"policy_hash": policy_hash, "in_force": True}, policy_hash, {}
+
+    return await actions.act(
+        request, op, event="kyb.policy.published", action="publish", capability="kyb.policy.publish", target_type="kyb_market_policy", target=policy_hash, work=work,
+    )  # fmt: skip
+
+
+@router.post("/v1/kyb/market-policies/{policy_hash}:activate-now")
+async def activate_now(policy_hash: HashPath, body: ActivateNowIn, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """CR-133: put a stored pack in force without its sign-offs. The operator must send the acknowledgement; the activation note and the audit details name every control the pack lacked."""
+
+    async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
+        skipped = await org.kyb_policy.activate(
+            conn, policy_hash, by=str(op.principal_id), tenant_id=_operator_tenant(request), now=now, without_signoff=True
+        )
+        return (
+            {"policy_hash": policy_hash, "in_force": True, "without_signoff": True, "skipped": list(skipped)},
+            policy_hash,
+            {"without_signoff": True, "skipped": list(skipped)},
+        )
 
     return await actions.act(
         request, op, event="kyb.policy.published", action="publish", capability="kyb.policy.publish", target_type="kyb_market_policy", target=policy_hash, work=work,

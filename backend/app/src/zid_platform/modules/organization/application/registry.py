@@ -493,6 +493,70 @@ async def establish_claim_root(
     )
 
 
+async def establish_document_root(
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    holder_principal_id: str,
+    legal_name: str,
+    jurisdiction: str,
+    identifier: str,
+    claim_id: str,
+    now: datetime,
+) -> EstablishedRoot:
+    """CR-132: the organization a claim establishes when its company check was completed from a certificate the platform's OCR read (no register or GLEIF record).
+    It is rooted as institutional KYB (entity existence only) and says what it rests on in its source revision, so nothing downstream reads it as a register finding. Its assurance is
+    AR3 (owner decision, 20 Nov 2026): an AR2 root cannot carry the critical-risk grant that lets its owner invite an administrator. Named by the applicant's legal name, which the certificate agreed with."""
+    from zid_platform.modules.organization.domain.roots import (
+        Assurance,
+        Fact,
+        RootAssertion,
+        RootType,
+    )
+
+    org = str(uuid7())
+    await root_store.create_organization(
+        conn, organization_id=org, tenant_id=tenant_id, legal_name=legal_name, jurisdiction=jurisdiction, valid_from=now
+    )  # fmt: skip
+    root_id = str(uuid7())
+    fresh_until = now + timedelta(days=365)
+    await root_store.save_root(
+        conn,
+        tenant_id,
+        RootAssertion(
+            root_id=root_id,
+            organization_id=org,
+            holder_principal_id=holder_principal_id,
+            root_type=RootType.INSTITUTIONAL_KYB,
+            facts=frozenset({Fact.ENTITY_EXISTENCE}),
+            assurance=Assurance.AR3,
+            status=RootStatus.ACTIVE,
+            jurisdiction=jurisdiction,
+            valid_from=now,
+            valid_to=None,
+            fresh_until=fresh_until,
+            source_revision=f"certificate-ocr:{claim_id}"[:200],
+        ),
+    )
+    await emit(
+        conn,
+        name="authority_root.created",
+        tenant_id=tenant_id,
+        aggregate_type="authority_root",
+        aggregate_id=root_id,
+        aggregate_version=0,
+        data={
+            "root_assertion_id": root_id,
+            "organization_id": org,
+            "root_type": RootType.INSTITUTIONAL_KYB.value,
+            "assurance": Assurance.AR3.name,
+            "status": RootStatus.ACTIVE.value,
+            "fresh_until": fresh_until.isoformat(),
+        },
+    )
+    return EstablishedRoot(org, root_id, "certificate-ocr", "CERTIFICATE_OCR", identifier, legal_name, jurisdiction, fresh_until)
+
+
 async def establish_development_root(
     conn: AsyncConnection,
     tenant_id: str,
@@ -555,6 +619,7 @@ __all__ = [
     "NameMatcher",
     "establish_claim_root",
     "establish_development_root",
+    "establish_document_root",
     "establish_registry_root",
     "refresh_registry_roots",
 ]

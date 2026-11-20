@@ -15,6 +15,7 @@ name: zoiko-id-rehearsal
 x-backend: &backend
   image: zid/platform:prodlocal
   restart: unless-stopped
+  init: true # a tiny init as process 1 reaps finished child processes: without it a zombie worker could not be stopped and froze Docker (20 Nov 2026)
   env_file: [.env]
   environment: &backend-env
     ZID_ENVIRONMENT: production
@@ -69,7 +70,7 @@ x-backend: &backend
     ZID_IDV_FACE_ROUTE_ACK: accept-no-liveness-no-evaluation
   volumes:
     - ../../contracts:/app/contracts:ro
-    - ../../backend/config:/app/config:ro
+    - ${ZID_CONFIG_DIR:-../../backend/config}:/app/config:ro # a local-only copy of the config (ZID_CONFIG_DIR in .env) for the rehearsal; the repository's folder by default
     - keys:/zid:ro # master key, OpenBao token and SMTP password: root-only files on a real VM
     - ./idv-policies.local.yaml:/etc/zid/idv-policies.yaml:ro # the approved markets for identity checks: a test policy here, the owners' signed one on a real VM
 

@@ -171,3 +171,113 @@ def test_the_worker_does_nothing_without_the_switch_or_a_complete_identity(
                 assert not (await tenant_ports.load_tenant(c, tenant)).organization_id
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("reading", [True, False])
+def test_the_worker_creates_the_organization_for_a_claim_verified_from_a_certificate_reading(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch, reading: bool
+) -> None:
+    """CR-136: with the development shortcut OFF, a claim whose company check rests on a stored certificate reading and whose identity is complete is established by the worker, with
+    no page and no reviewer; without such a reading nothing is established."""
+
+    async def run() -> None:
+        tenant, owner = await sign_up(rt_url)
+        claim = str(uuid.uuid4())
+        patch(monkeypatch, owner, identity=True)
+
+        async def has_reading(*_a: Any, **_k: Any) -> bool:
+            return reading
+
+        async def open_claims(conn: Any) -> list[tuple[str, str]]:
+            return [(tenant, claim)]
+
+        monkeypatch.setattr(claims.proof_service, "has_consistent_reading", has_reading)
+        monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
+        claims.configure_dev_shortcut(False, "test")
+        async with engine(rt_url) as eng:
+            async with eng.begin() as c:
+                done = await org.auto_establish_pass(c, NOW, catalog=catalog())
+            assert done == ({tenant: 1} if reading else {})
+            async with tenant_transaction(eng, ctx(tenant)) as c:
+                after = await tenant_ports.load_tenant(c, tenant)
+                assert bool(after.organization_id) is reading
+                if reading:
+                    row = (
+                        await c.execute(
+                            text("SELECT source_revision FROM org.authority_root_assertion WHERE tenant_id = :t"),
+                            {"t": uuid.UUID(tenant)},
+                        )
+                    ).one()
+                    assert row.source_revision.startswith("certificate-ocr:")
+
+    asyncio.run(run())
+
+
+def test_a_connection_that_bypasses_row_level_security_never_activates_another_companys_owner(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CR-136 bug: the worker bypasses row-level security, and the OWNER lookup had no company filter, so it activated the first pending OWNER of ANY company. Two companies sign up, the older
+    one is not being established; the worker pass over the newer one must activate the newer one's owner only."""
+
+    async def run() -> None:
+        older, older_owner = await sign_up(rt_url)
+        newer, newer_owner = await sign_up(rt_url)
+        claim = str(uuid.uuid4())
+        patch(monkeypatch, newer_owner, identity=True)
+
+        async def open_claims(conn: Any) -> list[tuple[str, str]]:
+            return [(newer, claim)]
+
+        monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
+        claims.configure_dev_shortcut(True, "local")
+        async with engine(owner_url) as eng:  # the owner role bypasses row-level security, as the worker's does
+            async with eng.begin() as c:
+                assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {newer: 1}
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(newer)) as c:
+                assert any(a.role.value == "OWNER" and a.status.value == "ACTIVE" for a in await tenant_ports.live_roles(c, newer_owner))
+            async with tenant_transaction(eng, ctx(older)) as c:
+                still = [a for a in await tenant_ports.live_roles(c, older_owner) if a.role.value == "OWNER"]
+                assert still and all(a.status.value == "PENDING_VERIFICATION" for a in still), "another company's OWNER must stay pending"
+
+    asyncio.run(run())
+
+
+def test_an_owner_set_up_with_fewer_actions_is_topped_up_once_and_a_new_owner_gets_them_all(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CR-137: a company set up when the owner held only the standing list gets ONE more grant with the missing actions; repeating changes nothing."""
+    from zid_platform.modules.onboarding.domain.gates import TENANT_ADMIN_ACTIONS, owner_actions
+
+    async def held(tenant: str, owner: str) -> set[str]:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            rows = (await c.execute(text("SELECT actions FROM authz.authority_grant WHERE grantee_principal_id = :p AND status = 'ACTIVE'"), {"p": uuid.UUID(owner)})).all()
+        return set().union(*(set(r.actions or []) for r in rows))
+
+    async def run() -> None:
+        tenant, owner = await sign_up(rt_url)
+        claim = str(uuid.uuid4())
+        patch(monkeypatch, owner, identity=True)
+
+        async def open_claims(conn: Any) -> list[tuple[str, str]]:
+            return [(tenant, claim)]
+
+        monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
+        claims.configure_dev_shortcut(True, "local")
+        # set up the old way: only the standing administrator list
+        monkeypatch.setattr(org, "owner_actions", lambda cat: tuple(a for a in TENANT_ADMIN_ACTIONS if a in cat))
+        async with engine(owner_url) as eng:
+            async with eng.begin() as c:
+                assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {tenant: 1}
+        monkeypatch.undo()
+        wanted = set(owner_actions(catalog()))
+        assert await held(tenant, owner) < wanted
+        patch(monkeypatch, owner, identity=True)
+        async with engine(owner_url) as eng:
+            async with eng.begin() as c:
+                assert await org.owner_grant_top_up_pass(c, NOW, catalog=catalog()) == {tenant: 1}
+            async with eng.begin() as c:
+                assert await org.owner_grant_top_up_pass(c, NOW, catalog=catalog()) == {}, "repeating adds nothing once the owner holds them all"
+        assert await held(tenant, owner) == wanted
+
+    asyncio.run(run())

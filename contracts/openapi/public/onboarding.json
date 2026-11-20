@@ -1,6 +1,21 @@
 {
   "components": {
     "schemas": {
+      "ActivateNowIn": {
+        "additionalProperties": false,
+        "properties": {
+          "acknowledge": {
+            "pattern": "^activate-without-signoff$",
+            "title": "Acknowledge",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acknowledge"
+        ],
+        "title": "ActivateNowIn",
+        "type": "object"
+      },
       "AppealDecisionIn": {
         "additionalProperties": false,
         "properties": {
@@ -1619,6 +1634,62 @@
         ]
       }
     },
+    "/v1/kyb/market-policies/{policy_hash}:activate-now": {
+      "post": {
+        "description": "CR-133: put a stored pack in force without its sign-offs. The operator must send the acknowledgement; the activation note and the audit details name every control the pack lacked.",
+        "operationId": "activate_now_v1_kyb_market_policies__policy_hash__activate_now_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_hash",
+            "required": true,
+            "schema": {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "title": "Policy Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateNowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activate Now V1 Kyb Market Policies  Policy Hash  Activate Now Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activate Now",
+        "tags": [
+          "kyb-policy"
+        ]
+      }
+    },
     "/v1/kyb/market-policies/{policy_hash}:approve": {
       "post": {
         "operationId": "approve_v1_kyb_market_policies__policy_hash__approve_post",
@@ -3030,7 +3101,7 @@
     },
     "/v1/org-claims/{claim_id}/submit": {
       "post": {
-        "description": "The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing\nhere makes the company verified. The claim must say whom to screen and how the person acts for the company first. Once: a repeat is\nthe same answer and changes nothing.",
+        "description": "The applicant says the claim is complete. It is accepted for review (202), not decided: the checks are the same checks, and nothing\nhere makes the company verified. Once: a repeat is\nthe same answer and changes nothing.",
         "operationId": "submit_claim_v1_org_claims__claim_id__submit_post",
         "parameters": [
           {

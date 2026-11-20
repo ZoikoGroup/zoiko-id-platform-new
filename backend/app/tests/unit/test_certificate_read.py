@@ -53,3 +53,21 @@ def test_the_answer_carries_codes_and_a_date_never_the_text() -> None:
     r = c.compare(CERT, claimed_name="Tesco PLC", claimed_number="00445790")
     assert set(r) == {"verdict", "reading", "document", "number", "name", "incorporated_on"}
     assert "TESCO" not in str(r) and r["incorporated_on"] == "1947-11-27"
+
+
+DE = "Handelsregister B des Amtsgerichts Muenchen\nHRB 123456\nFirma: Beispiel Maschinenbau GmbH\nSitz der Gesellschaft: Muenchen\nAuszug aus dem Handelsregister vom 12.03.2024\n"
+FR = "EXTRAIT KBIS\nSociete par actions simplifiee\nDenomination sociale : EXEMPLE INDUSTRIES SAS\nNumero SIREN 552 100 554 RCS Paris\nDate d'immatriculation : 03/05/1982\n"
+IN = "CERTIFICATE OF INCORPORATION\nCorporate Identity Number U74999MH2019PTC123456\nthe company SAMPLE TECH PRIVATE LIMITED is incorporated under the Companies Act 2013\n"
+
+
+def test_a_certificate_from_any_country_is_consistent_when_it_carries_the_claimed_number_and_name() -> None:
+    """CR-135: no label has to be recognised; the claim says what to look for."""
+    assert c.compare(DE, claimed_name="Beispiel Maschinenbau GmbH", claimed_number="HRB 123456")["verdict"] == c.CONSISTENT
+    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100554")["verdict"] == c.CONSISTENT
+    assert c.compare(IN, claimed_name="Sample Tech Private Limited", claimed_number="U74999MH2019PTC123456")["verdict"] == c.CONSISTENT
+
+
+def test_another_number_or_another_name_is_never_found_in_free_text() -> None:
+    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100555")["verdict"] != c.CONSISTENT  # a different number
+    assert c.compare(FR, claimed_name="Totally Different Name SAS", claimed_number="552100554")["verdict"] != c.CONSISTENT  # a different name
+    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="5521")["verdict"] != c.CONSISTENT  # too short to look for

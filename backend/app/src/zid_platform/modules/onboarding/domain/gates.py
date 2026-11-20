@@ -8,7 +8,7 @@ blocks; FAIL and PENDING always do. Pure rules, no I/O.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -156,3 +156,11 @@ TENANT_ADMIN_ACTIONS = (
     "access_readiness.approve",
     "access_readiness.review",
 )
+
+# CR-137 (owner decision, 20 Nov 2026, widened the same day): a company's owner holds EVERY action in the catalogue by default, so the owner can also issue and delegate grants. It first left out what belongs to
+# Zoiko staff (platform assurance and policy-release actions, just-in-time operator elevation, the KYB reviewer actions); the owner then asked for those too, so nothing is left out.
+
+
+def owner_actions(catalog: Mapping[str, object]) -> tuple[str, ...]:
+    """The actions a company's owner is granted: every action in the catalogue, sorted so the same catalogue gives the same grant. The standing administrator list is a subset of it."""
+    return tuple(sorted(set(catalog)))

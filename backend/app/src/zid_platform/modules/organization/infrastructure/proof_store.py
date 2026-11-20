@@ -148,3 +148,36 @@ async def insert(
         )
     ).first()  # fmt: skip
     return row is not None
+
+
+async def record_reading(
+    conn: AsyncConnection, tenant_id: str, case_id: str, proof_id: str, *, reading: dict[str, Any], now: datetime
+) -> None:
+    """Keep what OCR read from a stored certificate (codes and the date, never the text). One row per proof; a repeat upload of the same document changes nothing."""
+    from datetime import date
+
+    on = reading.get("incorporated_on")
+    await conn.execute(
+        text(
+            "INSERT INTO org.kyb_document_reading (reading_id, tenant_id, case_id, proof_id, verdict, name_result, number_result, incorporation_date, read_at) "
+            "VALUES (:r, :t, :c, :p, :v, :n, :u, :d, :at) ON CONFLICT (proof_id) DO NOTHING"
+        ),
+        {
+            "r": uuid.uuid4(), "t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id), "p": uuid.UUID(proof_id),
+            "v": reading["verdict"], "n": reading.get("name", "NOT_READ"), "u": reading.get("number", "NOT_READ"),
+            "d": date.fromisoformat(on) if on else None, "at": now,
+        },
+    )  # fmt: skip
+
+
+async def has_consistent_reading(conn: AsyncConnection, tenant_id: str, case_id: str) -> bool:
+    return bool(
+        (
+            await conn.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM org.kyb_document_reading WHERE tenant_id = :t AND case_id = :c AND verdict = 'CONSISTENT')"
+                ),
+                {"t": uuid.UUID(tenant_id), "c": uuid.UUID(case_id)},
+            )
+        ).scalar_one()
+    )

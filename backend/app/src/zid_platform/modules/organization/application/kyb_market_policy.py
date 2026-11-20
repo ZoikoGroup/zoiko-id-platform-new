@@ -149,8 +149,14 @@ async def _switch(
 
 
 async def activate(
-    conn: AsyncConnection, policy_hash: str, *, by: str, tenant_id: str, now: datetime | None = None
-) -> None:
+    conn: AsyncConnection,
+    policy_hash: str,
+    *,
+    by: str,
+    tenant_id: str,
+    now: datetime | None = None,
+    without_signoff: bool = False,
+) -> tuple[str, ...]:
     """Publish a stored version. Refused with every missing control named (`POLICY_NOT_PUBLISHABLE`) unless the pack is complete, its checks pass, the four sign-offs are in from people other than the
     author and, for a high-impact change, two different approvers have signed."""
     now = now or datetime.now(UTC)
@@ -165,12 +171,15 @@ async def activate(
         approvals=await _approvals(conn, policy_hash),
         tests_passed=not mp.activation_problems(draft),
     )  # the pack's own checks are the completeness rules: a pack that fails them has not passed its tests
-    if problems:
+    if problems and not without_signoff:
         raise PolicyError("POLICY_NOT_PUBLISHABLE", tuple(problems))
     if current is not None and current.policy_hash == policy_hash:
         raise PolicyError("POLICY_ALREADY_ACTIVE", (policy_hash,))
-    await _switch(conn, key, policy_hash, kind="PUBLISH", by=by, note=None, now=now)
+    # CR-133 (owner decision): `without_signoff` puts the pack in force with the controls it lacked NAMED in the activation note, so the record says what was skipped. Nothing is signed or filled in on anyone's behalf.
+    note = ("ACTIVATED_WITHOUT_SIGNOFF: " + ", ".join(problems))[:1000] if problems else None
+    await _switch(conn, key, policy_hash, kind="PUBLISH", by=by, note=note, now=now)
     await _announce(conn, tenant_id, key, policy_hash, "PUBLISH", now)
+    return tuple(problems) if without_signoff else ()
 
 
 async def rollback(

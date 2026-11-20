@@ -220,12 +220,13 @@ def test_the_offers_are_public_over_http() -> None:
     assert body["offers"][1]["customer_promise"].startswith("Choose an available hosting region")
 
 
-def test_placing_a_tenant_asks_the_readiness_gate() -> None:
+def test_placing_a_tenant_no_longer_asks_the_readiness_gate() -> None:
+    """CR-139 (owner decision): choosing a region is a plain selection. The readiness rule stays in the domain (`require_cell_ready`) and in the offers page, but the save route does not ask it."""
     path = BACKEND / "app/src/zid_platform/modules/tenant/api/residency.py"
     text = path.read_text(encoding="utf-8")
     for node in ast.walk(ast.parse(text)):
         if isinstance(node, ast.AsyncFunctionDef) and node.name == "put_residency":
-            assert "require_cell_ready" in (ast.get_source_segment(text, node) or "")
+            assert "require_cell_ready" not in (ast.get_source_segment(text, node) or "")
             return
     raise AssertionError("put_residency not found")
 
@@ -277,10 +278,11 @@ def _placement_client(
         return await fn(None)
 
     async def approval(*args: object, **kwargs: object) -> None:
-        seen["approvals"] += 1
+        seen["approvals"] += 1  # the second administrator is no longer asked for (CR-139): this must stay 0
 
     async def set_residency(conn: object, tenant_id: str, **kwargs: Any) -> Residency:
         seen["placed"].append((kwargs["profile"], kwargs["home_cell_id"]))
+        seen.setdefault("filled", []).append((kwargs["jurisdiction_pack_id"], kwargs["approval_ref"]))
         return Residency(
             tenant_id,
             kwargs["profile"],
@@ -297,10 +299,11 @@ def _placement_client(
     monkeypatch.setattr(residency_api, "_session", session)
     monkeypatch.setattr(residency_api, "approved_by_second_admin", approval)
 
-    async def not_a_baseline(*args: object, **kwargs: object) -> bool:
-        return False  # these tests are about placement and readiness; the baseline rule has its own tests (test_residency_baseline_pg.py)
+    async def allowed(*args: object, **kwargs: object) -> None:
+        return None  # the owner's permission and the fresh passkey proof have their own tests
 
-    monkeypatch.setattr(residency_api, "_is_first_baseline", not_a_baseline)
+    monkeypatch.setattr(residency_api, "protected_action", allowed)
+    monkeypatch.setattr(residency_api, "require_step_up", allowed)
     monkeypatch.setattr(residency_api.service, "set_residency", set_residency)
     app = FastAPI()
 
@@ -317,36 +320,33 @@ def _placement_client(
 
 
 def _put(http: TestClient, profile: str, cell: str) -> Any:
-    return http.put(
-        "/v1/tenant/residency",
-        json={
-            "residency_profile_id": profile,
-            "home_cell_id": cell,
-            "jurisdiction_pack_id": "eu-gdpr",
-            "approval_ref": "legal-123",
-            "approval_request_id": str(uuid.uuid4()),
-        },
-    )
+    return http.put("/v1/tenant/residency", json={"residency_profile_id": profile, "home_cell_id": cell})
 
 
-def test_a_regional_placement_on_a_cell_that_has_not_passed_is_refused_over_http(
+def test_a_regional_placement_needs_no_readiness_gate_and_no_second_administrator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-139: the company is placed on the cell that serves it; a cell's readiness gate is not asked on this route (the domain rule `require_cell_ready` is unchanged)."""
+    http, seen = _placement_client(monkeypatch, "production")
+    for cell in ("uk-1", "eu-1", "us-1", "local-1"):
+        assert _put(http, "SRP-1", cell).status_code == 200, cell
+    assert [c for _, c in seen["placed"]] == ["uk-1", "eu-1", "us-1", "local-1"]
+    assert seen["approvals"] == 0
+
+
+def test_the_legal_pack_and_the_reference_are_filled_in_from_the_cell_when_not_typed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     http, seen = _placement_client(monkeypatch, "production")
     for cell in ("uk-1", "eu-1", "us-1"):
-        r = _put(http, "SRP-1", cell)
-        assert r.status_code == 409 and r.json()["error"]["code"] == "CELL_NOT_READY", cell
-    # nothing was placed and no approval was spent: the second administrator's approval stays usable
-    assert seen == {"approvals": 0, "placed": []}
-
-
-def test_the_same_placement_works_where_the_cell_is_a_sandbox_and_the_us_cell_still_waits(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    http, seen = _placement_client(monkeypatch, "local")
-    assert _put(http, "SRP-1", "uk-1").status_code == 200
-    assert _put(http, "SRP-1", "us-1").status_code == 409  # a target, not a deployed cell
-    assert seen["placed"] == [("SRP-1", "uk-1")]
+        assert _put(http, "SRP-1", cell).status_code == 200
+    assert [pack for pack, _ in seen["filled"]] == ["uk-gdpr", "eu-gdpr", "us-ca-ccpa"]
+    assert all(ref.startswith("self-service:SRP-1:") for _, ref in seen["filled"])
+    typed = http.put(
+        "/v1/tenant/residency",
+        json={"residency_profile_id": "SRP-1", "home_cell_id": "uk-1", "jurisdiction_pack_id": "eu-gdpr", "approval_ref": "legal-123"},
+    )
+    assert typed.status_code == 200 and seen["filled"][-1] == ("eu-gdpr", "legal-123")  # what is typed is kept
 
 
 def test_shared_global_placement_needs_no_ready_cell(monkeypatch: pytest.MonkeyPatch) -> None:

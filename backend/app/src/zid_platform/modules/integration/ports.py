@@ -53,6 +53,7 @@ __all__ = [
     "purge_connector_secrets",
     "record_interaction",
     "register_directory_connector",
+    "register_signin_connector",
     "route_login",
     "set_connector_secret",
 ]
@@ -112,6 +113,38 @@ async def register_directory_connector(
         freshness=timedelta(
             hours=26
         ),  # a daily-or-better sync that has missed a whole day is stale
+        owner=owner,
+        disable_behavior=DisableBehavior.FAIL_CLOSED_HIGH_RISK,
+        actor=actor,
+    )
+    return c.connector_id
+
+
+async def register_signin_connector(
+    conn: AsyncConnection, tenant_id: str, *, display_name: str, connection_id: str, owner: str, actor: str
+) -> str:
+    """An OIDC identity-provider connector that holds the company's client secret for one federation connection (CR-138): the secret is sealed here, write-only, under the cell's
+    data key, instead of being kept in an operator-run secret store. Returns the connector id; the federation connection refers to it as `connector:<id>`."""
+    from datetime import timedelta
+
+    from zid_platform.modules.integration.application.service import register_connector
+    from zid_platform.modules.integration.domain.model import (
+        AuthProfile,
+        Capability,
+        ConnectorType,
+        DisableBehavior,
+    )
+
+    c = await register_connector(
+        conn,
+        tenant_id,
+        connector_type=ConnectorType.OIDC_IDP,
+        display_name=display_name,
+        source_ref=f"federation_connection:{connection_id}",
+        capabilities=[Capability.AUTHN],
+        source_of_truth_scope=["identity.authentication"],
+        auth_profile=AuthProfile.SECRET,
+        freshness=timedelta(days=400),
         owner=owner,
         disable_behavior=DisableBehavior.FAIL_CLOSED_HIGH_RISK,
         actor=actor,

@@ -58,22 +58,24 @@ describe("EstablishCard and the development shortcut", () => {
     expect(shared.mutate).toHaveBeenCalledTimes(1); // never in a loop
   });
 
-  it("goes straight on to the organization setup when it is established", () => {
+  it("goes straight on to the company onboarding when it is established", () => {
     render(<EstablishCard claimId="c1" status={status({ development_shortcut: true })} />);
     shared.onSuccess?.();
-    expect(shared.replace).toHaveBeenCalledWith("/organizations/current/setup");
+    expect(shared.replace).toHaveBeenCalledWith("/admin/onboarding");
   });
 
-  it("without the shortcut it waits for the person to press the button", () => {
-    render(<EstablishCard claimId="c1" status={status({})} />);
-    expect(shared.mutate).not.toHaveBeenCalled();
-    expect(screen.getByText("Create the organization")).toBeTruthy();
+  it("a verified claim creates the organization by itself, once, with no warning and no click (CR-136)", () => {
+    const { rerender } = render(<EstablishCard claimId="c1" status={status({})} />);
+    expect(shared.mutate).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Development shortcut/)).toBeNull();
+    rerender(<EstablishCard claimId="c1" status={status({})} />);
+    expect(shared.mutate).toHaveBeenCalledTimes(1);
     shared.onSuccess?.();
-    expect(shared.replace).not.toHaveBeenCalled();
+    expect(shared.replace).toHaveBeenCalledWith("/admin/onboarding");
   });
 
   it("does nothing for a claim that is not verified, or one that is closed", () => {
-    render(<EstablishCard claimId="c1" status={status({ development_shortcut: true, outcome: "PROVISIONAL" })} />);
+    render(<EstablishCard claimId="c1" status={status({ outcome: "PROVISIONAL" })} />);
     expect(shared.mutate).not.toHaveBeenCalled();
     cleanup();
     render(<EstablishCard claimId="c1" status={status({ development_shortcut: true, closed_at: "2026-11-10T00:00:00Z" })} />);

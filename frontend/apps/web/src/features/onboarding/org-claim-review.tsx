@@ -14,28 +14,26 @@ import { APPEAL_LABELS, MAX_STATEMENT, appealKinds, appealMessage, statementProb
  * but a VERIFIED outcome offers this, and the server refuses it otherwise. */
 export function EstablishCard({ claimId, status }: { claimId: string; status: OrgClaimStatus }) {
   const router = useRouter();
-  // Local and test only: the server says the claim reads as verified from the claimant's identity check alone. Then there is nothing to wait for or to
-  // choose, so the organization is created at once and the person goes straight on to its setup.
+  // CR-136 (owner decision): a VERIFIED claim needs no click and no one at Zoiko iD. The organization is created at once and the person goes straight on to the company
+  // onboarding. The development shortcut (local and test only) works the same way and is only labelled, below.
   const shortcut = status.development_shortcut === true;
   const establish = useCellMutation((api) => api.orgClaims.establish(claimId), {
     invalidate: [["org-claims"], ["tenant"], ["onboarding"]],
     success: "Your organization is established.",
-    onSuccess: () => {
-      if (shortcut) router.replace("/organizations/current/setup");
-    },
+    onSuccess: () => router.replace("/admin/onboarding"),
   });
   const started = useRef(false);
   useEffect(() => {
-    if (shortcut && status.outcome === "VERIFIED" && !status.closed_at && !started.current) {
+    if (status.outcome === "VERIFIED" && !status.closed_at && !started.current) {
       started.current = true; // once: a failure is shown with the button to try again, never retried in a loop
       establish.mutate(undefined as never);
     }
-  }, [shortcut, status.outcome, status.closed_at, establish]);
+  }, [status.outcome, status.closed_at, establish]);
   if (status.outcome !== "VERIFIED") return null;
   return (
     <Card
-      title={shortcut ? "Setting up your organization" : "Your organization is verified"}
-      description={shortcut ? "Your identity check is complete." : "All four checks are complete. Create the organization from the official register record."}
+      title="Setting up your organization"
+      description="Your company check and your identity check are complete. Creating your organization and opening onboarding."
     >
       {shortcut ? (
         <Banner tone="warn" title="Development shortcut">

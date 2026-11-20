@@ -118,3 +118,7 @@ def validate_id_token(
     return UpstreamIdentity(
         c.issuer, sub, acr if isinstance(acr, str) else None, tuple(amr), _ts(claims, "auth_time")
     )
+
+
+# CR-138: a client secret the platform sealed itself is referred to as `connector:<connector id>`; any other value is the name of a secret in the operator's secret store.
+CONNECTOR_REF = "connector:"

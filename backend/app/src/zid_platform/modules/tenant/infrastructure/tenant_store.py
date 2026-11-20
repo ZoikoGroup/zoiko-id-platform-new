@@ -414,7 +414,9 @@ async def insert_role(
 async def roles(
     conn: AsyncConnection, *, principal_id: str | None = None, live_only: bool = True
 ) -> list[RoleAssignment]:
-    where = ["TRUE"]
+    # The company in scope is named explicitly (the same test as the row-level security policy), so a connection that bypasses row-level security (the worker) can never read or change another
+    # company's roles: CR-136 found the worker activating the registration tenant's OWNER instead of the claimant's.
+    where = ["tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"]
     params: dict[str, Any] = {}
     if principal_id:
         where.append("principal_id = :p")
@@ -447,7 +449,7 @@ async def active_owner_count(conn: AsyncConnection, *, lock: bool = False) -> in
             await conn.execute(
                 text(
                     "SELECT count(*) FROM platform.tenant_role_assignment "
-                    "WHERE role = 'OWNER' AND status = 'ACTIVE'"
+                    "WHERE role = 'OWNER' AND status = 'ACTIVE' AND tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
                 )
             )
         ).scalar_one()

@@ -211,6 +211,21 @@
             ],
             "title": "Client Id"
           },
+          "client_secret": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "client_secret_ref": {
             "anyOf": [
               {
@@ -418,6 +433,21 @@
               }
             ],
             "title": "Client Auth"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "format": "password",
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
           },
           "client_secret_ref": {
             "anyOf": [
