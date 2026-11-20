@@ -180,6 +180,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
   const [clientId, setClientId] = useState("");
   const [clientAuth, setClientAuth] = useState<ClientAuth>("private_key_jwt");
   const [secretRef, setSecretRef] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [authzEndpoint, setAuthzEndpoint] = useState("");
   const [tokenEndpoint, setTokenEndpoint] = useState("");
   const [jwks, setJwks] = useState("");
@@ -225,7 +226,12 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
         ...base,
         client_id: required(clientId, "Client ID"),
         client_auth: clientAuth,
-        client_secret_ref: clientAuth === "client_secret_basic" ? required(secretRef, "Client secret reference") : null,
+        // CR-138: the person enters the secret once; the platform seals it and keeps only a reference. A name in the operator's own secret store is still accepted.
+        ...(clientAuth === "client_secret_basic"
+          ? optional(clientSecret)
+            ? { client_secret: clientSecret.trim() }
+            : { client_secret_ref: required(secretRef, "Client secret (or the name of a stored secret)") }
+          : {}),
         scopes: listInput(scopes),
       };
       if (oidcMode === "federation") {
@@ -497,20 +503,32 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
                 onChange={(v) => setClientAuth(v as ClientAuth)}
                 options={[
                   { id: "private_key_jwt", label: "A signed key (recommended)", description: "No password is stored anywhere." },
-                  { id: "client_secret_basic", label: "A shared secret", description: "The provider gave you a client secret, kept in the secret store." },
+                  { id: "client_secret_basic", label: "A shared secret", description: "The provider gave you a client secret. You enter it here once; it is sealed and never shown again." },
                 ]}
               />
               <TextField label="Scopes" mono value={scopes} onChange={setScopes} description="Comma separated; openid is always added." />
               {clientAuth === "client_secret_basic" ? (
-                <TextField
-                  label="Name of the stored secret"
-                  isRequired
-                  mono
-                  value={secretRef}
-                  onChange={setSecretRef}
-                  description="Name of the secret in the platform secret store, never the secret itself."
-                  className="sm:col-span-2"
-                />
+                <>
+                  <TextField
+                    label="Client secret"
+                    type="password"
+                    mono
+                    autoComplete="off"
+                    value={clientSecret}
+                    onChange={setClientSecret}
+                    description="From your provider's application settings. It is sealed as soon as you connect and never shown again. You can replace it later."
+                    className="sm:col-span-2"
+                  />
+                  <TextField
+                    label="Or the name of a stored secret (optional)"
+                    mono
+                    value={secretRef}
+                    onChange={setSecretRef}
+                    isDisabled={Boolean(clientSecret.trim())}
+                    description="Only if your operator keeps the secret in their own secret store. Leave empty when you type the secret above."
+                    className="sm:col-span-2"
+                  />
+                </>
               ) : null}
               <RadioCards
                 label="How should we learn the provider's details?"

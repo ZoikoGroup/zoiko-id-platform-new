@@ -47,6 +47,7 @@ from zid_platform.modules.commercial.ports import key_auth, record_active_human,
 from zid_platform.modules.configuration.ports import session_expiry
 from zid_platform.modules.federation.application.trust_chain import Anchor, resolve
 from zid_platform.modules.federation.domain.connection import (
+    CONNECTOR_REF,
     LOGIN_TTL,
     Connection,
     FederationError,
@@ -214,7 +215,12 @@ class LoggedIn:
 
 
 async def _exchange(
-    settings: FederationSettings, c: Connection, login: store.Login, code: str, now: datetime
+    settings: FederationSettings,
+    c: Connection,
+    login: store.Login,
+    code: str,
+    now: datetime,
+    client_secret: str | None = None,
 ) -> dict[str, Any]:
     form = {
         "grant_type": "authorization_code",
@@ -239,7 +245,7 @@ async def _exchange(
             typ="JWT",
         )
     else:  # client_secret_basic, by documented exception: the secret comes from the broker
-        secret = settings.secrets(c.client_secret_ref or "")
+        secret = client_secret if client_secret is not None else settings.secrets(c.client_secret_ref or "")
         raw = f"{c.client_id}:{secret}".encode()
         headers["Authorization"] = "Basic " + base64.b64encode(raw).decode()
     try:
@@ -297,7 +303,15 @@ async def complete(
     code = params.get("code")
     if not code:
         raise FederationError("FEDERATION_CODE_MISSING")
-    tokens = await _exchange(settings, c, login, code, now)
+    sealed: str | None = None
+    if c.client_auth == "client_secret_basic" and (c.client_secret_ref or "").startswith(CONNECTOR_REF):
+        # CR-138: the secret the company entered in the console, sealed by the platform (write-only), not one in the operator's secret store
+        from zid_platform.modules.integration.ports import connector_secret  # at call time: integration imports federation
+
+        sealed = await connector_secret(conn, c.tenant_id, (c.client_secret_ref or "")[len(CONNECTOR_REF) :], now)
+        if sealed is None:
+            raise FederationError("FEDERATION_TOKEN_EXCHANGE_FAILED", "NO_SECRET")
+    tokens = await _exchange(settings, c, login, code, now, client_secret=sealed)
     id_token = tokens.get("id_token")
     if not isinstance(id_token, str):
         raise FederationError("ID_TOKEN_MISSING")

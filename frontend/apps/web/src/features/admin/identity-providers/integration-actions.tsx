@@ -125,6 +125,7 @@ export function RotateDialog({ integration, onClose }: { integration: Federation
   const [certificates, setCertificates] = useState("");
   const [clientAuth, setClientAuth] = useState<ClientAuth | null>(null);
   const [secretRef, setSecretRef] = useState("");
+  const [newSecret, setNewSecret] = useState("");
   const [decryptionKeyRef, setDecryptionKeyRef] = useState("");
   const [approvalId, setApprovalId] = useState("");
   const [localError, setLocalError] = useState<unknown>(null);
@@ -152,7 +153,8 @@ export function RotateDialog({ integration, onClose }: { integration: Federation
         body.jwks = parsed.keys;
       }
       if (clientAuth) body.client_auth = clientAuth;
-      if (clientAuth === "client_secret_basic") body.client_secret_ref = required(secretRef, "Client secret reference");
+      if (optional(newSecret)) body.client_secret = newSecret.trim(); // CR-138: sealed by the platform, replaces the current one at once
+      else if (clientAuth === "client_secret_basic") body.client_secret_ref = required(secretRef, "Client secret (or the name of a stored secret)");
       else if (optional(secretRef)) body.client_secret_ref = secretRef.trim();
     }
     return body;
@@ -235,12 +237,21 @@ export function RotateDialog({ integration, onClose }: { integration: Federation
               ]}
             />
             <TextField
-              label="Client secret reference"
-              isRequired={clientAuth === "client_secret_basic"}
+              label="New client secret"
+              type="password"
+              mono
+              autoComplete="off"
+              value={newSecret}
+              onChange={setNewSecret}
+              description="Type the provider's client secret to replace the current one. It is sealed and never shown again. Leave empty to keep the current one."
+            />
+            <TextField
+              label="Or the name of a stored secret"
               mono
               value={secretRef}
               onChange={setSecretRef}
-              description="Secret store name. Leave empty to keep the current one."
+              isDisabled={Boolean(newSecret.trim())}
+              description="Only if your operator keeps the secret in their own store."
             />
           </div>
         </>

@@ -31,7 +31,7 @@ from urllib.parse import parse_qsl, urlsplit
 from cryptography import x509
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from sqlalchemy.exc import DBAPIError
 from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
@@ -57,7 +57,7 @@ from zid_platform.modules.federation.application.saml_login import (
     connection_acs_url,
 )
 from zid_platform.modules.federation.application.trust_chain import entity_configuration
-from zid_platform.modules.federation.domain.connection import Connection, FederationError
+from zid_platform.modules.federation.domain.connection import CONNECTOR_REF, Connection, FederationError
 from zid_platform.modules.federation.infrastructure import connection_store as store
 from zid_platform.modules.federation.ports import count_active_connections
 from zid_platform.modules.session.ports import (
@@ -517,6 +517,8 @@ class IntegrationIn(BaseModel):
     client_id: str | None = None
     client_auth: Literal["private_key_jwt", "client_secret_basic"] | None = None
     client_secret_ref: str | None = Field(default=None, max_length=128)
+    # CR-138: write-only. The platform seals it itself and keeps only a reference, so a company needs no access to the operator's secret store.
+    client_secret: SecretStr | None = Field(default=None, min_length=1, max_length=512)
     authorization_endpoint: str | None = None
     token_endpoint: str | None = None
     jwks: dict[str, Any] | None = None
@@ -580,6 +582,7 @@ class RotateIn(BaseModel):
     idp_certificates: list[str] | None = None
     client_auth: Literal["private_key_jwt", "client_secret_basic"] | None = None
     client_secret_ref: str | None = Field(default=None, max_length=128)
+    client_secret: SecretStr | None = Field(default=None, min_length=1, max_length=512)  # CR-138: write-only, sealed by the platform
     sp_decryption_key_ref: str | None = Field(default=None, max_length=128)
     approval_request_id: str | None = None
 
@@ -757,8 +760,10 @@ def _profile(b: IntegrationIn) -> None:
             raise http_error("VALIDATION_FAILED", "an OIDC issuer is an https:// URL")
         if not b.client_id or not b.client_auth:
             raise http_error("VALIDATION_FAILED", "client_id and client_auth are required for OIDC")
-        if b.client_auth == "client_secret_basic" and not b.client_secret_ref:
-            raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret_ref")
+        if b.client_auth == "client_secret_basic" and not (b.client_secret_ref or b.client_secret):
+            raise http_error("VALIDATION_FAILED", "client_secret_basic needs the client secret (or the name of a stored one)")
+        if b.client_secret is not None and (b.client_auth != "client_secret_basic" or b.client_secret_ref):
+            raise http_error("VALIDATION_FAILED", "give the client secret only with client_secret_basic, and not together with a stored secret's name")
         if bool(b.trust_anchor_id) != bool(b.federation_entity_id):
             raise http_error(
                 "VALIDATION_FAILED", "trust_anchor_id and federation_entity_id go together"
@@ -780,6 +785,7 @@ def _profile(b: IntegrationIn) -> None:
         b.client_id
         or b.client_auth
         or b.client_secret_ref
+        or b.client_secret is not None
         or b.authorization_endpoint
         or b.token_endpoint
         or b.jwks
@@ -924,6 +930,15 @@ async def create_integration(
             resource=f"federation_connection:{cid}",
             change={"operation": "CREATE", "issuer": body.issuer},
         )
+        if body.client_secret is not None:  # CR-138: sealed here, write-only; the connection keeps `connector:<id>` and never the secret
+            from zid_platform.modules.integration.ports import register_signin_connector, set_connector_secret  # at call time: integration imports federation
+
+            who = caller.ctx.principal_id or ""
+            connector_id = await register_signin_connector(
+                conn, caller.ctx.tenant_id or "", display_name=body.display_name, connection_id=cid, owner=who, actor=who
+            )
+            await set_connector_secret(conn, caller.ctx.tenant_id or "", connector_id, secret=body.client_secret.get_secret_value(), actor=who)
+            c = dc_replace(c, client_secret_ref=f"connector:{connector_id}")
         if await store.by_issuer(conn, body.issuer) is not None:
             raise http_error(
                 "FEDERATION_ISSUER_EXISTS", "a provider with this issuer already exists"
@@ -1059,9 +1074,28 @@ async def rotate(
             if body.jwks is not None:
                 _keys(body.jwks, "jwks must pin at least one key")
             if (body.client_auth or old.client_auth) == "client_secret_basic" and not (
-                body.client_secret_ref or old.client_secret_ref
+                body.client_secret_ref or old.client_secret_ref or body.client_secret
             ):
-                raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret_ref")
+                raise http_error("VALIDATION_FAILED", "client_secret_basic needs the client secret (or the name of a stored one)")
+            if body.client_secret is not None and (
+                (body.client_auth or old.client_auth) != "client_secret_basic" or body.client_secret_ref
+            ):
+                raise http_error("VALIDATION_FAILED", "give the client secret only with client_secret_basic, and not together with a stored secret's name")
+        sealed_ref = None
+        if body.client_secret is not None:  # CR-138: a new secret replaces the sealed one at once, or starts a sealed one
+            from zid_platform.modules.integration.ports import register_signin_connector, set_connector_secret  # at call time: integration imports federation
+
+            who = caller.ctx.principal_id or ""
+            tenant = caller.ctx.tenant_id or ""
+            held = old.client_secret_ref or ""
+            if held.startswith(CONNECTOR_REF):
+                connector_id = held[len(CONNECTOR_REF) :]
+            else:
+                connector_id = await register_signin_connector(
+                    conn, tenant, display_name=old.display_name, connection_id=str(connection_id), owner=who, actor=who
+                )
+            await set_connector_secret(conn, tenant, connector_id, secret=body.client_secret.get_secret_value(), actor=who)
+            sealed_ref = f"{CONNECTOR_REF}{connector_id}"
         new = dc_replace(
             old,
             config_revision=old.config_revision + 1,
@@ -1071,7 +1105,7 @@ async def rotate(
             if body.idp_certificates is not None
             else old.idp_certificates,
             client_auth=body.client_auth or old.client_auth,
-            client_secret_ref=body.client_secret_ref or old.client_secret_ref,
+            client_secret_ref=sealed_ref or body.client_secret_ref or old.client_secret_ref,
             sp_decryption_key_ref=body.sp_decryption_key_ref or old.sp_decryption_key_ref,
         )
         try:
