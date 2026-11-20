@@ -273,7 +273,7 @@ async def _seed_and_advance(
             delegation_allowed=True,
             max_delegation_depth=1,
         ),
-        risk_level=risk_level,  # a register root carries risk 3; a certificate-reading root (CR-132) only 2, so its owner cannot act at risk 3 until a higher root exists
+        risk_level=risk_level,
         now=now,
     )
     await activate_bootstrap_owner(conn, tenant_id, now=now)
@@ -382,7 +382,7 @@ async def establish_from_verified_claim(
         )  # fmt: skip
         await set_fields(conn, tenant_id, display_name=name)
         return await _seed_and_advance(
-            conn, tenant_id, principal_id=case.requested_by, root=root, catalog=catalog, detail=f"claim-document:{claim_id}", now=now, risk_level=2
+            conn, tenant_id, principal_id=case.requested_by, root=root, catalog=catalog, detail=f"claim-document:{claim_id}", now=now
         )
     if facts is None:
         raise OnboardingError(

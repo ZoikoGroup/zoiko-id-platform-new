@@ -189,10 +189,10 @@ def test_nothing_is_established_unless_every_check_is_complete_and_the_source_an
     asyncio.run(run())
 
 
-def test_a_claim_whose_company_check_came_from_a_certificate_reading_establishes_a_lower_assurance_root(
+def test_a_claim_whose_company_check_came_from_a_certificate_reading_establishes_a_document_root(
     rt_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CR-132: no register record exists, so the organization is named by the applicant's legal name and rooted at AR2 (institutional KYB), never as a register root."""
+    """CR-132: no register record exists, so the organization is named by the applicant's legal name and rooted as institutional KYB at AR3 (so its owner can delegate), never as a register root."""
 
     async def run() -> None:
         tenant, owner = await sign_up(rt_url)
@@ -218,6 +218,6 @@ def test_a_claim_whose_company_check_came_from_a_certificate_reading_establishes
                         text("SELECT root_type::text AS root_type, assurance_class::text AS assurance FROM org.authority_root_assertion WHERE tenant_id = :t"), {"t": uuid.UUID(tenant)}
                     )
                 ).first()
-                assert row is not None and row.root_type == "INSTITUTIONAL_KYB" and row.assurance != "AR3"
+                assert row is not None and row.root_type == "INSTITUTIONAL_KYB" and row.assurance == "AR3"
 
     asyncio.run(run())

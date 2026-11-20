@@ -505,8 +505,8 @@ async def establish_document_root(
     now: datetime,
 ) -> EstablishedRoot:
     """CR-132: the organization a claim establishes when its company check was completed from a certificate the platform's OCR read (no register or GLEIF record).
-    It is rooted at a LOWER assurance than a register root (AR2, institutional KYB, entity existence only) and says what it rests on, so nothing downstream reads
-    it as a register finding. Named by the applicant's legal name, which the certificate agreed with."""
+    It is rooted as institutional KYB (entity existence only) and says what it rests on in its source revision, so nothing downstream reads it as a register finding. Its assurance is
+    AR3 (owner decision, 20 Nov 2026): an AR2 root cannot carry the critical-risk grant that lets its owner invite an administrator. Named by the applicant's legal name, which the certificate agreed with."""
     from zid_platform.modules.organization.domain.roots import (
         Assurance,
         Fact,
@@ -529,7 +529,7 @@ async def establish_document_root(
             holder_principal_id=holder_principal_id,
             root_type=RootType.INSTITUTIONAL_KYB,
             facts=frozenset({Fact.ENTITY_EXISTENCE}),
-            assurance=Assurance.AR2,
+            assurance=Assurance.AR3,
             status=RootStatus.ACTIVE,
             jurisdiction=jurisdiction,
             valid_from=now,
@@ -549,7 +549,7 @@ async def establish_document_root(
             "root_assertion_id": root_id,
             "organization_id": org,
             "root_type": RootType.INSTITUTIONAL_KYB.value,
-            "assurance": Assurance.AR2.name,
+            "assurance": Assurance.AR3.name,
             "status": RootStatus.ACTIVE.value,
             "fresh_until": fresh_until.isoformat(),
         },
