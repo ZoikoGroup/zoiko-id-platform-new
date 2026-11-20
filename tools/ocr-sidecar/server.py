@@ -29,7 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from PIL import Image, ImageChops, ImageFilter, ImageOps, ImageStat
 
-MAX_BODY = 8 * 1024 * 1024
+MAX_BODY = 14 * 1024 * 1024  # a 10 MB upload (the proof size cap) as base64 inside JSON is about 13.4 MB
 MAX_PIXELS = 25_000_000
 MAX_REGIONS = 50
 MAX_SIDE = 3200  # a re-encoded photograph's longest side, in pixels
