@@ -308,7 +308,8 @@ async def complete(
         # CR-138: the secret the company entered in the console, sealed by the platform (write-only), not one in the operator's secret store
         from zid_platform.modules.integration.ports import connector_secret  # at call time: integration imports federation
 
-        sealed = await connector_secret(conn, c.tenant_id, (c.client_secret_ref or "")[len(CONNECTOR_REF) :], now)
+        async with tenant_transaction(engine, ctx) as secret_conn:  # its own short transaction: the first one is closed before the provider is called
+            sealed = await connector_secret(secret_conn, c.tenant_id, (c.client_secret_ref or "")[len(CONNECTOR_REF) :], now)
         if sealed is None:
             raise FederationError("FEDERATION_TOKEN_EXCHANGE_FAILED", "NO_SECRET")
     tokens = await _exchange(settings, c, login, code, now, client_secret=sealed)

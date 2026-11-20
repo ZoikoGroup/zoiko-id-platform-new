@@ -761,7 +761,7 @@ def _profile(b: IntegrationIn) -> None:
         if not b.client_id or not b.client_auth:
             raise http_error("VALIDATION_FAILED", "client_id and client_auth are required for OIDC")
         if b.client_auth == "client_secret_basic" and not (b.client_secret_ref or b.client_secret):
-            raise http_error("VALIDATION_FAILED", "client_secret_basic needs the client secret (or the name of a stored one)")
+            raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret (the secret itself) or client_secret_ref (the name of a stored one)")
         if b.client_secret is not None and (b.client_auth != "client_secret_basic" or b.client_secret_ref):
             raise http_error("VALIDATION_FAILED", "give the client secret only with client_secret_basic, and not together with a stored secret's name")
         if bool(b.trust_anchor_id) != bool(b.federation_entity_id):
@@ -1076,7 +1076,7 @@ async def rotate(
             if (body.client_auth or old.client_auth) == "client_secret_basic" and not (
                 body.client_secret_ref or old.client_secret_ref or body.client_secret
             ):
-                raise http_error("VALIDATION_FAILED", "client_secret_basic needs the client secret (or the name of a stored one)")
+                raise http_error("VALIDATION_FAILED", "client_secret_basic needs client_secret (the secret itself) or client_secret_ref (the name of a stored one)")
             if body.client_secret is not None and (
                 (body.client_auth or old.client_auth) != "client_secret_basic" or body.client_secret_ref
             ):
