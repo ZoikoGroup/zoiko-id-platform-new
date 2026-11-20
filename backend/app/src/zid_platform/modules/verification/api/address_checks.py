@@ -3,8 +3,8 @@
     PUT  /v1/verification-cases/{id}/address                                   the address as typed (a new revision)        verification:execute
     POST /v1/verification-cases/{id}/address-documents                         a proof of address document, assessed        verification:execute
     GET  /v1/verification-cases/{id}/address-documents                         the documents and where their review is       verification:read
-    POST /v1/verification-cases/{id}/address-documents/{doc}:review            the maker's finding                            verification:review
-    POST /v1/verification-cases/{id}/address-documents/{doc}:check             a second, different person                     verification:review
+    POST /v1/verification-cases/{id}/address-documents/{doc}:review            the maker's finding                            verification:execute
+    POST /v1/verification-cases/{id}/address-documents/{doc}:check             a second, different person                     verification:execute
     POST /v1/verification-cases/{id}/postal-challenges                         post a one-time code to the address (A08)      verification:execute
     POST /v1/verification-cases/{id}/postal-challenges/{cid}:confirm           the code from the letter                       verification:execute
 
@@ -145,7 +145,7 @@ async def documents(case_id: Id, request: Request, caller: CallerDep) -> dict[st
 async def review(
     case_id: Id, document_id: Id, body: AddressReviewIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
-    _scope(caller, "verification:review")
+    _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
             return await svc.review(
@@ -160,7 +160,7 @@ async def review(
 async def check(
     case_id: Id, document_id: Id, body: AddressCheckIn, request: Request, caller: CallerDep
 ) -> dict[str, Any]:
-    _scope(caller, "verification:review")
+    _scope(caller, "verification:execute")
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
             return await svc.check(

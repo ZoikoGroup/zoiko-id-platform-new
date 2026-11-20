@@ -17,13 +17,14 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # privacy_0011 already adds both columns on the merged history (both branches added them), so only add them when missing.
     _run("""
         ALTER TABLE privacy.erasure_task
             ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
             ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz;
-    """)  # privacy_0011 (CR-113) adds the same two columns; on a fresh database they already exist, so this step must not add them again
+    """)
 
 
 def downgrade() -> None:
-    # The columns belong to privacy_0011 on a fresh database (and its downgrade drops them); dropping them here would make that step fail.
+    # The columns belong to privacy_0011, which drops them on its own downgrade.
     pass

@@ -9,7 +9,7 @@ Status: open (Step 4 of the WF-05 build). No address adapter ships, so no case i
 - **Proof of address** (`POST .../address-documents`, `verify.check_address_document`): the evidence upload reference, the document type (refused
   unless the market's policy accepts it, A06), what was read from it (kept apart from the file), and the rules' assessment (`address.assess_proof`).
   The applicant's name is compared and never stored.
-- **Review** (`POST .../address-documents/{doc}:review` and `:check`, scope `verification:review`, `verify.check_address_review`, domain
+- **Review** (`POST .../address-documents/{doc}:review` and `:check`, scope `verification:execute`, `verify.check_address_review`, domain
   `address_review.py`): the maker's CONFIRMED records `ADDRESS_DOCUMENT_REVIEWED` PASS and waits for a checker; a different person's agreement records
   `ADDRESS_ASSOCIATION_CONFIRMED` PASS (§02 "acceptable document evidence"; `ADDRESS_DOCUMENT` can now produce it, only through this path). A
   document the rules found DOES_NOT_SUPPORT, or a market with no policy, cannot be confirmed. Findings and reasons never say fraud. The table refuses a
@@ -27,7 +27,7 @@ Status: open (Step 4 of the WF-05 build). No address adapter ships, so no case i
 
 ## Not yet
 - The actual providers (libpostal, OS UPRN, OSM, a licensed source) and a mail house: licences and contracts (DEC-04, DEC-05).
-- The internal operator workbench (A10 with JIT access): the review runs on the tenant plane with `verification:review` until it exists.
+- The internal operator workbench (A10 with JIT access): the review runs on the tenant plane with `verification:execute` until it exists.
 - Applicant and reviewer screens (A05-A07, A10).
 
 ## Evidence

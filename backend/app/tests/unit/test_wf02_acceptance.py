@@ -213,7 +213,12 @@ def facts(address: str | None) -> CompanyFacts:
 
 
 def test_t29_the_decision_is_the_same_whatever_address_the_register_holds() -> None:
-    from zid_platform.modules.organization.domain.kyb import Policy, SourceOutcome, SourceState, reconcile
+    from zid_platform.modules.organization.domain.kyb import (
+        Policy,
+        SourceOutcome,
+        SourceState,
+        reconcile,
+    )
 
     applicant = Applicant("GB", "00123456", "Acme Widgets Limited")
 

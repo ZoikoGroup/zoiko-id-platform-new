@@ -9,7 +9,7 @@ Status: open (Step 7 of the WF-05 build).
 - **Only narrows**: a document type must be one the platform accepts for that market, and its age can only be shorter. Requiring a check never
   switches it on: activation stays with the method lifecycle (A11 "request, not unilaterally activate").
 - **Effect**: a new case asks for the approved policy's required checks; a proof of address document is limited to the policy's types and ages.
-- **API**: `GET/POST /v1/check-policies`, `POST .../{id}:submit` (verification:execute), `:approve` and `:reject` (verification:review).
+- **API**: `GET/POST /v1/check-policies`, `POST .../{id}:submit` (verification:execute), `:approve` and `:reject` (verification:execute).
 - **Web**: a "Verification policy" card on Admin -> Verification checks.
 
 ## Not yet

@@ -5,11 +5,17 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from conftest import ctx  # noqa: F401
 from onboarding_fixture import onboard
-from test_idv_media_pg import READING, app_for, entry, photo, rows, upload  # noqa: F401
-from test_idv_media_pg import fake_imaging  # noqa: F401  (autouse fixture)
+from test_idv_media_pg import (  # noqa: F401
+    READING,
+    app_for,
+    entry,
+    fake_imaging,
+    photo,
+    rows,
+    upload,
+)
 
 SCOPE = "verification:execute verification:read"
 GOOD: dict[str, Any] = {"surname": "Mueller", "given_names": "Erika", "document_number": "C01X00T47", "birth_date": "1985-03-12"}

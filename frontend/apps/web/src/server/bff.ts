@@ -114,6 +114,12 @@ const API_PATH_PREFIXES = [
   // The team page's role gallery (the published matrix) and the verification level card (ZID-UX-COM-010 C00, ZID-EDR-006).
   "/v1/roles/",
   "/v1/verification/",
+  // WF-05 verification checks (CR-112 to CR-118): cases, contacts and codes, address and documents, method eligibility, the company policy. The cell
+  // decides each call by scope and role.
+  "/v1/verification-cases",
+  "/v1/contacts/",
+  "/v1/check-methods/",
+  "/v1/check-policies",
   // Billing (ZID-COM-001): the tenant's own plan, ledger, invoices and budgets. The public pricing page reads the
   // catalogue server-side without a session; the console's Subscription tab reads the same read-only catalogue here
   // so a company can see the plans on offer and ask for one.
