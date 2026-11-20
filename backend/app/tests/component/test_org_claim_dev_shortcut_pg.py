@@ -211,3 +211,33 @@ def test_the_worker_creates_the_organization_for_a_claim_verified_from_a_certifi
                     assert row.source_revision.startswith("certificate-ocr:")
 
     asyncio.run(run())
+
+
+def test_a_connection_that_bypasses_row_level_security_never_activates_another_companys_owner(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CR-136 bug: the worker bypasses row-level security, and the OWNER lookup had no company filter, so it activated the first pending OWNER of ANY company. Two companies sign up, the older
+    one is not being established; the worker pass over the newer one must activate the newer one's owner only."""
+
+    async def run() -> None:
+        older, older_owner = await sign_up(rt_url)
+        newer, newer_owner = await sign_up(rt_url)
+        claim = str(uuid.uuid4())
+        patch(monkeypatch, newer_owner, identity=True)
+
+        async def open_claims(conn: Any) -> list[tuple[str, str]]:
+            return [(newer, claim)]
+
+        monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
+        claims.configure_dev_shortcut(True, "local")
+        async with engine(owner_url) as eng:  # the owner role bypasses row-level security, as the worker's does
+            async with eng.begin() as c:
+                assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {newer: 1}
+        async with engine(rt_url) as eng:
+            async with tenant_transaction(eng, ctx(newer)) as c:
+                assert any(a.role.value == "OWNER" and a.status.value == "ACTIVE" for a in await tenant_ports.live_roles(c, newer_owner))
+            async with tenant_transaction(eng, ctx(older)) as c:
+                still = [a for a in await tenant_ports.live_roles(c, older_owner) if a.role.value == "OWNER"]
+                assert still and all(a.status.value == "PENDING_VERIFICATION" for a in still), "another company's OWNER must stay pending"
+
+    asyncio.run(run())
