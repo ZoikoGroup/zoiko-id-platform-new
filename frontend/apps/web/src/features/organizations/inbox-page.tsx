@@ -4,6 +4,7 @@ import type { ApprovalScope, OrgApprovalSummary } from "@zoiko/api-client";
 import { Button, Card, EmptyState, LoadingRows, PageHeader, Select, Tabs, TextField } from "@zoiko/ui";
 import { ClipboardCheck } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
@@ -33,7 +34,8 @@ export function InboxPage({ orgParam }: { orgParam: string }) {
   const [draft, setDraft] = useState<InboxFilters>(noFilters);
   const [filters, setFilters] = useState<InboxFilters>(noFilters);
   const [more, setMore] = useState<{ key: string; items: OrgApprovalSummary[]; cursor: string | null } | null>(null);
-  const [asking, setAsking] = useState(false);
+  const wanted = useSearchParams().get("new") ?? undefined; // e.g. ?new=privileged-role-grant-or-elevation, from the Team page
+  const [asking, setAsking] = useState(Boolean(wanted));
   const key = `${scope}|${JSON.stringify(filters)}`;
 
   const first = useCellQuery(["org-approvals", orgId, key], (api) => api.org.approvals(orgId as string, inboxQuery(scope, filters)), {
@@ -142,7 +144,7 @@ export function InboxPage({ orgParam }: { orgParam: string }) {
           </div>
         </form>
       </Card>
-      <NewRequestDialog orgId={orgId} isOpen={asking} onOpenChange={setAsking} />
+      <NewRequestDialog orgId={orgId} isOpen={asking} onOpenChange={setAsking} initialActionId={wanted} />
       <Tabs
         label="Approval requests"
         selectedTab={scope}

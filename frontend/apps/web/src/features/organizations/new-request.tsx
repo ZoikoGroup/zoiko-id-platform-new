@@ -3,7 +3,7 @@
 import type { ApprovalForm } from "@zoiko/api-client";
 import { Banner, Button, Dialog, Select, TextField } from "@zoiko/ui";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useCellMutation, useCellQuery } from "@/lib/cell";
 
@@ -12,11 +12,15 @@ import { Refusal } from "./shared";
 
 /** WF-013C-02: ask for a governed change. The form collects what the request needs and says how many independent people will have to approve it.
  * It decides nothing: the server classifies the action, checks that this person may ask, validates the details and chooses the approvers. */
-export function NewRequestDialog({ orgId, isOpen, onOpenChange }: { orgId: string; isOpen: boolean; onOpenChange: (o: boolean) => void }) {
+export function NewRequestDialog({ orgId, isOpen, onOpenChange, initialActionId }: { orgId: string; isOpen: boolean; onOpenChange: (o: boolean) => void; initialActionId?: string }) {
   const router = useRouter();
   const forms = useCellQuery(["org-approvals", orgId, "forms"], (api) => api.org.requestForms(orgId), { enabled: isOpen });
   const members = useCellQuery(["tenant", "members"], (api) => api.tenant.members(), { enabled: isOpen });
   const [actionId, setActionId] = useState("");
+  // A link from another page (the Team page) can open the form already on the kind of request it means.
+  useEffect(() => {
+    if (isOpen && initialActionId && forms.data?.forms.some((f) => f.action_id === initialActionId)) setActionId((cur) => cur || initialActionId);
+  }, [isOpen, initialActionId, forms.data]);
   const [values, setValues] = useState<FormValues>({});
   const [reason, setReason] = useState("");
   const [shown, setShown] = useState(false);

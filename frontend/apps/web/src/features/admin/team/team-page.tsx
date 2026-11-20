@@ -4,6 +4,7 @@ import type { Invitation, InvitableRole, MemberProgress, TenantMember } from "@z
 import {
   Banner,
   Button,
+  ButtonLink,
   Card,
   Checkbox,
   DataTable,
@@ -358,6 +359,16 @@ export function TeamPage() {
               ]}
             />
             <p className="text-xs text-ink-muted">An invitation never makes someone an OWNER; owners change only through a second administrator&apos;s approval.</p>
+            <div className="space-y-2 rounded-card border border-border bg-sunken/40 p-3">
+              <p className="text-sm font-medium text-ink">Need an Approver?</p>
+              <p className="text-xs text-ink-muted">
+                An Approver votes on requests and approves amounts up to a limit you give them. Because it is a privileged role, it is granted by a request that one independent person approves, and the invitation link
+                comes once it is applied. The same goes for an Administrator when the owners require approval.
+              </p>
+              <ButtonLink href="/organizations/current/approvals?new=privileged-role-grant-or-elevation" size="sm" variant="secondary">
+                Request Approver or Administrator rights
+              </ButtonLink>
+            </div>
             {invite.error ? <ApiErrorView error={invite.error} /> : null}
           </div>
         )}

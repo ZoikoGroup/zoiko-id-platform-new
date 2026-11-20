@@ -18,11 +18,13 @@ import {
   delegateGrantStepUp,
   delegateRevokeStepUp,
   requestableOrders,
+  seesCommitmentRequests,
   signaturesLeft,
   validCap,
   waitingReason,
 } from "./commitment-logic";
 import { PersonLabel, usePeople } from "../team/person-label";
+import { ACCESS_KEY } from "./access";
 import { BILLING_KEY, money } from "./shared";
 
 const KEY = [...BILLING_KEY, "commitments"] as const;
@@ -207,6 +209,8 @@ function Delegates({ canGive }: { canGive: boolean }) {
   const delegates = useCellQuery([...KEY, "delegates"], (api) => api.billing.delegates());
   const members = useCellQuery(["tenant", "members"], (api) => api.tenant.members(), { enabled: canGive });
   const tenant = useCellQuery(["tenant", "me"], (api) => api.tenant.me(), { enabled: canGive });
+  // Who can actually see the requests: a limit alone does not show the Billing page (CR-140), so the Owner is told.
+  const grants = useCellQuery([...ACCESS_KEY, "grants"], (api) => api.billing.grants(), { enabled: canGive });
   const { proveAction } = useRuntime();
   const [who, setWho] = useState("");
   const [kind, setKind] = useState<CommitmentDelegateKind>("BILLING_SPEND");
@@ -245,6 +249,23 @@ function Delegates({ canGive }: { canGive: boolean }) {
     { key: "cap", header: "Limit (USD)", render: (d) => money(d.cap_usd, "USD"), sortValue: (d) => Number(d.cap_usd) },
     { key: "until", header: "Until", render: (d) => (d.effective_to ? d.effective_to.slice(0, 10) : "No end date"), sortValue: (d) => d.effective_to ?? "" },
     { key: "state", header: "State", render: (d) => (d.revoked_at ? "Taken away" : "Active"), sortValue: (d) => (d.revoked_at ? 1 : 0) },
+    ...(canGive && grants.isSuccess
+      ? [
+          {
+            key: "sees",
+            header: "Sees the requests",
+            render: (d: CommitmentDelegate) => {
+              if (d.revoked_at) return null;
+              const role = (members.data?.items ?? []).find((m) => m.principal_id === d.principal_id)?.role;
+              return seesCommitmentRequests(d.principal_id, role, grants.data?.items ?? []) ? (
+                <Badge tone="ok">Yes</Badge>
+              ) : (
+                <Badge tone="warn">Needs Billing access</Badge>
+              );
+            },
+          } satisfies Column<CommitmentDelegate>,
+        ]
+      : []),
     ...(canGive
       ? [
           {
@@ -286,6 +307,10 @@ function Delegates({ canGive }: { canGive: boolean }) {
               Give limit
             </Button>
           </form>
+          <p className="mt-3 text-xs text-ink-muted">
+            A limit lets a person sign; it does not let them see the requests. They also need Billing access (at least Billing Viewer) under the <strong>Billing access</strong> tab, and the Approver role if they are to
+            vote on other approvals. The table below says who still needs it.
+          </p>
           {give.isError ? <ApiErrorView error={give.error} title="The limit was not given" onRetry={() => give.reset()} /> : null}
         </Card>
       ) : null}
