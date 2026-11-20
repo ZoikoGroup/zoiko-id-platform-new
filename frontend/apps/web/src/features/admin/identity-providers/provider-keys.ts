@@ -22,3 +22,23 @@ export function parseProviderKeys(text: string): { keys: ProviderKeys; error?: u
   }
   return { keys: { keys: list as Record<string, unknown>[] } };
 }
+
+/** One key as a person reads it in the provider's own key list: its id, type, algorithm and use. Never the key material itself. */
+export type KeySummary = { kid: string; kty: string; alg: string; use: string };
+
+/** The keys in `text` (a key list, a bare list or a single key), summarised for display. It never throws: text that is not a key list shows no keys. */
+export function summarizeKeys(text: string): KeySummary[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  const list = Array.isArray(data) ? data : isObject(data) && Array.isArray(data.keys) ? data.keys : isObject(data) && "kty" in data ? [data] : [];
+  return list.filter(isObject).map((k) => ({
+    kid: typeof k.kid === "string" ? k.kid : "(no key id)",
+    kty: typeof k.kty === "string" ? k.kty : "?",
+    alg: typeof k.alg === "string" ? k.alg : "",
+    use: typeof k.use === "string" ? k.use : "",
+  }));
+}

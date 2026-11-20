@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { jsonInput, listInput, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { parseProviderKeys } from "./provider-keys";
+import { parseProviderKeys, summarizeKeys } from "./provider-keys";
 import {
   AlgorithmPicker,
   FormDialog,
@@ -22,6 +22,56 @@ export const INTEGRATIONS_KEY = ["admin", "federation", "integrations"];
 export const ANCHORS_KEY = ["admin", "federation", "trust-anchors"];
 
 type Protocol = "OIDC" | "SAML";
+
+/** The keys found, laid out like the provider's own key list: one row per key, by its id. */
+function KeyList({ keys }: { keys: { kid: string; kty: string; alg: string; use: string }[] }) {
+  if (keys.length === 0) {
+    return (
+      <p className="rounded-card border border-dashed border-border px-4 py-3 text-sm text-ink-muted">
+        No keys yet. Press <span className="font-medium text-ink">Find the rest for me</span> above and they appear here.
+      </p>
+    );
+  }
+  return (
+    <div className="overflow-x-auto rounded-card border border-border">
+      <table className="w-full text-start text-sm" aria-label="Signing keys found">
+        <thead className="bg-sunken text-xs uppercase tracking-wide text-ink-subtle">
+          <tr>
+            <th scope="col" className="px-3 py-2 text-start font-medium">Key ID</th>
+            <th scope="col" className="px-3 py-2 text-start font-medium">Type</th>
+            <th scope="col" className="px-3 py-2 text-start font-medium">Algorithm</th>
+            <th scope="col" className="px-3 py-2 text-start font-medium">Use</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {keys.map((k, i) => (
+            <tr key={`${k.kid}-${i}`}>
+              <td className="px-3 py-2 font-mono text-xs text-ink">{k.kid}</td>
+              <td className="px-3 py-2 text-ink-muted">{k.kty}</td>
+              <td className="px-3 py-2 text-ink-muted">{k.alg || "any"}</td>
+              <td className="px-3 py-2 text-ink-muted">{k.use || "any"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** A numbered heading for one part of the form, so every group of fields is easy to find and none is hidden. */
+function SectionTitle({ n, title, hint }: { n: number; title: string; hint?: string }) {
+  return (
+    <div className="flex items-start gap-3 border-t border-border pt-4 first:border-t-0 first:pt-0">
+      <span aria-hidden className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-xs font-semibold text-ink">
+        {n}
+      </span>
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {hint ? <p className="text-xs text-ink-subtle">{hint}</p> : null}
+      </div>
+    </div>
+  );
+}
 
 /** The providers most companies already use, with where to find each thing this form asks for. Choosing one sets the protocol,
  * suggests a name and tells the person (and their IT team) exactly what to collect. */
@@ -223,10 +273,8 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
 
   const [metadataUrl, setMetadataUrl] = useState("");
   const [found, setFound] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const discover = useCellMutation((api, v: { protocol: Protocol; url: string }) => api.federation.discoverProvider(v.protocol, v.url), {
     onSuccess: (r) => {
-      setDetailsOpen(false);
       if (r.protocol === "OIDC") {
         setIssuer(r.issuer);
         setAuthzEndpoint(r.authorization_endpoint);
@@ -249,7 +297,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
       {
         onError: () => {
           setFound(null);
-          setDetailsOpen(true); // fall back to filling the details by hand
+          // the details are always visible below: fill them in by hand
         },
       },
     );
@@ -277,11 +325,13 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
       title="Connect your company sign-in"
       description="Let people sign in with the account they already use at work. You need four things; we find the rest."
       submitLabel="Connect provider"
+      size="xl"
       pending={create.isPending}
       error={localError ?? create.error}
       onSubmit={submit}
       risk="R3"
     >
+      <SectionTitle n={1} title="Your sign-in provider" hint="Pick the one your company uses today." />
       <RadioCards
         label="Which sign-in does your company use today?"
         columns={2}
@@ -318,6 +368,7 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
         </div>
       </details>
 
+      <SectionTitle n={2} title="What you need from your provider" hint="Four things. Fill these in, then press Find the rest for me." />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Name people will see" isRequired value={displayName} onChange={setDisplayName} description="For example “Sign in with Okta”." />
         {protocol === "OIDC" ? (
@@ -378,26 +429,33 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
         )}
       </div>
 
-      <details className="rounded-card border border-border" open={detailsOpen} onToggle={(e) => setDetailsOpen((e.target as HTMLDetailsElement).open)}>
-        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">
-          Details <span className="font-normal text-ink-subtle">(filled in for you; open only to check or fix them)</span>
-        </summary>
-        <div className="space-y-4 border-t border-border p-4">
+      <SectionTitle n={3} title="Connection details" hint="Filled in for you when you press Find the rest for me. You can also type them in or correct them here." />
+      <section aria-label="Connection details" className="rounded-card border border-border bg-sunken/40">
+        <div className="space-y-4 p-4">
           {protocol === "OIDC" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField label="Sign-in address (authorization endpoint)" mono type="url" value={authzEndpoint} onChange={setAuthzEndpoint} placeholder="https://…/authorize" />
               <TextField label="Token address (token endpoint)" mono type="url" value={tokenEndpoint} onChange={setTokenEndpoint} placeholder="https://…/token" />
-              <TextField
-                label="Keys (the provider's public signing keys)"
-                multiline
-                rows={4}
-                mono
-                value={jwks}
-                onChange={setJwks}
-                placeholder='{"keys": [ … ]}'
-                description="Public keys only, from the provider's key list page. One key or a full list both work. Never paste a private key."
-                className="sm:col-span-2"
-              />
+              <div className="space-y-2 sm:col-span-2">
+                <p className="text-sm font-medium text-ink">Signing keys</p>
+                <p className="text-xs text-ink-subtle">The provider&apos;s public keys, which prove its sign-ins are genuine. Press Find the rest for me and we read them for you.</p>
+                <KeyList keys={summarizeKeys(jwks)} />
+                <details className="rounded-card border border-border">
+                  <summary className="cursor-pointer px-4 py-2 text-sm text-ink-muted">Add or replace the keys by hand (advanced)</summary>
+                  <div className="border-t border-border p-4">
+                    <TextField
+                      label="Public keys"
+                      multiline
+                      rows={4}
+                      mono
+                      value={jwks}
+                      onChange={setJwks}
+                      placeholder='{"keys": [ … ]}'
+                      description="Only if the automatic read did not find them. Paste the provider's key list (its JWKS), public keys only. A list of key ids is not enough. Never paste a private key."
+                    />
+                  </div>
+                </details>
+              </div>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -416,12 +474,11 @@ export function CreateIntegrationDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
-      </details>
+      </section>
 
-      <details className="rounded-card border border-border">
-        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">
-          Advanced settings <span className="font-normal text-ink-subtle">(the defaults are safe; most people skip this)</span>
-        </summary>
+      <SectionTitle n={4} title="Advanced settings" hint="Optional. The defaults are safe; most people skip this." />
+      <details className="rounded-card border border-border bg-sunken/40">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink">Show the advanced settings</summary>
         <div className="space-y-4 border-t border-border p-4">
           <Select
             label="Who may sign in with it?"
