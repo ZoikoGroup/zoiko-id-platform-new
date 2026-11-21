@@ -25,6 +25,10 @@ build_images() {
     say "building the operator console image (the same Dockerfile, APP=operator)"
     docker build --build-arg APP=operator -t zid/operator:prodlocal ../../frontend
   fi
+  if [ "$force" = "--rebuild" ] || ! docker image inspect zid/tsa:prodlocal >/dev/null 2>&1; then
+    say "building zid/tsa:prodlocal (the rehearsal's own RFC 3161 timestamp authority)"
+    docker build -t zid/tsa:prodlocal ./tsa
+  fi
   if [ "$force" = "--rebuild" ] || ! docker image inspect zid/web:prodlocal >/dev/null 2>&1; then
     say "building the web image (frontend/Dockerfile: npm ci, next build, standalone output)"
     docker build -t zid/web:prodlocal ../../frontend
