@@ -35,7 +35,11 @@ from zid_platform.modules.authority.domain.grants import (
     GrantStatus,
     GrantType,
 )
-from zid_platform.modules.authority.infrastructure.grant_store import list_grants, load_chain
+from zid_platform.modules.authority.infrastructure.grant_store import (
+    list_grants,
+    load_chain,
+    set_evidence_ref,
+)
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.protected import protected_action
 
@@ -172,7 +176,7 @@ async def create_grant(
         except AuthorityError as e:
             raise http_error(e.code, str(e)) from e
         # Who gave whom what, and when: an append-only audit record beside the grant itself (ids, counts and limits, never content).
-        await record_audit(
+        audit_id = await record_audit(
             conn,
             grant.tenant_id,
             AuditFacts(
@@ -200,6 +204,10 @@ async def create_grant(
                 },
             ),
         )
+        if audit_id:
+            await set_evidence_ref(
+                conn, grant.grant_id, audit_id
+            )  # the grant carries the evidence of its own issuance (CR-143)
         out = _view(grant)
         await complete(conn, scope=scope, key=idempotency_key, status=201, body=out)
     return out

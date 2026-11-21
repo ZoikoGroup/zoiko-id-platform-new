@@ -33,7 +33,7 @@ from zid_platform.modules.machine.domain.agents import (
     ReviewStatus,
     WorkloadBinding,
 )
-from zid_platform.modules.machine.infrastructure import machine_store
+from zid_platform.modules.machine.infrastructure import build_store, machine_store
 from zid_platform.modules.machine.infrastructure import workload_store as store
 
 
@@ -126,6 +126,15 @@ async def register_binding(
         raise MachineError(
             "WORKLOAD_ARTIFACT_NOT_APPROVED",
             "a binding must run the artifact of its agent's approved blueprint release",
+        )
+    # A workload binding is the container path: an attestor looks at the running image and compares it to this digest. An API client is not an
+    # image, so nothing could ever attest it, and the agent would sit ACTIVE with no way to get a credential. It is bound from the agent
+    # (`POST /agents/{id}/api-binding`), where its tools are capped to what a key alone can vouch for.
+    registered = await build_store.by_digest(conn, normalize_digest(artifact_digest))
+    if registered is not None and registered["kind"] == "API_CLIENT":
+        raise MachineError(
+            "WORKLOAD_BUILD_IS_API_CLIENT",
+            "this build is an API client, not an image: bind it from the agent with its API client binding",
         )
     if require_approved_build:
         await require_build_approved(conn, artifact_digest)
@@ -295,9 +304,7 @@ async def resolve_workload(
         _now(),
         risk_level,
     )
-    blockers = await machine_store.credential_check(
-        conn, req, quarantined_environments=await store.quarantined_environments(conn)
-    )
+    blockers = await machine_store.credential_check(conn, req)
     if blockers:
         raise MachineError(blockers[0], ", ".join(blockers))
     row = await store.active_binding(conn, str(spiffe_id))

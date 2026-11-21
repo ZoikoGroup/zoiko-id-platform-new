@@ -292,6 +292,12 @@ class Settings(ServiceSettings):
     # cell outside the list fails closed with REGION_UNSUPPORTED. Turning the switch off is also the global kill switch for new runs.
     access_readiness_enabled: bool = False
     access_readiness_regions: tuple[str, ...] = ()
+    # The database role the worker runs each queued agent run AS (ZID_AGENT_RUN_ROLE). The worker connects as a role that bypasses row-level security so it can
+    # find work across companies; the run itself should not have that privilege. Set it to the runtime role (zid_runtime) in a deployment, and grant the worker's
+    # login membership of it (deploy/gcp/db/01_roles.sql). Unset, a run executes on the worker's own connection, as before.
+    agent_run_role: str | None = None
+    # API-based agents (ZID_API_AGENTS): auto is on outside production and OFF in production until a named decision switches it on (CR-144).
+    api_agents: Literal["auto", "on", "off"] = "auto"
     # ZID_ACCESS_READINESS_AI_EXPLAIN (CR-091; sections 06, 09 step 8): may a setup opt in to the optional plain-language explanation of a run? Default
     # OFF. Even on, a setup must opt in (its approval signs the flag) and only codes and counts leave the rules; without an approved model gateway
     # handed to the app the fixed deterministic text is shown. The rule result is the same either way.

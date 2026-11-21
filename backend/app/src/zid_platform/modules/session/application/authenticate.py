@@ -21,6 +21,7 @@ from zid_context import RequestContext
 from zid_crypto import CryptoError, KeyRing, jwk_thumbprint, peek_header, verify_jws
 from zid_db import tenant_transaction
 
+from zid_platform import api_agents_switch
 from zid_platform.modules.authentication.ports import AAL
 from zid_platform.modules.configuration.ports import session_limits
 from zid_platform.modules.principal.ports import PrincipalStatus, load_principal
@@ -98,7 +99,12 @@ def _is_api_agent_credential(client_id: str, scope: frozenset[str], proof_verifi
     """True only for a token this platform minted for an API-based agent (CR-094: `client_id` is `api-agent:<client>`, scope `workload`)
     and only when the request carried a verified DPoP proof of the key the token is bound to. Both facts come from the signed token and
     the verified proof, never from a header the caller sets."""
-    return proof_verified and "workload" in scope and client_id.startswith("api-agent:")
+    return (
+        api_agents_switch.enabled()  # off: a token already issued gets no elevated assurance (CR-144)
+        and proof_verified
+        and "workload" in scope
+        and client_id.startswith("api-agent:")
+    )
 
 
 async def authenticate(

@@ -43,6 +43,10 @@ def run_status(
     async def assurance(*_a: Any, **_k: Any) -> bool:
         return identity
 
+    async def no_certificate_reading(*_a: Any, **_k: Any) -> bool:
+        return False  # CR-132 added a read of the stored certificate; these cases are about the shortcut, with no certificate on file
+
+    monkeypatch.setattr(claims.proof_service, "has_consistent_reading", no_certificate_reading)
     monkeypatch.setattr(claims, "kyb_get_case", get_case)
     monkeypatch.setattr(claims, "case_for_kyb", no_screening)
     monkeypatch.setattr(claims, "person_assurance_current", assurance)

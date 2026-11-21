@@ -16,7 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_en
 from zid_context import RequestContext
 from zid_errors import DEPENDENCY_UNAVAILABLE, ZidError
 
-__all__ = ["CheckResult", "check_database", "create_engine", "in_tenant", "tenant_transaction"]
+__all__ = [
+    "CheckResult",
+    "as_role",
+    "check_database",
+    "create_engine",
+    "in_tenant",
+    "tenant_transaction",
+]
 
 
 def create_engine(url: str, *, pool_size: int = 5) -> AsyncEngine:
@@ -57,6 +64,24 @@ async def in_tenant(conn: AsyncConnection, tenant_id: str) -> AsyncIterator[Asyn
     # On an error the transaction is failing anyway (and may be aborted): re-raise untouched.
     yield conn
     await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": previous or ""})
+
+
+@asynccontextmanager
+async def as_role(conn: AsyncConnection, role: str | None) -> AsyncIterator[AsyncConnection]:
+    """Run a block as a less-privileged database role inside the same transaction, then go back (SET LOCAL ROLE, parameterized).
+
+    A background worker has to read across companies to find its work, so it connects as a role that bypasses row-level security. The WORK it then does
+    for one company must not run with that privilege: a query that forgot to name the company would read every company's rows. Run as the runtime role
+    (which row-level security applies to), the database confines the work to the tenant set for it, however a query is written. `None` runs the block
+    unchanged, for a connection that is already the runtime role or for a test database that has no such role.
+
+    On an error the block's savepoint (or transaction) is rolled back, which also undoes the role change: re-raise untouched, as `in_tenant` does."""
+    if not role:
+        yield conn
+        return
+    await conn.execute(text("SELECT set_config('role', :r, true)"), {"r": role})
+    yield conn
+    await conn.execute(text("SELECT set_config('role', 'none', true)"))
 
 
 @dataclass(frozen=True, slots=True)

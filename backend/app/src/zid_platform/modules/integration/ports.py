@@ -22,6 +22,7 @@ from zid_platform.modules.integration.application.service import (
     offboard_integrations,
     purge_connector_secrets,
     record_interaction,
+    register_connection_status_setter,
 )
 from zid_platform.modules.integration.domain.model import Health, fresh
 from zid_platform.modules.integration.infrastructure.store import (
@@ -52,6 +53,7 @@ __all__ = [
     "pep_application",
     "purge_connector_secrets",
     "record_interaction",
+    "register_connection_status_setter",
     "register_directory_connector",
     "register_signin_connector",
     "route_login",

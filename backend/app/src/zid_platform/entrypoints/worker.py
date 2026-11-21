@@ -44,6 +44,9 @@ Step = Callable[[AsyncConnection, datetime], Awaitable[object]]
 
 
 def steps(settings: Settings) -> list[tuple[str, Step]]:
+    from zid_platform import api_agents_switch
+
+    api_agents_switch.configure(settings.api_agents, settings.environment)  # API agents ship OFF in production (CR-144)
     from zid_platform.modules.evidence.infrastructure.tsa import Rfc3161Client
     from zid_platform.modules.evidence.infrastructure.tsa_token import (
         timestamp_verifier_from_settings,
@@ -464,6 +467,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
                 region=settings.cell_id,
                 cell_uuid=settings.cell_uuid,
                 ai_explain=settings.access_readiness_ai_explain,
+                run_role=settings.agent_run_role,
             ),
         )
 
@@ -481,7 +485,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         from zid_platform.modules.machine.ports import configure_agent_governance, daara_work_queue
 
         configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
-        return await daara_work_queue(conn, now)
+        return await daara_work_queue(conn, now, run_role=settings.agent_run_role)
 
     async def daara_schedule(conn: AsyncConnection, now: datetime) -> object:
         """ZID-AG-WF-001: queue the daily run of each agent whose policy and company baseline allow a schedule (none, until an owner allows it)."""

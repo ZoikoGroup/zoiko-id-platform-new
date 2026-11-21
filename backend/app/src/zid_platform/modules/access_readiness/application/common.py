@@ -57,6 +57,8 @@ class Runtime:
     # the usage and budget hook asked before a run and before each step (None: the Q1 hook, which sets no limit); fails closed
     usage_policy: UsagePolicy | None = None
     usage_timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
+    # the database role a queued run executes AS in the worker (None: the worker's own connection). See `zid_db.as_role`.
+    run_role: str | None = None
 
     @property
     def region_supported(self) -> bool:

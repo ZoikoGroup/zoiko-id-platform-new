@@ -211,7 +211,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         assert tool.json()["status"] == "DRAFT" and tool.json()["executable"] is False
         assert tool.json()["requires_mandate"] is True  # forced by the side-effect class
         assert http.post(f"{BASE}/tools", headers=adm, json=tool_body).status_code == 409
-        act = http.post(f"{BASE}/tools/payments.release:activate", headers=adm)
+        act = http.post(f"{BASE}/tools/payments.release:activate", headers=rev)
         assert act.json()["status"] == "ACTIVE" and act.json()["executable"] is True
 
         # --- blueprint: immutable release, never approved by its own publisher
@@ -275,7 +275,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
             and own_release.json()["error"]["code"] == "AGENT_REVIEW_NOT_INDEPENDENT"
         )
         assert (
-            http.post(f"{BASE}/agents/{aid}:activate", headers=adm).status_code == 409
+            http.post(f"{BASE}/agents/{aid}:activate", headers=rev).status_code == 409
         )  # DRAFT -> ACTIVE illegal
         assert (
             http.post(f"{BASE}/agents/{aid}:submit", headers=adm).json()["status"]
@@ -296,7 +296,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         }
         assert "AGENT_SPONSOR_REQUIRED" not in ready["blockers"]  # sponsor + organization verified
         assert "AGENT_BLUEPRINT_NOT_APPROVED" not in ready["blockers"]
-        blocked = http.post(f"{BASE}/agents/{aid}:activate", headers=adm)
+        blocked = http.post(f"{BASE}/agents/{aid}:activate", headers=rev)
         assert blocked.status_code == 409 and "AGENT_SECURITY_REVIEW_REQUIRED" in blocked.text
 
         # --- the security review is independent of the agent's own chain of accountability
@@ -305,10 +305,15 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         )
         assert self_review.status_code == 403  # the sponsor cannot review their own agent
         assert self_review.json()["error"]["code"] == "AGENT_REVIEW_NOT_INDEPENDENT"
-        indep = http.post(
+        registrant_review = http.post(
             f"{BASE}/agents/{aid}:attest", headers=adm, json={"gate": "SECURITY_REVIEW"}
         )
-        assert indep.status_code == 200  # the admin is not sponsor, operator or publisher
+        assert registrant_review.status_code == 403  # nor can the person who registered it (CR-142)
+        assert registrant_review.json()["error"]["code"] == "AGENT_REVIEW_NOT_INDEPENDENT"
+        indep = http.post(
+            f"{BASE}/agents/{aid}:attest", headers=rev, json={"gate": "SECURITY_REVIEW"}
+        )
+        assert indep.status_code == 200  # the reviewer is not sponsor, operator, publisher or registrant
         for gate in ("KILL_PATH_TESTED", "SHORT_LIVED_CREDENTIALS", "OBSERVABILITY"):
             assert (
                 http.post(
@@ -324,10 +329,19 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         )
 
         # --- still no runtime binding: not activatable; with one it activates
-        still = http.post(f"{BASE}/agents/{aid}:activate", headers=adm)
+        still = http.post(f"{BASE}/agents/{aid}:activate", headers=rev)
         assert still.status_code == 409 and "AGENT_RUNTIME_BINDING_REQUIRED" in still.text
         binding_id = asyncio.run(bind(aid))
-        active = http.post(f"{BASE}/agents/{aid}:activate", headers=adm)
+        # ZID-AG-WF-002 section 04 (CR-142): everything is ready, yet the people who answer for the agent cannot switch it on
+        # (the sponsor, the publisher, and adm, who registered it and named the others, all answer for it)
+        for who in (spo, pub, adm):
+            own = http.post(f"{BASE}/agents/{aid}:activate", headers=who)
+            assert own.status_code == 403, own.text
+            assert own.json()["error"]["code"] == "AGENT_REVIEW_NOT_INDEPENDENT"
+        assert (
+            http.get(f"{BASE}/agents/{aid}", headers=adm).json()["status"] == "PENDING_APPROVAL"
+        )  # and the refusal left it untouched
+        active = http.post(f"{BASE}/agents/{aid}:activate", headers=rev)
         assert active.status_code == 200 and active.json()["status"] == "ACTIVE", active.text
         assert (
             asyncio.run(
@@ -387,7 +401,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         )
 
         # --- coming back needs re-validation: the binding is suspended and the blueprint revoked
-        back = http.post(f"{BASE}/agents/{aid}:activate", headers=adm)
+        back = http.post(f"{BASE}/agents/{aid}:activate", headers=rev)
         assert back.status_code == 409
         assert (
             "AGENT_RUNTIME_BINDING_REQUIRED" in back.text
@@ -400,7 +414,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         )
         assert gone.status_code == 200 and gone.json()["agent_principal_id"] == aid
         assert http.get(f"{BASE}/agents/{aid}", headers=adm).json()["status"] == "REVOKED"
-        assert http.post(f"{BASE}/agents/{aid}:activate", headers=adm).status_code == 409
+        assert http.post(f"{BASE}/agents/{aid}:activate", headers=rev).status_code == 409
         assert http.post(f"{BASE}/agents/{aid}:retire", headers=adm).status_code == 409
         assert (
             asyncio.run(

@@ -763,3 +763,177 @@ def test_a_schedule_needs_the_agent_policy_the_company_baseline_and_the_platform
         cfg.config.cache_clear()
     # with the shipped ceiling back, the same agent queues nothing, whatever it asks for
     assert dd.run(lambda c: svc.schedule_due(c, datetime.now(UTC) + timedelta(days=2))) == []
+
+
+# ====================================================================== logs carry no secret (AG1-AT21)
+
+_JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
+_FORBIDDEN = re.compile(r"bearer\s+\S|password|secret|private[_ ]key|authorization:", re.IGNORECASE)
+
+
+def test_at21_the_whole_wizard_and_a_run_log_no_token_document_biometric_or_full_identifier(
+    rt_url: str, owner_url: str
+) -> None:
+    """AG1-AT21: every log line written from setup to a finished run, and the company's alert, hold no token, no key or
+    secret word, and no full mandate or agent identifier (a reviewer sees the masked form only)."""
+    import logging
+
+    class _Cap(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__(logging.DEBUG)
+            self.lines: list[str] = []
+
+        def emit(self, record: logging.LogRecord) -> None:
+            self.lines.append(self.format(record))
+
+    root, cap = logging.getLogger(), _Cap()
+    before = root.level
+    root.setLevel(logging.DEBUG)
+    root.addHandler(cap)
+    dd = Daara(rt_url, owner_url)
+    try:
+        ids = dd.seed()
+        dd.go_live()
+        first = dd.start("run-daara-at21")
+        assert first.ok, first.codes
+        assert dd.start("run-daara-at21b").ok
+    finally:
+        root.removeHandler(cap)
+        root.setLevel(before)
+    text_out = "\n".join(cap.lines)
+    assert not _JWT.search(text_out), "a token-shaped string reached a log"
+    assert not _FORBIDDEN.search(text_out), "a secret word reached a log"
+    for full in (*ids.values(), dd.agent):
+        assert full not in text_out, "a full identifier reached a log"
+    # the same holds for what the company is shown: the alert body and the review queue
+    alert_rows = dd.w.owner(
+        "SELECT to_jsonb(n)::text FROM platform.notification_request n WHERE tenant_id = :t AND kind = 'agent.review.proposals'"
+    )
+    queue = dd.run(lambda c: svc.list_proposals(c, status="OPEN", agent_id=None))
+    shown = "\n".join(str(x) for x in (alert_rows, queue))
+    assert not _JWT.search(shown)
+    assert not any(m in shown for m in ids.values()), "the review surfaces show a full mandate id"
+
+
+# ====================================================================== a run needs a live runtime proof (AG1-AT07)
+
+
+def test_at07_a_run_needs_a_live_proof_of_what_runs_the_agent(rt_url: str, owner_url: str) -> None:
+    """AG1-AT07 (WF-001 section 04 PREFLIGHT): an agent with no live proof of its runtime cannot start a run, and nothing is read. The proof is a bound API client in
+    date, or a workload binding with a VALID in-date attestation at the level it requires. Each lapse is seen at the very next run."""
+    dd = Daara(rt_url, owner_url)
+    dd.seed()
+    dd.go_live()
+    agent = uuid.UUID(dd.agent)
+
+    def runs(key: str) -> int:
+        return int(
+            dd.w.owner(
+                "SELECT count(*) FROM agent.run_ledger WHERE tenant_id = :t AND idempotency_key = :k",
+                k=key,
+            )[0][0]
+        )
+
+    # the proof the fixture left (a workload binding with a valid attestation): it runs
+    assert dd.start("run-proof-0001").ok
+
+    # the binding is revoked: refused before a run exists, so nothing was read and nothing was written
+    dd.w.owner(
+        "UPDATE agent.workload_binding SET status = 'REVOKED' WHERE tenant_id = :t AND logical_principal_id = :a",
+        a=agent,
+    )
+    refused = dd.start("run-proof-0002")
+    assert not refused.ok and refused.codes == ("RUNTIME_PROOF_MISSING",)
+    assert runs("run-proof-0002") == 0
+
+    # a bound API client in date is a proof too (a key, not the code: the gateway caps its tools, but a run start only asks that the proof is live)
+    build = uuid.uuid4()
+    dd.w.owner(
+        "INSERT INTO agent.build_artifact (build_id, tenant_id, name, artifact_digest, registered_by, review_status, approved_by, registered_at, approved_at, "
+        "kind, client_descriptor) VALUES (:b, :t, 'proof-client', :d, :rb, 'APPROVED', :ab, now(), now(), 'API_CLIENT', CAST('{}' AS jsonb))",
+        b=build, d="sha256:" + "e" * 64, rb=uuid.UUID(dd.w.human), ab=uuid.UUID(dd.w.approver),
+    )  # fmt: skip
+    binding = uuid.uuid4()
+    dd.w.owner(
+        "INSERT INTO agent.api_client_binding (binding_id, tenant_id, agent_principal_id, build_id, client_id, descriptor_digest, status, valid_to, created_by) "
+        "VALUES (:i, :t, :a, :b, 'proof-client-1', :d, 'ACTIVE', now() + interval '30 days', :by)",
+        i=binding, a=agent, b=build, d="sha256:" + "d" * 64, by=uuid.UUID(dd.w.human),
+    )  # fmt: skip
+    assert dd.start("run-proof-0002b").ok
+    dd.w.owner(
+        "UPDATE agent.api_client_binding SET valid_to = now() - interval '1 minute' WHERE binding_id = :i",
+        i=binding,
+    )  # runs out
+    assert dd.start("run-proof-0002c").codes == ("RUNTIME_PROOF_MISSING",)
+
+    # a workload binding that needs level 2 and has no attestation: still refused
+    sid = f"spiffe://uk-1.test.id.zoiko/t/{dd.tenant}/ns/agents/sa/daara"
+    digest = "sha256:" + "f" * 64
+    dd.w.owner(
+        "INSERT INTO agent.workload_binding (binding_id, tenant_id, logical_principal_id, workload_identity_id, blueprint_version, artifact_digest, "
+        "environment_id, attestation_required, status, valid_from, valid_to, security_revision) VALUES (:i, :t, :a, :w, '1', :d, 'prod', 2, 'ACTIVE', "
+        "now() - interval '1 day', now() + interval '30 days', 0)",
+        i=uuid.uuid4(), a=agent, w=sid, d=digest,
+    )  # fmt: skip
+    assert dd.start("run-proof-0003").codes == ("RUNTIME_PROOF_MISSING",)
+
+    def attest(level: int, valid_for: timedelta) -> None:
+        dd.w.owner(
+            "INSERT INTO agent.workload_attestation (attestation_id, tenant_id, workload_identity_id, environment_id, artifact_digest, level, verifier, "
+            "claims_commitment, status, valid_until) VALUES (:i, :t, :w, 'prod', :d, :l, 'attestor-1', :c, 'VALID', now() + CAST(:v AS interval))",
+            i=uuid.uuid4(), w=sid, d=digest, l=level, c="a" * 64, v=valid_for,
+        )  # fmt: skip
+
+    # level 1 is real but below what this binding needs; a statement already out of date counts for nothing
+    attest(1, timedelta(hours=1))
+    assert dd.start("run-proof-0004").codes == ("RUNTIME_PROOF_MISSING",)
+    attest(2, timedelta(minutes=-1))
+    assert dd.start("run-proof-0005").codes == ("RUNTIME_PROOF_MISSING",)
+
+    # a valid statement at level 2, for exactly this identity, environment and digest: it runs
+    attest(2, timedelta(hours=1))
+    assert dd.start("run-proof-0006").ok
+
+    # the binding runs out: refused again
+    dd.w.owner(
+        "UPDATE agent.workload_binding SET valid_to = now() - interval '1 minute' WHERE tenant_id = :t AND logical_principal_id = :a",
+        a=agent,
+    )
+    assert dd.start("run-proof-0007").codes == ("RUNTIME_PROOF_MISSING",)
+
+
+def test_a_queued_run_executes_as_the_runtime_role_when_the_worker_names_one(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CR-142: the worker finds queued work across companies with a role that bypasses row-level security, and runs each company's work as the runtime role, to which it
+    applies. Over the worker's own (here, superuser) connection, the run's every step is that role and the result is the same."""
+    from conftest import RT_ROLE
+    from sqlalchemy import text
+
+    dd = Daara(rt_url, owner_url)
+    dd.seed()
+    dd.go_live()
+    queued = dd.run(
+        lambda c: svc.enqueue(c, dd.tenant, dd.agent, dd.p("dev"), idempotency_key="role-0001")
+    )
+    assert queued.ok and queued.data["state"] == "QUEUED"
+    seen: list[str] = []
+    real = svc._execute
+
+    async def spy(conn: Any, *args: Any, **kw: Any) -> Any:
+        seen.append((await conn.execute(text("SELECT current_user"))).scalar_one())
+        return await real(conn, *args, **kw)
+
+    monkeypatch.setattr(svc, "_execute", spy)
+
+    async def worker() -> list[dict[str, Any]]:
+        async with engine(owner_url) as eng, eng.begin() as c:
+            return await svc.work_queue(c, datetime.now(UTC), 50, run_role=RT_ROLE)
+
+    done = [x for x in dd.w.run(worker()) if x["run_id"] == queued.data["run_id"]]
+    assert [x["ok"] for x in done] == [True], done
+    assert seen and set(seen) == {RT_ROLE}, seen
+    runs = dd.run(lambda c: svc.list_runs(c, dd.agent))
+    assert (
+        len(runs) == 1 and runs[0]["state"] == "NEEDS_REVIEW" and runs[0]["privileges_changed"] == 0
+    )

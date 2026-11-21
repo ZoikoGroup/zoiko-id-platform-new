@@ -92,6 +92,15 @@ def test_sweep_suspends_orphaned_and_expired_agents(rt_url: str, owner_url: str)
                 ),
                 {"e": now - timedelta(minutes=1), "a": uuid.UUID(expired)},
             )
+            # The sub-agent was registered BEFORE its parent as far as the clock goes. A sweep that ordered only by creation time would reach the
+            # child first and report it alone; the parent must be taken first so the whole branch is one result.
+            await c.execute(
+                text(
+                    "UPDATE agent.agent_profile SET created_at = (SELECT created_at - interval '1 minute' FROM agent.agent_profile "
+                    "WHERE agent_principal_id = :p) WHERE agent_principal_id = :c"
+                ),
+                {"p": uuid.UUID(orphan), "c": uuid.UUID(orphan_child)},
+            )
 
     async def sponsor_leaves() -> None:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:

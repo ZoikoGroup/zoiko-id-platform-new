@@ -22,6 +22,7 @@ from zid_context import RequestContext, current_context
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
+from zid_platform import api_agents_switch
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.commercial.ports import key_m2m, record_billable
 from zid_platform.modules.machine.api.agents import _actor, _run, _tenant
@@ -30,7 +31,16 @@ from zid_platform.modules.machine.application import api_agents as service
 from zid_platform.modules.machine.domain import api_agents as domain
 from zid_platform.protected import protected_action
 
-router = APIRouter(prefix="/v1/machine", tags=["agent-registry"])
+
+def _require_api_agents() -> None:
+    """The whole surface is a 404 while API agents are off, as a feature that is not there (CR-144)."""
+    if not api_agents_switch.enabled():
+        raise ZidError("API_AGENTS_DISABLED", "API-based agents are not enabled.", http_status=404)
+
+
+router = APIRouter(
+    prefix="/v1/machine", tags=["agent-registry"], dependencies=[Depends(_require_api_agents)]
+)
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 
 
