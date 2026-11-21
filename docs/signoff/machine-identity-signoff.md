@@ -1,6 +1,6 @@
 # Sign-off pack: ZID-MACHINE-001
 
-Generated 2026-10-28 by `tools/scripts/signoff_pack.py` from `docs/traceability/acceptance-tests.csv`. This is a checklist for the approvers. It does not approve anything: a test is done only when an approver changes its status in the traceability file.
+Generated 2026-11-21 by `tools/scripts/signoff_pack.py` from `docs/traceability/acceptance-tests.csv`. This is a checklist for the approvers. It does not approve anything: a test is done only when an approver changes its status in the traceability file.
 
 - Acceptance tests: **26**; blockers: **1** (not started, no resolving evidence, or a measurement that says its gate is not met)
 

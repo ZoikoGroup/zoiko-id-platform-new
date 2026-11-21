@@ -1,0 +1,776 @@
+{
+  "run_id": "acc-20261121-024255-38e903c8",
+  "commit": "38e903c88d1b01336e37c1f6711d2203dedd5d75",
+  "environment": "local+dirty",
+  "python": "3.13.16",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "specs": [
+    "ZID-AG-WF-001",
+    "ZID-AG-WF-002",
+    "CR-093",
+    "CR-094",
+    "ZID-MACHINE-001"
+  ],
+  "rows_hash": "sha256:3da12671bd908f7a392fc0253b12a0a69dc7496f1704df3db9e8deb9aacdeb35",
+  "started_at": "2026-11-21T02:39:23.081318+00:00",
+  "finished_at": "2026-11-21T02:42:55.611374+00:00",
+  "executed_by": null,
+  "independent": false,
+  "counts": {
+    "PASS": 103,
+    "FAIL": 0,
+    "NOT_RUN": 0,
+    "NOT_AUTOMATED": 4
+  },
+  "results": [
+    {
+      "test_id": "MACH-01",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_display_name_and_sponsor_never_identify_an_agent",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-02",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_activation_needs_every_gate",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-03",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-04",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-05",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_workload_identity_pg.py::test_workload_resolution_quarantine_and_revocation",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-06",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-07",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_workload_identity_pg.py::test_mesh_verified_workload_gets_a_bound_token",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-08",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_a_rotated_workload_binding_overlaps_and_the_old_one_stops_after_the_overlap",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-09",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-10",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_workload_compromise_spares_healthy_replicas",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-11",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_blueprint_and_environment_quarantine",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-12",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_credential_issuance_blockers",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-13",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_pdp.py::test_agent_needs_a_mandate_and_valid_scope",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-14",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_authzen_api_pg.py::test_authzen_evaluation_over_http",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-15",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_discovered_but_unregistered_or_suspended_tools_never_run",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-16",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_mix_up_controls.py::test_the_client_refuses_an_id_token_from_another_issuer_or_for_another_client",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-17",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_parent_cannot_mint_its_own_trusted_child",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-18",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_parent_cannot_mint_its_own_trusted_child",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-19",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_pdp.py::test_a_third_party_agent_identity_alone_never_represents_zoiko_authority",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-20",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_phase_c_flows_pg.py::test_agent_activation_binding_and_blueprint_revocation",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-21",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_workload_compromise_spares_healthy_replicas",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-22",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_devsecops_controls.py::test_no_long_lived_machine_credential_ships_in_images_charts_or_deploy_config",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-23",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_oauth_w3_pg.py::test_confidential_clients_mtls_par_fapi_exchange_and_introspection",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-24",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_authzen_api_pg.py::test_authzen_evaluation_over_http",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-25",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_machine_identity.py::test_a_trust_failure_gives_no_credential_and_names_no_fallback",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "MACH-26",
+      "source_spec": "ZID-MACHINE-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "tests/load/machine-token/RESULTS.md",
+      "outcome": "NOT_AUTOMATED"
+    },
+    {
+      "test_id": "AG2-T01",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_another_tenant_sees_and_changes_nothing_of_this_tenants_governance",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T02",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_another_tenant_sees_and_changes_nothing_of_this_tenants_governance",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T03",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t03_inactive_agent_or_sponsor_blocks_a_run",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T05",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t05_unknown_tool_is_denied_by_default",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T06",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t06_t11_t12_t27_hard_deny_beats_every_allow",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T07",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t07_a_call_outside_the_leased_region_is_denied",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T08",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t08_wildcards_and_empty_scopes_cannot_be_requested",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T09",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t09_expired_lease_cannot_call",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T10",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t10_t22_a_changed_policy_invalidates_the_previous_approval",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T11",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t06_t11_t12_t27_hard_deny_beats_every_allow",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T12",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t06_t11_t12_t27_hard_deny_beats_every_allow",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T13",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_wildcards_hard_denies_and_unregistered_tools_cannot_even_be_requested",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T14",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_tool_gateway_pg.py::test_the_tool_gateway",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T15",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t15_missing_policy_sources_fail_closed",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T16",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_http_routes_redaction_and_the_gateway",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T17",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t17_the_requester_and_the_authors_cannot_sign_their_own_change",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T18",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t18_publish_needs_both_security_and_authority_and_one_person_fills_one_slot",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T19",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t19_t20_slots_for_each_kind_of_change",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T20",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_budgets_are_hierarchical_atomic_exact_and_settle_once",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T21",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t21_an_expired_request_cannot_be_signed_or_applied",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T22",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t22_a_signature_on_another_hash_is_refused_and_does_not_count",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T23",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t23_an_approver_whose_role_was_revoked_or_who_left_fails_at_decision_time",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T24",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_runs_quotas_timeouts_and_the_emergency_stop",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T25",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t25_restore_needs_two_independent_qualified_people_and_fresh_checks",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T26",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t26_ai_cost_stays_zero_while_the_provider_is_disabled",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T27",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t27_external_spend_and_paid_vendor_checks_are_never_reservable",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T28",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_budgets_are_hierarchical_atomic_exact_and_settle_once",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T29",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_budgets_are_hierarchical_atomic_exact_and_settle_once",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T30",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_budgets_are_hierarchical_atomic_exact_and_settle_once",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T31",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_budgets_are_hierarchical_atomic_exact_and_settle_once",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T32",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t32_money_is_exact_and_never_a_float",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T34",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t34_concurrency_waits_instead_of_retrying",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T35",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t35_records_per_run_and_per_day_are_hard_refusals",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T36",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t36_the_run_deadline_is_two_minutes",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T37",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t37_schedules_stay_off_unless_both_the_policy_and_the_company_allow_them",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T38",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_a_pause_cancels_running_work_and_the_next_progress_is_refused",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T39",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_the_evidence_chain_detects_tampering_and_cannot_be_edited",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T40",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_http_routes_redaction_and_the_gateway",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T41",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t41_a_freeze_blocks_the_call_and_outranks_every_other_gate",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T42",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_a_pause_cancels_running_work_and_the_next_progress_is_refused",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T43",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_a_pause_cancels_running_work_and_the_next_progress_is_refused",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T44",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "frontend/tests/e2e/agent-governance-a11y.spec.ts",
+      "outcome": "NOT_AUTOMATED"
+    },
+    {
+      "test_id": "AG2-T45",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "frontend/apps/web/src/features/admin/agents/governance/logic.test.ts",
+      "outcome": "NOT_AUTOMATED"
+    },
+    {
+      "test_id": "AG2-T46",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_agent_governance.py::test_t07_a_call_outside_the_leased_region_is_denied",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T04",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_register_rows_pg.py::test_an_agents_id_never_changes_when_its_display_name_is_edited",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG2-T33",
+      "source_spec": "ZID-AG-WF-002",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_register_rows_pg.py::test_a_billing_or_alert_outage_never_lifts_a_hard_cap",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT01",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_daara_http_routes_and_the_authority_they_need",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT02",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_sponsorless_agent_cannot_be_validated",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT03",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT04",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT05",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_daara.py::test_a_changed_setup_changes_the_hash_and_so_voids_validation_and_the_sandbox_pass",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT06",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT07",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_workload_attestation_pg.py::test_a_workload_that_needs_attestation_cannot_claim_it",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT08",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT09",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT10",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_daara.py::test_only_the_three_template_tools_exist_and_each_is_narrow",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT11",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT12",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT13",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_daara.py::test_the_same_input_gives_the_same_findings_in_the_same_order",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT14",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_daara.py::test_missing_or_unverifiable_evidence_is_unknown_not_pass",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT15",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_the_model_explanation_is_optional_checked_and_never_changes_a_result",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT16",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_the_model_explanation_is_optional_checked_and_never_changes_a_result",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT17",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_the_model_explanation_is_optional_checked_and_never_changes_a_result",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT18",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_governance_pg.py::test_policy_lifecycle_approval_and_every_gate",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT19",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT20",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT21",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_at21_the_whole_wizard_and_a_run_log_no_token_document_biometric_or_full_identifier",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT22",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "NOT_STARTED",
+      "evidence": "",
+      "outcome": "NOT_AUTOMATED"
+    },
+    {
+      "test_id": "AG1-AT23",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_a_run_finds_the_known_issues_proposes_once_and_changes_no_access",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-AT24",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_daara_pg.py::test_setup_is_gated_by_validation_a_passed_sandbox_and_two_independent_approvals",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T01",
+      "source_spec": "CR-093",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_api_agents.py::test_a_key_carrying_any_private_member_is_refused",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T02",
+      "source_spec": "CR-093",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_api_agents.py::test_the_descriptor_digest_names_the_client_its_keys_and_its_audiences",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T03",
+      "source_spec": "CR-093",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_api_agents.py::test_an_api_bound_agent_may_hold_only_tools_that_read_or_can_be_undone",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T04",
+      "source_spec": "CR-093",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_api_agents_pg.py::test_an_api_agent_reaches_active_with_no_image_and_is_capped_at_the_gateway",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T05",
+      "source_spec": "CR-093",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_api_agents_pg.py::test_revoking_the_client_build_suspends_its_binding_and_its_agent",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T06",
+      "source_spec": "CR-094",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_api_agent_token_pg.py::test_the_signed_assertion_path_issues_a_bound_short_lived_token_and_refuses_everything_else",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T07",
+      "source_spec": "CR-094",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_api_agent_token.py::test_the_attestation_cap_is_read_by_the_gate_and_the_default_class_passes_it",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T08",
+      "source_spec": "CR-094",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/unit/test_api_agent_assurance.py::test_only_a_proven_api_agent_credential_counts",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG3-T09",
+      "source_spec": "CR-094",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agents_api_client_pg.py::test_an_api_agent_goes_from_nothing_to_signed_in_over_the_api_only",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-T30",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_access_readiness_pg.py::test_an_emergency_stop_of_agent_governance_stops_the_readiness_agent_too",
+      "outcome": "PASS"
+    },
+    {
+      "test_id": "AG1-T31",
+      "source_spec": "ZID-AG-WF-001",
+      "status_in_register": "IN_PROGRESS",
+      "evidence": "backend/app/tests/component/test_agent_register_rows_pg.py::test_daara_is_retired_by_default_its_routes_answer_404_and_the_alert_routes_stay",
+      "outcome": "PASS"
+    }
+  ]
+}
