@@ -1,14 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
-import { addVirtualPasskey, registerCompany } from "./helpers";
+import { addVirtualPasskey, startSession } from "./helpers";
 
 /**
  * ZID-AG-WF-002 T44 and ZID-AG-WF-001 AT-22: the agent governance pages (overview, approvals, permissions, usage and spending, monitoring), the
  * access readiness setup and run pages, and the review queue and proposal pages work at desktop, 320 px, landscape and 200 percent zoom, are keyboard
  * operable, and have no automatically detectable WCAG 2.2 AA violation.
  *
- * The person is REAL (a throwaway company with a virtual passkey, so the console session is live). Only the governance data is mocked, because a new
+ * The person is REAL (a virtual passkey, so the console session is live): a one-use enrollment ticket in E2E_ADMIN_TICKET signs in an existing person with no email,
+ * otherwise a throwaway person signs up and reads the mail from the local mail sink. Only the governance data is mocked, because a new
  * company has no agents, runs or proposals. This is automated evidence. It is NOT a screen-reader run on a real device, and it was written to run
  * against the local stack; read the result of an actual run before relying on it.
  */
@@ -104,7 +105,7 @@ test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
   await addVirtualPasskey(context, page);
-  await registerCompany(page);
+  await startSession(page);
   await mock(page);
 });
 

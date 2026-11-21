@@ -9,6 +9,7 @@ import {
   GATE_NOTES,
   buildChoices,
   digestFor,
+  isApiClientBuild,
   knownRepositories,
   parseImage,
   repositoryOf,
@@ -242,5 +243,27 @@ describe("picking the image instead of typing it", () => {
   it("orders versions newest first, by number, with latest last", () => {
     expect(sortVersions(["1.9.0", "1.10.0", "latest", "v2.0.0", "sha-abc", "1.2"])).toEqual(["v2.0.0", "1.10.0", "1.9.0", "1.2", "sha-abc", "latest"]);
     expect(sortVersions([])).toEqual([]);
+  });
+});
+
+describe("isApiClientBuild (CR-142)", () => {
+  const D = `sha256:${"c".repeat(64)}`;
+  const builds = [
+    { artifact_digest: `sha256:${"a".repeat(64)}`, kind: "IMAGE" },
+    { artifact_digest: D, kind: "API_CLIENT" },
+    { artifact_digest: `sha256:${"b".repeat(64)}` }, // an older server sends no kind: it is an image
+  ];
+  it("is true only for the build behind the release when that build is an API client", () => {
+    expect(isApiClientBuild(builds, D)).toBe(true);
+    expect(isApiClientBuild(builds, `sha256:${"a".repeat(64)}`)).toBe(false);
+    expect(isApiClientBuild(builds, `sha256:${"b".repeat(64)}`)).toBe(false);
+  });
+  it("matches a digest spelled with the dash and in any case", () => {
+    expect(isApiClientBuild(builds, `SHA-256:${"C".repeat(64)}`)).toBe(true);
+  });
+  it("is false with no digest, no builds, or a digest nothing registered", () => {
+    expect(isApiClientBuild(builds, undefined)).toBe(false);
+    expect(isApiClientBuild([], D)).toBe(false);
+    expect(isApiClientBuild(builds, `sha256:${"d".repeat(64)}`)).toBe(false);
   });
 });
