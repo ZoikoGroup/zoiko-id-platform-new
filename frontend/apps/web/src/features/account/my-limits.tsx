@@ -10,6 +10,8 @@ import { MANDATES_KEY, StatusChangeDialog, budgetSummary } from "@/features/admi
 import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { MyPermissions } from "./my-permissions-card";
+import { canUseLimit } from "./use-limit";
+import { UseLimitDialog } from "./use-limit-dialog";
 
 const KEY = [...MANDATES_KEY, "mine"];
 
@@ -30,6 +32,7 @@ function roleWords(m: MyMandate): string {
 export function MyLimitsPage() {
   const mine = useCellQuery(KEY, (api) => api.mandates.mine());
   const [move, setMove] = useState<{ mandate: MyMandate; move: "pause" | "revoke" } | null>(null);
+  const [using, setUse] = useState<MyMandate | null>(null);
 
   return (
     <>
@@ -81,8 +84,13 @@ export function MyLimitsPage() {
                       </p>
                     ) : null}
                     <BalanceView mandateId={m.mandate_id} mandate={m} />
-                    {m.my_moves.length ? (
+                    {canUseLimit(m) || m.my_moves.length ? (
                       <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                        {canUseLimit(m) ? (
+                          <Button size="sm" onPress={() => setUse(m)}>
+                            Use my limit
+                          </Button>
+                        ) : null}
                         {m.my_moves.map((mv) => (
                           <Button key={mv} size="sm" variant={mv === "revoke" ? "danger-outline" : "secondary"} onPress={() => setMove({ mandate: m, move: mv })}>
                             {mv === "pause" ? "Pause it" : "Cancel it"}
@@ -97,6 +105,7 @@ export function MyLimitsPage() {
           )
         }
       </QueryView>
+      {using ? <UseLimitDialog mandate={using} onClose={() => setUse(null)} /> : null}
       {move ? <StatusChangeDialog mandate={move.mandate} move={move.move} onClose={() => setMove(null)} /> : null}
     </>
   );
