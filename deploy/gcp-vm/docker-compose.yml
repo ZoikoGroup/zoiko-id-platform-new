@@ -55,6 +55,8 @@ x-backend: &backend
     ZID_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
     # the malware scanner for company proof documents; unset, uploads are refused (nothing is stored unscanned)
     ZID_PROOF_SCANNER_ADDRESS: ${ZID_PROOF_SCANNER_ADDRESS:-}
+    # where the cell reads the built-in global identity policy. Harmless on its own: the policy is used only when ZID_IDV_GLOBAL_POLICY_ACK is set in .env (env.example).
+    ZID_IDV_GLOBAL_POLICY: /app/config/idv/global-policy.yaml
     ZID_KAFKA_BOOTSTRAP: ${ZID_SERVICES_HOST}:9092
     # workload identity (profile `workload-identity`, README section 8): trust this cell's SPIRE bundle, accept a forwarded client
     # certificate only from the workload listener's fixed address, and verify attestor statements against the attestor's public key.

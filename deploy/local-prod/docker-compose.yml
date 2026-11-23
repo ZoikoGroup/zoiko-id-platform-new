@@ -84,6 +84,7 @@ x-backend: &backend
     # LOCAL TEST ONLY: the owners' written acceptance of the built-in global identity policy (backend/config/idv/global-policy.yaml, values PROPOSED, not accepted by any owner). It lets a person verify from any
     # country on this machine. Never copy it to a stack where real people are verified without Privacy, Legal and Compliance accepting every value in that file.
     ZID_IDV_GLOBAL_POLICY_ACK: accept-global-idv-policy
+    ZID_IDV_GLOBAL_POLICY: /app/config/idv/global-policy.yaml  # where the cell reads the global policy (the config folder is mounted at /app/config)
   volumes:
     - ../../contracts:/app/contracts:ro
     - ${ZID_CONFIG_DIR:-../../backend/config}:/app/config:ro # a local-only copy of the config (ZID_CONFIG_DIR in .env) for the rehearsal; the repository's folder by default
