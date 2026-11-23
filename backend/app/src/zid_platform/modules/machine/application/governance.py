@@ -32,7 +32,7 @@ from zid_platform.modules.commercial.ports import decide_feature_entitlement
 from zid_platform.modules.machine.application import agents as agent_service
 from zid_platform.modules.machine.domain import governance as g
 from zid_platform.modules.machine.domain.agents import AgentStatus, MachineError, Tool, ToolStatus
-from zid_platform.modules.machine.infrastructure import agent_store, machine_store
+from zid_platform.modules.machine.infrastructure import agent_store, machine_store, workload_store
 from zid_platform.modules.machine.infrastructure import daara_store as dstore
 from zid_platform.modules.machine.infrastructure import governance_store as store
 from zid_platform.modules.machine.infrastructure.governance_config import config
@@ -181,7 +181,10 @@ async def load_context(
     *,
     with_usage: bool = False,
     with_ceilings: bool = False,
+    with_runtime_proof: bool = False,
 ) -> g.GovernanceContext:
+    """Everything the gates read. The runtime proof costs three queries and only a run start asks for it (`evaluate_run_start`), so it is read on request:
+    the per-call gate, a reservation and a progress report are the hot path and do not pay for it. Not asked for, it is None, which a run start would refuse."""
     agent = await _agent(conn, agent_id)
     policy = await store.active_policy(conn, agent_id)
     baseline = await store.load_baseline(conn, tenant_id)
@@ -194,11 +197,32 @@ async def load_context(
         policy=policy,
         baseline=baseline[0] if baseline else None,
         approval=await effective_approval(conn, policy),
-        freezes=await store.active_freezes(conn),
+        freezes=await store.active_freezes(conn, tenant_id),
         entitled=await _entitled(conn),
+        runtime_proof=await _runtime_proof(conn, agent_id, now) if with_runtime_proof else None,
         usage=usage,
         ceilings=ceilings,
     )
+
+
+async def _runtime_proof(conn: AsyncConnection, agent_id: str, now: datetime) -> bool | None:
+    """Does the agent hold a live proof of what runs it (ZID-AG-WF-001 section 04 PREFLIGHT, AT-07)? A bound API client in date proves a key. A workload
+    binding proves only as much as its attestor: it counts when a VALID, in-date attestation at the level the binding requires exists for exactly its
+    identity, environment and artifact. Read on every run start, so a lapsed attestation or an expired binding is seen at the next run. An answer that
+    cannot be read is None, which the gates treat as a refusal."""
+    try:
+        api_live, workloads = await agent_store.live_runtime_bindings(conn, agent_id)
+        if api_live:
+            return True
+        for w in workloads:
+            level = await workload_store.verified_level(
+                conn, w["workload_identity_id"], w["environment_id"], w["artifact_digest"], now
+            )
+            if level >= w["attestation_required"]:
+                return True
+        return False
+    except Exception:  # noqa: BLE001 - an unreadable proof is a refusal, not a crash
+        return None
 
 
 async def _entitled(conn: AsyncConnection) -> bool | None:
@@ -324,7 +348,7 @@ async def govern_tool_call(
 async def frozen_codes(conn: AsyncConnection, agent_ids: list[str]) -> list[str]:
     """EMERGENCY_FROZEN when any agent in a chain, or the whole tenant, is frozen. Enforced in every mode, including at redemption,
     so a grant signed before the freeze cannot be spent after it."""
-    freezes = await store.active_freezes(conn)
+    freezes = await store.active_freezes_for_agents(conn, agent_ids)
     if any(g.freeze_for(freezes, a) is not None for a in agent_ids):
         return [str(g.Code.EMERGENCY_FROZEN)]
     return []
@@ -1779,7 +1803,9 @@ async def start_run(
         if str(replay["agent_principal_id"]) != agent_id:
             return Outcome(False, ("IDEMPOTENCY_KEY_REUSED",))
         return Outcome(True, data={**_run_view(replay), "replayed": True})
-    ctx = await load_context(conn, tenant_id, agent_id, now, with_usage=True)
+    ctx = await load_context(
+        conn, tenant_id, agent_id, now, with_usage=True, with_runtime_proof=True
+    )
     assert ctx.usage is not None
     d = g.evaluate_run_start(
         ctx,
@@ -1858,7 +1884,7 @@ async def claim_run(
     if run is None or run["state"] != "QUEUED":
         return Outcome(False, ("RUN_NOT_QUEUED",))
     agent_id = str(run["agent_principal_id"])
-    ctx = await load_context(conn, tenant_id, agent_id, now)
+    ctx = await load_context(conn, tenant_id, agent_id, now, with_runtime_proof=True)
     d = g.evaluate_run_start(
         ctx, g.UsageSnapshot(), agent_id=agent_id, now=now, agent_already_running=True
     )
@@ -2117,7 +2143,7 @@ async def pause(
         raise GovernanceError(
             "FREEZE_SHAPE_INVALID", "an AGENT freeze names its agent; a TENANT freeze names none"
         )
-    for f in await store.active_freezes(conn):
+    for f in await store.active_freezes(conn, tenant_id):
         if f.scope == scope and f.agent_id == agent_id:
             return {
                 "case_id": f.case_id,
@@ -2361,7 +2387,7 @@ async def attention(
         for a in await agent_store.list_agents(conn, limit=500)
         if not agent_id or a["agent_principal_id"] == agent_id
     ]
-    freezes = await store.active_freezes(conn)
+    freezes = await store.active_freezes(conn, tenant_id)
     for f in freezes:
         if not agent_id or f.scope == "TENANT" or f.agent_id == agent_id:
             items.append(
@@ -2643,7 +2669,9 @@ async def agent_monitoring(
     counts = await store.counts_by_outcome(conn, since=since, agent_id=agent_id)
     policy = await store.active_policy(conn, agent_id)
     freezes = [
-        f for f in await store.active_freezes(conn) if f.scope == "TENANT" or f.agent_id == agent_id
+        f
+        for f in await store.active_freezes(conn, tenant_id)
+        if f.scope == "TENANT" or f.agent_id == agent_id
     ]
     runs = await store.running_runs(conn, agent_id)
     return {

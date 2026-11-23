@@ -22,6 +22,7 @@ from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_db import as_role
 
 from zid_platform.modules.machine.application import agents as agent_service
 from zid_platform.modules.machine.application import governance as gov
@@ -838,15 +839,18 @@ async def execute_queued(
     return await _execute(conn, tenant_id, agent_id, agent_id, run_id, inst, now)
 
 
-async def work_queue(conn: AsyncConnection, now: datetime, limit: int = 20) -> list[dict[str, Any]]:
-    """Worker pass (BYPASSRLS): run the oldest queued runs, each under its own company's scope and its own savepoint, so one that fails never
-    stops the others. Idempotent: a claimed run is no longer queued."""
+async def work_queue(
+    conn: AsyncConnection, now: datetime, limit: int = 20, *, run_role: str | None = None
+) -> list[dict[str, Any]]:
+    """Worker pass (BYPASSRLS to find the work): run the oldest queued runs, each under its own company's scope and its own savepoint, so one that fails
+    never stops the others. With `run_role` each run executes AS that role (the runtime role, to which row-level security applies), so the database
+    confines it to its company however a query is written. Idempotent: a claimed run is no longer queued."""
     done: list[dict[str, Any]] = []
     for q in await gstore.queued_runs(conn, limit):
         tenant, run_id = str(q["tenant_id"]), str(q["run_id"])
         await conn.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": tenant})
         try:
-            async with conn.begin_nested():
+            async with conn.begin_nested(), as_role(conn, run_role):
                 out = await execute_queued(conn, tenant, run_id, now)
             done.append(
                 {"tenant_id": tenant, "run_id": run_id, "ok": out.ok, "codes": list(out.codes)}

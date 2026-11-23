@@ -49,7 +49,7 @@ ACTION = "machine.workload.manage"
 
 def http(e: MachineError) -> ZidError:
     status = 404 if e.code.endswith(("NOT_FOUND", "UNREGISTERED", "NOT_QUARANTINED")) else 409
-    if e.code.startswith(("SPIFFE_", "WORKLOAD_ARTIFACT")):
+    if e.code.startswith(("SPIFFE_", "WORKLOAD_ARTIFACT", "WORKLOAD_BUILD")):
         status = 422
     return ZidError(e.code, str(e), http_status=status)
 

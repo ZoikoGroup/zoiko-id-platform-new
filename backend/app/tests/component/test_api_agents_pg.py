@@ -34,7 +34,9 @@ class Registry:
     """One tenant with the registry people (a registrar, an independent approver) and a way to run a step in a tenant transaction."""
 
     def __init__(self, rt_url: str, owner_url: str) -> None:
-        self.w = World(rt_url, owner_url)
+        self.w = World(
+            rt_url, owner_url, runtime_proof=False
+        )  # these tests assert an API agent has no workload binding anywhere
         self.w.run(self.w._seed())
         self.rt = rt_url
         self.t = self.w.tenant
@@ -324,3 +326,43 @@ def test_revoking_the_client_build_suspends_its_binding_and_its_agent(
         )
     )
     assert img["kind"] == "IMAGE"
+
+
+def test_an_api_client_build_cannot_be_given_a_workload_binding(
+    rt_url: str, owner_url: str
+) -> None:
+    """CR-142: a workload binding is the container path, where an attestor compares a running image to a digest. An API client is not an image, so nothing could
+    ever attest it. Left alone, the agent reaches ACTIVE with no way to get a credential. The registry refuses it and names the right path."""
+    from datetime import UTC, datetime, timedelta
+
+    from test_workload_identity_pg import DOMAIN, POLICY
+    from zid_platform.modules.machine.application import workload
+
+    r = Registry(rt_url, owner_url)
+    a = r.api_agent("no-image-here", ["docs.read"], bind=False)
+
+    with pytest.raises(MachineError) as refused:
+        r.run(
+            lambda c: workload.register_binding(
+                c,
+                r.t,
+                policy=POLICY,
+                agent_principal_id=a["agent_id"],
+                spiffe_id=f"spiffe://{DOMAIN}/t/{r.t}/ns/agents/sa/no-image-here",
+                blueprint_version="1",
+                artifact_digest=a["client"]["artifact_digest"],
+                environment_id="prod",
+                attestation_required=2,
+                valid_to=datetime.now(UTC) + timedelta(days=1),
+                actor=r.w.human,
+            )
+        )
+    assert refused.value.code == "WORKLOAD_BUILD_IS_API_CLIENT"
+    assert "API client binding" in str(refused.value)  # it says where to go instead
+    assert r.w.owner("SELECT count(*) FROM agent.workload_binding WHERE tenant_id = :t")[0][0] == 0
+
+    # the path it names works, and the agent then reaches ACTIVE with no workload binding anywhere
+    r.run(lambda c: svc.bind_api_client(c, r.t, a["agent_id"], actor=r.w.human))
+    r.activate(a["agent_id"])
+    assert r.status(a["agent_id"]) == "ACTIVE"
+    assert r.w.owner("SELECT count(*) FROM agent.workload_binding WHERE tenant_id = :t")[0][0] == 0

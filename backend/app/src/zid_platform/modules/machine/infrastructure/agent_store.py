@@ -183,6 +183,40 @@ async def live_binding_count(conn: AsyncConnection, agent_id: str) -> int:
     return workload + api
 
 
+async def live_runtime_bindings(
+    conn: AsyncConnection, agent_id: str
+) -> tuple[bool, list[dict[str, Any]]]:
+    """What an agent's proof of its runtime rests on right now: whether a live API client binding exists, and each live workload binding
+    (identity, environment, digest and the attestation level it requires). A binding past its date or not ACTIVE is not live."""
+    api = (
+        await conn.execute(
+            text(
+                "SELECT 1 FROM agent.api_client_binding WHERE agent_principal_id = :a "
+                "AND status = 'ACTIVE' AND valid_to > now() LIMIT 1"
+            ),
+            {"a": uuid.UUID(agent_id)},
+        )
+    ).first()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT workload_identity_id, environment_id, artifact_digest, attestation_required "
+                "FROM agent.workload_binding WHERE logical_principal_id = :a AND status = 'ACTIVE' AND valid_to > now()"
+            ),
+            {"a": uuid.UUID(agent_id)},
+        )
+    ).all()
+    return api is not None, [
+        {
+            "workload_identity_id": r.workload_identity_id,
+            "environment_id": r.environment_id,
+            "artifact_digest": r.artifact_digest,
+            "attestation_required": int(r.attestation_required),
+        }
+        for r in rows
+    ]
+
+
 async def descendants(conn: AsyncConnection, agent_id: str) -> list[str]:
     """Every sub-agent below `agent_id`, so a compromise reaches the whole delegation tree (MACH-09)."""
     rows = (

@@ -27,6 +27,19 @@ SELECT format('CREATE ROLE zid_runtime LOGIN PASSWORD %L NOSUPERUSER NOBYPASSRLS
 SELECT format('CREATE ROLE zid_worker LOGIN PASSWORD %L NOSUPERUSER %s', :'worker_pw', :'worker_attr')
  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zid_worker') \gexec
 
+-- The worker finds queued agent work across companies with a role that bypasses row-level security, and runs each company's work AS zid_runtime (ZID_AGENT_RUN_ROLE),
+-- to which row-level security applies, so the database confines the run to its company however a query is written (CR-142). It may take that role (SET ROLE) but does
+-- not inherit its privileges the rest of the time. PostgreSQL 16 and later can say so; earlier versions grant plain membership, which does the same job.
+DO $grant$
+BEGIN
+  IF current_setting('server_version_num')::int >= 160000 THEN
+    EXECUTE 'GRANT zid_runtime TO zid_worker WITH INHERIT FALSE, SET TRUE';
+  ELSE
+    EXECUTE 'GRANT zid_runtime TO zid_worker';
+  END IF;
+END
+$grant$;
+
 -- The admin user must be a member of the owner role to hand it the database.
 GRANT zid_owner TO CURRENT_USER;
 SELECT format('ALTER DATABASE %I OWNER TO zid_owner', current_database()) \gexec

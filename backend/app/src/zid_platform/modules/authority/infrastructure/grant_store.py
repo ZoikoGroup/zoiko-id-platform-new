@@ -256,6 +256,17 @@ async def load_grant(conn: AsyncConnection, grant_id: str) -> Grant | None:
     return _grant(row) if row else None
 
 
+async def set_evidence_ref(conn: AsyncConnection, grant_id: str, audit_id: str) -> None:
+    """Point a grant at the audit record of its own issuance, once. That record is the evidence a reviewer (the access readiness agent, rule R-05) looks for
+    behind every mandate built on the grant. It never replaces a reference that is already there."""
+    await conn.execute(
+        text(
+            "UPDATE authz.authority_grant SET evidence_ref = :e WHERE authority_grant_id = :id AND evidence_ref IS NULL"
+        ),
+        {"e": uuid.UUID(audit_id), "id": uuid.UUID(grant_id)},
+    )
+
+
 async def set_grant_status(conn: AsyncConnection, grant_id: str, target: GrantStatus) -> Grant:
     chain = await load_chain(conn, grant_id)
     if grant_id not in chain:

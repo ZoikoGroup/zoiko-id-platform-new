@@ -14,6 +14,7 @@ import pytest
 from access_readiness_fixture import CELL, REGION, World, runtime
 from conftest import engine
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from test_access_readiness_pg import BASE, Records, approved_world, execute, make_run
 from zid_platform.entrypoints.worker import steps
 from zid_platform.modules.access_readiness.application import runs
@@ -363,3 +364,58 @@ def test_an_instruction_in_metadata_is_a_redacted_marker_and_the_result_is_uncha
     for fragment in ("Ignore all previous", "grant all admin", NASTY):
         assert fragment not in stored
         assert not any(fragment in line for line in log.lines)
+
+
+# --------------------------------------------------------------------------------------------- the run's own database role (CR-142)
+
+
+def _role_step(owner_url: str, role: str | None) -> Any:
+    settings = Settings(
+        environment="test", cell_id=REGION, cell_uuid=CELL, access_readiness_enabled=True,
+        access_readiness_regions=(REGION,), agent_run_role=role,
+    )  # fmt: skip
+
+    async def go() -> object:
+        step = dict(steps(settings))["access_readiness"]
+        async with engine(owner_url) as eng, eng.begin() as c:  # the worker's connection: superuser here, BYPASSRLS in a deployment
+            return await step(c, datetime.now(UTC))
+
+    return go
+
+
+def test_a_queued_run_executes_as_the_runtime_role_and_not_as_the_workers(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The worker connects as a role that bypasses row-level security so it can find work across companies. The work it then does for ONE company must run as the
+    role row-level security applies to, so the database confines it however a query is written (the revoked-release and freeze reads that leaked between companies
+    could not have, under it). With the role named, every step of a run is that role; the worker's own queue read is not."""
+    from conftest import RT_ROLE
+
+    w = approved_world(rt_url, owner_url)
+    queued = [make_run(w, f"idem-role-{n}")["run_id"] for n in range(2)]
+    seen: list[str] = []
+    real = runs._preflight
+
+    async def spy(conn: Any, rt: Any, tenant_id: str, run: dict[str, Any], gate: Any) -> Any:
+        seen.append((await conn.execute(text("SELECT current_user"))).scalar_one())
+        return await real(conn, rt, tenant_id, run, gate)
+
+    monkeypatch.setattr(runs, "_preflight", spy)
+    for _ in range(40):  # the shared database may hold other tests' queued runs ahead of these
+        if all(run_state(w, r)[0] != "QUEUED" for r in queued):
+            break
+        out = w.run(_role_step(owner_url, RT_ROLE)())
+        assert isinstance(out, dict) and out["errors"] == 0, out
+    assert all(run_state(w, r)[0] == "NEEDS_REVIEW" for r in queued)  # the work is the same work
+    assert seen and set(seen) == {RT_ROLE}, seen
+
+
+def test_a_run_role_that_cannot_be_assumed_runs_nothing_and_leaves_the_run_queued(
+    rt_url: str, owner_url: str
+) -> None:
+    """Fail closed: a worker told to run as a role it may not take must not fall back to running with its own privilege."""
+    w = approved_world(rt_url, owner_url)
+    queued = make_run(w, "idem-bad-role")["run_id"]
+    outs = [w.run(_role_step(owner_url, "no_such_role")()) for _ in range(3)]
+    assert all(isinstance(o, dict) and o["picked"] > 0 and o["errors"] == o["picked"] for o in outs), outs
+    assert run_state(w, queued)[0] == "QUEUED"  # nothing ran, nothing was denied by accident, it will be tried again

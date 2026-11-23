@@ -130,7 +130,7 @@ def test_an_api_agent_goes_from_nothing_to_signed_in_over_the_api_only(
     from gateway_fixture import World as GatewayWorld
 
     client = load_client()
-    w = GatewayWorld(rt_url, owner_url).start()
+    w = GatewayWorld(rt_url, owner_url, runtime_proof=False).start()
 
     async def grant() -> None:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(w.tenant)) as c:
@@ -193,7 +193,7 @@ def test_the_cli_works_over_real_http_against_a_running_server(
     from gateway_fixture import World as GatewayWorld
 
     client = load_client()
-    w = GatewayWorld(rt_url, owner_url).start()
+    w = GatewayWorld(rt_url, owner_url, runtime_proof=False).start()
 
     async def grant() -> None:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(w.tenant)) as c:

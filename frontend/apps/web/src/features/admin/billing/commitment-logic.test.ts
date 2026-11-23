@@ -1,7 +1,7 @@
 import type { BillingOrder, CommitmentRequest } from "@zoiko/api-client";
 import { describe, expect, it } from "vitest";
 
-import { canDecide, commitmentStepUp, delegateGrantStepUp, requestableOrders, signaturesLeft, validCap, waitingReason } from "./commitment-logic";
+import { canDecide, commitmentStepUp, delegateGrantStepUp, requestableOrders, seesCommitmentRequests, signaturesLeft, validCap, waitingReason } from "./commitment-logic";
 
 const NOW = Date.parse("2026-11-04T10:00:00Z");
 const req = (o: Partial<CommitmentRequest> = {}): CommitmentRequest => ({
@@ -81,5 +81,31 @@ describe("commitment approval", () => {
     expect(validCap("0")).toBe(false);
     expect(validCap("1.234")).toBe(false);
     expect(validCap("-5")).toBe(false);
+  });
+});
+
+describe("who sees the commitment requests (CR-140)", () => {
+  const grant = (over: Partial<{ grantee_principal_id: string; permissions: string[]; revoked_at: string | null; expires_at: string | null }> = {}) => ({
+    grantee_principal_id: "p1",
+    permissions: ["billing.overview.read", "billing.invoice.read"],
+    revoked_at: null,
+    expires_at: null,
+    ...over,
+  });
+  it("an Owner always does", () => {
+    expect(seesCommitmentRequests("o", "OWNER", [])).toBe(true);
+  });
+  it("a person with a limit and no Billing grant does not", () => {
+    expect(seesCommitmentRequests("p1", "APPROVER", [])).toBe(false);
+  });
+  it("a live Billing grant with the overview permission does", () => {
+    expect(seesCommitmentRequests("p1", "APPROVER", [grant()])).toBe(true);
+  });
+  it("a revoked, expired, other person's or invoice-only grant does not", () => {
+    const now = new Date("2026-11-20T00:00:00Z");
+    expect(seesCommitmentRequests("p1", "MEMBER", [grant({ revoked_at: "2026-11-01T00:00:00Z" })], now)).toBe(false);
+    expect(seesCommitmentRequests("p1", "MEMBER", [grant({ expires_at: "2026-11-10T00:00:00Z" })], now)).toBe(false);
+    expect(seesCommitmentRequests("p1", "MEMBER", [grant({ grantee_principal_id: "p2" })], now)).toBe(false);
+    expect(seesCommitmentRequests("p1", "MEMBER", [grant({ permissions: ["billing.invoice.read"] })], now)).toBe(false);
   });
 });

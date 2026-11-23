@@ -88,6 +88,14 @@ def _uuid(v: str | None) -> uuid.UUID | None:
     return uuid.UUID(v) if v else None
 
 
+def _uuid_or_none(v: str | None) -> uuid.UUID | None:
+    """A registrant is recorded only when it is a principal id; anything else is stored as unknown, never as a wrong person."""
+    try:
+        return uuid.UUID(v) if v else None
+    except ValueError:
+        return None
+
+
 async def save_agent(conn: AsyncConnection, a: AgentProfile) -> None:
     if a.status is AgentStatus.ACTIVE:
         raise MachineError(
@@ -98,9 +106,9 @@ async def save_agent(conn: AsyncConnection, a: AgentProfile) -> None:
             INSERT INTO agent.agent_profile (agent_principal_id, tenant_id, agent_name, blueprint_id, blueprint_version,
                 publisher_principal_id, operator_principal_id, sponsor_principal_id, owning_organization_id,
                 parent_agent_principal_id, model_provider, allowed_tools, max_subagent_depth, status, security_revision,
-                expires_at)
+                expires_at, registered_by)
             VALUES (:id, :t, :n, :b, :v, :pub, :op, :sp, :org, :parent, :mp, :tools, :depth,
-                    CAST(:st AS agent.agent_status), :rev, :exp)
+                    CAST(:st AS agent.agent_status), :rev, :exp, :reg)
         """),
         {
             "id": uuid.UUID(a.agent_principal_id),
@@ -119,6 +127,7 @@ async def save_agent(conn: AsyncConnection, a: AgentProfile) -> None:
             "st": a.status.value,
             "rev": a.security_revision,
             "exp": a.expires_at,
+            "reg": _uuid_or_none(a.registered_by),
         },
     )
 
@@ -146,6 +155,7 @@ def _agent(row: Row[Any]) -> AgentProfile:
         if m["parent_agent_principal_id"]
         else None,
         expires_at=m.get("expires_at"),
+        registered_by=str(m["registered_by"]) if m.get("registered_by") else None,
     )
 
 
@@ -266,13 +276,12 @@ async def load_tools(conn: AsyncConnection) -> dict[str, Tool]:
     }
 
 
-async def credential_check(
-    conn: AsyncConnection,
-    req: CredentialRequest,
-    *,
-    quarantined_environments: frozenset[str] = frozenset(),
-) -> list[str]:
-    """Issuance decision from stored state (MACH-03/04/09/10/11/12/20)."""
+async def credential_check(conn: AsyncConnection, req: CredentialRequest) -> list[str]:
+    """Issuance decision from stored state (MACH-03/04/09/10/11/12/20).
+
+    What it reads about revoked releases and quarantined environments is read for the BINDING'S OWN COMPANY, named in the query. A connection that is not
+    confined to one company (the worker's is not) must not let another company's revoked release or quarantined environment stop this company's agent: two
+    companies can run the same image digest, and an environment is only a name."""
     row = (
         await conn.execute(
             text(
@@ -297,19 +306,33 @@ async def credential_check(
         m["valid_to"],
     )
     agent = await load_agent(conn, binding.logical_principal_id)
+    tenant = m["tenant_id"]
     revoked = (
         (
             await conn.execute(
                 text(
-                    "SELECT artifact_digest FROM agent.blueprint_release WHERE review_status = 'REVOKED'"
-                )
+                    "SELECT artifact_digest FROM agent.blueprint_release WHERE review_status = 'REVOKED' AND tenant_id = :t"
+                ),
+                {"t": tenant},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    quarantined = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT environment_id FROM agent.environment_quarantine WHERE lifted_at IS NULL AND tenant_id = :t"
+                ),
+                {"t": tenant},
             )
         )
         .scalars()
         .all()
     )
     state = MachineState(
-        quarantined_environments=quarantined_environments,
+        quarantined_environments=frozenset(quarantined),
         revoked_blueprint_digests=frozenset(revoked),
     )
     return credential_blockers(req, binding, agent, state)

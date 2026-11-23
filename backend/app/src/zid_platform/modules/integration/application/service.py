@@ -15,7 +15,7 @@ Every change emits its event and a protected AuditRecord (E3 for quarantine/rele
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from typing import Protocol as StructuralType
@@ -32,7 +32,6 @@ from zid_platform.modules.evidence.ports import (
     current_runtime,
     record_audit,
 )
-from zid_platform.modules.federation.ports import set_connection_status
 from zid_platform.modules.integration.domain.model import (
     DEFAULT_FRESHNESS,
     MAX_OVERLAP,
@@ -515,12 +514,26 @@ async def record_interaction(
     )
 
 
+# How a quarantine reaches a federation connection. Integration does not import federation (federation already calls integration for a connector's sealed secret,
+# so importing it back made the two one dependency cycle); the composition root registers federation's setter at start-up, as it does for the other cross-module hooks.
+ConnectionStatusSetter = Callable[[AsyncConnection, str, str], Awaitable[bool]]
+_connection_status: ConnectionStatusSetter | None = None
+
+
+def register_connection_status_setter(setter: ConnectionStatusSetter | None) -> None:
+    global _connection_status
+    _connection_status = setter
+
+
 async def _underlying(conn: AsyncConnection, c: Connector, *, quarantine: bool) -> None:
     if not c.source_ref:
         return
     kind, _, ident = c.source_ref.partition(":")
     if kind == "federation_connection":
-        await set_connection_status(conn, ident, "QUARANTINED" if quarantine else "ACTIVE")
+        if _connection_status is None:
+            # fail closed: a quarantine that cannot reach the connection it is meant to stop must not look as if it had
+            raise IntegrationError("CONNECTION_STATUS_UNAVAILABLE")
+        await _connection_status(conn, ident, "QUARANTINED" if quarantine else "ACTIVE")
     elif kind == "provisioning_source":
         await set_source_status(conn, ident, "SUSPENDED" if quarantine else "ACTIVE")
 

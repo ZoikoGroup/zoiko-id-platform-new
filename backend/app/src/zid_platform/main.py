@@ -219,7 +219,10 @@ def create_app(
             "ZID_AGENT_GOVERNANCE=off would let agents call tools with no policy, approval, quota or budget check; "
             "outside local, test and dev use shadow or enforce"
         )
+    from . import api_agents_switch
     from .modules.machine.ports import configure_agent_governance
+
+    api_agents_switch.configure(settings.api_agents, settings.environment)  # API agents ship OFF in production (CR-144)
 
     configure_agent_governance(settings.agent_governance, settings.commercial_enforcement)
     app.state.agent_governance = settings.agent_governance
@@ -1204,6 +1207,12 @@ def _register_invitation_hooks() -> None:
     from .modules.provisioning.ports import directory_person
 
     register_provisioned_lookup(directory_person)
+
+    # Quarantining a sign-in connector stops the federation connection behind it (integration never imports federation: federation already calls integration).
+    from .modules.federation.ports import set_connection_status
+    from .modules.integration.ports import register_connection_status_setter
+
+    register_connection_status_setter(set_connection_status)
 
     # A relying system may name a person by the id its own directory gave them (decision must not import provisioning).
     from .modules.decision.ports import register_subject_resolver

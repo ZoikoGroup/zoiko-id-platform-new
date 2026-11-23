@@ -32,6 +32,7 @@ The ports are the real ones: web console **3000**, operator console **3100**, ba
 | Keys | development keys persisted in a Docker volume (`ZID_LOCAL_KEYSTORE`) plus generated `ZID_DEV_SIGNING_KEYS` | **Cloud KMS HSM**: one key per purpose, never exported; created by OpenTofu |
 | Secrets | generated into `.env` | OpenBao, auto-unsealed by Cloud KMS, logged into with the VM's Google identity |
 | `ZID_ENVIRONMENT` | `local` for the backend (see below) | `production` |
+| Evidence timestamps | the `tsa` service: the rehearsal's OWN RFC 3161 authority with its own root (`tsa/`); every checkpoint is timestamped and the token verified against that root, so the production path runs for real and the no-timestamp waiver is gone. It trusts nobody but this machine and nothing leaves it | an authority the owners chose and contracted: set `ZID_EVIDENCE_TSA_URL` and `ZID_EVIDENCE_TSA_TRUST_FILE`, and run `tools/scripts/tsa_check.py` against it first |
 | Email | the same real SMTP provider as production, from your gitignored `.env.smtp`; every email reaches its real recipient (there is no test mail catcher) | a real SMTP provider with SPF, DKIM and DMARC on the sender domain |
 | Edge | none: plain HTTP on localhost | Google load balancer with managed certificates, Cloud Armor, or Caddy with automatic TLS |
 | DNS and passkeys | relying-party id `localhost` | `id.`, `api.`, `global.` under your domain; the domain is the passkey relying-party id |

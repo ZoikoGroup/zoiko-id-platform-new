@@ -89,6 +89,7 @@ def ctx(pol=None, **kw):
         "approval": approval_for(pol),
         "freezes": (),
         "entitled": True,
+        "runtime_proof": True,
     }
     base.update(kw)
     return g.GovernanceContext(**base)
@@ -790,3 +791,33 @@ def test_the_first_publish_with_ai_on_is_an_ai_change_that_needs_every_signer():
     assert (
         derive_kind(policy(ai_enabled=True), ai)[0] is not g.ChangeKind.AI_ENABLE
     )  # already on: not a new AI approval
+
+
+def test_a_run_needs_a_live_proof_of_what_runs_the_agent() -> None:
+    """ZID-AG-WF-001 AT-07 (section 04 PREFLIGHT): with no live proof the run is refused before it starts, and a proof that could not be read is a refusal."""
+    usage = g.UsageSnapshot()
+    ok = g.evaluate_run_start(ctx(), usage, agent_id="a1", now=NOW, agent_already_running=False)
+    assert ok.allowed
+    none = g.evaluate_run_start(
+        ctx(runtime_proof=False), usage, agent_id="a1", now=NOW, agent_already_running=False
+    )
+    assert (
+        not none.allowed and none.code is g.Code.RUNTIME_PROOF_MISSING and none.http_status == 403
+    )
+    unknown = g.evaluate_run_start(
+        ctx(runtime_proof=None), usage, agent_id="a1", now=NOW, agent_already_running=False
+    )
+    assert not unknown.allowed and unknown.code is g.Code.POLICY_UNAVAILABLE
+
+
+def test_a_freeze_and_a_stopped_agent_are_still_reported_before_the_proof() -> None:
+    """The order of reasons does not change: an emergency freeze and an inactive agent come first."""
+    usage = g.UsageSnapshot()
+    inactive = g.evaluate_run_start(
+        ctx(agent_active=False, runtime_proof=False),
+        usage,
+        agent_id="a1",
+        now=NOW,
+        agent_already_running=False,
+    )
+    assert inactive.code is g.Code.AGENT_INACTIVE

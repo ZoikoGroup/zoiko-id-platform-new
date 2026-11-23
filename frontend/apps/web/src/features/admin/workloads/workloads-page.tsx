@@ -7,9 +7,9 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
-import { NEEDS, slug, spiffeIdFor } from "../agents/agents-logic";
+import { NEEDS, isApiClientBuild, slug, spiffeIdFor } from "../agents/agents-logic";
 import { AuthorityNotice } from "../agents/pickers";
-import { AGENTS_KEY, BLUEPRINTS_KEY } from "../agents/shared";
+import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY } from "../agents/shared";
 
 const WL_KEY = ["admin", "workloads"];
 
@@ -171,6 +171,7 @@ const VALID_FOR: Option[] = [
 function RegisterDialog({ isOpen, onClose, trustDomain }: { isOpen: boolean; onClose: () => void; trustDomain: string | null }) {
   const agents = useCellQuery(AGENTS_KEY, (a) => a.agents.list(), { enabled: isOpen });
   const blueprints = useCellQuery(BLUEPRINTS_KEY, (a) => a.agents.blueprints(), { enabled: isOpen });
+  const builds = useCellQuery(BUILDS_KEY, (a) => a.agents.builds(), { enabled: isOpen });
   const company = useCellQuery(["tenant", "me"], (a) => a.tenant.me(), { enabled: isOpen });
   const [agentId, setAgentId] = useState("");
   const [namespace, setNamespace] = useState("agents");
@@ -201,7 +202,9 @@ function RegisterDialog({ isOpen, onClose, trustDomain }: { isOpen: boolean; onC
       }),
     { invalidate: [WL_KEY, AGENTS_KEY], success: "Workload binding registered", onSuccess: onClose },
   );
-  const ready = Boolean(agent && release && spiffe.startsWith("spiffe://"));
+  // An agent whose software is an API client has no image for an attestor to look at: it is bound from its own page, and the server refuses it here.
+  const apiClient = isApiClientBuild(builds.data?.items ?? [], release?.artifact_digest);
+  const ready = Boolean(agent && release && !apiClient && spiffe.startsWith("spiffe://"));
 
   return (
     <Dialog
@@ -234,6 +237,12 @@ function RegisterDialog({ isOpen, onClose, trustDomain }: { isOpen: boolean; onC
           options={choices.map((a) => ({ id: a.agent_principal_id, label: a.agent_name, description: `${a.blueprint_id} @ ${a.blueprint_version} · ${humanize(a.status)}` }))}
           description={choices.length ? undefined : "Register an agent first (Agents & tools → Agents)."}
         />
+        {apiClient ? (
+          <Banner tone="danger" title="This agent runs an API client, not a container image">
+            A workload binding is for an agent that runs as a container, where an attestor checks the running image. An API client cannot be checked that way. Open the agent under Agents &amp;
+            tools and use its API client binding instead.
+          </Banner>
+        ) : null}
         {agent ? (
           <div className="rounded-card border border-border bg-canvas p-3 text-sm">
             <p className="font-medium text-ink">Built from</p>

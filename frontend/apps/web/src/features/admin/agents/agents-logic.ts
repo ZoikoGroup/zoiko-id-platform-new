@@ -271,6 +271,19 @@ export function setupSteps(x: {
 
 /* -------------------------------------------------------------------------------------------------- misc */
 
+/** A digest compares the same with or without the dash in `sha-256:`; the registry accepts both spellings. */
+const normalizeDigest = (d: string) => d.trim().toLowerCase().replace(/^sha-256:/, "sha256:");
+
+/**
+ * Whether the software behind a release is an API client, not an image (CR-142). A workload binding is the container path: an attestor looks at the running image, so it
+ * can never vouch for an API client. Such an agent is bound from its own page with its API client binding, and the server refuses a workload binding for it.
+ */
+export function isApiClientBuild(builds: { artifact_digest: string; kind?: string }[], digest: string | undefined): boolean {
+  if (!digest) return false;
+  const wanted = normalizeDigest(digest);
+  return builds.some((b) => b.kind === "API_CLIENT" && normalizeDigest(b.artifact_digest) === wanted);
+}
+
 export const slug = (s: string) =>
   s
     .toLowerCase()

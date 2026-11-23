@@ -48,6 +48,11 @@ Gates, in order. G0 needs the signed boundary ADR and the inventory (AG2-D07, D-
 | Is risk class 2 the right ceiling? | Start at 1 for the first month; raise to 2 after review of the evidence | Security owner |
 | Does the image path keep a higher attestation floor? | **Yes.** Images stay at the existing floor; API agents never exceed 1 | Security owner |
 | Is a verified DPoP proof of the agent's own key enough for assurance Z1 (R0 and R1 only)? | **Yes, as built (CR-094 amendment).** Without it no API-agent tool call can ever be granted. R2 and R3 are untouched (they need Z2 and Z3). Alternative if refused: mark the read-only tool actions `machine_callable` and drop the rule | Security owner |
+| May the access readiness agent run on an API client's proof, held at level 1? (CR-142 section 4) | **Yes, as built.** A bound client counts as attestation level 1 only when the token path's own decision passes (agent active and not frozen, binding in date, client build approved and not revoked, release unchanged); it is re-checked at every step; the status says `API_CLIENT`, not a verified image. The agent holds only the two read tools; the platform's review service makes the proposal write. Alternative if refused: keep access readiness on the container path only | Security owner |
+| Should an API-client build ever be given a workload binding? (CR-142 section 2) | **No.** An attestor can only inspect an image. The registry refuses it (422 `WORKLOAD_BUILD_IS_API_CLIENT`) and names the API client binding | Security owner (confirm) |
+| Should the people who answer for an agent, and the person who registered it, be unable to activate it? (CR-142 section 1) | **Yes**, the same people already barred from the security review (WF-002 section 04, four-eyes). A one-administrator company must name another member as sponsor | Security owner, Product |
+| Should the worker run each company's queued agent work as the runtime role? (CR-142 section 8) | **Yes, in every deployment** (`ZID_AGENT_RUN_ROLE=zid_runtime`, membership granted in `01_roles.sql`). The database then confines a run to its company however a query is written; it is the structural answer to the cross-company reads CR-142 section 5 fixed one by one | Security owner, Platform |
+| May API-based agents be switched on in production? (CR-144) | **Not until you have answered the rows above.** They ship OFF in production (`ZID_API_AGENTS=auto`); setting `ZID_API_AGENTS=on` is the decision. The registry, governance and the container path do not depend on it, so the release is not blocked by this section | Security owner |
 
 ## D. What cannot be closed by code
 
@@ -66,3 +71,24 @@ Gates, in order. G0 needs the signed boundary ADR and the inventory (AG2-D07, D-
 3. Privacy and Legal answer AG2-D06, D08 and D11 together. They share one data-handling review.
 4. Product and SRE set quotas and the kill-switch target from four weeks of pilot data.
 5. Independent testing and the screen-reader pass run on the build that carries all of the above.
+
+## F. Production readiness of the agents: built, designed, or needs a first run
+
+The release plan that places each open item in the phase where it matters, with the risk the Product owner accepts until then and the evidence that closes it: [docs/runbooks/agent-release-plan.md](../../runbooks/agent-release-plan.md).
+
+Updated 20 Nov 2026 (CR-142). "Built" has tests; "designed" has a runbook or deploy script and has never run on real machines; "needs people" cannot be done by engineering.
+
+| Area | State | Where it is | What remains, and who |
+|---|---|---|---|
+| Independence of approvers and activators | Built | CR-064, CR-142 section 1 | Security owner confirms (section C) |
+| Live runtime proof at every run and step; API and image proof | Built | CR-142 sections 3 and 4 | Security owner confirms (section C) |
+| Isolation between companies for queued work | Built | CR-142 sections 5 and 8 (run as the runtime role, plus company named in every read) | Apply the role grant in each deployment (`deploy/gcp/db/01_roles.sql`); an independent test that two companies cannot see each other's runs |
+| DAARA as a worker with its own identity | Built to the extent code can: runs in the worker process as the runtime role under a per-run lease with a live proof | `entrypoints/worker.py`, `leases.py` | A separate worker VM or pod with its own attestation is infrastructure (decision D-08); the design is the same code, deployed as its own service with `ZID_ROLES=worker` |
+| Key custody | Designed | `deploy/gcp` (Cloud KMS, HSM keys, OpenBao unsealed by KMS); `deploy/gcp-vm` (master key file, Shamir-sealed OpenBao) | Run `tools/scripts/gcp_kms_smoke.py` on the VM before traffic; Platform and Security |
+| External timestamps | Rehearsed for real; a contracted authority is still needed | The rehearsal stack runs its own RFC 3161 authority image (`deploy/local-prod/tsa`) and verifies every token against its root; `tools/scripts/tsa_check.py` proves any authority the same way (accepted under its root, refused under an unrelated one) | Choose and contract a timestamp authority, put its root in `ZID_EVIDENCE_TSA_TRUST_FILE`, run `tsa_check.py` against it; Security |
+| HTTPS edge, passkey relying-party id, DNS | Designed | `deploy/gcp/Caddyfile`, `deploy/gcp-vm/Caddyfile`, runbooks | Domain and certificates; Platform |
+| Attestor, SPIRE, workload registration | Designed | `deploy/gcp-vm/spire`, `deploy/gcp-vm/attestor`, `docs/runbooks/agent-go-live.md` step 8 | First run on the VMs; level 3 needs a hardware or TEE verifier that does not exist yet |
+| Load run at the gate rate | Harness built | `tests/load/machine-token` bound to `contracts/baseline/slo.yaml` | A PERF environment and load generators; SRE |
+| Independent acceptance run | Pack and repeatable runner built | `docs/signoff/uat-independent-execution-pack.md`, `docs/qa/agent-independent-test-and-a11y-protocol.md`, `tools/scripts/acceptance_run.py` (a record anyone can repeat and compare row for row) | A tester outside engineering runs it with `--executed-by`; every row stays IN_PROGRESS until the approvers change it |
+| Accessibility on a real screen reader | Spec built | `frontend/tests/e2e/agent-governance-a11y.spec.ts` (runs with `E2E_ADMIN_TICKET`) | NVDA and VoiceOver passes by a tester |
+| Demonstration on real mandates | Needs people | `docs/operator/agent-governance-guide.md` ("Creating the access readiness agent") | The company's owner and a second person create the mandates, the baseline and the signers, and run it |
