@@ -119,6 +119,34 @@ Set these in `.env` **before** the first start (they are in `env.example`). The 
 
 Who does what, with two people: the Owner registers the tools, the API client, the release and the agent; an Admin who is **not** the agent's sponsor, operator, publisher or registrant approves the build and the release, binds the client, records the security review and activates. The security review needs an Admin or Owner (CR-142). The full path is in `docs/specs/daara-agent-design.md` and `docs/operator/agent-governance-guide.md`.
 
+### Optional services, run the same way as the local stack
+
+| Profile | Services | Image | Notes |
+|---|---|---|---|
+| `operator` | Operator Console at `operator.<domain>` | `zoiko-id-operator`, built and **signed** by the release workflow. `./deploy.sh <backend> <web> <operator>` verifies and sets `ZID_OPERATOR_IMAGE`. | Add `https://operator.<domain>` to `ZID_WEBAUTHN_ORIGINS` first. Caddy lets in only `OPERATOR_ALLOWED_CIDRS` (default: nobody from outside). |
+| `idv` | `ocr`, `face`, `clamd` | `ocr` and `face` are **not built by the release workflow yet**: build `tools/ocr-sidecar` and `tools/face-sidecar`, push by digest, set `ZID_OCR_IMAGE` and `ZID_FACE_IMAGE`. `clamd` is `clamav/clamav:stable`. | Then set `ZID_OCR_URL`, `ZID_FACE_URL` and `ZID_PROOF_SCANNER_ADDRESS=clamd:3310` in `.env`. Without a scanner, company proof uploads are refused. |
+
+Start them with `ZID_PROFILES="edge events operator idv" ./deploy.sh ...`. The sidecars run hardened, as locally: read-only, no capabilities, `no-new-privileges`, memory and process limits.
+
+### Keys and secrets: what exists, who makes it, where it lives
+
+Nothing below is ever committed or put in an environment value you paste into a ticket. The scripts create them with the right owner and mode.
+
+| Secret | Made by | Lives in | Holder |
+|---|---|---|---|
+| Master key (wraps every signing key) | `./keys.sh init-master` | `secrets/master_key` (mode 400, uid 10001) | Copy offline now, split between two people |
+| Signing and token keys | The cell itself, first start | PostgreSQL, wrapped by the master key | Rotate with `./keys.sh rotate-signing`; `./keys.sh rewrap` after a master-key change |
+| OpenBao unseal shares (5, any 3 open it) and root token | `./openbao.sh init` (prints once) | Nowhere on the VMs | Different people. `./openbao.sh unseal` after every restart. |
+| OpenBao application token | `./openbao.sh app-token` | `secrets/openbao_token` | The platform, read-only file |
+| SMTP password | You | `secrets/smtp_password` (mode 400) | The mail relay account |
+| Database role passwords (owner, runtime, worker, relay, plus OpenBao and SpiceDB) | You: `openssl rand -hex 24` each. `./db-init.sh` applies them to the roles and never writes them to a file. | `.env` connection URLs | One per role, never shared |
+| Valkey and SpiceDB passwords | `openssl rand -hex 24` | `.env` | The platform |
+| `ZID_CELL_UUID`, `ZID_OPERATOR_TENANT_ID` | `uuidgen` | `.env` | Fixed for the life of the cell |
+| Evidence timestamp roots | Your chosen RFC 3161 authority | `secrets/tsa_roots.pem` | Public certificates |
+| **An agent's API-client private key** | **The company that owns the agent**, in its own key service (KMS, HSM) or `openssl` | **Never on these VMs.** Only the public key is pasted into the console. | The agent's owner |
+
+The rehearsal's key files (`~/.zoiko/api-agent/*.key`, the local `.env` passwords) are for that machine only. Make new ones here.
+
 ## 9. Workload identity and agents (optional; profile `workload-identity`)
 
 The same flow as local (`local/spire/`), on VMs. It lets software running on your VMs (an AI agent, a service) prove **who it is** with a short-lived SPIFFE identity and **what it is running** with a signed attestation, so the cell can issue it a token bound to that identity. Nothing here is on by default; without it the cell answers 503 to workload requests and 404 to the attestation endpoint.

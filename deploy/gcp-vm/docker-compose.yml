@@ -162,6 +162,67 @@ services:
     healthcheck: {disable: true}
 
   # The public edge (profile `edge`): Caddy gets and renews the certificates by itself and publishes 80 and 443.
+  # Operator Console (profile `operator`): the same image the release workflow builds and signs (build-frontend-image.yml, app=operator). Its own origin
+  # operator.<domain> and OAuth client. Add that origin to ZID_WEBAUTHN_ORIGINS in .env first, and keep it behind OPERATOR_ALLOWED_CIDRS (Caddyfile) or IAP.
+  operator:
+    profiles: ["operator"]
+    image: ${ZID_OPERATOR_IMAGE:-}
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+      ZID_PUBLIC_ORIGIN: https://operator.${ZID_DOMAIN}
+      ZID_OAUTH_CLIENT_ID: zoiko-operator
+      ZID_OAUTH_REDIRECT_URI: https://operator.${ZID_DOMAIN}/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    expose: ["3000"]
+
+  # Identity-check sidecars (profile `idv`), run the same way as the local stack: hardened, read-only, no capabilities, no network of their own beyond this one.
+  #   ocr   reads the printed lines of a document (company certificate check, identity documents)   -> .env: ZID_OCR_URL=http://ocr:8090
+  #   face  the face-match lab engine (no liveness, never an approval)                               -> .env: ZID_FACE_URL=http://face:8091
+  #   clamd the malware scanner every company proof upload goes through                              -> .env: ZID_PROOF_SCANNER_ADDRESS=clamd:3310
+  # ZID_OCR_IMAGE and ZID_FACE_IMAGE are images you build from tools/ocr-sidecar and tools/face-sidecar and push by digest; the release workflow does not build them yet.
+  ocr:
+    profiles: ["idv"]
+    image: ${ZID_OCR_IMAGE:-}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+    expose: ["8090"]
+
+  face:
+    profiles: ["idv"]
+    image: ${ZID_FACE_IMAGE:-}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+    expose: ["8091"]
+
+  clamd:
+    profiles: ["idv"]
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    mem_limit: 2g
+    expose: ["3310"]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
   caddy:
     profiles: ["edge"]
     image: caddy:2.8-alpine
@@ -170,6 +231,7 @@ services:
     environment:
       ZID_DOMAIN: ${ZID_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
+      OPERATOR_ALLOWED_CIDRS: ${OPERATOR_ALLOWED_CIDRS:-127.0.0.1/32}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

@@ -1,13 +1,14 @@
 #!/bin/sh
 # Roll the APP VM to a new release: verify the signed images by digest, migrate as the owner role, restart, wait for readiness.
-#   ./deploy.sh sha256:<backend-digest> [sha256:<web-digest>]
+#   ./deploy.sh sha256:<backend-digest> [sha256:<web-digest> [sha256:<operator-digest>]]
 # Digests come from the release workflow (build-image.yml, build-frontend-image.yml). Each image must carry the keyless cosign signature of exactly
 # that workflow on main (DEC-G4); an unsigned or differently built image is refused before anything restarts. ZID_PROFILES (default "edge events")
 # picks the compose profiles. After a release that adds a schema, also run `./db-init.sh post` from a machine that reaches the database VM.
 set -eu
 cd "$(dirname "$0")"
-DIGEST="${1:?usage: deploy.sh sha256:<backend-digest> [sha256:<web-digest>]}"
+DIGEST="${1:?usage: deploy.sh sha256:<backend-digest> [sha256:<web-digest> [sha256:<operator-digest>]]}"
 WEB_DIGEST="${2:-}"
+OPERATOR_DIGEST="${3:-}"
 REPO="${GITHUB_REPOSITORY:-ZoikoGroup/zoiko-id-platform-new}"
 ISSUER=https://token.actions.githubusercontent.com
 PROFILES="${ZID_PROFILES:-edge events}"
@@ -24,6 +25,12 @@ if [ -n "$WEB_DIGEST" ]; then
   WEB="${ZID_WEB_REPO:-ghcr.io/zoikogroup/zoiko-id-web}@${WEB_DIGEST}"
   verify "$WEB" build-frontend-image.yml
   sed -i "s|^ZID_WEB_IMAGE=.*|ZID_WEB_IMAGE=${WEB}|" .env
+fi
+
+if [ -n "$OPERATOR_DIGEST" ]; then            # the operator console is built and signed by the same workflow as the web image
+  OPERATOR="${ZID_OPERATOR_REPO:-ghcr.io/zoikogroup/zoiko-id-operator}@${OPERATOR_DIGEST}"
+  verify "$OPERATOR" build-frontend-image.yml
+  sed -i "s|^ZID_OPERATOR_IMAGE=.*|ZID_OPERATOR_IMAGE=${OPERATOR}|" .env
 fi
 
 docker compose pull
