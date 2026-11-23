@@ -9,6 +9,7 @@ import { ApprovalsWaiting } from "@/features/approvals/guided-approval";
 import { APPS_KEY } from "@/features/onboarding/applications-page";
 import { ConnectGuide, PilotReadiness, ShadowProgress } from "@/features/onboarding/connect-guide";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { RegionText } from "@/features/admin/residency/region-text";
 
 import {
   ApprovalStep,
@@ -432,7 +433,7 @@ function Wizard({ tenant }: { tenant: TenantView }) {
               items={[
                 ["Stage", <StatusBadge key="s" state={tenant.status} kind="Tenant" />],
                 ["Mode", MODES.find((m) => m.id === tenant.deployment_mode)?.label ?? tenant.deployment_mode],
-                ["Home cell", <span key="c" className="font-mono">{tenant.home_cell_id}</span>],
+                ["Region", <RegionText key="c" cellId={tenant.home_cell_id} />],
               ]}
             />
           </div>

@@ -101,6 +101,7 @@ async def list_cells() -> dict[str, Any]:
                 "supported_profiles": list(c.supported_profiles),
                 "approved_recovery_cells": list(c.approved_recovery_cells),
                 "recovery_only": c.recovery_only,
+                "display_name": c.display_name,
             }
             for c in catalog().cells.values()
         ]

@@ -738,6 +738,8 @@ export type CellView = {
   supported_profiles: string[];
   approved_recovery_cells: string[];
   recovery_only: boolean;
+  /** A plain place name for people, such as "United Kingdom (London)". Never the cell id. */
+  display_name?: string | null;
 };
 export type TenantResidency = {
   residency_profile_id: "SRP-0" | "SRP-1" | "SRP-2" | "SRP-3";

@@ -45,6 +45,7 @@ import type { ReactNode } from "react";
 import { PrivacySignal } from "@/components/privacy-signal";
 import { ConsoleGuide } from "@/components/console-guide";
 import { ageOf } from "@/features/alerts/shared";
+import { RegionText } from "@/features/admin/residency/region-text";
 import { standing, useTenant } from "@/features/onboarding/shared";
 import { useCellQuery } from "@/lib/cell";
 import { visibleNav } from "@/lib/nav-access";
@@ -220,7 +221,7 @@ export function ConsoleShell({
           items={[
             { label: "Cell", value: <StatusBadge state={healthState} kind="Cell API" size="xs" /> },
             { label: "Company", value: tenant ? <StatusBadge state={tenant.status} kind="Company stage" size="xs" /> : <span className="font-mono">{subject.tenantId ?? "—"}</span> },
-            ...(tenant ? [{ label: "Home cell", value: <span className="font-mono">{tenant.home_cell_id}</span> }] : []),
+            ...(tenant ? [{ label: "Region", value: <RegionText cellId={tenant.home_cell_id} /> }] : []),
             {
               label: "Signed in",
               value: subject.authTime ? new Date(subject.authTime * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—",

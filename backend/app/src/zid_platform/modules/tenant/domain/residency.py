@@ -45,6 +45,7 @@ class Cell:
     supported_profiles: tuple[str, ...]
     approved_recovery_cells: tuple[str, ...]
     recovery_only: bool
+    display_name: str | None = None  # a plain place name for people ("United Kingdom (London)"); never the cell id
 
 
 @dataclass(frozen=True, slots=True)
