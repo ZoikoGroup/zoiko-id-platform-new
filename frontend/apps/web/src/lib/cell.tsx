@@ -40,6 +40,10 @@ const CODE_HELP: Record<string, string> = {
   PROTECTED_ACTION_DENIED: "Your authority grants do not cover this action in this tenant.",
   APPROVAL_REQUIRED: "A second administrator must approve this exact change first.",
   STEP_UP_REQUIRED: "This action needs a fresh, high-assurance passkey check.",
+  AGENT_REVIEW_NOT_INDEPENDENT:
+    "The sponsor, operator, publisher and registrant of an agent cannot review it or switch it on. Ask a company Admin or Owner who holds none of those roles on this agent.",
+  AGENT_REVIEW_ROLE_REQUIRED:
+    "Only a company Admin or Owner can record the security review. Ask one of them, who must also hold none of the sponsor, operator, publisher or registrant roles on this agent.",
   BILLING_PERMISSION_REQUIRED: "Your account does not have billing access for this. Ask an Owner of the organization to give it to you.",
   BILLING_DELEGATION_OWNER_ONLY: "Only an Owner gives or takes away billing access.",
   BILLING_GRANT_EXISTS: "That person already has this billing access with a different end date. Take it away first to change it.",

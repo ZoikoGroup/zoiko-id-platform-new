@@ -331,7 +331,7 @@ export const MODEL_PROVIDERS: Opt[] = ["Anthropic", "OpenAI", "Google", "Meta", 
 export const GATE_NOTES: Record<AgentGate, Opt[]> = {
   SECURITY_REVIEW: [
     { id: "threat", label: "Threat, model and tool review completed", description: "Reviewed for the agent's risk class." },
-    { id: "independent", label: "Reviewed by someone independent of the sponsor, operator and publisher" },
+    { id: "independent", label: "Reviewed by a company Admin or Owner independent of the sponsor, operator, publisher and registrant" },
   ],
   KILL_PATH_TESTED: [
     { id: "drill", label: "Suspended and revoked in a drill; the agent stopped", description: "Both paths were tried." },

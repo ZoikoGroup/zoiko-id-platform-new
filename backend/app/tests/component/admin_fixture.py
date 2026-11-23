@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_platform.modules.authority.domain.algebra import Authority, Window, scope
 from zid_platform.modules.authority.domain.grants import (
@@ -169,3 +170,37 @@ async def _release(c: AsyncConnection, tenant: str, actions: list[str], now: dat
         await move(c, rid, target, catalog=catalog(), now=now)
     await release_store.add_reviewer(c, rid, uid())
     await move(c, rid, ReleaseStatus.ACTIVE, catalog=catalog(), now=now)
+
+
+async def give_tenant_role(
+    conn: AsyncConnection, tenant_id: str, principal_id: str, role: str = "ADMIN", home_cell: str | None = None
+) -> None:
+    """A real, ACTIVE tenant role (Owner or Admin) for a principal, as a company administrator holds it.
+
+    `make_admin` above builds the authority a person acts with; this is the other half: the company role. The security review of an agent
+    needs both (CR-142 and the Admin-or-Owner rule), so a test reviewer is given both.
+    """
+    from conftest import CELL
+    from zid_platform.modules.tenant.domain.lifecycle import Role, RoleOrigin, RoleStatus
+    from zid_platform.modules.tenant.infrastructure import tenant_store
+
+    # A role belongs to a tenant record. These worlds use bare tenant ids, so make a minimal active one when there is none.
+    await conn.execute(
+        text(
+            "INSERT INTO platform.tenant (tenant_id, display_name, tenant_slug, status, deployment_mode, home_cell_id, creator_tenant_id, "
+            "creator_principal_id, created_at, state_changed_at) VALUES (:t, 'Test company', :s, 'ACTIVE', 'O0', :cell, :t, :p, now(), now()) "
+            "ON CONFLICT (tenant_id) DO NOTHING"
+        ),
+        {"t": uuid.UUID(tenant_id), "s": f"test-{tenant_id[:8]}", "p": uuid.UUID(principal_id), "cell": home_cell or CELL},
+    )
+    await tenant_store.insert_role(
+        conn,
+        tenant_id=tenant_id,
+        principal_id=principal_id,
+        role=Role(role),
+        status=RoleStatus.ACTIVE,
+        origin=RoleOrigin.PROVISIONING,
+        granted_by=None,
+        approved_by=None,
+        now=datetime.now(UTC),
+    )

@@ -13,8 +13,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from admin_fixture import make_admin
+from admin_fixture import give_tenant_role, make_admin
 from conftest import CELL, ctx, engine
+
+HOME_CELL = "local-1"  # the cell id this test's app runs as (the Settings default); a tenant record must name it as home
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner
@@ -88,6 +90,7 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
                     c, Principal(p, tenant, kind, PrincipalStatus.ACTIVE, "uk-1")
                 )
             await make_admin(c, tenant, [admin, reviewer, sponsor, publisher], ACTIONS, RESOURCES)
+            await give_tenant_role(c, tenant, reviewer, home_cell=HOME_CELL)  # only an Admin or an Owner records the security review
             await create_organization(
                 c,
                 organization_id=org,
