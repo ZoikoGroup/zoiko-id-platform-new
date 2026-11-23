@@ -30,6 +30,7 @@ from zid_platform.modules.machine.domain.agents import (
     Tool,
     ToolStatus,
     activation_blockers,
+    activator_blockers,
     attestor_blockers,
     evidence_from_attestations,
     lifecycle_breach,
@@ -494,6 +495,7 @@ async def register_agent(
         status=AgentStatus.DRAFT,
         parent_agent_id=parent_agent_id,
         expires_at=expires_at,
+        registered_by=actor,
     )
     await create_principal(
         conn,
@@ -653,6 +655,11 @@ async def activate(
     conn: AsyncConnection, tenant_id: str, agent_id: str, *, actor: str
 ) -> AgentProfile:
     agent = await _load(conn, agent_id)
+    if activator_blockers(actor, agent):
+        raise MachineError(
+            "AGENT_REVIEW_NOT_INDEPENDENT",
+            "the sponsor, operator, publisher or registrant of an agent cannot activate it",
+        )
     evidence = await _evidence(conn, agent)
     new = await machine_store.change_agent_status(
         conn, agent_id, AgentStatus.ACTIVE, evidence=evidence
@@ -743,16 +750,24 @@ async def sponsor_is_active(conn: AsyncConnection, sponsor_id: str | None) -> bo
 async def lifecycle_sweep(conn: AsyncConnection, now: datetime) -> list[dict[str, Any]]:
     """Worker pass (BYPASSRLS), WP-10: suspend, by policy, every ACTIVE agent whose accountable sponsor has left
     (disabled, erased, or removed) or whose expiry has passed, together with its sub-agents and live bindings.
-    Idempotent: a suspended agent is not picked again. Runs one tenant at a time under that tenant's scope."""
+    Idempotent: a suspended agent is not picked again. Runs one tenant at a time under that tenant's scope.
+    A parent is always taken before its sub-agents (by depth in the tree), so its suspension takes the whole branch in one result. Ordering by
+    creation time alone does not do that: a parent and a sub-agent registered in one transaction share a timestamp, and whichever the database
+    returned first was reported alone."""
     rows = (
         await conn.execute(
             text(
+                "WITH RECURSIVE depth(agent_principal_id, d) AS ("
+                "SELECT agent_principal_id, 0 FROM agent.agent_profile WHERE parent_agent_principal_id IS NULL "
+                "UNION ALL SELECT c.agent_principal_id, depth.d + 1 FROM agent.agent_profile c "
+                "JOIN depth ON c.parent_agent_principal_id = depth.agent_principal_id) "
                 "SELECT a.tenant_id, a.agent_principal_id FROM agent.agent_profile a "
+                "JOIN depth ON depth.agent_principal_id = a.agent_principal_id "
                 "LEFT JOIN core.principal p ON p.principal_id = a.sponsor_principal_id "
                 "WHERE a.status = 'ACTIVE' AND (a.sponsor_principal_id IS NULL "
                 "OR p.principal_id IS NULL OR p.status <> 'ACTIVE' "
                 "OR (a.expires_at IS NOT NULL AND a.expires_at <= :now)) "
-                "ORDER BY a.tenant_id, a.created_at"
+                "ORDER BY a.tenant_id, depth.d, a.created_at, a.agent_principal_id"
             ),
             {"now": now},
         )

@@ -1128,9 +1128,30 @@ def _freeze(r: dict[str, Any]) -> g.Freeze:
     )
 
 
-async def active_freezes(conn: AsyncConnection) -> list[g.Freeze]:
+async def active_freezes(conn: AsyncConnection, tenant_id: str) -> list[g.Freeze]:
+    """The active emergency stops of ONE company. The tenant is named in the query and not left to the connection: a TENANT-scope freeze covers every agent
+    it is matched against, so a read that was not already confined to one company (the worker's connection is not) would let one company's stop halt another's work."""
     rows = (
-        await conn.execute(text("SELECT * FROM agent.freeze_control WHERE restored_at IS NULL"))
+        await conn.execute(
+            text("SELECT * FROM agent.freeze_control WHERE restored_at IS NULL AND tenant_id = :t"),
+            {"t": uuid.UUID(tenant_id)},
+        )
+    ).all()
+    return [_freeze(_row(r)) for r in rows]
+
+
+async def active_freezes_for_agents(conn: AsyncConnection, agent_ids: list[str]) -> list[g.Freeze]:
+    """The active emergency stops of the company or companies that own these agents. Used where a caller has an agent chain and no tenant in hand."""
+    if not agent_ids:
+        return []
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT f.* FROM agent.freeze_control f WHERE f.restored_at IS NULL AND f.tenant_id IN "
+                "(SELECT p.tenant_id FROM agent.agent_profile p WHERE p.agent_principal_id = ANY(CAST(:ids AS uuid[])))"
+            ),
+            {"ids": [uuid.UUID(a) for a in agent_ids]},
+        )
     ).all()
     return [_freeze(_row(r)) for r in rows]
 

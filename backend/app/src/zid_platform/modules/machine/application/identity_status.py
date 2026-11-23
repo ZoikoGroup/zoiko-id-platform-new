@@ -15,6 +15,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.machine.application.agents import sponsor_is_active
+from zid_platform.modules.machine.application.api_proof import LEVEL as api_proof_level
+from zid_platform.modules.machine.application.api_proof import api_proof
 from zid_platform.modules.machine.domain.agents import ReviewStatus
 from zid_platform.modules.machine.infrastructure import machine_store
 
@@ -35,6 +37,9 @@ class AgentIdentityStatus:
     attestation_level: int
     attestation_id: str | None
     security_revision: int
+    # What the attestation rests on: WORKLOAD (an attestor verified the running image), API_CLIENT (a bound client's key, capped at level 1; CR-142),
+    # or NONE. A reviewer must be able to tell a verified image from a key.
+    proof_kind: str = "NONE"
 
 
 async def attestation_level(
@@ -69,6 +74,18 @@ async def agent_identity_status(
         conn, agent.blueprint_id, agent.blueprint_version
     )
     level, attestation_id = await attestation_level(conn, agent_id, now)
+    proof_kind = "WORKLOAD" if level >= 1 else "NONE"
+    api_live = 0
+    if level < 1:
+        # No verified image. A bound API client in date is the other kind of proof, held at the level a key can show and no higher.
+        proof, problems = await api_proof(conn, agent_id, now)
+        if proof is not None and not problems:
+            level, attestation_id, proof_kind, api_live = (
+                api_proof_level,
+                proof.binding_id,
+                "API_CLIENT",
+                1,
+            )
     live = int(
         (
             await conn.execute(
@@ -90,9 +107,10 @@ async def agent_identity_status(
         blueprint_version=agent.blueprint_version,
         blueprint_approved=blueprint is not None and blueprint.review is ReviewStatus.APPROVED,
         allowed_tools=agent.allowed_tools,
-        live_bindings=live,
+        live_bindings=live + api_live,
         attested=level >= 1,
         attestation_level=level,
         attestation_id=attestation_id,
         security_revision=agent.security_revision,
+        proof_kind=proof_kind,
     )

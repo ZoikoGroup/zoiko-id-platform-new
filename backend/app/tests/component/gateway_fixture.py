@@ -78,6 +78,9 @@ class World:
     root: str = field(default_factory=uid)
     child: str = field(default_factory=uid)
     outsider: str = field(default_factory=uid)
+    # Give the seeded agents the runtime proof a real activation would have left (a workload binding with a valid attestation). A test that asserts an agent it
+    # builds has no workload binding anywhere turns this off.
+    runtime_proof: bool = True
     ring: KeyRing = field(default_factory=lambda: KeyRing(LocalSigner("issuer-gw")))
     approver_grant: str = ""
     sessions: dict[str, str] = field(default_factory=dict)
@@ -146,6 +149,28 @@ class World:
                     text(f"UPDATE agent.{table} SET status = 'ACTIVE' WHERE tenant_id = :t"),
                     {"t": uuid.UUID(t)},
                 )
+            # An agent that is ACTIVE got there through the activation gates, one of which is a runtime binding. These agents are set ACTIVE directly, so
+            # give each the proof a real activation would have left, and a run start checks it is still live (ZID-AG-WF-001 AT-07): a workload binding to
+            # the artifact of the agent's release, with a VALID attestation at the level it needs. (Not an API client binding: that caps an agent's tools,
+            # and these agents hold a tool that cannot be undone.)
+            for agent_id in (self.root, self.child, self.outsider) if self.runtime_proof else ():
+                sid = f"spiffe://uk-1.test.id.zoiko/t/{t}/ns/agents/sa/{agent_id[:8]}"
+                await c.execute(
+                    text(
+                        "INSERT INTO agent.workload_binding (binding_id, tenant_id, logical_principal_id, workload_identity_id, blueprint_version, "
+                        "artifact_digest, environment_id, attestation_required, status, valid_from, valid_to, security_revision) VALUES "
+                        "(:i, :t, :a, :w, '1', :d, 'prod', 2, 'ACTIVE', now() - interval '1 day', now() + interval '10 years', 0)"
+                    ),
+                    {"i": uuid.uuid4(), "t": uuid.UUID(t), "a": uuid.UUID(agent_id), "w": sid, "d": DIGEST},
+                )  # fmt: skip
+                await c.execute(
+                    text(
+                        "INSERT INTO agent.workload_attestation (attestation_id, tenant_id, workload_identity_id, environment_id, artifact_digest, level, "
+                        "verifier, claims_commitment, status, valid_until) VALUES (:i, :t, :w, 'prod', :d, 2, 'fixture-attestor', :c, 'VALID', "
+                        "now() + interval '10 years')"
+                    ),
+                    {"i": uuid.uuid4(), "t": uuid.UUID(t), "w": sid, "d": DIGEST, "c": "a" * 64},
+                )  # fmt: skip
 
     async def _session(self, p: str) -> str:
         sid, now = uid(), datetime.now(UTC)

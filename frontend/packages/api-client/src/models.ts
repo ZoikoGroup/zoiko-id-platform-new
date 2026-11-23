@@ -1760,6 +1760,8 @@ export type BuildItem = {
   approved_at: Iso | null;
   revoked_at: Iso | null;
   revoke_reason: string | null;
+  /** IMAGE for a container build; API_CLIENT for a registered key set with no image (CR-093). */
+  kind?: "IMAGE" | "API_CLIENT";
 };
 export type BuildList = Items<BuildItem> & {
   /** Whether a blueprint release must run an approved build in this environment. */

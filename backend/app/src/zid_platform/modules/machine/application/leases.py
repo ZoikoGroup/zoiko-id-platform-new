@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
+from zid_platform.modules.machine.application.api_proof import api_proof
 from zid_platform.modules.machine.application.workload import (
     WorkloadPrincipal,
     record_credential_issued,
@@ -52,6 +53,9 @@ class WorkloadLease:
     revoked_at: datetime | None = None
     workload_identity_id: str = ""
     artifact_digest: str = ""
+    # WORKLOAD: backed by a live workload binding and a verified attestation. API_CLIENT: backed by a bound API client's key, at the level a key can
+    # show (CR-142). It is the same in-process lease either way: an opaque id, never a bearer token.
+    kind: str = "WORKLOAD"
 
 
 async def _bindings(conn: AsyncConnection, agent_id: str) -> list[Any]:
@@ -84,9 +88,7 @@ async def _check(
         now,
         LEASE_RISK_LEVEL,
     )
-    problems = await machine_store.credential_check(
-        conn, req, quarantined_environments=await store.quarantined_environments(conn)
-    )
+    problems = await machine_store.credential_check(conn, req)
     if level < int(Attestation.ATTEST_1) and "ATTESTATION_INSUFFICIENT" not in problems:
         problems.append("ATTESTATION_INSUFFICIENT")
     return problems
@@ -111,8 +113,16 @@ async def issue_workload_lease(
     now = now or datetime.now(UTC)
     rows = await _bindings(conn, agent_id)
     if not rows:
-        raise MachineError(
-            "WORKLOAD_IDENTITY_UNREGISTERED", "the agent has no live workload binding"
+        # No container binding at all: an agent bound to an API client holds its proof as a key, not an image (CR-142).
+        return await _api_lease(
+            conn,
+            tenant_id,
+            agent_id,
+            audience=audience,
+            purpose=purpose,
+            scope=scope,
+            now=now,
+            lifetime=lifetime,
         )
     problems: list[str] = []
     for row in rows:
@@ -148,6 +158,52 @@ async def issue_workload_lease(
     raise MachineError(problems[0], ", ".join(problems))
 
 
+async def _api_lease(
+    conn: AsyncConnection,
+    tenant_id: str,
+    agent_id: str,
+    *,
+    audience: str,
+    purpose: str,
+    scope: frozenset[str],
+    now: datetime,
+    lifetime: timedelta,
+) -> WorkloadLease:
+    """A lease backed by the agent's bound API client, issued only when the token path would issue the agent a credential too (one decision, in
+    `credential_problems`). It carries the identity `api-client:<client id>`, never a key or a token, and lasts no longer than any other lease."""
+    proof, problems = await api_proof(conn, agent_id, now)
+    if proof is None:
+        raise MachineError(
+            "WORKLOAD_IDENTITY_UNREGISTERED",
+            "the agent has no live workload binding and no bound API client",
+        )
+    if problems:
+        raise MachineError(problems[0], ", ".join(problems))
+    identity = f"api-client:{proof.client_id}"
+    expires = now + min(lifetime, LEASE_LIFETIME)
+    await record_credential_issued(
+        conn,
+        tenant_id,
+        WorkloadPrincipal(identity, agent_id, proof.binding_id, "api", proof.security_revision),
+        expires_at=expires,
+    )
+    return WorkloadLease(
+        lease_id=str(uuid7()),
+        agent_principal_id=agent_id,
+        binding_id=proof.binding_id,
+        environment_id="api",
+        security_revision=proof.security_revision,
+        audience=audience,
+        purpose=purpose,
+        scope=frozenset(scope),
+        issued_at=now,
+        expires_at=expires,
+        workload_identity_id=identity,
+        artifact_digest=proof.descriptor_digest,
+        kind="API_CLIENT",
+    )
+
+
 async def lease_problems(
     conn: AsyncConnection,
     lease: WorkloadLease,
@@ -170,6 +226,17 @@ async def lease_problems(
         out.append("CREDENTIAL_PURPOSE")
     if use not in lease.scope:
         out.append("CREDENTIAL_SCOPE")
+    if lease.kind == "API_CLIENT":
+        proof, problems = await api_proof(conn, lease.agent_principal_id, now)
+        if (
+            proof is None
+            or proof.binding_id != lease.binding_id
+            or proof.security_revision != lease.security_revision
+        ):
+            out.append("CREDENTIAL_REVOKED")  # revoked, rebound or changed since it was issued
+        else:
+            out.extend(problems)
+        return list(dict.fromkeys(out))
     binding = await store.active_binding(conn, lease.workload_identity_id)
     if (
         binding is None

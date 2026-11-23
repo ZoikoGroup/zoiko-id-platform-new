@@ -119,6 +119,17 @@ async def exchange(
     }  # fmt: skip
 
 
+async def credential_problems(
+    conn: AsyncConnection,
+    agent_id: str,
+    binding: dict[str, Any],
+    build: dict[str, Any] | None,
+    now: datetime,
+) -> list[str]:
+    """Why an API-bound agent may not hold a credential now: the one decision the token path and a platform-run lease both use (CR-142)."""
+    return await _agent_problems(conn, agent_id, binding, build, now)
+
+
 async def _agent_problems(
     conn: AsyncConnection,
     agent_id: str,

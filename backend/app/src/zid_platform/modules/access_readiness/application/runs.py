@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
+from zid_db import as_role
 
 from zid_platform.modules.access_readiness.application import common
 from zid_platform.modules.access_readiness.application.adapters import (
@@ -595,6 +596,7 @@ async def execute_run(
             "purpose": lease.purpose,
             "scope": sorted(lease.scope),
             "binding": lease.binding_id,
+            "proof": lease.kind,  # a verified image (WORKLOAD) or a bound API client's key (API_CLIENT)
             "expires_at": lease.expires_at.isoformat(),
         },
     )
@@ -1011,7 +1013,7 @@ async def drain_queued(
             ref = {"run_id": run_id, "trace_id": trace_id}
             await store.use_tenant(conn, tenant_id)
             try:
-                async with conn.begin_nested():
+                async with conn.begin_nested(), as_role(conn, rt.run_role):
                     run = await execute_run(conn, rt, tenant_id, run_id, adapter=adapter, gate=gate)
                 states[run["state"]] = states.get(run["state"], 0) + 1
                 continue
@@ -1021,7 +1023,7 @@ async def drain_queued(
                     ref, "could not be executed error=%s", type(e).__name__, level=logging.ERROR
                 )
             try:
-                async with conn.begin_nested():
+                async with conn.begin_nested(), as_role(conn, rt.run_role):
                     await _fail_closed(conn, run_id)
                 states[RunState.DENIED.value] = states.get(RunState.DENIED.value, 0) + 1
             except Exception as e:  # noqa: BLE001 - it stays queued and is tried again on the next pass

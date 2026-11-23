@@ -18,6 +18,26 @@ export async function addVirtualPasskey(context: BrowserContext, page: Page): Pr
 
 export type Company = { workspace: string; name: string };
 
+/**
+ * A signed-in console session for a spec, by whichever way the stack allows.
+ *
+ * With E2E_ADMIN_TICKET set (the one-use enrollment ticket of an existing person, for example from `bootstrap_local.py --ticket-only`, or an
+ * enrollment link a company administrator issued), the person enrols a passkey and is signed in. No email is involved, so it works on a stack
+ * that sends mail through a real provider and has no mail catcher. Without it, a throwaway person signs up and the verification mail is read
+ * from the local mail sink (E2E_MAIL_API), as before. The ticket is single-use: a second run needs a new one.
+ */
+export async function startSession(page: Page): Promise<void> {
+  const ticket = process.env.E2E_ADMIN_TICKET;
+  if (!ticket) {
+    await registerCompany(page);
+    return;
+  }
+  await page.goto(`/enroll?ticket=${encodeURIComponent(ticket)}`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "Create passkey" }).click();
+  await page.waitForURL(/\/(account|overview|admin)/, { timeout: 30_000 });
+}
+
 const MAIL = process.env.E2E_MAIL_API ?? "http://localhost:8025";
 
 /** The verification mail for an address, read from the local mail sink. */

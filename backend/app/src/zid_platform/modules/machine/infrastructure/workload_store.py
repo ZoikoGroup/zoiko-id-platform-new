@@ -34,13 +34,6 @@ async def active_binding(conn: AsyncConnection, workload_identity_id: str) -> Ro
     ).first()
 
 
-async def quarantined_environments(conn: AsyncConnection) -> frozenset[str]:
-    rows = await conn.execute(
-        text("SELECT environment_id FROM agent.environment_quarantine WHERE lifted_at IS NULL")
-    )
-    return frozenset(rows.scalars())
-
-
 async def quarantine(
     conn: AsyncConnection, tenant_id: str, environment_id: str, reason: str, by: str | None
 ) -> int | None:

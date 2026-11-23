@@ -80,8 +80,8 @@ export function ReadinessHomePage() {
         description="Checks mandate metadata against fixed rules and proposes reviews for a person. It cannot change anyone's access."
         breadcrumbs={[{ label: "Agents & tools", href: "/admin/agents" }, { label: "Access readiness" }]}
         actions={
-          <ButtonLink size="lg" variant="primary" icon={<Plus aria-hidden className="size-4" />} href="/admin/agents/readiness/new">
-            Create agent
+          <ButtonLink size="lg" variant="primary" icon={<Plus aria-hidden className="size-4" />} href="/admin/agents/readiness/start">
+            Set up step by step
           </ButtonLink>
         }
       />
@@ -92,7 +92,7 @@ export function ReadinessHomePage() {
               <div className="space-y-4">{data.items.map((s) => <SetupRow key={s.setup_id} s={s} />)}</div>
             ) : (
               <EmptyState icon={Bot} title="No access readiness agent set up yet">
-                Create one from an agent you already registered. Nothing runs until a second person approves it.
+                Use the step-by-step setup: it shows where you are, whose turn it is, and the next button. Nothing runs until a second person approves it.
               </EmptyState>
             )
           }

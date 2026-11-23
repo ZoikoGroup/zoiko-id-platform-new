@@ -93,3 +93,21 @@ export function delegateRevokeStepUp(tenantId: string, delegateId: string) {
 export function validCap(v: string): boolean {
   return /^\d{1,12}(\.\d{1,2})?$/.test(v.trim()) && Number(v) > 0;
 }
+
+/** Can this person see the commitment requests they are meant to sign? Listing them needs the billing overview permission, which comes from an Owner role or a live Billing grant.
+ * A limit alone does not give it, so the Owner is told when a person holding a limit would find nothing to approve. */
+export function seesCommitmentRequests(
+  principalId: string,
+  role: string | undefined,
+  grants: { grantee_principal_id: string; permissions: string[]; revoked_at: string | null; expires_at: string | null }[],
+  now: Date = new Date(),
+): boolean {
+  if (role === "OWNER") return true;
+  return grants.some(
+    (g) =>
+      g.grantee_principal_id === principalId &&
+      g.revoked_at === null &&
+      (g.expires_at === null || new Date(g.expires_at).getTime() > now.getTime()) &&
+      g.permissions.includes("billing.overview.read"),
+  );
+}

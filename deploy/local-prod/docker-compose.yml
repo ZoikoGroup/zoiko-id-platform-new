@@ -26,8 +26,11 @@ x-backend: &backend
     ZID_KEY_PROVIDER: db
     ZID_KEY_MASTER_FILE: /zid/master_key
     ZID_KEY_PROVIDER_DB_ACK: accept-software-keys
-    # the rehearsal has no timestamp authority; a real deployment sets ZID_EVIDENCE_TSA_URL instead of this waiver (CR-060)
-    ZID_EVIDENCE_TSA_WAIVER: accept-no-external-timestamps
+    # Evidence checkpoints are timestamped by an RFC 3161 authority and the token is verified against its root before it is kept (CR-060). The rehearsal runs its OWN
+    # authority (the `tsa` service: it trusts nobody but this machine, and nothing leaves it), so the production path runs for real and the no-timestamp waiver is gone.
+    # A real deployment points ZID_EVIDENCE_TSA_URL at an authority the owners chose and contracted, and ZID_EVIDENCE_TSA_TRUST_FILE at that authority's root.
+    ZID_EVIDENCE_TSA_URL: http://tsa:8318/
+    ZID_EVIDENCE_TSA_TRUST_FILE: /tsa/ca.pem
     # secrets: OpenBao (itself stored in PostgreSQL), reached with a periodic token read from a file
     ZID_SECRET_BROKER: ${ZID_SECRET_BROKER:-openbao}
     ZID_OPENBAO_ADDR: http://openbao:8200
@@ -42,6 +45,13 @@ x-backend: &backend
     ZID_WEBAUTHN_RP_NAME: Zoiko iD (rehearsal)
     ZID_WEBAUTHN_ORIGINS: '["http://localhost:3000","http://localhost:3100"]'
     ZID_TENANT_SIGNUP_ENABLED: "true"
+    # the agents (CR-091 to CR-094): Access Readiness, governance that denies for real, and DAARA. Not on by default anywhere.
+    ZID_ACCESS_READINESS_ENABLED: "true"
+    ZID_ACCESS_READINESS_REGIONS: '["local-1"]' # the cells it may run in; a cell not listed says "not available in this region"
+    ZID_API_AGENTS: "on" # API-based agents are OFF in production unless this is set (CR-144); the rehearsal turns them on to test them
+    ZID_AGENT_RUN_ROLE: zid_runtime # the worker runs each company's queued agent run AS the runtime role (row-level security applies), not as its own BYPASSRLS role (CR-142)
+    ZID_AGENT_GOVERNANCE: enforce
+    ZID_DAARA_ENABLED: "true"
     ZID_TENANT_CONSOLE_REDIRECT_URIS: '["http://127.0.0.1:3000/auth/callback"]'
     ZID_API_RATE_LIMIT_PER_MINUTE: "600"
     # events: Kafka (Redpanda). The relay and consumer run as their own processes
@@ -71,6 +81,7 @@ x-backend: &backend
   volumes:
     - ../../contracts:/app/contracts:ro
     - ${ZID_CONFIG_DIR:-../../backend/config}:/app/config:ro # a local-only copy of the config (ZID_CONFIG_DIR in .env) for the rehearsal; the repository's folder by default
+    - tsa-data:/tsa:ro # the timestamp authority's root (ca.pem), which a timestamp must chain to
     - keys:/zid:ro # master key, OpenBao token and SMTP password: root-only files on a real VM
     - ./idv-policies.local.yaml:/etc/zid/idv-policies.yaml:ro # the approved markets for identity checks: a test policy here, the owners' signed one on a real VM
 
@@ -228,10 +239,17 @@ services:
     command: ["python", "-m", "zid_platform.entrypoints.migrate"]
     healthcheck: {disable: true}
 
+  # --- timestamp authority (RFC 3161): the rehearsal's own, offline, with its own root (see tsa/Dockerfile) -------------------------------------
+  tsa:
+    image: zid/tsa:prodlocal
+    restart: unless-stopped
+    volumes: [tsa-data:/data]
+
   cell:
     <<: *backend
     depends_on:
       migrate: {condition: service_completed_successfully}
+      tsa: {condition: service_healthy}
     environment:
       <<: *backend-env
       ZID_ROLES: cell
@@ -256,6 +274,7 @@ services:
     <<: *backend
     depends_on:
       migrate: {condition: service_completed_successfully}
+      tsa: {condition: service_healthy}
     environment:
       <<: *backend-env
       # the dedicated worker role (BYPASSRLS: it sweeps every tenant), never the API's runtime role
@@ -331,3 +350,4 @@ volumes:
   valkey-data:
   redpanda-data:
   keys:
+  tsa-data:

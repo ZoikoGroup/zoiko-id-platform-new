@@ -37,6 +37,7 @@ class Code(StrEnum):
     POLICY_UNAVAILABLE = "POLICY_UNAVAILABLE"
     EMERGENCY_FROZEN = "EMERGENCY_FROZEN"
     ENTITLEMENT_DENIED = "ENTITLEMENT_DENIED"
+    RUNTIME_PROOF_MISSING = "RUNTIME_PROOF_MISSING"  # the agent holds no live proof of what is running it (ZID-AG-WF-001 AT-07)
 
 
 HTTP_STATUS: dict[str, int] = {
@@ -52,6 +53,7 @@ HTTP_STATUS: dict[str, int] = {
     Code.POLICY_UNAVAILABLE: 503,
     Code.EMERGENCY_FROZEN: 423,
     Code.ENTITLEMENT_DENIED: 403,
+    Code.RUNTIME_PROOF_MISSING: 403,
 }
 
 # ---------------------------------------------------------------- hard prohibitions (section 03)
@@ -878,6 +880,9 @@ class GovernanceContext:
     approval: ChangeRequest | None
     freezes: Sequence[Freeze] | None
     entitled: bool | None
+    # Does the agent hold a live proof of what runs it right now: an API client binding in date, or a workload binding whose attestation is still
+    # valid at the level it needs. None when that could not be read, which is a refusal and never a pass.
+    runtime_proof: bool | None
     usage: UsageSnapshot | None = None
     ceilings: Sequence[Ceiling] = ()
     require_approval: bool = True
@@ -1054,6 +1059,13 @@ def evaluate_run_start(
         return deny(Code.AGENT_INACTIVE, "agent is not active")
     if not ctx.sponsor_active:
         return deny(Code.SPONSOR_INVALID, "no active accountable sponsor")
+    if ctx.runtime_proof is None:
+        return deny(Code.POLICY_UNAVAILABLE, "the agent's runtime proof could not be read")
+    if not ctx.runtime_proof:
+        return deny(
+            Code.RUNTIME_PROOF_MISSING,
+            "the agent has no live proof of what runs it: a bound API client in date, or a workload with a valid attestation",
+        )
     if ctx.policy.state != "ACTIVE" or (
         ctx.policy.expires_at is not None and ctx.policy.expires_at <= now
     ):

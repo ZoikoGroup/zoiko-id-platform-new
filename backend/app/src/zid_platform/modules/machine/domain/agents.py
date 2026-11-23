@@ -86,6 +86,9 @@ class AgentProfile:
     security_revision: int = 0
     parent_agent_id: str | None = None
     expires_at: datetime | None = None  # after this the agent no longer acts (WP-10)
+    registered_by: str | None = (
+        None  # who registered it (CR-142); None for an agent from before the column
+    )
 
 
 # ---------------------------------------------------------------- lifecycle review (WP-10)
@@ -180,6 +183,16 @@ ATTESTABLE_GATES: tuple[str, ...] = (
 )
 
 
+def _chain_of_accountability(agent: AgentProfile) -> set[str | None]:
+    """The people who answer for an agent, plus the one who registered it. A registrant we do not know is `None`, which a real actor never equals."""
+    return {
+        agent.sponsor_principal_id,
+        agent.operator_principal_id,
+        agent.publisher_principal_id,
+        agent.registered_by,
+    }
+
+
 def attestor_blockers(gate: str, attestor: str, agent: AgentProfile) -> list[str]:
     """Who may attest. The security review must be independent of the agent's own chain of
     accountability: the sponsor, operator and publisher cannot review their own agent (separation of duties)."""
@@ -187,11 +200,17 @@ def attestor_blockers(gate: str, attestor: str, agent: AgentProfile) -> list[str
         return ["AGENT_GATE_UNKNOWN"]
     if agent.status in (AgentStatus.REVOKED, AgentStatus.RETIRED):
         return ["AGENT_INVALID_TRANSITION"]
-    if gate == "SECURITY_REVIEW" and attestor in {
-        agent.sponsor_principal_id,
-        agent.operator_principal_id,
-        agent.publisher_principal_id,
-    }:
+    if gate == "SECURITY_REVIEW" and attestor in _chain_of_accountability(agent):
+        return ["AGENT_REVIEW_NOT_INDEPENDENT"]
+    return []
+
+
+def activator_blockers(actor: str, agent: AgentProfile) -> list[str]:
+    """Who may switch an agent on (ZID-AG-WF-002 section 04: the author, requester or deployer cannot be the sole approver).
+    The people in the agent's own chain of accountability, its sponsor, operator, publisher and the person who registered it,
+    cannot activate it. The same people are barred from attesting its security review, and the registry already bars the publisher
+    from approving the release and the registrant from approving the build; this closes the last step of the chain."""
+    if actor in _chain_of_accountability(agent):
         return ["AGENT_REVIEW_NOT_INDEPENDENT"]
     return []
 

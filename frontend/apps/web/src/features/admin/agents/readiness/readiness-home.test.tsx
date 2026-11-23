@@ -37,7 +37,7 @@ describe("readiness home", () => {
     expect(screen.getByRole("link", { name: "Run abcdef12" }).getAttribute("href")).toBe("/admin/agents/readiness/agent-1234567890/runs/abcdef123456");
     expect(screen.getByRole("link", { name: /R-01 Expired mandate/ }).getAttribute("href")).toBe("/admin/agent-review/p1");
     expect(screen.getByText("Severity: HIGH")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Create agent" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Set up step by step" })).toBeTruthy();
   });
 
   it("says plainly when nothing exists yet, which is not the same as being unavailable", () => {

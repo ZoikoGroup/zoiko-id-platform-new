@@ -1424,3 +1424,39 @@ def test_evidence_chains_are_per_agent_and_a_tampered_row_is_found_in_its_own_ch
     assert (
         gv.run(lambda c: store.verify_chain(c))["intact"] is True
     )  # put back, the chain verifies again
+
+
+def test_one_companys_emergency_stop_never_reaches_another_companys_agents(
+    rt_url: str, owner_url: str
+) -> None:
+    """A TENANT freeze covers every agent it is matched against, so the read must be confined to one company by the query itself. The worker's connection has no
+    tenant scope (it bypasses row-level security), and a read that leaned on the connection would let company A's emergency stop halt company B's work."""
+    from zid_platform.modules.machine.ports import emergency_frozen
+
+    a, b = Gov(rt_url, owner_url), Gov(rt_url, owner_url)
+    stopped = a.run(
+        lambda c: svc.pause(
+            c, a.tenant, a.p("sec"), scope="TENANT", agent_id=None, reason="incident", severity="P0"
+        )
+    )
+    assert stopped["scope"] == "TENANT"
+
+    async def seen(agent_ids: list[str]) -> bool:
+        async with (
+            engine(owner_url) as eng,
+            eng.begin() as conn,
+        ):  # the owner role bypasses row-level security, as the worker's does
+            return await emergency_frozen(conn, agent_ids)
+
+    assert a.w.run(seen([a.agent])) is True  # the company that stopped is stopped
+    assert (
+        a.w.run(seen([b.agent])) is False
+    )  # the other company is not, even though nothing scopes this connection
+    assert (
+        a.w.run(seen([a.agent, b.agent])) is True
+    )  # a chain that includes a stopped agent is stopped
+    # and B's own view of its own state is unchanged
+    assert b.run(lambda c: svc.frozen_codes(c, [b.agent])) == []
+    assert (
+        b.run(lambda c: svc.frozen_codes(c, [a.agent])) == []
+    )  # B cannot see A's stop through its own scope either
