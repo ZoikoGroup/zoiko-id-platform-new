@@ -103,6 +103,10 @@ def create_app(
         if sender is not None:
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
+    from .invitation_mail import send_invitation_email
+    from .modules.tenant.ports import configure_invitation_mailer
+
+    configure_invitation_mailer(send_invitation_email)  # the tenant module emails an invitation through this, never by importing communication
     app.state.environment = settings.environment
     app.state.evidence_tsa_configured = bool(settings.evidence_tsa_url)  # WF-05 trust-list view
     if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):

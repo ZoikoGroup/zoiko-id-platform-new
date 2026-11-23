@@ -950,7 +950,9 @@ export type TenantMember = TenantRole & {
   last_sign_in_at: Iso | null;
   progress: MemberProgress;
 };
-export type Invitation = TenantRole & { person: Person; enrollment_ticket: string; enrollment_ticket_expires_at: Iso };
+/** What happened to the email, when one was asked for: SENT, or why not (NOT_CONFIGURED, INVALID_ADDRESS, FAILED, SUPPRESSED, THROTTLED, DISABLED, RENDER_FAILED, DUPLICATE). `to` is masked. */
+export type InvitationEmailResult = { status: string; to?: string };
+export type Invitation = TenantRole & { person: Person; enrollment_ticket: string; enrollment_ticket_expires_at: Iso; email?: InvitationEmailResult };
 export type TenantView = {
   tenant_id: string;
   display_name: string;

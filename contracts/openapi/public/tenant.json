@@ -296,6 +296,22 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "InvitationEmail": {
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "InvitationEmail",
+        "type": "object"
+      },
       "Invite": {
         "additionalProperties": false,
         "properties": {
@@ -326,6 +342,11 @@
           "role": {
             "$ref": "#/components/schemas/Role",
             "default": "MEMBER"
+          },
+          "send_email": {
+            "default": false,
+            "title": "Send Email",
+            "type": "boolean"
           }
         },
         "title": "Invite",
@@ -2596,6 +2617,62 @@
           }
         },
         "summary": "Name Myself",
+        "tags": [
+          "tenant"
+        ]
+      }
+    },
+    "/v1/tenant/members/{assignment_id}:email-invitation": {
+      "post": {
+        "description": "Email the fixed invitation to the address given. The invitation gets a fresh single-use ticket (the one shown earlier stops working), which is returned so the link on screen stays valid.",
+        "operationId": "email_invitation_v1_tenant_members__assignment_id__email_invitation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assignment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assignment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationEmail"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Email Invitation V1 Tenant Members  Assignment Id  Email Invitation Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Email Invitation",
         "tags": [
           "tenant"
         ]

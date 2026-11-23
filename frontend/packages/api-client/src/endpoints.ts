@@ -439,8 +439,10 @@ export function createCellApi(t: Transport) {
       roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
       /** What the caller's live roles could do if every other condition held. */
       myPermissions: () => get<M.MyPermissions>("/v1/tenant/me/permissions"),
-      invite: (role: M.InvitableRole, display_name?: string) =>
-        post<M.Invitation>("/v1/tenant/members", display_name ? { role, display_name } : { role }),
+      invite: (role: M.InvitableRole, display_name?: string, email?: string, sendEmail?: boolean) =>
+        post<M.Invitation>("/v1/tenant/members", { role, ...(display_name ? { display_name } : {}), ...(email ? { email, send_email: sendEmail === true } : {}) }),
+      /** Email the fixed invitation to this address. The invitation gets a fresh single-use link (the one shown before stops working), returned here. */
+      emailInvitation: (assignmentId: string, email: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:email-invitation`, { email }),
       /** An owner or admin sets or clears a colleague's name (the member number never changes). */
       rename: (principal_id: string, name: string | null) => post<M.Person>(`/v1/tenant/members/${seg(principal_id)}:rename`, { name }),
       /** A person sets or clears their own name. */
