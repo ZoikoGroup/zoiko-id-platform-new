@@ -343,6 +343,7 @@ services:
       ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:8000}
       ZID_PUBLIC_ORIGIN: http://localhost:3100
       ZID_OAUTH_CLIENT_ID: zoiko-operator
+      ZID_COMPANY_SIGN_IN_URL: http://localhost:3000/sign-in  # where a customer who opened this page by mistake is sent
       ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:3100/auth/callback
       ZID_ENVIRONMENT: production
       ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379

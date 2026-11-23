@@ -176,6 +176,8 @@ services:
       ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
       ZID_PUBLIC_ORIGIN: https://operator.${ZID_DOMAIN}
       ZID_OAUTH_CLIENT_ID: zoiko-operator
+      # where a customer who opened the operator sign-in by mistake is sent (the company site). The company site never links to this one.
+      ZID_COMPANY_SIGN_IN_URL: https://id.${ZID_DOMAIN}/sign-in
       ZID_OAUTH_REDIRECT_URI: https://operator.${ZID_DOMAIN}/auth/callback
       ZID_ENVIRONMENT: production
       ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379

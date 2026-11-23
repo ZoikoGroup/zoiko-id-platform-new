@@ -6,19 +6,31 @@ import { useState } from "react";
 import { useRuntime } from "@/lib/runtime";
 import { completeAppSession, passkeyErrorMessage } from "@/lib/webauthn";
 
+/** The company sign-in address shown to a customer who opened this page by mistake. Only a plain http(s) address is ever used; anything else, or nothing, shows no link. */
+export function companySignInHref(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function safePath(v: string | undefined) {
   return v && v.startsWith("/") && !v.startsWith("//") && !v.includes("\\") ? v : "/";
 }
 
 /** Operators sign in with an email and password only (the cell must have operator logins configured): no passkey on this page,
  * no federation shortcut, no recovery link on this origin (operator recovery is never self-service here). */
-export function OperatorSignIn({ returnTo, reason }: { returnTo?: string; reason?: string }) {
+export function OperatorSignIn({ returnTo, reason, companyUrl }: { returnTo?: string; reason?: string; companyUrl?: string }) {
   const { flow } = useRuntime();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const target = safePath(returnTo);
+  const companyHref = companySignInHref(companyUrl);
 
   async function signInWithPassword() {
     setPending(true);
@@ -60,6 +72,15 @@ export function OperatorSignIn({ returnTo, reason }: { returnTo?: string; reason
           </Button>
         </form>
       </Card>
+      {companyHref ? (
+        <p className="text-center text-sm text-ink-muted">
+          Have a company account instead?{" "}
+          <a className="font-medium text-brand-700 underline" href={companyHref}>
+            Sign in on the company site
+          </a>
+          .
+        </p>
+      ) : null}
     </div>
   );
 }
