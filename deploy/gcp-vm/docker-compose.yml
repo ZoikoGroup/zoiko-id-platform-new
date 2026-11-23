@@ -185,7 +185,7 @@ services:
   #   ocr   reads the printed lines of a document (company certificate check, identity documents)   -> .env: ZID_OCR_URL=http://ocr:8090
   #   face  the face-match lab engine (no liveness, never an approval)                               -> .env: ZID_FACE_URL=http://face:8091
   #   clamd the malware scanner every company proof upload goes through                              -> .env: ZID_PROOF_SCANNER_ADDRESS=clamd:3310
-  # ZID_OCR_IMAGE and ZID_FACE_IMAGE are images you build from tools/ocr-sidecar and tools/face-sidecar and push by digest; the release workflow does not build them yet.
+  # ZID_OCR_IMAGE and ZID_FACE_IMAGE are built and signed by the release workflow (build-sidecar-image.yml); ./deploy.sh verifies them by digest.
   ocr:
     profiles: ["idv"]
     image: ${ZID_OCR_IMAGE:-}

@@ -124,7 +124,7 @@ Who does what, with two people: the Owner registers the tools, the API client, t
 | Profile | Services | Image | Notes |
 |---|---|---|---|
 | `operator` | Operator Console at `operator.<domain>` | `zoiko-id-operator`, built and **signed** by the release workflow. `./deploy.sh <backend> <web> <operator>` verifies and sets `ZID_OPERATOR_IMAGE`. | Add `https://operator.<domain>` to `ZID_WEBAUTHN_ORIGINS` first. Caddy lets in only `OPERATOR_ALLOWED_CIDRS` (default: nobody from outside). |
-| `idv` | `ocr`, `face`, `clamd` | `ocr` and `face` are **not built by the release workflow yet**: build `tools/ocr-sidecar` and `tools/face-sidecar`, push by digest, set `ZID_OCR_IMAGE` and `ZID_FACE_IMAGE`. `clamd` is `clamav/clamav:stable`. | Then set `ZID_OCR_URL`, `ZID_FACE_URL` and `ZID_PROOF_SCANNER_ADDRESS=clamd:3310` in `.env`. Without a scanner, company proof uploads are refused. |
+| `idv` | `ocr`, `face`, `clamd` | `zoiko-id-ocr` and `zoiko-id-face`, built and **signed** by the release workflow (`build-sidecar-image.yml`, from `tools/ocr-sidecar` and `tools/face-sidecar`). `./deploy.sh <backend> <web> <operator> <ocr> <face>` verifies each and sets `ZID_OCR_IMAGE` and `ZID_FACE_IMAGE`. `clamd` is `clamav/clamav:stable`. | Then set `ZID_OCR_URL`, `ZID_FACE_URL` and `ZID_PROOF_SCANNER_ADDRESS=clamd:3310` in `.env`. Without a scanner, company proof uploads are refused. |
 
 Start them with `ZID_PROFILES="edge events operator idv" ./deploy.sh ...`. The sidecars run hardened, as locally: read-only, no capabilities, `no-new-privileges`, memory and process limits.
 

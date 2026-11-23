@@ -50,6 +50,16 @@ jobs:
       attestations: write
     uses: ./.github/workflows/build-frontend-image.yml
 
+  build-sidecars:
+    # the identity-check sidecars (ocr, face): built, scanned, attested and signed the same way as the other images; deploy.sh verifies them by digest
+    if: github.event_name == 'push' && github.repository == 'ZoikoGroup/zoiko-id-platform-new' && vars.RELEASE_ENABLED == 'true'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/build-sidecar-image.yml
+
   promote:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
