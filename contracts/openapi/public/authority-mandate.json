@@ -1202,6 +1202,54 @@
         ]
       }
     },
+    "/v1/authority-grants/mine": {
+      "get": {
+        "description": "A person's own permissions: no company-wide permission is needed to see what was given to them, and nobody else's is ever returned.",
+        "operationId": "my_grants_v1_authority_grants_mine_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response My Grants V1 Authority Grants Mine Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Grants",
+        "tags": [
+          "authority"
+        ]
+      }
+    },
     "/v1/authority-grants/{grant_id}": {
       "get": {
         "operationId": "read_grant_v1_authority_grants__grant_id__get",

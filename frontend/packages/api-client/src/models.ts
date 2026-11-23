@@ -227,6 +227,18 @@ export type GrantStatus =
   | "EXPIRED"
   | "SUPERSEDED";
 export type Money = { amount: string; currency: string };
+/** A permission given to the signed-in person (`GET /v1/authority-grants/mine`): what it lets them do, until when and any money limit. Nothing about anyone else. */
+export type MyGrant = {
+  authority_grant_id: string;
+  status: string;
+  granted_by: string;
+  /** null: every action the company allows */
+  actions: string[] | null;
+  value_limit: { amount: string; currency: string } | null;
+  valid_from: Iso;
+  valid_to: Iso | null;
+  delegation_allowed: boolean;
+};
 export type AuthorityGrant = {
   authority_grant_id: string;
   status: GrantStatus;

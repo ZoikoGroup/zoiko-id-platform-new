@@ -9,6 +9,8 @@ import { BalanceView } from "@/features/admin/mandates/mandate-detail";
 import { MANDATES_KEY, StatusChangeDialog, budgetSummary } from "@/features/admin/mandates/mandate-status";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
+import { MyPermissions } from "./my-permissions-card";
+
 const KEY = [...MANDATES_KEY, "mine"];
 
 /** What the person is to this limit, in words they would use. */
@@ -33,9 +35,12 @@ export function MyLimitsPage() {
     <>
       <PageHeader
         icon={Gauge}
-        title="My limits"
+        title="My limits and permissions"
         description="What you, or an agent you set up, may spend or do on the company's behalf, and how much is left. Everything here is held inside the company's own rules."
       />
+      <div className="mb-4">
+        <MyPermissions />
+      </div>
       <QueryView query={mine}>
         {(data) =>
           data.items.length === 0 ? (

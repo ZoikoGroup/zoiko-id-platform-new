@@ -337,6 +337,8 @@ export function createCellApi(t: Transport) {
       /** Newest first. `next_cursor` continues the list after the last row; pass it back as `cursor`. */
       grants: (q: { status?: M.GrantStatus; grantee_principal_id?: string; limit?: number; cursor?: string } = {}) =>
         get<M.Page<M.AuthorityGrant>>("/v1/authority-grants", q),
+      /** The permissions given to the signed-in person. No company-wide right is needed: it returns only their own. */
+      myGrants: () => get<M.Items<M.MyGrant>>("/v1/authority-grants/mine"),
       approvals: (q: { state?: M.ApprovalState; limit?: number } = {}) => get<M.Items<M.ApprovalListItem>>("/v1/approval-requests", q),
       createGrant: (body: GrantCreate, idempotencyKey: string) => post<M.AuthorityGrant>("/v1/authority-grants", body, { idempotencyKey }),
       grant: (id: string) => get<M.AuthorityGrant>(`/v1/authority-grants/${seg(id)}`),

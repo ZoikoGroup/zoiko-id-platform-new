@@ -27,7 +27,7 @@ export const PAGES: readonly GuidePage[] = [
   { id: "account", label: "My account", href: "/account", group: "My account", keywords: "my account profile name" },
   { id: "sessions", label: "Sessions", href: "/account/sessions", group: "My account", keywords: "sessions devices signed in sign out" },
   { id: "passkeys", label: "Passkeys", href: "/account/passkeys", group: "My account", keywords: "passkeys passkey authenticator security key sign in" },
-  { id: "my-limits", label: "My limits", href: "/account/limits", group: "My account", keywords: "limits my limits" },
+  { id: "my-limits", label: "My limits and permissions", href: "/account/limits", group: "My account", keywords: "limits my limits" },
   { id: "connected-apps", label: "Connected apps", href: "/account/connected-apps", group: "My account", keywords: "connected apps consent authorised third party" },
   { id: "my-verification", label: "Identity verification", href: "/account/verification", group: "My account", keywords: "identity verification verify myself" },
   { id: "my-idv", label: "Passport identity check", href: "/account/identity-proofing", group: "My account", keywords: "passport identity check chip selfie document photo notice consent proofing" },
