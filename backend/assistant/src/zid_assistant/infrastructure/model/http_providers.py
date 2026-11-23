@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import httpx
 
-from zid_assistant.settings import AssistantSettings
+from zid_assistant.settings import AssistantSettings, has_model_key, resolve_model_key
 
 from .base import (
     RESPONSE_SCHEMA,
@@ -25,11 +25,16 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:ge
 
 
 def _read_key(settings: AssistantSettings) -> str:
-    if settings.model_api_key_file is None:
-        raise ModelUnavailable("no provider key file configured (ZID_ASSISTANT_MODEL_API_KEY_FILE)")
-    key = settings.model_api_key_file.read_text(encoding="utf-8").strip()
+    if not has_model_key(settings):
+        raise ModelUnavailable(
+            "no provider key configured (GROQ_API_KEY / GEMINI_API_KEY in backend/.env, or ZID_ASSISTANT_MODEL_API_KEY_FILE)"
+        )
+    try:
+        key = resolve_model_key(settings)
+    except ValueError as exc:
+        raise ModelUnavailable(str(exc)) from exc
     if not key:
-        raise ModelUnavailable("the provider key file is empty")
+        raise ModelUnavailable("the provider key is empty")
     return key
 
 

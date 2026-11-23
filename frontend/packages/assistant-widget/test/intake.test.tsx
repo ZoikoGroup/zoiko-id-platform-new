@@ -41,7 +41,7 @@ async function openForm(submit: Reply | (() => Promise<Reply>), overrides: Recor
 
 async function fill(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/email address|^email/i), "buyer@example.test");
-  await user.type(screen.getByLabelText(/country code/i), "us");
+  await user.selectOptions(screen.getByLabelText(/^country/i), "US");
   await user.selectOptions(screen.getByLabelText(/what is this about|inquiry type/i), "DEMO");
 }
 

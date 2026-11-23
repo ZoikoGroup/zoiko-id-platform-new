@@ -50,7 +50,7 @@ describe("the design board layout", () => {
     expect(tiles.getAllByRole("button").length).toBe(4);
     expect(tiles.getByRole("button", { name: /authentication & passkeys.*passwordless, mfa/i })).toBeTruthy();
     for (const a of ["Developers", "Enterprises", "Individuals"]) expect(screen.getByRole("button", { name: a })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Pricing" })).toBeTruthy(); // a starter without an icon is a plain chip
+    expect(screen.queryByRole("button", { name: "Pricing" })).toBeNull(); // WF-01: four goal paths in total, so a fifth starter is not shown
   });
 
   it("a tile just sends its question", async () => {
@@ -212,10 +212,10 @@ describe("new chat and history", () => {
     expect(api.calls.some((c) => c.method === "DELETE" && c.path === "/sessions")).toBe(true);
     expect(screen.queryByText("first question")).toBeNull();
     await user.click(screen.getByRole("button", { name: "History" }));
-    await user.click(await screen.findByRole("button", { name: /first question/ }));
+    await user.click(await screen.findByRole("button", { name: /^first question/ }));
     expect(within(screen.getByRole("log", { name: /earlier conversation/i })).getByText(/first question/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "All earlier chats" }));
-    expect(await screen.findByRole("button", { name: /first question/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^first question/ })).toBeTruthy();
   });
 
   it("history starts empty, and an empty chat is not archived", async () => {

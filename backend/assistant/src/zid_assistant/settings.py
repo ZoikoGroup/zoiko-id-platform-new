@@ -7,8 +7,9 @@ Secrets are read from files, never inline (platform rule DEC-F5).
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _HERE = Path(__file__).resolve().parents[2]
@@ -16,7 +17,10 @@ _HERE = Path(__file__).resolve().parents[2]
 
 class AssistantSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="ZID_ASSISTANT_", env_file=_HERE / ".env", extra="ignore"
+        env_prefix="ZID_ASSISTANT_",
+        # later file wins: backend/assistant/.env, then the shared backend/.env (only ZID_ASSISTANT_* names are read)
+        env_file=(_HERE / ".env", _HERE.parent / ".env"),
+        extra="ignore",
     )
 
     environment: str = "local"  # local | test | dev | sandbox | production
@@ -74,7 +78,15 @@ class AssistantSettings(BaseSettings):
     model_effort: str = (
         "low"  # low | medium | high: Opus 5.5 defaults to medium, so it is set explicitly
     )
-    model_api_key_file: Path | None = None  # file holding the provider key; never inline
+    model_api_key_file: Path | None = (
+        None  # file holding the provider key (preferred outside local)
+    )
+    model_api_key: SecretStr | None = (
+        None  # local development only: generic key placed in backend/.env
+    )
+    # Local development: per-provider keys in backend/.env under their plain names (the alias bypasses the ZID_ASSISTANT_ prefix).
+    groq_api_key: SecretStr | None = Field(default=None, validation_alias="GROQ_API_KEY")
+    gemini_api_key: SecretStr | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     model_timeout_seconds: float = 12.0
     model_max_output_tokens: int = 600
     model_daily_request_budget: int = 20000  # circuit-break above this many calls per UTC day
@@ -103,6 +115,56 @@ class AssistantSettings(BaseSettings):
     retain_safety_event_days: int = 90
     retain_diagnostic_log_days: int = 14
 
+    @model_validator(mode="after")
+    def _origins_fit_the_environment(self) -> AssistantSettings:
+        """Outside local/test every allowed origin must be an exact https origin: no wildcard, path, credentials or localhost (ADR-06)."""
+        if not self.is_production_like:
+            return self
+        for origin in self.allowed_origins:
+            parts = urlsplit(origin)
+            exact = (
+                parts.scheme == "https"
+                and bool(parts.hostname)
+                and parts.hostname not in ("localhost", "127.0.0.1", "::1")
+                and "*" not in origin
+                and not (parts.username or parts.password)
+                and parts.path in ("", "/")
+                and not (parts.query or parts.fragment)
+                and not origin.endswith("/")
+            )
+            if not exact:
+                raise ValueError(
+                    f"ZID_ASSISTANT_ALLOWED_ORIGINS: {origin!r} is not an exact https origin allowed outside local/test"
+                )
+        return self
+
     @property
     def is_production_like(self) -> bool:
         return self.environment not in ("local", "test")
+
+
+def _inline_key(settings: AssistantSettings) -> SecretStr | None:
+    if settings.model_provider == "groq" and settings.groq_api_key is not None:
+        return settings.groq_api_key
+    if settings.model_provider == "gemini" and settings.gemini_api_key is not None:
+        return settings.gemini_api_key
+    return settings.model_api_key
+
+
+def has_model_key(settings: AssistantSettings) -> bool:
+    """True when a key file or an inline (local) key is configured for the selected provider."""
+    return settings.model_api_key_file is not None or _inline_key(settings) is not None
+
+
+def resolve_model_key(settings: AssistantSettings) -> str:
+    """The provider key: the key file wins; otherwise GROQ_API_KEY / GEMINI_API_KEY / ZID_ASSISTANT_MODEL_API_KEY (local/test only)."""
+    if settings.model_api_key_file is not None:
+        return settings.model_api_key_file.read_text(encoding="utf-8").strip()
+    inline = _inline_key(settings)
+    if inline is not None:
+        if settings.environment not in ("local", "test"):
+            raise ValueError(
+                "an inline provider key is allowed only in local/test; use ZID_ASSISTANT_MODEL_API_KEY_FILE"
+            )
+        return inline.get_secret_value().strip()
+    return ""

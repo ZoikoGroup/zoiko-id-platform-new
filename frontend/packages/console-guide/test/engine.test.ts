@@ -180,7 +180,18 @@ describe("the tools it is built from", () => {
 
   it("starters adapt to a viewer", () => {
     expect(STARTERS(["VIEWER"]).some((s) => /viewer/i.test(s.text))).toBe(true);
-    expect(STARTERS(["ADMIN"]).length).toBe(5);
+    for (const r of matrix.roles) expect(STARTERS([r]).length, r).toBe(4);
+  });
+
+  it("each role gets its own first question, and every starter gets a real answer", () => {
+    const first = new Set(matrix.roles.map((r) => STARTERS([r])[0]?.label));
+    expect(first.size).toBeGreaterThan(3);
+    expect(STARTERS(["APPROVER"])[0]?.label).toMatch(/approve/i);
+    expect(STARTERS(["OWNER", "ADMIN"]).some((s) => /invite/i.test(s.label))).toBe(false);
+    for (const r of matrix.roles) for (const s of STARTERS([r])) {
+      const res = ask(s.text, r);
+      expect(res.decision, `${r}: ${s.text}`).toBe("ANSWER");
+    }
   });
 
   it("links point only at fixed console paths", () => {
