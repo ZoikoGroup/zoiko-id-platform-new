@@ -1102,6 +1102,13 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
             settings.environment,
         )
     app.state.idv_face_route_ack = settings.idv_face_route_ack
+    app.state.idv_global_policy_ack = settings.idv_global_policy_ack
+    if settings.idv_global_policy_ack:
+        logging.getLogger("zid.idv").warning(
+            "ZID_IDV_GLOBAL_POLICY_ACK is set: a country with no policy of its own is served by the global identity policy (config/idv/global-policy.yaml), "
+            "on the owners' written acceptance of its stated values (environment=%s)",
+            settings.environment,
+        )
     if settings.idv_face_route_ack:
         logging.getLogger("zid.idv").warning(
             "ZID_IDV_FACE_ROUTE_ACK is set: a market's face-match route approves on a live face against an uploaded document photograph, with no liveness test and no check that the document is genuine (environment=%s)",

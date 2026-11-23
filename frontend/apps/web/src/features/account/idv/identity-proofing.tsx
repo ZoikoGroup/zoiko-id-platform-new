@@ -1,22 +1,22 @@
 "use client";
 
-import { ApiError, type IdvCase } from "@zoiko/api-client";
+import { type IdvCase } from "@zoiko/api-client";
 import { Banner, Button, Card, LoadingRows, PageHeader, TextField } from "@zoiko/ui";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { AutoContinue } from "@/components/auto-continue";
-import { ApiErrorView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { useCellMutation, useCellQuery } from "@/lib/cell";
 import { safeNext } from "@/lib/continue";
 
 import { DocumentCapture } from "./document-capture";
+import { Failed } from "./failed";
+import { IdentityWizard } from "./identity-wizard";
 import { LiveCapture } from "./live-capture";
 import {
-  AADHAAR_MARKET,
   applicantText,
   detailsProblem,
   DOC_LABEL,
-  DOC_OPTIONS,
   docKindOf,
   fileToBase64,
   imageProblem,
@@ -25,20 +25,11 @@ import {
   latestCheck,
   MY_IDV_KEY,
   NO_DETAILS,
-  routeFor,
   simpleState,
   FACE_ATTEMPTS,
   trimDetails,
   type Declared,
-  type DocKind,
 } from "./logic";
-
-function Failed({ error }: { error: unknown }) {
-  if (error instanceof ApiError && [403, 404, 409, 422, 429, 503].includes(error.status)) {
-    return <Banner tone="danger" title="This could not be done">{applicantText(String(error.code ?? ""))}</Banner>;
-  }
-  return <ApiErrorView error={error} />;
-}
 
 /** The four details the platform compares with its own reading of a passport. Typed once, sent with the photograph, never kept. */
 function DetailsForm({ value, onChange }: { value: Declared; onChange: (d: Declared) => void }) {
@@ -57,41 +48,6 @@ function DetailsForm({ value, onChange }: { value: Declared; onChange: (d: Decla
         </label>
       </div>
     </fieldset>
-  );
-}
-
-/** Step 1: choose the document. One choice, nothing else to configure. */
-function Choose() {
-  const [kind, setKind] = useState<DocKind | null>(null);
-  const [country, setCountry] = useState("");
-  const open = useCellMutation((api, v: { market: string; route: string }) => api.idv.open(v.market.trim().toUpperCase(), v.route), { invalidate: [MY_IDV_KEY] });
-  const market = kind === "AADHAAR" ? AADHAAR_MARKET : country.trim().toUpperCase();
-  const ready = kind !== null && /^[A-Z]{2}$/.test(market);
-  return (
-    <Card title="Choose your document" description="Pick the one you have. You will photograph it on the next step.">
-      <div className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Document">
-          {DOC_OPTIONS.map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={kind === k}
-              onClick={() => setKind(k)}
-              className={`rounded border-2 p-4 text-left ${kind === k ? "border-brand-500 bg-brand-50" : "border-border"}`}
-            >
-              <div className="font-medium">{DOC_LABEL[k]}</div>
-              <div className="text-sm text-ink-muted">{k === "PASSPORT" ? "Upload the photo page, then take a live photograph. We compare your face with the photograph on the page." : "Upload the front of the card, then take a live photograph. We compare your face with the photograph on the card."}</div>
-            </button>
-          ))}
-        </div>
-        {kind === "PASSPORT" ? <TextField label="Country that issued the passport" description="Two letters, for example GB or IN" value={country} onChange={setCountry} /> : null}
-        <Button pending={open.isPending} isDisabled={!ready} onPress={() => open.mutate({ market, route: routeFor() })}>
-          Continue
-        </Button>
-        {open.error ? <Failed error={open.error} /> : null}
-      </div>
-    </Card>
   );
 }
 
@@ -277,7 +233,7 @@ export function IdentityProofingPage() {
   const latest = approved ?? latestCheck(items.filter((c) => isFace(c.route)));
   return (
     <div className="space-y-6">
-      <PageHeader title="Verify your identity" description="Choose your passport or your Aadhaar card, photograph it, and we tell you the result." />
+      <PageHeader title="Verify your identity" description="Photograph an identity document and yourself. We compare the two and tell you the result." />
       {next && approved ? (
         <AutoContinue to={next} title="Identity verified" once={`idv-approved:${approved.case_id}`}>
           Your identity check is complete. We will take you back to where you were.
@@ -285,7 +241,7 @@ export function IdentityProofingPage() {
       ) : null}
       {q.isPending && q.fetchStatus !== "idle" ? <LoadingRows rows={3} /> : null}
       {q.isError ? <Failed error={q.error} /> : null}
-      {q.data ? latest ? <Check c={latest} /> : <Choose /> : null}
+      {q.data ? latest ? <Check c={latest} /> : <IdentityWizard /> : null}
     </div>
   );
 }

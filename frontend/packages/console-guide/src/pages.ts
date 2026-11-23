@@ -51,6 +51,7 @@ export const PAGES: readonly GuidePage[] = [
   { id: "workloads", label: "Workload identity", href: "/admin/workloads", group: "Administration", keywords: "workload identity services spiffe" },
   { id: "idv-cases", label: "Identity proofing cases", href: "/admin/idv-cases", group: "Administration", keywords: "identity proofing cases decision chip passport signals review reasons policy digest" },
   { id: "age-check", label: "Age check", href: "/admin/age-check", group: "Administration", keywords: "age check birth date threshold" },
+  { id: "checks", label: "Verification checks", href: "/admin/checks", group: "Administration", keywords: "verification checks address contact device proof evidence" },
   { id: "screening", label: "Screening", href: "/admin/screening", group: "Administration", keywords: "screening sanctions pep adverse media" },
   { id: "company-verification", label: "Company verification", href: "/admin/company-verification", group: "Administration", keywords: "company verification kyb grade mandate representative appeal export documents reviewed registry matched authority" },
   { id: "ownership", label: "Ownership chains", href: "/admin/ownership", group: "Administration", keywords: "ownership chains beneficial owners ubo shareholders" },

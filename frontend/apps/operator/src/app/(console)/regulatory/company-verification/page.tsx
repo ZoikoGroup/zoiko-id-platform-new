@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { KybPolicyPage } from "@/features/regulatory/kyb-policy";
+import { RetiredPage } from "@/features/regulatory/retired";
 
 export const metadata: Metadata = { title: "Company verification packs" };
 
 export default function Page() {
-  return <KybPolicyPage />;
+  return <RetiredPage title="Company verification packs" what="Per-country company verification packs were proposed, signed and activated here." />;
 }

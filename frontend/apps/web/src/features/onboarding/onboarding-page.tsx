@@ -292,7 +292,7 @@ function Wizard({ tenant }: { tenant: TenantView }) {
           state={state(past("ORGANIZATION_VERIFYING"), at <= lifecycleIndex("ORGANIZATION_VERIFYING"))}
           summary="Company verified against its official register; you are its owner."
         >
-          <ButtonLink href="/admin/organization" variant="secondary" size="sm">
+          <ButtonLink href="/admin/company-verification" variant="secondary" size="sm">
             Company verification
           </ButtonLink>
         </Step>
@@ -474,7 +474,7 @@ export function OnboardingPage() {
           const me = standing(t);
           if (me.pendingOwner || t.status === "DRAFT" || t.status === "ORGANIZATION_VERIFYING") {
             return (
-              <Banner tone="info" title="Verify your company first" action={<ButtonLink href="/admin/organization" size="sm">Verify company</ButtonLink>}>
+              <Banner tone="info" title="Verify your company first" action={<ButtonLink href="/admin/company-verification" size="sm">Verify company</ButtonLink>}>
                 Onboarding starts once <UserText>{t.display_name}</UserText> is verified against its official register and you are confirmed as its owner.
               </Banner>
             );

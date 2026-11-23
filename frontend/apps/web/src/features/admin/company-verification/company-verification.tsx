@@ -23,6 +23,7 @@ import {
   SOURCES,
   type MandateForm,
 } from "./logic";
+import { VerificationJourney } from "./verification-journey";
 
 function Failed({ error }: { error: unknown }) {
   if (error instanceof ApiError && error.status === 403 && !error.isStepUpRequired && !error.isApprovalRequired) {
@@ -314,6 +315,7 @@ export function CompanyVerificationPage({ me }: { me?: string }) {
         breadcrumbs={[{ label: "Company verification" }]}
       />
       <div className="space-y-4">
+        <VerificationJourney />
         <GradeCard />
         <HistoryCard />
         <MandateCard me={me} />

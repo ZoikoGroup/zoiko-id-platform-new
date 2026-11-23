@@ -13,7 +13,7 @@ One path, the same in every country. Nobody on the operator side has to open, re
 3. **Company verification** (section 4): the person uploads the company's certificate of incorporation, the platform reads it (OCR), and the person confirms what was read.
 4. **Onboarding** (section 5): when both are done the person is taken there automatically.
 
-A person who leaves can come back: progress is saved on the server at every step, and nothing on the page can mark anyone verified. The server decides every result.
+Nothing on the page can mark anyone verified: the server decides every result. (As built, the details and photographs are held in the browser until the person submits; a submitted case is kept on the server and can be resumed. See section 10.)
 
 ## 2. Principles
 
@@ -125,3 +125,22 @@ Build order: the policy model and the identity flow first, then company, then on
 - **Document types differ in what they can prove.** An address bill is evidence of an address, not of identity, and the flow never treats it as an identity document.
 - **Storage:** uploaded documents are encrypted and kept only for the retention period. The retention value must be set before the flow runs.
 - **Not designed here:** the stronger routes (chip read, reviewed identity), recovery of a locked-out person, and changes to sign-in.
+
+## 10. As built (23 Nov 2026), and what is not built
+
+Built and tested (backend: 17 unit and 6 PostgreSQL component tests; web and operator: the wizard, journey and retired-screen tests all pass):
+
+- **Global policy.** `backend/config/idv/global-policy.yaml` (values PROPOSED, not accepted by any owner), the loader, and the fallback in `idv_cases.py`: a country with no policy of its own is served by it **only** when `ZID_IDV_GLOBAL_POLICY_ACK` equals `accept-global-idv-policy`. A country's own policy always wins, a malformed file refuses, and the face route still needs `ZID_IDV_FACE_ROUTE_ACK`. Without the setting nothing changes from before.
+- **Identity wizard** (`account/idv/identity-wizard.tsx`): the six screens, the three document groups, the same list for every country, JPEG or PNG photographs, a live selfie, the typed details compared once with the document and not stored, the result card, and `?next=` return.
+- **Company journey** (`admin/company-verification/verification-journey.tsx`): identity, then company (the existing organization claim with certificate reading), then onboarding; each step opens only when the one before is done. The onboarding page now sends people to it.
+- **Operator side:** the menu entries and screens for Policy packs, Market releases, Company verification packs and Check methods are retired (a notice and a link to Case reviews). Their code and records are kept.
+
+**Not built, and why it matters:**
+
+- **Address and other documents are not collected.** They are shown as "not part of this check". Collecting them needs a new upload endpoint and storage; the existing proof-of-address checks are the operator-gated check methods this design retires. Decide where they belong before building.
+- **PDF identity documents.** The platform reads JPEG and PNG for identity photographs; the reference accepted PDF too. Photograph limit is the platform's 6 MB, not the reference's 10 MB.
+- **"Continue on my phone"** and **progress saved on the server at every step** (the reference has both). Today a refresh before submitting loses what was typed.
+- **Operator Suspend** for the global policy. The only stop today is removing `ZID_IDV_GLOBAL_POLICY_ACK` and restarting. A console stop with a reason, and a two-person resume, are not built.
+- **The company check itself was not changed.** It already works without an operator pack: a missing pack only means proof retention falls back to the proof policy's own period. The company step reuses it.
+- **The commercial per-country gate** (`country_gate.py`, paid calls) is untouched.
+- **A mismatch's route to Case reviews** relies on the platform's existing review routes. It was not re-tested end to end on the running stack.
