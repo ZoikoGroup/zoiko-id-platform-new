@@ -10,6 +10,8 @@ ROOT="$(cd ../.. && pwd)"
 # relative: this script runs from its own folder. .env (generated passwords) and .env.smtp (your real SMTP provider) feed the compose file.
 compose() {
   local f=(-f docker-compose.yml) e
+  # optional, gitignored local additions (for example catching email in Mailpit): local-config/docker-compose.*.yml
+  for e in local-config/docker-compose.*.yml; do [ -f "$e" ] && f+=(-f "$e"); done
   for e in .env .env.smtp .env.operator; do [ -f "$e" ] && f+=(--env-file "$e"); done
   docker compose "${f[@]}" "$@"
 }
