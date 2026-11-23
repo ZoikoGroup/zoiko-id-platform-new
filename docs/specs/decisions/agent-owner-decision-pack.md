@@ -74,6 +74,8 @@ Gates, in order. G0 needs the signed boundary ADR and the inventory (AG2-D07, D-
 
 ## F. Production readiness of the agents: built, designed, or needs a first run
 
+The release plan that places each open item in the phase where it matters, with the risk the Product owner accepts until then and the evidence that closes it: [docs/runbooks/agent-release-plan.md](../../runbooks/agent-release-plan.md).
+
 Updated 20 Nov 2026 (CR-142). "Built" has tests; "designed" has a runbook or deploy script and has never run on real machines; "needs people" cannot be done by engineering.
 
 | Area | State | Where it is | What remains, and who |

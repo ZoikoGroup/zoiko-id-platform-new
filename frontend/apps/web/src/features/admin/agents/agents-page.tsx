@@ -99,8 +99,12 @@ export function AgentsPage() {
         <SetupGuide onGo={setTab} />
         <Banner tone="info" title="Access readiness agent">
           A reference agent that checks mandate metadata and proposes reviews for a person. It cannot change access, and it is off unless your environment turns it on.{" "}
+          <Link className="font-medium underline" href="/admin/agents/readiness/start">
+            Set it up step by step
+          </Link>{" "}
+          or{" "}
           <Link className="font-medium underline" href="/admin/agents/readiness">
-            Open access readiness
+            open access readiness
           </Link>
           .
         </Banner>

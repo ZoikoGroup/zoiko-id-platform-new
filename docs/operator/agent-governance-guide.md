@@ -78,7 +78,7 @@ In the console, Agents, **Register an API client**: a name, the audiences (the e
 
 ## Creating the access readiness agent (DAARA) as an API-only agent (CR-142)
 
-The access readiness agent checks a company's mandates and proposes reviews for a person; it changes no access (ZID-AG-WF-001). It needs no container and no attestor when its software proof is a bound API client. Do these in order. Different people must do the steps marked "second person": the registry refuses the person who registered a thing, or answers for the agent, from approving or activating it.
+The access readiness agent checks a company's mandates and proposes reviews for a person; it changes no access (ZID-AG-WF-001). It needs no container and no attestor when its software proof is a bound API client. **The easy way (CR-146):** open Admin, Agents, Access readiness, **Set up step by step** (`/admin/agents/readiness/start`). It reads your company's state, shows whose turn it is and gives the next button; both people use the same page. The list below is the same job by hand. Do these in order. Different people must do the steps marked "second person": the registry refuses the person who registered a thing, or answers for the agent, from approving or activating it.
 
 **Once per cell (an operator).** Set `ZID_ACCESS_READINESS_ENABLED=true` and `ZID_ACCESS_READINESS_REGIONS` to the cells it may run in (a JSON list, for example `["local-1"]`). A cell not listed answers "not available in this region".
 
