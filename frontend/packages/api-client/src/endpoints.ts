@@ -1072,6 +1072,14 @@ export function createCellApi(t: Transport) {
     agentGovernance: {
       overview: () => get<M.GovOverview>("/v1/machine/governance/overview"),
       baseline: () => get<{ configured: boolean; revision?: number } & Partial<M.GovBaseline>>("/v1/machine/governance/baseline"),
+      /** Set the company baseline (needs agent.governance.manage). A company can lower the platform limits, never raise them. */
+      setBaseline: (body: {
+        allowed_tools: string[];
+        allowed_regions: string[];
+        ai_providers: string[];
+        quotas: Record<string, number | boolean> | null;
+        schedules_allowed: boolean;
+      }) => t.request<{ revision: number } & M.GovBaseline>("PUT", "/v1/machine/governance/baseline", { body }),
       requests: (query: { agent_id?: string; state?: M.GovRequestState } = {}) => get<M.Items<M.GovRequest>>("/v1/machine/governance/requests", query),
       decide: (id: string, decision: "approve" | "reject" | "clarify", body: { policy_hash: string; reason?: string }) =>
         post<{ state: string; open_slots?: string[] }>(`/v1/machine/governance/requests/${seg(id)}:${decision}`, body),

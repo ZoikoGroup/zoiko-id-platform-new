@@ -98,7 +98,7 @@ export function AgentsPage() {
         <AuthorityNotice needs={["machine.tool.manage", "machine.build.register", "machine.build.manage", "machine.blueprint.manage", "machine.agent.manage"]} what="register tools, blueprints and agents" />
         <SetupGuide onGo={setTab} />
         <Banner tone="info" title="Access readiness agent">
-          A reference agent that checks mandate metadata and proposes reviews for a person. It cannot change access, and it is off unless your environment turns it on.{" "}
+          A reference agent that checks mandate metadata and proposes reviews for a person. It cannot change access, and it is off unless your environment turns it on. It runs without a container, so its identity is an API client: the step-by-step page walks you through the client, the release and the agent in the right order.{" "}
           <Link className="font-medium underline" href="/admin/agents/readiness/start">
             Set it up step by step
           </Link>{" "}
