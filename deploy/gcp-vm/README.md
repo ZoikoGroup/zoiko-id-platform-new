@@ -106,6 +106,19 @@ Check: `curl https://api.<domain>/health/ready`, `https://global.<domain>/health
 
 Set the `ZID_OPERATOR_*` values for the operator account (see `deploy/gcp/README.md`, "operator-bootstrap"): it creates the first operator and prints one enrollment link.
 
+## 8b. Agents and mandates (API-only agents need no image and no attestor)
+
+Set these in `.env` **before** the first start (they are in `env.example`). The stack refuses to start without `ZID_CELL_UUID`:
+
+| Setting | Why |
+|---|---|
+| `ZID_CELL_UUID` | **Required.** This cell's id in the ledger writer fence. Make it once (`uuidgen \| tr A-Z a-z`) and never change it: mandates record it as their home cell. Without it no mandate can be created and the access readiness agent reads nothing (`DEPENDENCY_UNAVAILABLE`). |
+| `ZID_AGENT_GOVERNANCE=enforce` | A refusal is real. The emergency stop applies in `shadow` too. |
+| `ZID_ACCESS_READINESS_ENABLED=true` | Switches on the access readiness agent (DAARA). It runs only in the cell named by `ZID_CELL_ID`. |
+| `ZID_API_AGENTS=on` | API-only agents ship **off** in production (CR-144). This line is the named decision; `off` disables them. |
+
+Who does what, with two people: the Owner registers the tools, the API client, the release and the agent; an Admin who is **not** the agent's sponsor, operator, publisher or registrant approves the build and the release, binds the client, records the security review and activates. The security review needs an Admin or Owner (CR-142). The full path is in `docs/specs/daara-agent-design.md` and `docs/operator/agent-governance-guide.md`.
+
 ## 9. Workload identity and agents (optional; profile `workload-identity`)
 
 The same flow as local (`local/spire/`), on VMs. It lets software running on your VMs (an AI agent, a service) prove **who it is** with a short-lived SPIFFE identity and **what it is running** with a signed attestation, so the cell can issue it a token bound to that identity. Nothing here is on by default; without it the cell answers 503 to workload requests and 404 to the attestation endpoint.

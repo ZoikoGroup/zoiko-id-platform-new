@@ -15,6 +15,16 @@ x-backend: &backend
     ZID_CELL_ID: ${ZID_CELL_ID}
     ZID_REGION: ${ZID_REGION}
     ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    # agents and mandates (CR-091 to CR-146). ZID_CELL_UUID is this cell's id in the ledger's writer fence (DEC-C5): without it no mandate can be
+    # created and the access readiness agent cannot read mandates (DEPENDENCY_UNAVAILABLE), so it has no default. Choose it once per cell, never change it.
+    ZID_CELL_UUID: ${ZID_CELL_UUID:?set ZID_CELL_UUID to this cell's UUID in .env (uuidgen; see env.example)}
+    # enforce: a refusal is real (no live policy, no calls). shadow records what would be refused and lets the call through. The emergency stop applies in both.
+    ZID_AGENT_GOVERNANCE: ${ZID_AGENT_GOVERNANCE:-enforce}
+    # API-based agents ship OFF in production (CR-144) and are switched on by a named decision: set ZID_API_AGENTS=on in .env. An API agent needs no image or attestor.
+    ZID_API_AGENTS: ${ZID_API_AGENTS:-off}
+    # the access readiness agent (CR-091): off until enabled, and runs only in the cells named here (this cell).
+    ZID_ACCESS_READINESS_ENABLED: ${ZID_ACCESS_READINESS_ENABLED:-false}
+    ZID_ACCESS_READINESS_REGIONS: '["${ZID_CELL_ID}"]'
     # keys in the database, wrapped by the master key file. A deployed environment refuses to start without the written acceptance,
     # so it has no default here: set ZID_KEY_PROVIDER_DB_ACK=accept-software-keys in .env only after the Security Lead signed CR-060.
     ZID_KEY_PROVIDER: db

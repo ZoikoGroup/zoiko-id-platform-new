@@ -20,6 +20,9 @@ x-backend: &backend
   environment: &backend-env
     ZID_ENVIRONMENT: production
     ZID_CELL_ID: local-1
+    # This cell's id in the ledger's writer fence (DEC-C5). Without it a mandate cannot be created and the access readiness agent cannot read mandates
+    # (DEPENDENCY_UNAVAILABLE). Pick it once and never change it: mandates record it as their home cell.
+    ZID_CELL_UUID: 00000000-0000-7000-8000-000000000001
     ZID_REGION: local-dev
     ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
     # keys: in the database, wrapped by a master key kept outside it (CR-060). Deployed environments need the written acceptance.
