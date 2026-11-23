@@ -9,6 +9,7 @@ import { BalanceView } from "@/features/admin/mandates/mandate-detail";
 import { MANDATES_KEY, StatusChangeDialog, budgetSummary } from "@/features/admin/mandates/mandate-status";
 import { QueryView, useCellQuery } from "@/lib/cell";
 
+import { CheckAction } from "./check-action-card";
 import { MyPermissions } from "./my-permissions-card";
 import { canUseLimit } from "./use-limit";
 import { UseLimitDialog } from "./use-limit-dialog";
@@ -41,8 +42,9 @@ export function MyLimitsPage() {
         title="My limits and permissions"
         description="What you, or an agent you set up, may spend or do on the company's behalf, and how much is left. Everything here is held inside the company's own rules."
       />
-      <div className="mb-4">
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <MyPermissions />
+        <CheckAction />
       </div>
       <QueryView query={mine}>
         {(data) =>
