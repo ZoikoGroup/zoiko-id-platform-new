@@ -1295,6 +1295,10 @@ class PlanRequestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan: str = Field(pattern=r"^[A-Z_]{3,24}$")
     note: str | None = Field(default=None, max_length=1000)
+    # what the company hopes to pay a month, if it asks for a different price (CR-148); the team answers with an offer for this company only
+    desired_amount: Decimal | None = Field(
+        default=None, gt=0, le=1_000_000, max_digits=12, decimal_places=2
+    )
 
 
 _PLAN_REQUEST_STATUS = {
@@ -1346,6 +1350,7 @@ async def request_a_plan(
                 caller.ctx.principal_id or "",
                 body.plan,
                 body.note,
+                body.desired_amount,
             )
         except PlanRequestError as e:
             raise plan_request_error(e) from e

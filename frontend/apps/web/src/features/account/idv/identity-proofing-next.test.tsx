@@ -73,11 +73,11 @@ function mount() {
 }
 
 describe("simple identity page", () => {
-  it("starts a person at the first of six screens, the same for every country", async () => {
+  it("starts a person at the first of eight screens, the same for every country", async () => {
     fake.idv.cases.mockResolvedValue({ items: [] });
     mount();
     expect(await screen.findByText("Before you start")).toBeTruthy();
-    expect(screen.getByText("Step 1 of 6")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 8")).toBeTruthy();
     expect(screen.getByText(/One government-issued identity document/)).toBeTruthy();
     expect(screen.queryByLabelText(/Country that issued/)).toBeNull(); // no country has to be typed to begin
     expect(screen.getByRole("button", { name: "Start" })).toBeTruthy();
@@ -91,10 +91,10 @@ describe("simple identity page", () => {
     expect(await screen.findByText("Confirm your details")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/Type your given name/)).toBeTruthy();
-    expect(screen.getByText("Step 2 of 6")).toBeTruthy(); // still here
+    expect(screen.getByText("Step 2 of 8")).toBeTruthy(); // still here
   });
 
-  it("walks the five screens, then opens the case for the global policy and sends both photographs with the details", async () => {
+  it("walks the screens one task at a time, then opens the case for the global policy and sends both photographs with the details", async () => {
     fake.idv.cases.mockResolvedValue({ items: [] });
     fake.idv.open.mockResolvedValue({ ...base, route: "WEB_FACE", market: "GLOBAL" });
     fake.idv.nonce.mockResolvedValue({ nonce: "n".repeat(16) });
@@ -108,23 +108,37 @@ describe("simple identity page", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("How verification works")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText("Choose and photograph your document")).toBeTruthy();
+    expect(await screen.findByText("Choose your document")).toBeTruthy();
     // all ten identity documents are offered, and the bills and statements are not among them
     expect(screen.getAllByRole("radio")).toHaveLength(10);
     expect(screen.getByRole("radio", { name: "Driving licence" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: /bill/i })).toBeNull();
+    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true); // nothing chosen yet
     await user.click(screen.getByRole("radio", { name: "Driving licence" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // the document photograph: no camera in this browser, so the person is told and can upload a clear picture
+    expect(await screen.findByText("Photograph your identity document")).toBeTruthy();
+    expect(screen.getByText("Step 5 of 8")).toBeTruthy();
+    expect(await screen.findByText(/could not open your camera/)).toBeTruthy();
     const jpeg = (name: string) => new File([new Uint8Array(30 * 1024)], name, { type: "image/jpeg" });
     await user.upload(screen.getByLabelText("Document photograph"), jpeg("doc.jpg"));
+    await user.click(await screen.findByRole("button", { name: "Use this photo" }));
+
+    // the selfie: taken with the device's camera app when the browser cannot open one
+    expect(await screen.findByText("Take a selfie")).toBeTruthy();
     await user.upload(screen.getByLabelText("Live photograph"), jpeg("me.jpg"));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText(/Agree to the comparison/)).toBeTruthy(); // the agreement is still needed
-    await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(await screen.findByRole("button", { name: "Use this photo" }));
+
     expect(await screen.findByText("Review and continue")).toBeTruthy();
     expect(screen.getByText("Asha Rao")).toBeTruthy();
     expect(screen.getByText("Driving licence")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Submit for verification" }));
+    const submitButton = screen.getByRole("button", { name: "Submit for verification" }) as HTMLButtonElement;
+    expect(submitButton.disabled).toBe(true); // the agreement is given here, before anything is sent
+    expect(fake.idv.open).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("checkbox"));
+    await waitFor(() => expect(submitButton.disabled).toBe(false));
+    await user.click(submitButton);
     await waitFor(() => expect(fake.idv.open).toHaveBeenCalledWith("GLOBAL", "WEB_FACE"));
     await waitFor(() => expect(fake.idv.documentImage).toHaveBeenCalledTimes(1));
     const [id, body] = fake.idv.documentImage.mock.calls[0] as [string, { image_base64: string; selfie_base64?: string; consent?: boolean; details?: { name?: string; birth_date?: string } }];

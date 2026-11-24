@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { COUNTRIES } from "./countries";
 import { CATEGORIES, DOCUMENTS_BY_CATEGORY, IDENTITY_DOCUMENTS, categoryOf, documentLabel, photographAdvice } from "./documents";
-import { NO_WIZARD_DETAILS, TOTAL_SCREENS, WIZARD_STEPS, detailsProblem, documentsProblem, firstIncomplete, fullName, marketFor } from "./wizard-logic";
+import { NO_WIZARD_DETAILS, STEP_TITLE, TOTAL_SCREENS, WIZARD_STEPS, detailsProblem, documentsProblem, firstIncomplete, fullName, marketFor } from "./wizard-logic";
 
 const ok = { given: "Asha", middle: "", family: "Rao", birth: "1990-05-17", country: "IN" };
 const photo = { type: "image/jpeg", size: 200_000 };
@@ -40,9 +40,11 @@ describe("documents", () => {
 });
 
 describe("the wizard", () => {
-  it("has six screens counting the result", () => {
-    expect(WIZARD_STEPS).toEqual(["INTRO", "DETAILS", "HOW", "DOCUMENTS", "REVIEW"]);
-    expect(TOTAL_SCREENS).toBe(6);
+  it("guides one task at a time: details, how it works, the document, its photograph, a selfie, a review, and the result last", () => {
+    expect(WIZARD_STEPS).toEqual(["INTRO", "DETAILS", "HOW", "DOCUMENT", "DOCUMENT_PHOTO", "SELFIE", "REVIEW"]);
+    expect(TOTAL_SCREENS).toBe(8);
+    for (const s of WIZARD_STEPS) expect(STEP_TITLE[s]).toBeTruthy();
+    expect(new Set(WIZARD_STEPS.map((s) => STEP_TITLE[s])).size).toBe(WIZARD_STEPS.length); // no two screens share a heading
   });
   it("needs both names and a possible date of birth", () => {
     expect(detailsProblem(NO_WIZARD_DETAILS)).toMatch(/given name/);
@@ -74,10 +76,19 @@ describe("the wizard", () => {
     expect(documentsProblem({ ...good, document: { type: "application/pdf", size: 1000 } })).toBeTruthy(); // the platform reads JPEG and PNG
     expect(documentsProblem(good)).toBeNull();
   });
-  it("sends a person who skipped ahead back to the first thing missing", () => {
-    const good = { details: ok, docType: "passport", document: photo, selfie: photo, agreed: true };
+  it("sends a person who skipped ahead back to the screen for the first thing missing", () => {
+    const good = { details: ok, docType: "passport", document: photo, selfie: photo };
     expect(firstIncomplete(good)).toBeNull();
     expect(firstIncomplete({ ...good, details: NO_WIZARD_DETAILS })).toBe("DETAILS");
-    expect(firstIncomplete({ ...good, selfie: null })).toBe("DOCUMENTS");
+    expect(firstIncomplete({ ...good, docType: "" })).toBe("DOCUMENT");
+    expect(firstIncomplete({ ...good, document: null })).toBe("DOCUMENT_PHOTO");
+    expect(firstIncomplete({ ...good, document: { type: "application/pdf", size: 1000 } })).toBe("DOCUMENT_PHOTO");
+    expect(firstIncomplete({ ...good, selfie: null })).toBe("SELFIE");
+    // the first missing thing wins, in the order the screens come
+    expect(firstIncomplete({ ...good, document: null, selfie: null })).toBe("DOCUMENT_PHOTO");
+  });
+  it("does not send a person back for the agreement, which is given on the review screen itself", () => {
+    const good = { details: ok, docType: "passport", document: photo, selfie: photo };
+    expect(firstIncomplete({ ...good, agreed: false })).toBeNull();
   });
 });

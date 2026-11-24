@@ -7,6 +7,7 @@ import { EndpointsSection } from "./endpoints";
 import { SandboxSection } from "./sandbox";
 import { RateLimitsSection } from "./rate-limits";
 import { UsageSection } from "./usage";
+import { VerifyApiSection } from "./verify-api";
 import { VerifyGuideSection } from "./verify-guide";
 
 export function DevelopersPage() {
@@ -14,11 +15,12 @@ export function DevelopersPage() {
     <>
       <PageHeader
         title="Developers"
-        description="Webhook endpoints and deliveries, API usage, your request limit, and how to verify the signatures on every delivery. Applications and API credentials are under Applications."
+        description="The Verify API (applications and credentials for your own server), webhook endpoints and deliveries, API usage, your request limit, and how to verify the signatures on every delivery. Applications and API credentials are under Applications."
       />
       <Tabs
         label="Developers"
         tabs={[
+          { id: "verify-api", label: "Verify API", content: <VerifyApiSection /> },
           { id: "endpoints", label: "Webhook endpoints", content: <EndpointsSection /> },
           { id: "deliveries", label: "Delivery log", content: <DeliveriesSection /> },
           { id: "usage", label: "Usage", content: <UsageSection /> },

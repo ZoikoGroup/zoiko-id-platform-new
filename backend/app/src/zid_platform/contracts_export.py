@@ -188,6 +188,10 @@ CONTRACTS: dict[Path, tuple[tuple[str, ...], str]] = {
         ("/v1/access-readiness",),
         "Zoiko iD Access Readiness Agent API (setup, dry run, release approval, runs, evidence, review proposals; default off)",
     ),
+    OPENAPI / "public" / "verify-api.json": (
+        ("/v1/verify-api/",),
+        "Zoiko iD Verify API (a company's applications and credentials, and the server-to-server token endpoint; sessions and decisions follow in later slices)",
+    ),
     OPENAPI / "public" / "webhooks.json": (
         ("/v1/webhooks/", "/v2/webhook-endpoints", "/v2/events"),
         "Zoiko iD Webhook API (endpoints, verification, deliveries, replay)",

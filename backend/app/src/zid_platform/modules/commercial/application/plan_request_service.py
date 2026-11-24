@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 
 from zid_platform.modules.commercial.application.change_log import log_change
+from zid_platform.modules.commercial.application.plan_offer_service import offer_view
 from zid_platform.modules.commercial.domain import plan_requests as rules
 from zid_platform.modules.commercial.domain.catalogue import DEFAULT_PLAN
 from zid_platform.modules.commercial.infrastructure import catalogue_store
@@ -28,10 +30,15 @@ def _view(r: dict[str, Any]) -> dict[str, Any]:
         "plan": r["plan_code"],
         "current_plan": r["current_plan"],
         "note": r["note"],
+        "desired_amount": format(Decimal(r["desired_amount"]).quantize(Decimal("0.01")), "f")
+        if r.get("desired_amount") is not None
+        else None,
         "status": r["status"],
         "created_at": r["created_at"].isoformat(),
         "decided_at": r["decided_at"].isoformat() if r["decided_at"] else None,
         "decision_note": r["decision_note"],
+        # a price for this company, once the team has made one: only an offer the company can still buy at is shown as such
+        "offer": offer_view(r),
     }
 
 
@@ -47,8 +54,17 @@ async def _own_name(conn: AsyncConnection, tenant_id: str) -> str | None:
 
 
 async def request_plan(
-    conn: AsyncConnection, tenant_id: str, principal_id: str, plan: str, note: str | None
+    conn: AsyncConnection,
+    tenant_id: str,
+    principal_id: str,
+    plan: str,
+    note: str | None,
+    desired_amount: Decimal | None = None,
 ) -> dict[str, Any]:
+    if desired_amount is not None and not (Decimal(0) < desired_amount <= Decimal(1_000_000)):
+        raise rules.PlanRequestError(
+            "VALIDATION_FAILED", "the price you ask for must be more than zero"
+        )
     current = await catalogue_store.active_entitlement(conn)
     current_plan = str(current["plan_code"]) if current else DEFAULT_PLAN
     published = {str(p["plan_code"]) for p in await catalogue_store.plans(conn)}
@@ -69,6 +85,7 @@ async def request_plan(
         note=clean,
         requested_by=principal_id,
         company_name=await _own_name(conn, tenant_id),
+        desired_amount=desired_amount,
     )
     await log_change(
         conn,
@@ -77,7 +94,11 @@ async def request_plan(
         tenant_id=tenant_id,
         actor=principal_id,
         reason=None,
-        detail={"plan": plan, "from": current_plan},
+        detail={
+            "plan": plan,
+            "from": current_plan,
+            "desired_amount": format(desired_amount, "f") if desired_amount is not None else None,
+        },
     )
     return {
         "request_id": request_id,

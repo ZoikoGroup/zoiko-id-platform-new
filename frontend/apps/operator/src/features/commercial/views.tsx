@@ -9,6 +9,8 @@ import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { CapabilityHint } from "../recovery-shared";
 import { useDirectMode } from "./mode";
+import { OfferDialog, type PlanRequestRow } from "./plan-offers";
+import { priceText } from "./plans-prices-logic";
 import { PriceBookEditor } from "./price-book-editor";
 
 import { COMMERCIAL_KEY } from "./keys";
@@ -50,26 +52,17 @@ export function PriceBooksView() {
   );
 }
 
-type OpenPlanRequest = PlanRequest & { tenant_id: string; company: string | null };
-
-/** What companies have asked for. Accepting says the team will raise the order; it moves no entitlement. */
+/** What companies have asked for. A company can buy a plan at the list price straight away; a request is for a different price. Answering with an offer sets that company's price: it moves
+ * no plan and charges nothing. The company buys at the offered price, pays on Stripe, and the plan switches on only after that payment is confirmed. */
 export function PlanRequestsView() {
-  const direct = useDirectMode();
   const list = useCellQuery([...COMMERCIAL_KEY, "plan-requests"], (api) => api.commercial.planRequests());
   const [note, setNote] = useState("");
-  const answer = useCellMutation<{ id: string; decision: "ACCEPTED" | "DECLINED" }, unknown>(
-    (api, v) => api.commercial.answerPlanRequest(v.id, v.decision, note),
-    { invalidate: [COMMERCIAL_KEY], success: "Answer recorded" },
-  );
-  // Direct mode: accept the request and put the company on the plan in one step, so the operator never copies an id.
-  const move = useCellMutation<OpenPlanRequest, unknown>(
-    async (api, r) => {
-      await api.commercial.answerPlanRequest(r.request_id, "ACCEPTED", note);
-      return api.commercial.call("PUT", `/v1/commercial/tenants/${r.tenant_id}/entitlement`, { plan: r.plan });
-    },
-    { invalidate: [COMMERCIAL_KEY], success: "Accepted, and the company is now on the new plan" },
-  );
-  const columns: Column<OpenPlanRequest>[] = [
+  const [offering, setOffering] = useState<PlanRequestRow | null>(null);
+  const decline = useCellMutation<string, unknown>((api, id) => api.commercial.answerPlanRequest(id, "DECLINED", note), {
+    invalidate: [COMMERCIAL_KEY],
+    success: "Answer recorded",
+  });
+  const columns: Column<PlanRequestRow>[] = [
     {
       key: "t",
       header: "Company",
@@ -84,6 +77,7 @@ export function PlanRequestsView() {
     },
     { key: "p", header: "Wants", render: (r) => <Badge tone="info">{r.plan}</Badge>, sortValue: (r) => r.plan },
     { key: "c", header: "Has", render: (r) => r.current_plan },
+    { key: "d", header: "Would like to pay", render: (r) => (r.desired_amount ? `${priceText(r.desired_amount, "USD")} per month` : "Did not say"), sortValue: (r) => Number(r.desired_amount ?? 0) },
     { key: "n", header: "Their note", render: (r) => r.note ?? "—" },
     { key: "w", header: "Asked", render: (r) => new Date(r.created_at).toLocaleString("en-GB"), sortValue: (r) => r.created_at },
     {
@@ -92,18 +86,12 @@ export function PlanRequestsView() {
       align: "end",
       render: (r) => (
         <span className="flex justify-end gap-2">
-          <Button size="xs" variant="secondary" isDisabled={answer.isPending} onPress={() => answer.mutate({ id: r.request_id, decision: "DECLINED" })}>
+          <Button size="xs" variant="secondary" isDisabled={decline.isPending} onPress={() => decline.mutate(r.request_id)}>
             Decline
           </Button>
-          {direct ? (
-            <Button size="xs" isDisabled={answer.isPending || move.isPending} onPress={() => move.mutate(r)}>
-              Accept and move to {r.plan}
-            </Button>
-          ) : (
-            <Button size="xs" isDisabled={answer.isPending} onPress={() => answer.mutate({ id: r.request_id, decision: "ACCEPTED" })}>
-              Accept
-            </Button>
-          )}
+          <Button size="xs" onPress={() => setOffering(r)}>
+            Make an offer
+          </Button>
         </span>
       ),
     },
@@ -113,25 +101,21 @@ export function PlanRequestsView() {
       {(d) => (
         <Card
           title="Plan requests"
-          description={
-            direct
-              ? "Companies asking for a different plan, oldest first. Accept and move puts the company on the plan straight away. The note below goes to the company."
-              : "Companies asking for a different plan, oldest first. Accepting means we will raise the order; it changes no entitlement. The note below goes to the company."
-          }
+          description="Companies asking for a different price for a plan, oldest first. Make an offer to set that company's price. Nothing is switched on by answering: the company buys at your price and the plan changes only after it pays. The note below goes to the company if you decline."
           padded={false}
         >
           <div className="p-4">
-            <TextField label="Note to the company (optional)" value={note} onChange={setNote} />
+            <TextField label="Note to the company when declining (optional)" value={note} onChange={setNote} />
           </div>
-          <DataTable<OpenPlanRequest>
+          <DataTable<PlanRequestRow>
             caption="Open plan requests"
             columns={columns}
             rows={d.items}
             rowKey={(r) => r.request_id}
-            empty={<EmptyState title="No open requests" icon={Inbox} compact>When a company asks for a plan it appears here.</EmptyState>}
+            empty={<EmptyState title="No open requests" icon={Inbox} compact>When a company asks for a different price it appears here.</EmptyState>}
           />
-          {move.isError ? <div className="p-4"><Banner tone="danger">{move.error instanceof Error ? move.error.message : "The company was not moved."}</Banner></div> : null}
-          {answer.isError ? <div className="p-4"><Banner tone="danger">{answer.error instanceof Error ? answer.error.message : "The answer was not recorded."}</Banner></div> : null}
+          {decline.isError ? <div className="p-4"><Banner tone="danger">{decline.error instanceof Error ? decline.error.message : "The answer was not recorded."}</Banner></div> : null}
+          {offering ? <OfferDialog request={offering} onClose={() => setOffering(null)} /> : null}
         </Card>
       )}
     </QueryView>
