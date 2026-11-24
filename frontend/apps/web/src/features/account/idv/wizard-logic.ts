@@ -1,7 +1,8 @@
 import { imageProblem } from "./logic";
 
-/** The six screens of identity verification (the sixth, the result, is the existing check card once a case exists). Modeled on the reference wizard. */
-export const WIZARD_STEPS = ["INTRO", "DETAILS", "HOW", "DOCUMENTS", "REVIEW"] as const;
+/** The screens of identity verification. The person is guided one task at a time, as in the reference product: what you need, your details, how it works, which document, a
+ * photograph of it, a selfie, and a review before anything is sent. The result is the check card that appears once a case exists, so it counts as the last screen. */
+export const WIZARD_STEPS = ["INTRO", "DETAILS", "HOW", "DOCUMENT", "DOCUMENT_PHOTO", "SELFIE", "REVIEW"] as const;
 export type WizardStep = (typeof WIZARD_STEPS)[number];
 export const TOTAL_SCREENS = WIZARD_STEPS.length + 1;
 
@@ -9,7 +10,9 @@ export const STEP_TITLE: Record<WizardStep, string> = {
   INTRO: "Before you start",
   DETAILS: "Confirm your details",
   HOW: "How verification works",
-  DOCUMENTS: "Choose and photograph your document",
+  DOCUMENT: "Choose your document",
+  DOCUMENT_PHOTO: "Photograph your identity document",
+  SELFIE: "Take a selfie",
   REVIEW: "Review and continue",
 };
 
@@ -42,7 +45,7 @@ export function marketFor(country: string): string {
 
 type Photo = { type: string; size: number } | null;
 
-/** Why the documents screen cannot go on, or null. An identity document and a live selfie are both needed; the person agrees to the comparison. */
+/** Why the documents cannot go on, or null. An identity document and a live selfie are both needed; the person agrees to the comparison. */
 export function documentsProblem(input: { docType: string; document: Photo; selfie: Photo; agreed: boolean }): string | null {
   if (!input.docType) return "Choose the identity document you will photograph.";
   if (!input.document) return "Add a photograph of the document.";
@@ -55,9 +58,12 @@ export function documentsProblem(input: { docType: string; document: Photo; self
   return null;
 }
 
-/** The first step that is not ready, or null when everything is: where the review screen sends a person who skipped ahead. */
-export function firstIncomplete(input: { details: WizardDetails; docType: string; document: Photo; selfie: Photo; agreed: boolean }): WizardStep | null {
+/** The screen a person is sent back to when something is missing: the first one that is not ready, or null when everything is. The agreement is given on the review screen
+ * itself, so it is not a reason to go back. */
+export function firstIncomplete(input: { details: WizardDetails; docType: string; document: Photo; selfie: Photo; agreed?: boolean }): WizardStep | null {
   if (detailsProblem(input.details)) return "DETAILS";
-  if (documentsProblem(input)) return "DOCUMENTS";
+  if (!input.docType) return "DOCUMENT";
+  if (!input.document || imageProblem(input.document)) return "DOCUMENT_PHOTO";
+  if (!input.selfie || imageProblem(input.selfie)) return "SELFIE";
   return null;
 }
