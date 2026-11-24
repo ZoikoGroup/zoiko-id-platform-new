@@ -12,6 +12,7 @@ from zid_assistant.application.snapshot import Knowledge
 from zid_assistant.infrastructure.sessions import MemorySessionStore
 from zid_assistant.infrastructure.store import MemoryStore
 from zid_assistant.main import create_app
+from zid_assistant.settings import AssistantSettings
 
 MSG = {"client_message_id": "tttttttt-0001", "text": "What is Zoiko iD?"}
 
@@ -50,7 +51,7 @@ def test_state_changing_calls_need_an_allowlisted_origin(client: TestClient) -> 
         {},
         {"origin": "http://evil.example"},
         {"origin": "null"},
-        {"origin": "http://localhost:3000.evil.example"},
+        {"origin": "https://www.zoikoid.example.evil.example"},
     ):
         assert client.post(f"{P}/sessions", headers=headers).status_code == 403, headers
         assert client.delete(f"{P}/sessions", headers=headers).status_code == 403, headers
@@ -246,3 +247,28 @@ def test_unknown_routes_and_methods_are_closed(client: TestClient) -> None:
     assert client.get(f"{P}/nope").status_code == 404
     assert client.put(f"{P}/messages", headers=H, json=MSG).status_code == 405
     assert client.get(f"{P}/messages").status_code == 405
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://zoikoid.com",
+        "https://*.zoikoid.com",
+        "https://zoikoid.com/",
+        "https://zoikoid.com/chat",
+        "https://user@zoikoid.com",
+        "https://localhost:3000",
+    ],
+)
+def test_production_refuses_inexact_origins(origin: str) -> None:
+    with pytest.raises(ValueError, match="exact https origin"):
+        AssistantSettings(_env_file=None, environment="production", allowed_origins=[origin])  # type: ignore[call-arg]
+
+
+def test_production_accepts_exact_https_origins() -> None:
+    s = AssistantSettings(
+        _env_file=None,
+        environment="production",
+        allowed_origins=["https://zoikoid.com", "https://www.zoikoid.com"],
+    )  # type: ignore[call-arg]
+    assert s.allowed_origins == ["https://zoikoid.com", "https://www.zoikoid.com"]

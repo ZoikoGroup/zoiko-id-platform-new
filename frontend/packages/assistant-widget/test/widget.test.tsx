@@ -222,3 +222,20 @@ describe("a host can reword the widget without changing what it does", () => {
     expect(screen.getByRole("button", { name: /open the zoiko id assistant/i })).toBeTruthy();
   });
 });
+
+describe("size toggle (website)", () => {
+  it("is absent by default and enlarges / restores the panel when resizable", async () => {
+    const api = mockApi(baseRoutes());
+    const { unmount } = render(<AssistantWidget apiBase={BASE} fetchImpl={api.fetchImpl} defaultOpen />);
+    await screen.findByRole("dialog");
+    expect(screen.queryByRole("button", { name: /larger/i })).toBeNull();
+    unmount();
+    render(<AssistantWidget apiBase={BASE} fetchImpl={mockApi(baseRoutes()).fetchImpl} defaultOpen resizable />);
+    const panel = await screen.findByRole("dialog");
+    expect(panel.className).not.toContain("zpa-panel-max");
+    await userEvent.click(screen.getByRole("button", { name: /larger/i }));
+    expect(panel.className).toContain("zpa-panel-max");
+    await userEvent.click(screen.getByRole("button", { name: /smaller/i }));
+    expect(panel.className).not.toContain("zpa-panel-max");
+  });
+});

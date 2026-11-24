@@ -6,7 +6,7 @@ import { AnswerCard } from "./AnswerCard";
 import { AssistantApiError, createAssistantClient, DEFAULT_API_BASE } from "./client";
 import { COPY as BASE_COPY, DEFAULT_AUDIENCES, type Audience } from "./copy";
 import { trapTab, uuid } from "./focus";
-import { ArrowRightIcon, ChatIcon, ChevronRightIcon, ClockIcon, CloseIcon, LockIcon, MinusIcon, NamedIcon, PlusIcon, SendIcon, ShieldCheckIcon, UserIcon, toneFor } from "./icons";
+import { ArrowRightIcon, ChatIcon, ChevronRightIcon, ClockIcon, CloseIcon, ExpandIcon, LockIcon, MinusIcon, MoonIcon, NamedIcon, PlusIcon, SendIcon, ShieldCheckIcon, ShrinkIcon, SunIcon, TrashIcon, UserIcon, toneFor } from "./icons";
 import { HelpLinks, Intake } from "./Intake";
 import type { AnswerPacket, Bootstrap, HandoffPurpose, IntakeConfig, IntakePurposeConfig } from "./types";
 import "./styles.css";
@@ -34,6 +34,8 @@ export interface AssistantWidgetProps {
   logo?: ReactNode;
   /** Audience shortcuts under the topic tiles. Each only sends a visible question. Pass `[]` for none. Keep it a stable reference. */
   audiences?: readonly Audience[];
+  /** Shows a larger/smaller toggle in the header (desktop only). Off by default. */
+  resizable?: boolean;
 }
 
 type Msg =
@@ -53,10 +55,12 @@ const clock = (t: number): string => new Date(t).toLocaleTimeString([], { hour: 
  *
  * Deliberately absent from the design: a file-attach control. Public chat has no upload path (ADR-08, INV-03): identity documents and
  * other files must never be sent to this assistant, so there is nothing to attach. */
-export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", fallbackLinks = [], defaultOpen = false, fetchImpl, copy, logo, audiences = DEFAULT_AUDIENCES }: AssistantWidgetProps) {
+export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", fallbackLinks = [], defaultOpen = false, fetchImpl, copy, logo, audiences = DEFAULT_AUDIENCES, resizable = false }: AssistantWidgetProps) {
   const COPY = useMemo(() => ({ ...BASE_COPY, ...copy }), [copy]);
   const client = useMemo(() => createAssistantClient({ apiBase, fetchImpl }), [apiBase, fetchImpl]);
   const [open, setOpen] = useState(defaultOpen);
+  const [large, setLarge] = useState(false);
+  const [dark, setDark] = useState(false); // in memory only, like the transcript: nothing is stored in the browser
   const [load, setLoad] = useState<Load>(defaultOpen ? { state: "loading" } : { state: "idle" });
   const [view, setView] = useState<View>({ name: "chat" });
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -65,6 +69,7 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
   // Earlier chats of this window only: React state, never storage, never sent anywhere (ADR-07). Close or reload clears them.
   const [past, setPast] = useState<Msg[][]>([]);
   const hasSession = useRef(false);
+  const abortRef = useRef<AbortController | null>(null); // the in-flight question, so it can be cancelled
   const shown = useRef<Set<string>>(new Set()); // answers already flowed in, so reopening the panel does not replay them
   const panelRef = useRef<HTMLElement | null>(null);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
@@ -89,6 +94,16 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
     };
   }, [open, load.state, client]);
 
+  // small screens: the panel is full-height, so the page behind it must not scroll
+  useEffect(() => {
+    if (!open || typeof window === "undefined" || typeof window.matchMedia !== "function" || !window.matchMedia("(max-width: 480px)").matches) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   // focus: into the panel on open, back to the launcher on close
   const wasOpen = useRef(false);
   useEffect(() => {
@@ -109,7 +124,7 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
     if (!open || load.state !== "ready" || !load.data.enabled || view.name !== "chat") return;
     const active = document.activeElement;
     const inPanel = !!panelRef.current && panelRef.current.contains(active);
-    const onChrome = active instanceof HTMLElement && [COPY.close, COPY.minimize].includes(active.getAttribute("aria-label") ?? "");
+    const onChrome = active instanceof HTMLElement && [COPY.close, COPY.minimize, COPY.maximize, COPY.restore].includes(active.getAttribute("aria-label") ?? "");
     if (!inPanel || onChrome || active === document.body) inputRef.current?.focus();
   }, [open, load, view.name]);
 
@@ -140,16 +155,18 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
     setMsgs((m) => [...m, { id: userId, at: Date.now(), kind: "user", text }]);
     setDraft("");
     setPending(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       await ensureSession();
       let packet: AnswerPacket;
       try {
-        packet = await client.sendMessage({ client_message_id: messageId, text, locale });
+        packet = await client.sendMessage({ client_message_id: messageId, text, locale }, ctrl.signal);
       } catch (err) {
         if (err instanceof AssistantApiError && err.code === "INVALID_GUEST_SESSION") {
           hasSession.current = false;
           await ensureSession(); // one recreate, same message id: the server replays instead of duplicating
-          packet = await client.sendMessage({ client_message_id: messageId, text, locale });
+          packet = await client.sendMessage({ client_message_id: messageId, text, locale }, ctrl.signal);
         } else {
           throw err;
         }
@@ -157,7 +174,9 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
       setMsgs((m) => [...m, { id: uuid(), at: Date.now(), kind: "assistant", packet }]);
     } catch (err) {
       const e = err instanceof AssistantApiError ? err : null;
-      if (e?.code === "SENSITIVE_CONTENT_BLOCKED") {
+      if (e?.code === "CANCELLED") {
+        setMsgs((m) => [...m, { id: uuid(), at: Date.now(), kind: "notice", tone: "info", text: COPY.cancelled, help: false }]);
+      } else if (e?.code === "SENSITIVE_CONTENT_BLOCKED") {
         // the text is dropped from memory too: it is never shown again or kept
         setMsgs((m) => [
           ...m.map((x) => (x.id === userId ? ({ id: userId, at: x.at, kind: "blocked" } as Msg) : x)),
@@ -174,8 +193,13 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
         setMsgs((m) => [...m, { id: uuid(), at: Date.now(), kind: "notice", tone: "error", text: text2, help: unavailable }]);
       }
     } finally {
+      if (abortRef.current === ctrl) abortRef.current = null;
       setPending(false);
     }
+  }
+
+  function cancelPending() {
+    abortRef.current?.abort();
   }
 
   async function forget() {
@@ -209,6 +233,7 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
 
   /** Close (X) ends the chat: the server session and everything shown here are cleared (ADR-07). Minimize only hides the panel. */
   async function endChat() {
+    abortRef.current?.abort();
     setOpen(false);
     if (hasSession.current) {
       try {
@@ -280,12 +305,12 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
 
   const starters = data?.starters ?? [];
   const tiles = starters.filter((s) => s.icon || s.description).slice(0, 4);
-  const chips = starters.filter((s) => !tiles.includes(s)).slice(0, 3);
+  const chips = starters.filter((s) => !tiles.includes(s)).slice(0, Math.max(0, 4 - tiles.length)); // WF-01: four goal paths in total
 
   return (
-    <div className="zpa-root">
+    <div className={dark ? "zpa-root zpa-dark" : "zpa-root"}>
       {open ? (
-        <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="zpa-panel" onKeyDown={onPanelKey} id={`${id}-panel`}>
+        <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className={large ? "zpa-panel zpa-panel-max" : "zpa-panel"} onKeyDown={onPanelKey} id={`${id}-panel`}>
           <header className="zpa-header">
             <span className="zpa-logo" aria-hidden="true">{mark}</span>
             <div className="zpa-head-text">
@@ -297,6 +322,9 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
               <p className="zpa-subtitle">{COPY.subtitle}</p>
             </div>
             <div className="zpa-header-actions">
+              <button type="button" className="zpa-icon-btn zpa-theme-btn" onClick={() => setDark((v) => !v)} aria-label={dark ? COPY.lightMode : COPY.darkMode} aria-pressed={dark} title={dark ? COPY.lightMode : COPY.darkMode}>
+                {dark ? <SunIcon /> : <MoonIcon />}
+              </button>
               {chatOn ? (
                 <>
                   <button type="button" className="zpa-icon-btn" onClick={() => setView({ name: "history", index: null })} aria-label={COPY.history} title={COPY.history}>
@@ -306,6 +334,11 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
                     <PlusIcon />
                   </button>
                 </>
+              ) : null}
+              {resizable ? (
+                <button type="button" className="zpa-icon-btn zpa-size-btn" onClick={() => setLarge((v) => !v)} aria-label={large ? COPY.restore : COPY.maximize} aria-pressed={large} title={large ? COPY.restore : COPY.maximize}>
+                  {large ? <ShrinkIcon /> : <ExpandIcon />}
+                </button>
               ) : null}
               <button type="button" className="zpa-icon-btn" onClick={() => setOpen(false)} aria-label={COPY.minimize}>
                 <MinusIcon />
@@ -354,10 +387,13 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
                         {past.map((c, i) => {
                           const first = c.find((m): m is Extract<Msg, { kind: "user" }> => m.kind === "user");
                           return (
-                            <li key={c[0]?.id ?? i}>
+                            <li key={c[0]?.id ?? i} className="zpa-history-row">
                               <button type="button" className="zpa-history-item" onClick={() => setView({ name: "history", index: i })}>
                                 <strong>{first?.text ?? COPY.historyUntitled}</strong>
                                 <span>{clock(first?.at ?? 0)}</span>
+                              </button>
+                              <button type="button" className="zpa-history-del" onClick={() => setPast((p) => p.filter((_, j) => j !== i))} aria-label={`${COPY.historyDelete}: ${first?.text ?? COPY.historyUntitled}`} title={COPY.historyDelete}>
+                                <TrashIcon />
                               </button>
                             </li>
                           );
@@ -444,6 +480,7 @@ export function AssistantWidget({ apiBase = DEFAULT_API_BASE, locale = "en-US", 
                         <span className="zpa-dots" aria-hidden="true"><i /><i /><i /></span>
                         <span className="zpa-sr">{COPY.thinking}</span>
                       </p>
+                      <button type="button" className="zpa-btn zpa-btn-secondary zpa-cancel" onClick={cancelPending}>{COPY.cancel}</button>
                     </div>
                   ) : null}
                 </div>

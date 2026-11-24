@@ -29,7 +29,7 @@ answers:
     match: ["who is zoiko id for", "who is it for", "who uses zoiko id", "who should use zoiko id", "use cases"]
   - answer_id: KB-004
     question: "Is Zoiko iD only a login product?"
-    text: "No. Its architecture covers authentication alongside credential verification, consent, authorization, risk controls and integration. Those categories describe the planned platform scope; specific feature availability must be verified separately."
+    text: "Zoiko iD is not only a login product. Its architecture covers authentication alongside credential verification, consent, authorization, risk controls and integration. Those categories describe the planned platform scope; specific feature availability must be verified separately."
     intent_id: INT-02
     claim_ids: [CL-01, CL-02]
     cta_link_id: ARCHITECTURE-GUIDES
@@ -218,3 +218,12 @@ answers:
     claim_ids: [CL-08]
     cta_link_id: SIGN-IN
     match: ["here is my one-time code", "please verify me", "verify me", "my one-time code", "send me a code", "send me an otp", "my otp"]
+  - answer_id: KB-029
+    question: "Do I need to replace my existing identity provider?"
+    text: "Zoiko iD is described as sitting alongside existing identity providers rather than replacing them: your provider keeps authenticating people and workloads, while Zoiko iD adds an authority layer covering who or what may act, under which delegated mandate and with what evidence. Whether your specific provider is supported must be confirmed with the Zoiko iD team."
+    intent_id: INT-02
+    claim_ids: [CL-02]
+    cta_link_id: SOLUTIONS-ENTERPRISE
+    source_ids: [PUB-002]
+    match: ["replace my identity provider", "replace my idp", "do i need to replace okta", "replace okta", "existing identity provider", "works with my idp", "alongside okta", "rip and replace"]
+

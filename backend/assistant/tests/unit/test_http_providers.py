@@ -21,7 +21,9 @@ OUT = json.dumps({"decision": "ANSWER", "answer_text": "a", "span_refs": ["PUB-1
 def _settings(tmp_path: Path, provider: str = "groq") -> AssistantSettings:
     key = tmp_path / "k.key"
     key.write_text("secret-key\n", encoding="utf-8")
-    return AssistantSettings(model_provider=provider, model_name="m", model_api_key_file=key)
+    return AssistantSettings(
+        _env_file=None, model_provider=provider, model_name="m", model_api_key_file=key
+    )  # type: ignore[call-arg]
 
 
 def _client(handler) -> httpx.AsyncClient:  # type: ignore[no-untyped-def]
@@ -109,4 +111,5 @@ def test_gemini_block_is_a_refusal_and_truncation_is_unavailable(tmp_path: Path)
 def test_gateway_builds_these_providers_and_fails_closed_without_a_key(tmp_path: Path) -> None:
     gw = build_gateway(_settings(tmp_path, "gemini"))
     assert gw is not None and gw.provider_name == "gemini"
-    assert build_gateway(AssistantSettings(model_provider="groq", model_api_key_file=None)) is None
+    no_key = AssistantSettings(_env_file=None, model_provider="groq", model_api_key_file=None)  # type: ignore[call-arg]
+    assert build_gateway(no_key) is None

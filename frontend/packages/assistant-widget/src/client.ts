@@ -41,6 +41,7 @@ export interface ClientOptions {
 interface RequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 export function createAssistantClient(options: ClientOptions = {}) {
@@ -57,8 +58,9 @@ export function createAssistantClient(options: ClientOptions = {}) {
     let res: Response;
     try {
       // same-origin proxy only: the browser never talks to the assistant service directly, and no uploads exist.
-      res = await doFetch(`${base}${path}`, { method, headers, body, credentials: "same-origin", cache: "no-store" });
-    } catch {
+      res = await doFetch(`${base}${path}`, { method, headers, body, credentials: "same-origin", cache: "no-store", signal: opts.signal });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") throw new AssistantApiError(0, "CANCELLED", "Cancelled.");
       throw new AssistantApiError(503, "UNAVAILABLE", "The assistant is unavailable.");
     }
     if (res.ok) return res;
@@ -100,7 +102,7 @@ export function createAssistantClient(options: ClientOptions = {}) {
     deleteSession: async () => {
       await request("DELETE", "/sessions");
     },
-    sendMessage: (body: SendMessageBody) => json<AnswerPacket>("POST", "/messages", { body }),
+    sendMessage: (body: SendMessageBody, signal?: AbortSignal) => json<AnswerPacket>("POST", "/messages", { body, signal }),
     sendFeedback: async (responseId: string, rating: FeedbackRating) => {
       await request("POST", "/feedback", { body: { response_id: responseId, rating } });
     },

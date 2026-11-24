@@ -69,6 +69,16 @@ export const SendIcon = () => (
     <path d="M11 14l9-10" />
   </Svg>
 );
+export const ExpandIcon = () => (
+  <Svg>
+    <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
+  </Svg>
+);
+export const ShrinkIcon = () => (
+  <Svg>
+    <path d="M14 10h6M14 10V4M10 14H4M10 14v6M20 4l-6 6M4 20l6-6" />
+  </Svg>
+);
 export const MinusIcon = () => (
   <Svg>
     <path d="M5 12h14" />
@@ -123,3 +133,19 @@ export function NamedIcon({ name }: { name?: string | null }): ReactElement {
 export function toneFor(name?: string | null): "blue" | "mint" {
   return name === "document" ? "mint" : "blue";
 }
+export const MoonIcon = () => (
+  <Svg>
+    <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z" />
+  </Svg>
+);
+export const SunIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4" />
+  </Svg>
+);
+export const TrashIcon = () => (
+  <Svg>
+    <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+  </Svg>
+);

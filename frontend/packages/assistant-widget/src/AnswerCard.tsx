@@ -83,7 +83,7 @@ export function AnswerCard({ packet, client, flags, onHandoff, logo, time, anima
       ];
     }
     return []; // any other action type is not approved for display
-  });
+  }).slice(0, 3); // WF-02: one recommended action and at most two supplementary ones
 
   return (
     <div className="zpa-row zpa-row-bot">
@@ -92,12 +92,13 @@ export function AnswerCard({ packet, client, flags, onHandoff, logo, time, anima
         <article className={`zpa-bubble zpa-bubble-bot zpa-decision-${packet.decision.toLowerCase()}`} aria-label={`Assistant reply: ${label}`}>
           {packet.decision !== "ANSWER" ? <p className="zpa-badge">{label}</p> : null}
           <p className="zpa-answer"><Flow text={packet.answer_text} animate={animate} onDone={() => { setSettled(true); onRevealed?.(); }} /></p>
+          {packet.decision === "ANSWER" && packet.citations.length === 0 ? <p className="zpa-muted zpa-unverified">{COPY.notVerified}</p> : null}
           {packet.safety.sample_content ? <p className="zpa-sample">{COPY.sample}</p> : null}
           {actions.length > 0 ? <div className={`zpa-actions zpa-settle${settled ? " zpa-settled" : ""}`}>{actions}</div> : null}
           {packet.citations.length > 0 ? (
             <div className={`zpa-sources zpa-settle${settled ? " zpa-settled" : ""}`}>
               <span className="zpa-small-heading">{COPY.sourcesHeading}: </span>
-              {packet.citations.filter((c, i, all) => all.findIndex((o) => o.source_id === c.source_id && o.revision === c.revision) === i).map((c, i) => (
+              {packet.citations.filter((c, i, all) => all.findIndex((o) => o.source_id === c.source_id && o.revision === c.revision) === i).slice(0, 3).map((c, i) => (
                 <span key={`${c.source_id}-${c.span_id ?? i}`} className="zpa-source">
                   {c.link_id ? (
                     <a href={client.linkUrl(c.link_id)} target="_blank" rel="noopener noreferrer">
@@ -106,7 +107,7 @@ export function AnswerCard({ packet, client, flags, onHandoff, logo, time, anima
                   ) : (
                     <span>{c.title}</span>
                   )}
-                  <span className="zpa-muted"> ({c.source_id}, {c.revision})</span>
+                  <span className="zpa-muted"> ({c.revision}{c.reviewed_at && !Number.isNaN(Date.parse(c.reviewed_at)) ? `, ${COPY.reviewed} ${new Date(c.reviewed_at).toLocaleDateString()}` : ""})</span>
                 </span>
               ))}
             </div>
