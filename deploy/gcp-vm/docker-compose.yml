@@ -15,6 +15,16 @@ x-backend: &backend
     ZID_CELL_ID: ${ZID_CELL_ID}
     ZID_REGION: ${ZID_REGION}
     ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
+    # agents and mandates (CR-091 to CR-146). ZID_CELL_UUID is this cell's id in the ledger's writer fence (DEC-C5): without it no mandate can be
+    # created and the access readiness agent cannot read mandates (DEPENDENCY_UNAVAILABLE), so it has no default. Choose it once per cell, never change it.
+    ZID_CELL_UUID: ${ZID_CELL_UUID:?set ZID_CELL_UUID to this cell's UUID in .env (uuidgen; see env.example)}
+    # enforce: a refusal is real (no live policy, no calls). shadow records what would be refused and lets the call through. The emergency stop applies in both.
+    ZID_AGENT_GOVERNANCE: ${ZID_AGENT_GOVERNANCE:-enforce}
+    # API-based agents ship OFF in production (CR-144) and are switched on by a named decision: set ZID_API_AGENTS=on in .env. An API agent needs no image or attestor.
+    ZID_API_AGENTS: ${ZID_API_AGENTS:-off}
+    # the access readiness agent (CR-091): off until enabled, and runs only in the cells named here (this cell).
+    ZID_ACCESS_READINESS_ENABLED: ${ZID_ACCESS_READINESS_ENABLED:-false}
+    ZID_ACCESS_READINESS_REGIONS: '["${ZID_CELL_ID}"]'
     # keys in the database, wrapped by the master key file. A deployed environment refuses to start without the written acceptance,
     # so it has no default here: set ZID_KEY_PROVIDER_DB_ACK=accept-software-keys in .env only after the Security Lead signed CR-060.
     ZID_KEY_PROVIDER: db
@@ -45,6 +55,8 @@ x-backend: &backend
     ZID_SMTP_PASSWORD_FILE: /run/secrets/smtp_password
     # the malware scanner for company proof documents; unset, uploads are refused (nothing is stored unscanned)
     ZID_PROOF_SCANNER_ADDRESS: ${ZID_PROOF_SCANNER_ADDRESS:-}
+    # where the cell reads the built-in global identity policy. Harmless on its own: the policy is used only when ZID_IDV_GLOBAL_POLICY_ACK is set in .env (env.example).
+    ZID_IDV_GLOBAL_POLICY: /app/config/idv/global-policy.yaml
     ZID_KAFKA_BOOTSTRAP: ${ZID_SERVICES_HOST}:9092
     # workload identity (profile `workload-identity`, README section 8): trust this cell's SPIRE bundle, accept a forwarded client
     # certificate only from the workload listener's fixed address, and verify attestor statements against the attestor's public key.
@@ -152,6 +164,69 @@ services:
     healthcheck: {disable: true}
 
   # The public edge (profile `edge`): Caddy gets and renews the certificates by itself and publishes 80 and 443.
+  # Operator Console (profile `operator`): the same image the release workflow builds and signs (build-frontend-image.yml, app=operator). Its own origin
+  # operator.<domain> and OAuth client. Add that origin to ZID_WEBAUTHN_ORIGINS in .env first, and keep it behind OPERATOR_ALLOWED_CIDRS (Caddyfile) or IAP.
+  operator:
+    profiles: ["operator"]
+    image: ${ZID_OPERATOR_IMAGE:-}
+    restart: unless-stopped
+    depends_on:
+      valkey: {condition: service_healthy}
+      cell: {condition: service_started}
+    environment:
+      ZID_CELL_API_URL: http://cell:8000
+      ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-https://api.${ZID_DOMAIN}}
+      ZID_PUBLIC_ORIGIN: https://operator.${ZID_DOMAIN}
+      ZID_OAUTH_CLIENT_ID: zoiko-operator
+      # where a customer who opened the operator sign-in by mistake is sent (the company site). The company site never links to this one.
+      ZID_COMPANY_SIGN_IN_URL: https://id.${ZID_DOMAIN}/sign-in
+      ZID_OAUTH_REDIRECT_URI: https://operator.${ZID_DOMAIN}/auth/callback
+      ZID_ENVIRONMENT: production
+      ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379
+    expose: ["3000"]
+
+  # Identity-check sidecars (profile `idv`), run the same way as the local stack: hardened, read-only, no capabilities, no network of their own beyond this one.
+  #   ocr   reads the printed lines of a document (company certificate check, identity documents)   -> .env: ZID_OCR_URL=http://ocr:8090
+  #   face  the face-match lab engine (no liveness, never an approval)                               -> .env: ZID_FACE_URL=http://face:8091
+  #   clamd the malware scanner every company proof upload goes through                              -> .env: ZID_PROOF_SCANNER_ADDRESS=clamd:3310
+  # ZID_OCR_IMAGE and ZID_FACE_IMAGE are built and signed by the release workflow (build-sidecar-image.yml); ./deploy.sh verifies them by digest.
+  ocr:
+    profiles: ["idv"]
+    image: ${ZID_OCR_IMAGE:-}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+    expose: ["8090"]
+
+  face:
+    profiles: ["idv"]
+    image: ${ZID_FACE_IMAGE:-}
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1777"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    pids_limit: 128
+    expose: ["8091"]
+
+  clamd:
+    profiles: ["idv"]
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    mem_limit: 2g
+    expose: ["3310"]
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
   caddy:
     profiles: ["edge"]
     image: caddy:2.8-alpine
@@ -160,6 +235,7 @@ services:
     environment:
       ZID_DOMAIN: ${ZID_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
+      OPERATOR_ALLOWED_CIDRS: ${OPERATOR_ALLOWED_CIDRS:-127.0.0.1/32}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

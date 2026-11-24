@@ -24,6 +24,8 @@ import { useState } from "react";
 
 import { useTenant } from "@/features/onboarding/shared";
 import { ApiErrorView, listInput, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
+import { RegionText } from "./region-text";
+import { oneEntryPerRegion, regionName } from "./region";
 
 const RES_KEY = ["admin", "residency"];
 const RULES_KEY = [...RES_KEY, "rules"];
@@ -68,7 +70,8 @@ function ProfileSection() {
                 columns={3}
                 items={[
                   ["Profile", <Badge key="p" tone="brand">{d.residency.residency_profile_id}</Badge>],
-                  ["Home cell", <span key="h" className="font-mono">{d.residency.home_cell_id}</span>],
+                  ["Region", <RegionText key="h" cellId={d.residency.home_cell_id} />],
+                  ["Technical id", <span key="t" className="font-mono text-xs text-ink-muted">{d.residency.home_cell_id}</span>],
                   ["Recovery cells", d.residency.permitted_recovery_cells.join(", ") || "None (in-region recovery only)"],
                   ["Operator jurisdictions", d.residency.operator_jurisdictions.join(", ") || "Unrestricted"],
                   ["Key profile", d.residency.key_profile],
@@ -182,15 +185,15 @@ function ProfileDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
           <RiskBadge risk="R3" />
         </div>
         <Select
-          label="Home cell"
-          description="Where your data lives. Your company's own cell is chosen for you."
+          label="Where your data lives"
+          description="The region your company is placed in. It is chosen for you."
           value={home}
           onChange={(v) => {
             setHomeChoice(v);
             setProfileChoice(null);
             setPackChoice(null);
           }}
-          options={usable.map((c) => ({ id: c.cell_id, label: `${c.cell_id} · ${c.legal_zone ?? c.jurisdiction ?? ""}` }))}
+          options={oneEntryPerRegion(usable, ownCell).map((c) => ({ id: c.cell_id, label: regionName(c) }))}
         />
         <Select
           label="Profile"

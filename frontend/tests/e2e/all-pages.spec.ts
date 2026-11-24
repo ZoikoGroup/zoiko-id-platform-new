@@ -32,7 +32,7 @@ const PAGES: [string, string][] = [
   ["My account", "/account"],
   ["Sessions", "/account/sessions"],
   ["Passkeys", "/account/passkeys"],
-  ["My limits", "/account/limits"],
+  ["My limits and permissions", "/account/limits"],
   ["Connected apps", "/account/connected-apps"],
   ["Identity verification", "/account/verification"],
   ["Recovery codes", "/account/recovery"],

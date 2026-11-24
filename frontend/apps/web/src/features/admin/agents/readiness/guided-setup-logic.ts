@@ -24,7 +24,7 @@ export const DAARA_TOOLS = [
 export const GATES: AgentGate[] = ["SECURITY_REVIEW", "KILL_PATH_TESTED", "SHORT_LIVED_CREDENTIALS", "OBSERVABILITY"];
 
 export const GATE_PLAIN: Record<AgentGate, { title: string; note: string }> = {
-  SECURITY_REVIEW: { title: "Security review", note: "Threat, model and tool review completed; reviewed by someone independent of the sponsor, operator and publisher." },
+  SECURITY_REVIEW: { title: "Security review", note: "Threat, model and tool review completed; reviewed by a company Admin or Owner who is independent of the sponsor, operator, publisher and registrant." },
   KILL_PATH_TESTED: { title: "Switch-off tested", note: "Suspended and revoked in a drill; the agent stopped." },
   SHORT_LIVED_CREDENTIALS: { title: "Short-lived credentials", note: "The agent holds no long-lived secret: a key proves it, and its token lasts minutes." },
   OBSERVABILITY: { title: "Monitoring", note: "Every run leaves evidence and the monitoring page shows it." },

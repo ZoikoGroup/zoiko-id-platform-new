@@ -27,6 +27,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_idempotency import Scope, begin, complete
 
@@ -365,11 +366,35 @@ async def reserve(
     return {"mandate_id": str(mandate_id), **_res_view(res)}
 
 
+async def _own_or_oversight(
+    conn: Any, caller: Caller, mandate_id: str, *, action: str
+) -> None:
+    """Only the person a limit was given to (or who set it up) may use or read it; everyone else needs the company-wide right."""
+    me = caller.ctx.principal_id
+    if me:
+        try:
+            terms, _, _ = await load_terms(conn, mandate_id)
+            creator = await creator_of(conn, mandate_id)
+        except LedgerError as e:
+            raise _ledger(e) from e
+        if me in (terms.executor_principal_id, creator):
+            return
+    await protected_action(conn, caller, action=action, resource="mandate:*")
+
+
 async def _settle(
     request: Request, caller: Caller, reservation_id: uuid.UUID, body: CommitBody | None
 ) -> dict[str, Any]:
     tenant = caller.ctx.tenant_id or ""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        owner = (
+            await conn.execute(
+                text("SELECT mandate_id FROM agent.mandate_reservation WHERE reservation_id = :r"),
+                {"r": reservation_id},
+            )
+        ).first()
+        if owner is not None:  # someone else's reservation is not theirs to commit or release
+            await _own_or_oversight(conn, caller, str(owner.mandate_id), action="mandate.manage")
         cell, epoch = await cell_writer_epoch(request, conn, tenant)
         try:
             if body is None:
@@ -412,6 +437,7 @@ async def release(reservation_id: uuid.UUID, request: Request, caller: CallerDep
 @router.get("/v1/mandates/{mandate_id}/balance")
 async def balance(mandate_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _own_or_oversight(conn, caller, str(mandate_id), action="mandate.read")
         try:
             terms, budget, _ = await load_terms(conn, str(mandate_id))
             bal = await read_balance(conn, mandate_id)

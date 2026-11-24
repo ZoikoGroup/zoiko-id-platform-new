@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { useTenant } from "@/features/onboarding/shared";
+import { RegionText } from "@/features/admin/residency/region-text";
 
 const SHORTCUTS: [string, string][] = [
   ["Ctrl or ⌘ + K", "Open search and the command palette"],
@@ -68,7 +69,7 @@ export function HelpPage() {
             items={[
               ["Company", tenant?.display_name ?? "—"],
               ["Company ID", <code key="t" className="font-mono text-xs break-all">{tenant?.tenant_id ?? "—"}</code>],
-              ["Home cell", <code key="c" className="font-mono text-xs">{tenant?.home_cell_id ?? "—"}</code>],
+              ["Region", <RegionText key="c" cellId={tenant?.home_cell_id} />],
               ["Support reference", "Shown in any error message as a correlation ID; copy it exactly."],
             ]}
           />

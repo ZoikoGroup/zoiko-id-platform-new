@@ -9,13 +9,11 @@ import {
   ListChecks,
   Building2,
   Cable,
-  FileCode2,
   Fingerprint,
   Gauge,
   Globe,
   Gavel,
   Globe2,
-  KeyRound,
   LayoutDashboard,
   LifeBuoy,
   Link2,
@@ -45,6 +43,7 @@ import type { ReactNode } from "react";
 import { PrivacySignal } from "@/components/privacy-signal";
 import { ConsoleGuide } from "@/components/console-guide";
 import { ageOf } from "@/features/alerts/shared";
+import { RegionText } from "@/features/admin/residency/region-text";
 import { standing, useTenant } from "@/features/onboarding/shared";
 import { useCellQuery } from "@/lib/cell";
 import { visibleNav } from "@/lib/nav-access";
@@ -79,7 +78,7 @@ const NAV: NavGroup[] = [
       { id: "account", label: "My account", href: "/account", icon: LayoutDashboard },
       { id: "sessions", label: "Sessions", href: "/account/sessions", icon: MonitorSmartphone },
       { id: "passkeys", label: "Passkeys", href: "/account/passkeys", icon: Fingerprint },
-      { id: "my-limits", label: "My limits", href: "/account/limits", icon: Gauge },
+      { id: "my-limits", label: "My limits and permissions", href: "/account/limits", icon: Gauge },
       { id: "connected-apps", label: "Connected apps", href: "/account/connected-apps", icon: Link2 },
       { id: "my-verification", label: "Identity verification", href: "/account/verification", icon: ScanFace },
       { id: "recovery-codes", label: "Recovery codes", href: "/account/recovery", icon: LifeBuoy },
@@ -95,28 +94,15 @@ const NAV: NavGroup[] = [
       { id: "credentials", label: "Credentials & trust", href: "/admin/credentials", icon: Wallet },
       { id: "authority", label: "Authority & approvals", href: "/admin/authority", icon: Gavel },
       { id: "mandates", label: "Mandates", href: "/admin/mandates", icon: Scale },
-      { id: "policies", label: "Policies", href: "/admin/policies", icon: FileCode2 },
       { id: "decisions", label: "Access decisions", href: "/admin/decisions", icon: ShieldCheck },
       { id: "signals", label: "Security signals", href: "/admin/signals", icon: RadioTower },
-      { id: "accounts", label: "People & principals", href: "/admin/accounts", icon: KeyRound },
       { id: "provisioning", label: "Provisioning", href: "/admin/provisioning", icon: Users },
       { id: "evidence", label: "Evidence & audit", href: "/admin/evidence", icon: ScrollText },
-      { id: "privacy", label: "Privacy & data rights", href: "/admin/privacy", icon: ShieldOff },
       { id: "operator-access", label: "Operator access", href: "/admin/operator-access", icon: UserLock },
       { id: "residency", label: "Residency", href: "/admin/residency", icon: Globe2 },
       { id: "agents", label: "Agents & tools", href: "/admin/agents", icon: Bot },
       { id: "workloads", label: "Workload identity", href: "/admin/workloads", icon: ServerCog },
-      { id: "ownership", label: "Ownership chains", href: "/admin/ownership", icon: Link2 },
       { id: "company-verification", label: "Company verification", href: "/admin/company-verification", icon: ClipboardCheck },
-      { id: "idv-cases", label: "Identity proofing cases", href: "/admin/idv-cases", icon: ClipboardCheck },
-      { id: "screening", label: "Screening", href: "/admin/screening", icon: ShieldCheck },
-      { id: "age-check", label: "Age check", href: "/admin/age-check", icon: ShieldCheck },
-      { id: "trust-store", label: "Chip trust store", href: "/admin/trust-store", icon: ShieldCheck },
-      { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
-      { id: "engine-readiness", label: "Face engine readiness", href: "/admin/engine-readiness", icon: ClipboardCheck },
-      { id: "compliance", label: "Compliance cases", href: "/admin/compliance", icon: ClipboardCheck },
-      { id: "source-of-funds", label: "Source of funds", href: "/admin/source-of-funds", icon: Receipt },
-      { id: "workflows", label: "Verification workflows", href: "/admin/workflows", icon: ListChecks },
       { id: "developers", label: "Developers", href: "/admin/developers", icon: Webhook },
     ],
   },
@@ -220,7 +206,7 @@ export function ConsoleShell({
           items={[
             { label: "Cell", value: <StatusBadge state={healthState} kind="Cell API" size="xs" /> },
             { label: "Company", value: tenant ? <StatusBadge state={tenant.status} kind="Company stage" size="xs" /> : <span className="font-mono">{subject.tenantId ?? "—"}</span> },
-            ...(tenant ? [{ label: "Home cell", value: <span className="font-mono">{tenant.home_cell_id}</span> }] : []),
+            ...(tenant ? [{ label: "Region", value: <RegionText cellId={tenant.home_cell_id} /> }] : []),
             {
               label: "Signed in",
               value: subject.authTime ? new Date(subject.authTime * 1000).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—",

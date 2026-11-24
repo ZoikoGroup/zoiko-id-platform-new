@@ -28,6 +28,7 @@ import { can } from "@/lib/nav-access";
 import { DelegationsTab } from "./delegations-tab";
 import { OrgStructureTab } from "./org-structure-tab";
 import { CustomRolesTab } from "./custom-roles-tab";
+import { emailNotice, emailProblem } from "./invitation-email";
 import { PersonLabel } from "./person-label";
 import { RolesTab } from "./roles-tab";
 
@@ -85,10 +86,29 @@ function enrollLink(ticket: string, workspace?: string): string {
 }
 
 /** The single-use passkey setup link: shown once, copied or handed over by email. */
-function ShareLink({ invitation, workspace, onDone }: { invitation: Invitation; workspace?: string; onDone: () => void }) {
+export function ShareLink({
+  invitation,
+  workspace,
+  defaultEmail = "",
+  onUpdated,
+  onDone,
+}: {
+  invitation: Invitation;
+  workspace?: string;
+  defaultEmail?: string;
+  onUpdated?: (next: Invitation) => void;
+  onDone: () => void;
+}) {
   const link = useMemo(() => enrollLink(invitation.enrollment_ticket, workspace), [invitation.enrollment_ticket, workspace]);
   const [copied, setCopied] = useState(false);
   const [ack, setAck] = useState(false);
+  const [address, setAddress] = useState(defaultEmail);
+  const [typed, setTyped] = useState(false);
+  const notice = emailNotice(invitation.email);
+  const emailed = invitation.email?.status === "SENT";
+  const problem = typed ? emailProblem(address) : null;
+  // a new single-use link replaces the one on screen, so the copy and the email always match
+  const send = useCellMutation((api, to: string) => api.tenant.emailInvitation(invitation.assignment_id, to.trim()), { onSuccess: (next) => onUpdated?.(next) });
   const expires = new Date(invitation.enrollment_ticket_expires_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
   const mail = `mailto:?subject=${encodeURIComponent("Set up your Zoiko iD passkey")}&body=${encodeURIComponent(
     `You have been invited. Open this link on the device you want to sign in with and create your passkey:\n\n${link}\n\nThe link works once and expires ${expires}.`,
@@ -114,17 +134,53 @@ function ShareLink({ invitation, workspace, onDone }: { invitation: Invitation; 
           </Button>
         </div>
       </div>
+      {notice ? (
+        <Banner tone={notice.tone} title={notice.title} live="polite">
+          {notice.body}
+        </Banner>
+      ) : null}
+      <div className="space-y-2 rounded-card border border-border p-3">
+        <p className="text-sm font-medium text-ink">Send it by email</p>
+        <p className="text-xs text-ink-muted">
+          We email the person a fixed invitation with a fresh link. Sending again makes a new link, and the one above stops working, so the email and this page always match.
+        </p>
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1">
+            <TextField
+              label="Email address"
+              type="email"
+              value={address}
+              onChange={(v) => {
+                setAddress(v);
+                setTyped(true);
+              }}
+              placeholder="name@company.com"
+              errorMessage={problem ?? undefined}
+              autoComplete="off"
+            />
+          </div>
+          <Button
+            icon={<Mail aria-hidden className="size-4" />}
+            pending={send.isPending}
+            isDisabled={emailProblem(address) !== null}
+            onPress={() => send.mutate(address)}
+          >
+            {emailed ? "Send again" : "Send by email"}
+          </Button>
+        </div>
+        {send.error ? <ApiErrorView error={send.error} /> : null}
+      </div>
       <a href={mail} className="inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:underline">
-        <Mail aria-hidden className="size-4" /> Open an email with the link
+        <Mail aria-hidden className="size-4" /> Or open your own email program with the link
       </a>
       <p className="text-xs text-ink-muted">
         Watch the person&apos;s progress in the team list: it updates by itself when they create their passkey, sign in and join.
       </p>
-      <Checkbox isSelected={ack} onChange={setAck}>
-        I have shared the link with the person I invited
+      <Checkbox isSelected={ack || emailed} isDisabled={emailed} onChange={setAck}>
+        {emailed ? "The invitation was emailed" : "I have shared the link with the person I invited"}
       </Checkbox>
       <div className="flex justify-end">
-        <Button isDisabled={!ack} onPress={onDone}>
+        <Button isDisabled={!(ack || emailed)} onPress={onDone}>
           Done
         </Button>
       </div>
@@ -141,12 +197,14 @@ export function TeamPage() {
   const [inviting, setInviting] = useState(false);
   const [role, setRole] = useState<InvitableRole>("MEMBER");
   const [displayName, setDisplayName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [emailNow, setEmailNow] = useState(true);
   const [renaming, setRenaming] = useState<TenantMember | null>(null);
   const [newName, setNewName] = useState("");
   const [issued, setIssued] = useState<Invitation | null>(null);
   const [revoking, setRevoking] = useState<TenantMember | null>(null);
 
-  const invite = useCellMutation((api, v: { role: InvitableRole; name: string }) => api.tenant.invite(v.role, v.name.trim() || undefined), {
+  const invite = useCellMutation((api, v: { role: InvitableRole; name: string; email: string; send: boolean }) => api.tenant.invite(v.role, v.name.trim() || undefined, v.email.trim() || undefined, v.send), {
     invalidate: [MEMBERS_KEY],
     onSuccess: (inv) => setIssued(inv),
   });
@@ -173,6 +231,8 @@ export function TeamPage() {
     setInviting(false);
     setIssued(null);
     setDisplayName("");
+    setInviteEmail("");
+    setEmailNow(true);
     invite.reset();
     reissue.reset();
   };
@@ -335,7 +395,11 @@ export function TeamPage() {
               <Button variant="secondary" isDisabled={invite.isPending} onPress={closeInvite}>
                 Cancel
               </Button>
-              <Button pending={invite.isPending} onPress={() => invite.mutate({ role, name: displayName })}>
+              <Button
+                pending={invite.isPending}
+                isDisabled={inviteEmail.trim() !== "" && emailNow && emailProblem(inviteEmail) !== null}
+                onPress={() => invite.mutate({ role, name: displayName, email: inviteEmail, send: emailNow && inviteEmail.trim() !== "" })}
+              >
                 Create invitation
               </Button>
             </>
@@ -343,10 +407,25 @@ export function TeamPage() {
         }
       >
         {issued ? (
-          <ShareLink invitation={issued} workspace={tenant.data?.tenant_slug} onDone={closeInvite} />
+          <ShareLink invitation={issued} workspace={tenant.data?.tenant_slug} defaultEmail={inviteEmail} onUpdated={setIssued} onDone={closeInvite} />
         ) : (
           <div className="space-y-4">
             <TextField label="Name (optional)" value={displayName} onChange={setDisplayName} placeholder="Priya Nair" />
+            <div className="space-y-2">
+              <TextField
+                label="Email address (optional)"
+                type="email"
+                value={inviteEmail}
+                onChange={setInviteEmail}
+                placeholder="name@company.com"
+                description="We can email them the invitation. Leave it empty to share the link yourself."
+                errorMessage={inviteEmail.trim() !== "" && emailNow ? (emailProblem(inviteEmail) ?? undefined) : undefined}
+                autoComplete="off"
+              />
+              <Checkbox isSelected={emailNow && inviteEmail.trim() !== ""} isDisabled={inviteEmail.trim() === ""} onChange={setEmailNow}>
+                Email the invitation to this address now
+              </Checkbox>
+            </div>
             <RadioCards
               label="Role"
               value={role}

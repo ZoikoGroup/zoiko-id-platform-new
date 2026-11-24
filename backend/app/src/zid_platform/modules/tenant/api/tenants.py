@@ -37,7 +37,7 @@ from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.authentication.ports import passkey_summary, require_step_up
 from zid_platform.modules.session.ports import last_sign_in
 from zid_platform.modules.tenant.api.gate import matrix_gate, refusal
-from zid_platform.modules.tenant.application import access, people
+from zid_platform.modules.tenant.application import access, invitation_mail, people
 from zid_platform.modules.tenant.application import lifecycle as service
 from zid_platform.modules.tenant.application.approvals import legacy_path_gate
 from zid_platform.modules.tenant.domain.approvals import ApprovalError
@@ -167,9 +167,41 @@ def _grant_refusal(role: Role, actor: str) -> str | None:
     return check_direct_role_grant(role.value, actor=actor, target="")
 
 
+async def _email_invitation(
+    request: Request,
+    *,
+    tenant_id: str,
+    address: str,
+    ticket: str,
+    expires_at: datetime,
+    slug: str,
+    organization: str,
+    inviter: str,
+    role: Role,
+) -> dict[str, str]:
+    """Email the fixed invitation through the sender the app plugged in. Never raises: the outcome is reported and the caller still holds the link."""
+    return await invitation_mail.send_invitation(
+        request,
+        tenant_id=tenant_id,
+        address=address,
+        ticket=ticket,
+        expires_at=expires_at,
+        slug=slug,
+        organization=organization,
+        inviter=inviter,
+        role=role.value,
+    )
+
+
+class InvitationEmail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: str = Field(min_length=3, max_length=254)
+
+
 class Invite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Role = Role.MEMBER
+    send_email: bool = False  # email the invitation to `email` as soon as it is made
     email: str | None = Field(
         default=None, max_length=254
     )  # lets sign-up recognise the invitee after they prove the inbox
@@ -420,6 +452,7 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
         body.display_name
     )  # an unusable name stops the invitation before anything is written
     refusal_error: ZidError | None = None
+    names: dict[str, str] = {}  # filled only when the invitation is to be emailed
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(
             conn, caller, action="tenant.member.manage", resource=f"tenant:{tenant}"
@@ -451,13 +484,38 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
             except TenantError as e:
                 raise http(e) from e
             invited = await people.rename(conn, inv.assignment.principal_id, display_name)
+            if body.send_email and body.email:
+                names = await _invitation_names(conn, tenant, _principal(caller))
     if refusal_error is not None:
         raise refusal_error
-    return {
+    out: dict[str, Any] = {
         **role_view(inv.assignment),
         "person": invited.view(),
         "enrollment_ticket": inv.enrollment_ticket,  # shown once; hand it to the invitee
         "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
+    }
+    if body.send_email and body.email:  # after the commit: a mail problem never undoes the invitation
+        out["email"] = await _email_invitation(
+            request,
+            tenant_id=tenant,
+            address=body.email,
+            ticket=inv.enrollment_ticket,
+            expires_at=inv.ticket_expires_at,
+            role=body.role,
+            **names,
+        )
+    return out
+
+
+async def _invitation_names(conn: Any, tenant: str, inviter_id: str) -> dict[str, str]:
+    """Who is inviting, and to what: the words the fixed template merges in. Read inside the transaction, used after it."""
+    refs = await people.person_refs(conn, [inviter_id])
+    ref = refs.get(inviter_id)
+    company = await store.load_tenant(conn, tenant)
+    return {
+        "inviter": (ref.name if ref and ref.name else "A colleague"),
+        "organization": (company.display_name if company else "your organization"),
+        "slug": (company.tenant_slug if company else ""),
     }
 
 
@@ -497,6 +555,46 @@ async def reissue(assignment_id: uuid.UUID, request: Request, caller: CallerDep)
         **role_view(inv.assignment),
         "enrollment_ticket": inv.enrollment_ticket,  # shown once
         "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
+    }
+
+
+@router.post(
+    "/v1/tenant/members/{assignment_id}:email-invitation",
+    dependencies=[Depends(matrix_gate("a.invite-operator-or-viewer", Mode.EXECUTE))],
+)
+async def email_invitation(
+    assignment_id: uuid.UUID, body: InvitationEmail, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Email the fixed invitation to the address given. The invitation gets a fresh single-use ticket (the one shown earlier stops working), which is returned so the link on screen stays valid."""
+    tenant = caller.ctx.tenant_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="tenant.member.manage", resource=f"tenant:{tenant}"
+        )
+        current = next(
+            (a for a in await store.roles(conn) if a.assignment_id == str(assignment_id)), None
+        )
+        has_key = bool(current and (await passkey_summary(conn, [current.principal_id])))
+        try:
+            inv = await service.reissue_invitation(
+                conn, tenant, str(assignment_id), actor=_principal(caller), has_passkey=has_key
+            )
+        except TenantError as e:
+            raise http(e) from e
+        names = await _invitation_names(conn, tenant, _principal(caller))
+    return {
+        **role_view(inv.assignment),
+        "enrollment_ticket": inv.enrollment_ticket,  # shown once
+        "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
+        "email": await _email_invitation(
+            request,
+            tenant_id=tenant,
+            address=body.email,
+            ticket=inv.enrollment_ticket,
+            expires_at=inv.ticket_expires_at,
+            role=inv.assignment.role,
+            **names,
+        ),
     }
 
 

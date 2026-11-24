@@ -10,8 +10,9 @@ import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/ce
 import { useRuntime } from "@/lib/runtime";
 
 import { PersonLabel, usePeople } from "../team/person-label";
+import { RegisterApiClientDialog } from "./api-agent";
 import { ApprovalQueue, PipelineGuide } from "./build-review";
-import { NEEDS, knownRepositories, parseImage, sortVersions, worthLookingUp, type ParsedImage } from "./agents-logic";
+import { NEEDS, parseImage, sortVersions, worthLookingUp, type ParsedImage } from "./agents-logic";
 import { AuthorityNotice, DigestHelp } from "./pickers";
 import { AGENTS_KEY, BLUEPRINTS_KEY, BUILDS_KEY, DIGEST_RE } from "./shared";
 
@@ -25,7 +26,7 @@ export function BuildsSection() {
   const { session } = useRuntime();
   const me = session?.authenticated ? session.subject.sub : undefined;
   const apiBase = session?.authenticated ? session.apiBase : undefined;
-  const [creating, setCreating] = useState(false);
+  const [apiClient, setApiClient] = useState(false);
   const [revoking, setRevoking] = useState<BuildItem | null>(null);
   const [reason, setReason] = useState("SUPPLY_CHAIN_COMPROMISE");
 
@@ -88,10 +89,10 @@ export function BuildsSection() {
       <Card
         padded={false}
         title="All builds"
-        description="The software an agent may run. A build pipeline registers each one; a second person approves it; then anyone drafting a blueprint release picks it from a list."
+        description="The software an agent may run. An API agent's software is its API client: register the client, a second person approves it here, then anyone drafting a blueprint release picks it from a list."
         actions={
-          <Button size="sm" variant="secondary" icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating(true)}>
-            Register by hand
+          <Button size="sm" variant="secondary" icon={<Plus aria-hidden className="size-4" />} onPress={() => setApiClient(true)}>
+            Register API client
           </Button>
         }
       >
@@ -113,7 +114,7 @@ export function BuildsSection() {
                 rowKey={(b) => b.build_id}
                 empty={
                   <EmptyState icon={PackageCheck} title="No builds registered">
-                    Let your build pipeline register builds (see below): nobody types anything, and a second person approves each one. Or press Register by hand to pick or paste an image yourself.
+                    Press Register API client to register the agent's software as an API client with its public key. A second person approves it here. Nobody builds or pastes an image.
                   </EmptyState>
                 }
               />
@@ -124,12 +125,7 @@ export function BuildsSection() {
         <PipelineGuide hasBuilds={(builds.data?.items.length ?? 0) > 0} apiBase={apiBase} />
       </div>
 
-      <RegisterBuildDialog
-        isOpen={creating}
-        onClose={() => setCreating(false)}
-        lookupEnabled={builds.data?.lookup_enabled ?? false}
-        repositories={knownRepositories(builds.data?.images ?? [], builds.data?.items ?? [])}
-      />
+      <RegisterApiClientDialog isOpen={apiClient} onClose={() => setApiClient(false)} />
 
       <Dialog
         isOpen={revoking !== null}

@@ -35,6 +35,7 @@ from zid_platform.modules.machine.domain.agents import (
     evidence_from_attestations,
     lifecycle_breach,
     register_child_agent,
+    reviewer_role_blockers,
     tool_requires_mandate,
 )
 from zid_platform.modules.machine.infrastructure import agent_store, build_store, machine_store
@@ -47,6 +48,7 @@ from zid_platform.modules.principal.ports import (
     load_principal,
     set_status,
 )
+from zid_platform.modules.tenant.ports import live_roles
 
 DIGEST = re.compile(r"^sha-?256:[0-9a-f]{64}$")
 ACTION_NAME = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
@@ -597,6 +599,10 @@ async def attest_gate(
 ) -> dict[str, Any]:
     agent = await _load(conn, agent_id)
     problems = attestor_blockers(gate, actor, agent)
+    if not problems and gate == "SECURITY_REVIEW":
+        # Only an Admin or an Owner of the company records the security review. The roles are read from the tenant, live, at this moment.
+        held = {a.role.value for a in await live_roles(conn, actor) if a.status.value == "ACTIVE"}
+        problems = reviewer_role_blockers(held)
     if problems:
         raise MachineError(problems[0], ", ".join(problems))
     now = _now()

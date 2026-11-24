@@ -337,6 +337,8 @@ export function createCellApi(t: Transport) {
       /** Newest first. `next_cursor` continues the list after the last row; pass it back as `cursor`. */
       grants: (q: { status?: M.GrantStatus; grantee_principal_id?: string; limit?: number; cursor?: string } = {}) =>
         get<M.Page<M.AuthorityGrant>>("/v1/authority-grants", q),
+      /** The permissions given to the signed-in person. No company-wide right is needed: it returns only their own. */
+      myGrants: () => get<M.Items<M.MyGrant>>("/v1/authority-grants/mine"),
       approvals: (q: { state?: M.ApprovalState; limit?: number } = {}) => get<M.Items<M.ApprovalListItem>>("/v1/approval-requests", q),
       createGrant: (body: GrantCreate, idempotencyKey: string) => post<M.AuthorityGrant>("/v1/authority-grants", body, { idempotencyKey }),
       grant: (id: string) => get<M.AuthorityGrant>(`/v1/authority-grants/${seg(id)}`),
@@ -439,8 +441,10 @@ export function createCellApi(t: Transport) {
       roleMatrix: () => get<M.RoleMatrix>("/v1/roles/matrix"),
       /** What the caller's live roles could do if every other condition held. */
       myPermissions: () => get<M.MyPermissions>("/v1/tenant/me/permissions"),
-      invite: (role: M.InvitableRole, display_name?: string) =>
-        post<M.Invitation>("/v1/tenant/members", display_name ? { role, display_name } : { role }),
+      invite: (role: M.InvitableRole, display_name?: string, email?: string, sendEmail?: boolean) =>
+        post<M.Invitation>("/v1/tenant/members", { role, ...(display_name ? { display_name } : {}), ...(email ? { email, send_email: sendEmail === true } : {}) }),
+      /** Email the fixed invitation to this address. The invitation gets a fresh single-use link (the one shown before stops working), returned here. */
+      emailInvitation: (assignmentId: string, email: string) => post<M.Invitation>(`/v1/tenant/members/${seg(assignmentId)}:email-invitation`, { email }),
       /** An owner or admin sets or clears a colleague's name (the member number never changes). */
       rename: (principal_id: string, name: string | null) => post<M.Person>(`/v1/tenant/members/${seg(principal_id)}:rename`, { name }),
       /** A person sets or clears their own name. */
@@ -855,6 +859,10 @@ export function createCellApi(t: Transport) {
       /** After Stripe sends the buyer back: the cell verifies the session and makes the card the default. */
       /** Orders that wait for the first month's platform fee before the plan switches (CR-062). */
       activations: () => get<M.Items<M.ActivationWait>>("/v1/billing/activations"),
+      /** What buying this plan costs today (CR-147). Reads only. */
+      planOffer: (plan: string) => get<M.PlanOffer>(`/v1/billing/plan-offers/${seg(plan)}`),
+      /** Raise the order for this plan and get Stripe's page for its exact amount. The plan changes only after Stripe confirms the payment. */
+      purchasePlan: (plan: string, body: M.PlanPurchaseIn) => post<M.PlanPurchased>(`/v1/billing/plans/${seg(plan)}:purchase`, body),
       /** Stripe's page for that amount: the address to send the buyer to. */
       payActivation: (orderId: string) => post<{ url: string }>(`/v1/billing/activations/${seg(orderId)}/pay`),
       /** Read the payment back from Stripe (the returned session, or the one this order last opened) and, only if it is paid in full, switch the plan. */
@@ -1072,6 +1080,14 @@ export function createCellApi(t: Transport) {
     agentGovernance: {
       overview: () => get<M.GovOverview>("/v1/machine/governance/overview"),
       baseline: () => get<{ configured: boolean; revision?: number } & Partial<M.GovBaseline>>("/v1/machine/governance/baseline"),
+      /** Set the company baseline (needs agent.governance.manage). A company can lower the platform limits, never raise them. */
+      setBaseline: (body: {
+        allowed_tools: string[];
+        allowed_regions: string[];
+        ai_providers: string[];
+        quotas: Record<string, number | boolean> | null;
+        schedules_allowed: boolean;
+      }) => t.request<{ revision: number } & M.GovBaseline>("PUT", "/v1/machine/governance/baseline", { body }),
       requests: (query: { agent_id?: string; state?: M.GovRequestState } = {}) => get<M.Items<M.GovRequest>>("/v1/machine/governance/requests", query),
       decide: (id: string, decision: "approve" | "reject" | "clarify", body: { policy_hash: string; reason?: string }) =>
         post<{ state: string; open_slots?: string[] }>(`/v1/machine/governance/requests/${seg(id)}:${decision}`, body),

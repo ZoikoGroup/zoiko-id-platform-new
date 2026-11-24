@@ -97,13 +97,23 @@ def _scope(caller: Caller, scope: str) -> None:
         raise ZidError("SCOPE_INSUFFICIENT", f"{scope} is required.", http_status=403)
 
 
+def _global_rules(request: Request) -> MarketRules | None:
+    """The built-in global policy, for a country with no policy of its own. Only with the owners' written acceptance configured; otherwise None, as before."""
+    if getattr(request.app.state, "idv_global_policy_ack", None) != idv_policy_file.GLOBAL_POLICY_ACK:
+        return None
+    source = getattr(request.app.state, "idv_global_policy", None)  # tests hand in their own
+    return source() if callable(source) else idv_policy_file.load_global()
+
+
 def _rules(request: Request, market: str) -> MarketRules:
     source = getattr(request.app.state, "idv_policies", None)
     try:
         table = source() if callable(source) else idv_policy_file.load()
+        rules = table.get(market.upper())
+        if rules is None:
+            rules = _global_rules(request)  # a country's own policy always wins; the global one only fills the gap
     except PolicyError as e:
         raise ZidError("IDV_POLICY_FILE_INVALID", str(e), http_status=503, retryable=True) from e
-    rules = table.get(market.upper())
     if rules is None:
         raise ZidError(
             "MARKET_POLICY_NOT_PUBLISHED",
@@ -625,9 +635,9 @@ def _notice(request: Request, market: str) -> str | None:
     try:
         source = getattr(request.app.state, "idv_policies", None)
         table = source() if callable(source) else idv_policy_file.load()
+        rules = table.get(market.upper()) or _global_rules(request)
     except PolicyError:
         return None
-    rules = table.get(market.upper())
     return rules.basis.notice_version if rules else None
 
 

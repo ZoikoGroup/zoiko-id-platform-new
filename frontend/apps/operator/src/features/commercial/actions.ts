@@ -43,6 +43,30 @@ const reason: Field = { key: "reason_code", label: "Reason code", required: true
 export const ACTIONS: Action[] = [
   // ------------------------------------------------------------------ catalogue
   {
+    id: "plan-price",
+    group: "catalogue",
+    title: "Set a plan's monthly price",
+    description:
+      "Select the plan and enter its monthly platform fee. The price is the same in every region. It copies the approved price book, changes only this plan's fee and leaves the new book as a draft for a second operator to approve. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
+    directDescription:
+      "Select the plan and enter its monthly platform fee. The price is the same in every region. It copies the approved price book, changes only this plan's fee and approves the new book at once. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
+    method: "POST",
+    path: "/v1/commercial/plan-prices",
+    capability: "commercial.catalog.manage",
+    confirm: "set this plan's price",
+    fields: [
+      {
+        key: "plan",
+        label: "Plan",
+        kind: "select",
+        required: true,
+        options: ["LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"].map((id) => ({ id, label: id })),
+        help: "Developer is always free. Enterprise is a minimum (a spend floor), not a fixed fee.",
+      },
+      { key: "amount", label: "Monthly price (USD)", kind: "decimal", required: true, placeholder: "299.00", help: "Up to two decimals. The same amount applies in every region." },
+    ],
+  },
+  {
     id: "book-create",
     group: "catalogue",
     title: "New draft price book",

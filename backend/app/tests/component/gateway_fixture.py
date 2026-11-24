@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from admin_fixture import make_admin
+from admin_fixture import give_tenant_role, make_admin
 from conftest import CELL, ctx, engine
 from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner
@@ -143,6 +143,7 @@ class World:
             self.approver_grant = await make_admin(
                 c, t, self.approver, [READ], ["agent:*"], release=False
             )
+            await give_tenant_role(c, t, self.approver)  # only an Admin or an Owner records an agent's security review
         async with engine(self.owner_url) as eng, eng.begin() as c:
             for table in ("agent_profile", "tool_capability"):
                 await c.execute(

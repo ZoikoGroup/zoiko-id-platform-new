@@ -23,6 +23,29 @@ export type ToolPreset = {
 
 /** The tools a company most often wants an agent to have. Picking one fills the form; every field stays editable. */
 export const TOOL_PRESETS: ToolPreset[] = [
+  // The two read tools of the access readiness agent (DAARA). Same values the guided setup registers. Reads only, risk 1, so an API-bound agent may hold them.
+  {
+    id: "daara-read-mandates",
+    label: "Access readiness: read mandate metadata",
+    description: "For the access readiness agent. Reads a mandate's dates, scope and sponsor; no names, amounts or documents. Changes nothing.",
+    toolId: "read_mandate_metadata",
+    action: "mandate.metadata.read",
+    risk: 1,
+    effect: "NONE",
+    mandate: false,
+    human: false,
+  },
+  {
+    id: "daara-read-agent-status",
+    label: "Access readiness: read agent status",
+    description: "For the access readiness agent. Reads whether an agent and its sponsor are active; no credentials. Changes nothing.",
+    toolId: "read_agent_identity_status",
+    action: "workload_identity.status.read",
+    risk: 1,
+    effect: "NONE",
+    mandate: false,
+    human: false,
+  },
   {
     id: "invoice-approve",
     label: "Approve invoices",
@@ -72,9 +95,14 @@ export const TOOL_PRESETS: ToolPreset[] = [
 export const CUSTOM_PRESET = "custom";
 
 /** Every action the dialog knows, labelled with its feature area, for a dropdown. */
-export const ACTION_OPTIONS: Opt[] = ACTION_GROUPS.flatMap((g) =>
-  g.choices.map((c) => ({ id: c.id, label: c.label, description: `${g.label} · ${c.id}` })),
-);
+export const ACTION_OPTIONS: Opt[] = [
+  // The access readiness agent's two read actions come first. They are tool actions, not grants, so they are not in the shared grant list.
+  ...[
+    { id: "mandate.metadata.read", label: "Read mandate metadata" },
+    { id: "workload_identity.status.read", label: "Read agent identity status" },
+  ].map((c) => ({ id: c.id, label: c.label, description: `Access readiness agent · ${c.id}` })),
+  ...ACTION_GROUPS.flatMap((g) => g.choices.map((c) => ({ id: c.id, label: c.label, description: `${g.label} · ${c.id}` }))),
+];
 
 /** Risk and side-effect rules the cell enforces: these two side-effect classes always need a mandate. */
 export const forcesMandate = (effect: ToolSideEffect) => effect === "IRREVERSIBLE" || effect === "EXTERNAL_TRANSACTION";
@@ -303,7 +331,7 @@ export const MODEL_PROVIDERS: Opt[] = ["Anthropic", "OpenAI", "Google", "Meta", 
 export const GATE_NOTES: Record<AgentGate, Opt[]> = {
   SECURITY_REVIEW: [
     { id: "threat", label: "Threat, model and tool review completed", description: "Reviewed for the agent's risk class." },
-    { id: "independent", label: "Reviewed by someone independent of the sponsor, operator and publisher" },
+    { id: "independent", label: "Reviewed by a company Admin or Owner independent of the sponsor, operator, publisher and registrant" },
   ],
   KILL_PATH_TESTED: [
     { id: "drill", label: "Suspended and revoked in a drill; the agent stopped", description: "Both paths were tried." },

@@ -205,6 +205,16 @@ def attestor_blockers(gate: str, attestor: str, agent: AgentProfile) -> list[str
     return []
 
 
+# Who may record an agent's security review: an Admin or an Owner of the company, and no one else (a tenant role, not a grant someone
+# was handed). This sits on top of the independence rule above: an Admin or Owner in the agent's own chain still cannot review it.
+SECURITY_REVIEW_ROLES = frozenset({"OWNER", "ADMIN"})
+
+
+def reviewer_role_blockers(roles: Iterable[str]) -> list[str]:
+    """The roles the reviewer holds right now (active ones). Nothing known is a refusal, never a pass."""
+    return [] if SECURITY_REVIEW_ROLES & set(roles) else ["AGENT_REVIEW_ROLE_REQUIRED"]
+
+
 def activator_blockers(actor: str, agent: AgentProfile) -> list[str]:
     """Who may switch an agent on (ZID-AG-WF-002 section 04: the author, requester or deployer cannot be the sole approver).
     The people in the agent's own chain of accountability, its sponsor, operator, publisher and the person who registered it,

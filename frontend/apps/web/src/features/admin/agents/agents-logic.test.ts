@@ -2,6 +2,7 @@ import type { AgentItem, BlueprintRelease, BuildItem, ToolItem, WorkloadBindingV
 import { describe, expect, it } from "vitest";
 
 import { ACTION_GROUPS } from "../authority/choice-list";
+import { DAARA_TOOLS } from "./readiness/guided-setup-logic";
 import {
   ACTION_OPTIONS,
   BUILD_PASTE,
@@ -30,7 +31,7 @@ import {
 
 describe("tool presets", () => {
   it("each one uses an action the dialog can grant, and matches the side-effect rule", () => {
-    const known = new Set(ACTION_GROUPS.flatMap((g) => g.choices.map((c) => c.id)));
+    const known = new Set(ACTION_OPTIONS.map((o) => o.id));
     for (const p of TOOL_PRESETS) {
       expect(known.has(p.action), p.action).toBe(true);
       expect(p.toolId, p.id).toMatch(/^[a-z0-9][a-z0-9._-]{1,62}$/);
@@ -41,7 +42,20 @@ describe("tool presets", () => {
 
   it("offers every action with its feature area, so a person picks instead of typing", () => {
     expect(ACTION_OPTIONS.find((o) => o.id === "invoice.approve")?.description).toContain("Payments and invoices");
-    expect(ACTION_OPTIONS.length).toBe(ACTION_GROUPS.flatMap((g) => g.choices).length);
+    // the grant list plus the access readiness agent's two read actions
+    expect(ACTION_OPTIONS.length).toBe(ACTION_GROUPS.flatMap((g) => g.choices).length + 2);
+    expect(ACTION_OPTIONS.find((o) => o.id === "mandate.metadata.read")?.description).toContain("Access readiness agent");
+  });
+
+  it("offers the access readiness agent's two tools first, the same as the guided setup registers them", () => {
+    const daara = TOOL_PRESETS.filter((p) => p.id.startsWith("daara-"));
+    expect(TOOL_PRESETS.slice(0, 2)).toEqual(daara);
+    expect(daara.map((p) => [p.toolId, p.action])).toEqual(DAARA_TOOLS.map((t) => [t.tool_id, t.action]));
+    for (const p of daara) {
+      expect(p.risk, p.id).toBe(1);
+      expect(p.effect, p.id).toBe("NONE");
+      expect(p.mandate || p.human, p.id).toBe(false);
+    }
   });
 });
 

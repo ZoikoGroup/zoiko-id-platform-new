@@ -3,6 +3,8 @@
 GET  /v1/billing/activations                       orders that wait for the first month's platform fee, with the amount
 POST /v1/billing/activations/{order_id}/pay        open Stripe's hosted page for that amount
 POST /v1/billing/activations/{order_id}:confirm    read the payment back from Stripe and, if it is paid in full, switch the plan
+GET  /v1/billing/plan-offers/{plan}                what buying this plan costs today, from the approved price book (CR-147)
+POST /v1/billing/plans/{plan}:purchase             raise the order for that plan and open Stripe for its exact amount (CR-147)
 
 The operator's activation puts an order here (see `orders_service.activate(require_payment=True)`). Nothing is charged by this API: Stripe takes the card on its
 own page. The plan changes only when Stripe reports this order paid in full, and confirming again changes nothing.
@@ -24,6 +26,7 @@ from zid_platform.modules.commercial.api.commercial import _need_payment_setup, 
 from zid_platform.modules.commercial.application import activation_service as activations
 from zid_platform.modules.commercial.application import billing_gate, invoicing_service
 from zid_platform.modules.commercial.application import orders_service as orders
+from zid_platform.modules.commercial.application import self_serve_service as self_serve
 from zid_platform.modules.commercial.application.adapters import PaymentSetupError
 from zid_platform.modules.commercial.domain.orders import OrderError
 from zid_platform.protected import protected_action
@@ -172,4 +175,148 @@ async def confirm_activation(
         "status": "ACTIVATED",
         "already_active": bool(done.get("already_active")),
         "plan": done.get("plan"),
+    }
+
+
+class PlanPurchaseBody(BaseModel):
+    """What the buyer reviewed. The amount and currency are checked against the approved price book again: a price that moved is refused, never charged."""
+
+    model_config = ConfigDict(extra="forbid")
+    expected_amount: str = Field(min_length=1, max_length=20, pattern=r"^\d{1,9}(\.\d{1,2})?$")
+    expected_currency: str = Field(min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")
+    legal_name: str | None = Field(default=None, min_length=2, max_length=200)
+    country: str | None = Field(default=None, min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+
+
+_SELF_SERVE_STATUS = {
+    "PLAN_NOT_FOUND": 404,
+    "PLAN_NOT_SELF_SERVE": 409,
+    "NO_APPROVED_PRICE_BOOK": 409,
+    "PRICE_NOT_PUBLISHED": 409,
+    "ALREADY_ON_PLAN": 409,
+    "DOWNGRADE_NOT_SELF_SERVE": 409,
+    "PRICE_CHANGED": 409,
+    "BILLING_DETAILS_REQUIRED": 422,
+}
+
+
+def _self_serve_fail(e: self_serve.SelfServeError) -> ZidError:
+    return ZidError(e.code, e.detail, http_status=_SELF_SERVE_STATUS.get(e.code, 409))
+
+
+@router.get(
+    "/v1/billing/plan-offers/{plan}",
+    dependencies=[Depends(billing_gate.permission("billing.overview.read"))],
+)
+async def plan_offer(plan: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """The review figure for buying this plan now. Reads only; it creates nothing and charges nothing."""
+    tenant = caller.ctx.tenant_id or ""
+    region = getattr(request.app.state, "self_serve_region", None)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="commercial.read", resource="billable:*")
+        try:
+            offer = await self_serve.offer(conn, tenant, plan)
+        except self_serve.SelfServeError as e:
+            raise _self_serve_fail(e) from e
+        account = await invoicing_service.account_of_tenant(conn, tenant)
+    return {
+        "plan": offer["plan"],
+        "label": offer["label"],
+        "amount": offer["amount"],
+        "currency": offer["currency"],
+        "price_book_version": offer["price_book_version"],
+        "fee_is_floor": offer["fee_is_floor"],
+        "current_plan": offer["current_plan"],
+        "purchase_enabled": region is not None,
+        "needs_billing_details": account is None,
+        "billing_name": account["legal_name"] if account else None,
+    }
+
+
+@router.post(
+    "/v1/billing/plans/{plan}:purchase",
+    dependencies=[Depends(billing_gate.permission("billing.payment.initiate"))],
+)
+async def purchase_plan(
+    plan: str, body: PlanPurchaseBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    """Buy a plan: raise the order, hold it for payment and open Stripe for the exact amount. The plan changes only when Stripe confirms this payment
+    (`:confirm` above, or the signed webhook); this call changes no entitlement and charges no card."""
+    setup = _need_payment_setup(request)
+    tenant = caller.ctx.tenant_id or ""
+    region = getattr(request.app.state, "self_serve_region", None)
+    if region is None:
+        raise ZidError(
+            "SELF_SERVE_OFF",
+            "Buying a plan online is not switched on yet. Ask our team to set your plan up.",
+            http_status=501,
+        )
+    origin = getattr(request.app.state, "billing_return_origin", None)
+    if not origin:
+        raise ZidError(
+            "PAYMENTS_NOT_CONFIGURED",
+            "The billing return address is not configured.",
+            http_status=501,
+        )
+    principal = caller.ctx.principal_id or ""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="commercial.payment.manage", resource="billable:*"
+        )
+        try:
+            held = await self_serve.purchase(
+                conn,
+                tenant,
+                plan,
+                expected_amount=body.expected_amount,
+                expected_currency=body.expected_currency,
+                principal=principal,
+                legal_name=body.legal_name,
+                country=body.country,
+                region=region,
+            )
+        except self_serve.SelfServeError as e:
+            raise _self_serve_fail(e) from e
+        account = await invoicing_service.account_of_tenant(conn, tenant)
+        customer = await invoicing_service.payment_customer(conn, tenant)
+    try:
+        if customer is None and account is not None:
+            customer = await setup.create_customer(
+                name=account["legal_name"],
+                tenant_id=tenant,
+                idempotency_key=f"customer-{account['account_id']}",
+            )
+            async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+                await invoicing_service.set_payment_customer(
+                    conn,
+                    account["account_id"],
+                    provider="stripe",
+                    customer_ref=customer,
+                    actor=principal,
+                )
+        if customer is None:
+            raise ZidError(
+                "NO_PAYMENT_CUSTOMER",
+                "Billing is not set up for this company yet. Contact your account manager.",
+                http_status=409,
+            )
+        order_id = held["order_id"]
+        url, session_id = await setup.start_activation_payment(
+            customer_ref=customer,
+            order_id=order_id,
+            label=f"Zoiko iD {held['label']} plan: first month's platform fee",
+            amount=Decimal(held["amount"]),
+            currency=held["currency"],
+            success_url=f"{origin}/admin/billing?activation=paid&order={order_id}&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{origin}/admin/billing?activation=cancelled",
+        )
+    except PaymentSetupError as e:
+        raise _payment_error(e) from e
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await activations.remember_session(conn, tenant, order_id, session_id)
+    return {
+        "url": url,
+        "order_id": order_id,
+        "amount": held["amount"],
+        "currency": held["currency"],
     }

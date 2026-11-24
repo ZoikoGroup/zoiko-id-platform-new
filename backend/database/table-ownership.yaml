@@ -204,6 +204,11 @@ tables:
     module: authority
     tenant_scoped: true
     source: "plan feature advanced.advanced-delegation-workflow-templates: reusable shapes for delegations"
+  authz.access_request:
+    role: cell
+    module: authority
+    tenant_scoped: true
+    source: "a person asks an owner or administrator for a permission or limit; a request grants nothing"
   authz.policy_definition:
     role: cell
     module: policy_authoring

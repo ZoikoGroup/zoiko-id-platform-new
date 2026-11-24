@@ -39,6 +39,9 @@ from zid_platform.modules.tenant.application.approvals import (
     legacy_path_gate,
     register_executor,
 )
+from zid_platform.modules.tenant.application.invitation_mail import (
+    configure_mailer as configure_invitation_mailer,
+)
 from zid_platform.modules.tenant.application.lifecycle import (
     BootstrapResult,
     ConsoleClient,
@@ -170,6 +173,7 @@ __all__ = [
     "cell_catalog",
     "check_category_transfer",
     "check_dependency_locations",
+    "configure_invitation_mailer",
     "configure_readiness_check",
     "configure_standing_check",
     "console_client_for",

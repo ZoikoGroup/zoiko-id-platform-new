@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
+import { BaselineDialog } from "./baseline-dialog";
 import { AgentGovernanceHeader } from "./shell";
 import { GOV_KEY, codeText, govKey } from "./logic";
 
@@ -137,6 +138,7 @@ function Simulator({ agentId, region }: { agentId: string; region: string }) {
 export function PermissionsWorkbench({ agentId }: { agentId: string }) {
   const access = useCellQuery(govKey("access", agentId), (a) => a.agentGovernance.effectiveAccess(agentId));
   const [drafting, setDrafting] = useState(false);
+  const [baselineOpen, setBaselineOpen] = useState(false);
 
   const leaseColumns: Column<GovLease>[] = [
     { key: "tool", header: "Tool", pinned: true, render: (g) => <span className="font-mono text-xs">{g.tool_id}</span> },
@@ -165,7 +167,14 @@ export function PermissionsWorkbench({ agentId }: { agentId: string }) {
         {(a) => (
           <div className="space-y-4">
             {a.frozen ? <Banner tone="danger" title="Emergency stop in force" live="assertive">Every call is refused until the stop is restored by two independent people.</Banner> : null}
-            {!a.company_baseline ? <Banner tone="warn" title="No company baseline">No agent can run until an Owner sets the company baseline (tools, regions, limits).</Banner> : null}
+            {!a.company_baseline ? (
+              <Banner tone="warn" title="No company baseline">
+                No agent can run until an Owner sets the company baseline (tools, regions, limits).
+                <div className="mt-2">
+                  <Button size="sm" onPress={() => setBaselineOpen(true)}>Set the company baseline</Button>
+                </div>
+              </Banner>
+            ) : null}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
               <div className="space-y-4 lg:col-span-3">
                 <Card padded={false} title="Requested changes" description="Drafts and requests waiting for signatures. Not effective.">
@@ -198,9 +207,12 @@ export function PermissionsWorkbench({ agentId }: { agentId: string }) {
                 <Card title="Where the ceiling comes from" description="The first rule that says no wins; a missing source is a no.">
                   <ol className="list-decimal space-y-1 pl-5 text-sm">{a.hierarchy.map((h) => <li key={h}>{h}</li>)}</ol>
                   {a.company_baseline ? (
-                    <p className="mt-3 text-xs text-ink-muted">
-                      Company baseline allows {a.company_baseline.allowed_tools.length} tool(s) in {a.company_baseline.allowed_regions.join(", ") || "no region"}.
-                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-ink-muted">
+                        Company baseline allows {a.company_baseline.allowed_tools.length} tool(s) in {a.company_baseline.allowed_regions.join(", ") || "no region"}.
+                      </p>
+                      <Button size="xs" variant="secondary" onPress={() => setBaselineOpen(true)}>Edit baseline</Button>
+                    </div>
                   ) : null}
                 </Card>
                 {a.approval ? (
@@ -212,6 +224,8 @@ export function PermissionsWorkbench({ agentId }: { agentId: string }) {
               </div>
             </div>
             {drafting ? <DraftDialog agentId={agentId} current={a.policy} onClose={() => setDrafting(false)} /> : null}
+            <BaselineDialog isOpen={baselineOpen} onClose={() => setBaselineOpen(false)} current={a.company_baseline} />
+
           </div>
         )}
       </QueryView>

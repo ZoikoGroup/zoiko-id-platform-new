@@ -17,8 +17,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from admin_fixture import make_admin
+from admin_fixture import give_tenant_role, make_admin
 from conftest import CELL, ctx, engine
+
+HOME_CELL = "uk-1"  # the cell id this test's app runs as; a tenant record must name it as home
 from cryptography.hazmat.primitives.serialization import Encoding
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -122,6 +124,7 @@ def test_from_a_digest_to_a_token_and_back_to_a_kill(
                     c, Principal(p, tenant, kind, PrincipalStatus.ACTIVE, "uk-1")
                 )
             await make_admin(c, tenant, [engineer, reviewer, admin], ACTIONS, RESOURCES)
+            await give_tenant_role(c, tenant, reviewer, home_cell=HOME_CELL)  # only an Admin or an Owner records the security review
             await create_organization(
                 c,
                 organization_id=org,

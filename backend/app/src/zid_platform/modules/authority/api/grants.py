@@ -213,6 +213,38 @@ async def create_grant(
     return out
 
 
+def _mine_view(g: Grant) -> dict[str, Any]:
+    """What a person may read about a permission they were GIVEN: what it lets them do, until when and any money limit. Nothing about the chain above it, the resources behind it or anyone else."""
+    a = g.authority
+    return {
+        "authority_grant_id": g.grant_id,
+        "status": g.status.value,
+        "granted_by": g.grantor_principal_id,
+        "actions": None if a.actions is ANY else sorted(a.actions),  # type: ignore[arg-type]  # null: every action the company allows
+        "value_limit": {"amount": str(a.value.amount), "currency": a.value.currency} if a.value else None,
+        "valid_from": a.window.valid_from,
+        "valid_to": a.window.valid_to,
+        "delegation_allowed": g.delegation_allowed,
+    }
+
+
+@router.get("/mine")  # registered before "/{grant_id}", so "mine" is never read as an id
+async def my_grants(
+    request: Request,
+    caller: CallerDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+) -> dict[str, Any]:
+    """A person's own permissions: no company-wide permission is needed to see what was given to them, and nobody else's is ever returned."""
+    me = caller.ctx.principal_id
+    if not me:
+        raise http_error("PRINCIPAL_REQUIRED", "Sign in to see your own permissions.")
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        grants = await list_grants(
+            conn, status=GrantStatus.ACTIVE, grantee_principal_id=str(me), limit=limit, after=None
+        )
+    return {"items": [_mine_view(g) for g in grants if g.grantee_principal_id == str(me)]}
+
+
 @router.get("")
 async def list_all(
     request: Request,

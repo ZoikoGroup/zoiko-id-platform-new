@@ -1,13 +1,16 @@
 #!/bin/sh
 # Roll the APP VM to a new release: verify the signed images by digest, migrate as the owner role, restart, wait for readiness.
-#   ./deploy.sh sha256:<backend-digest> [sha256:<web-digest>]
-# Digests come from the release workflow (build-image.yml, build-frontend-image.yml). Each image must carry the keyless cosign signature of exactly
+#   ./deploy.sh sha256:<backend-digest> [sha256:<web-digest> [sha256:<operator-digest> [sha256:<ocr-digest> [sha256:<face-digest>]]]]
+# Digests come from the release workflow (build-image.yml, build-frontend-image.yml, build-sidecar-image.yml). Each image must carry the keyless cosign signature of exactly
 # that workflow on main (DEC-G4); an unsigned or differently built image is refused before anything restarts. ZID_PROFILES (default "edge events")
 # picks the compose profiles. After a release that adds a schema, also run `./db-init.sh post` from a machine that reaches the database VM.
 set -eu
 cd "$(dirname "$0")"
-DIGEST="${1:?usage: deploy.sh sha256:<backend-digest> [sha256:<web-digest>]}"
+DIGEST="${1:?usage: deploy.sh sha256:<backend> [sha256:<web> [sha256:<operator> [sha256:<ocr> [sha256:<face>]]]]}"
 WEB_DIGEST="${2:-}"
+OPERATOR_DIGEST="${3:-}"
+OCR_DIGEST="${4:-}"
+FACE_DIGEST="${5:-}"
 REPO="${GITHUB_REPOSITORY:-ZoikoGroup/zoiko-id-platform-new}"
 ISSUER=https://token.actions.githubusercontent.com
 PROFILES="${ZID_PROFILES:-edge events}"
@@ -24,6 +27,23 @@ if [ -n "$WEB_DIGEST" ]; then
   WEB="${ZID_WEB_REPO:-ghcr.io/zoikogroup/zoiko-id-web}@${WEB_DIGEST}"
   verify "$WEB" build-frontend-image.yml
   sed -i "s|^ZID_WEB_IMAGE=.*|ZID_WEB_IMAGE=${WEB}|" .env
+fi
+
+if [ -n "$OPERATOR_DIGEST" ]; then            # the operator console is built and signed by the same workflow as the web image
+  OPERATOR="${ZID_OPERATOR_REPO:-ghcr.io/zoikogroup/zoiko-id-operator}@${OPERATOR_DIGEST}"
+  verify "$OPERATOR" build-frontend-image.yml
+  sed -i "s|^ZID_OPERATOR_IMAGE=.*|ZID_OPERATOR_IMAGE=${OPERATOR}|" .env
+fi
+
+if [ -n "$OCR_DIGEST" ]; then                 # the identity-check sidecars are built and signed by build-sidecar-image.yml
+  OCR="${ZID_OCR_REPO:-ghcr.io/zoikogroup/zoiko-id-ocr}@${OCR_DIGEST}"
+  verify "$OCR" build-sidecar-image.yml
+  sed -i "s|^ZID_OCR_IMAGE=.*|ZID_OCR_IMAGE=${OCR}|" .env
+fi
+if [ -n "$FACE_DIGEST" ]; then
+  FACE="${ZID_FACE_REPO:-ghcr.io/zoikogroup/zoiko-id-face}@${FACE_DIGEST}"
+  verify "$FACE" build-sidecar-image.yml
+  sed -i "s|^ZID_FACE_IMAGE=.*|ZID_FACE_IMAGE=${FACE}|" .env
 fi
 
 docker compose pull

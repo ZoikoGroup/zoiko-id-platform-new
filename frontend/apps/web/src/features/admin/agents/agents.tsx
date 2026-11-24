@@ -62,7 +62,7 @@ export function AgentsSection() {
       <Card
         padded={false}
         title="Agents"
-        description="Each agent has its own identity, credentials, audit trail and kill switch, even when one person sponsors several."
+        description="Each agent has its own identity, credentials, audit trail and kill switch, even when one person sponsors several. An agent with no container image proves itself with a key: register its API client first, then the agent."
         actions={
           <span className="flex items-end gap-3">
             <Select label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
@@ -94,7 +94,7 @@ export function AgentsSection() {
                     </Button>
                   }
                 >
-                  Register an agent after you have a blueprint release and the tools it may use.
+                  Register an agent after you have a blueprint release and the tools it may use. An agent without a container image (such as the access readiness agent) needs an API client registered and approved first: use Register API client, then make the release from it.
                 </EmptyState>
               }
             />

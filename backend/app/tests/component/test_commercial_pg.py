@@ -556,6 +556,48 @@ def test_the_operator_surface_needs_grants_and_a_second_approver(
         )
         assert auth["unit_rate"] == "0.26"
 
+        # select a plan, enter the amount (CR-147): a new draft of the approved book with only that plan's platform fee changed, the same in every region
+        r = api.post(
+            "/v1/commercial/plan-prices",
+            json={"plan": "LAUNCH", "amount": "349.00"},
+            headers=o.bearer(alice),
+        )
+        assert r.status_code == 201, r.text
+        priced = r.json()
+        assert priced["plan"] == "LAUNCH" and priced["amount"] == "349.00"
+        assert priced["previous_amount"] == "299" and priced["currency"] == "USD"
+        assert (
+            priced["status"] == "DRAFT" and priced["awaiting_approval"] is True
+        )  # alice may not approve her own book
+        book = api.get(
+            f"/v1/commercial/price-books/{priced['price_book_id']}", headers=o.bearer(alice)
+        ).json()
+        fee = {ln["plan"]: ln["unit_rate"] for ln in book["lines"] if ln["sku"] == "ZID-BASE"}
+        assert fee["LAUNCH"] == "349" and fee["BUSINESS"] == "1499" and fee["SCALE"] == "4999"
+        kept = next(
+            ln for ln in book["lines"] if ln["sku"] == "ZID-AUTH" and ln["plan"] == "BUSINESS"
+        )
+        assert kept["unit_rate"] == "0.26"  # every other line is carried over unchanged
+        for bad_body in (
+            {"plan": "LAUNCH", "amount": "0"},
+            {"plan": "LAUNCH", "amount": "-5"},
+            {"plan": "LAUNCH", "amount": "10.999"},
+            {"plan": "DEVELOPER", "amount": "10"},
+            {"plan": "LAUNCH", "amount": "10", "region": "eu"},
+        ):
+            assert (
+                api.post(
+                    "/v1/commercial/plan-prices", json=bad_body, headers=o.bearer(alice)
+                ).status_code
+                == 422
+            ), bad_body
+        assert (
+            api.post(
+                "/v1/commercial/plan-prices", json={"plan": "LAUNCH", "amount": "1"}
+            ).status_code
+            == 401
+        )
+
         # moving a tenant to a plan needs a grant for that tenant, and records the change
         body = {"plan": "BUSINESS"}
         url = f"/v1/commercial/tenants/{tenant}/entitlement"
