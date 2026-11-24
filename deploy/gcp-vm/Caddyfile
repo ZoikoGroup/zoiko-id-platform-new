@@ -48,3 +48,15 @@ operator.{$ZID_DOMAIN} {
 	}
 	respond 403
 }
+
+# Operator Console (only when the `operator` compose profile is running). Not for the open internet: only the source addresses in
+# OPERATOR_ALLOWED_CIDRS (default: nobody but the VM itself) reach it. Put IAP in front instead if you prefer.
+operator.{$ZID_DOMAIN} {
+	import no_forwarded_cert
+	encode zstd gzip
+	@allowed remote_ip {$OPERATOR_ALLOWED_CIDRS:127.0.0.1/32}
+	handle @allowed {
+		reverse_proxy operator:3000
+	}
+	respond 403
+}

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { CheckMethodsPage } from "@/features/regulatory/check-methods";
+import { RetiredPage } from "@/features/regulatory/retired";
 
 export const metadata: Metadata = { title: "Check methods" };
 
 export default function Page() {
-  return <CheckMethodsPage />;
+  return <RetiredPage title="Check methods" what="Per-country check methods were approved here." />;
 }

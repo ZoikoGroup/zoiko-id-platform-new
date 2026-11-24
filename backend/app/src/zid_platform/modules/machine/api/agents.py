@@ -56,7 +56,7 @@ def http(e: MachineError) -> ZidError:
         status = 404
     elif code.endswith(("_INVALID", "ARTIFACT_NOT_APPROVED", "TOOL_NOT_REGISTERED")):
         status = 422
-    elif code in ("AGENT_REVIEW_NOT_INDEPENDENT",):
+    elif code in ("AGENT_REVIEW_NOT_INDEPENDENT", "AGENT_REVIEW_ROLE_REQUIRED"):
         status = 403
     else:
         status = 409

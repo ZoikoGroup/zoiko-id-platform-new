@@ -103,6 +103,10 @@ def create_app(
         if sender is not None:
             app.state.email_config = EmailConfig.from_settings(settings)
             app.state.email_sender = sender
+    from .invitation_mail import send_invitation_email
+    from .modules.tenant.ports import configure_invitation_mailer
+
+    configure_invitation_mailer(send_invitation_email)  # the tenant module emails an invitation through this, never by importing communication
     app.state.environment = settings.environment
     app.state.evidence_tsa_configured = bool(settings.evidence_tsa_url)  # WF-05 trust-list view
     if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
@@ -402,6 +406,7 @@ def create_app(
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
+        from .modules.authority.api.access_requests import router as access_requests_router
         from .modules.authority.api.templates import router as delegation_templates_router
         from .modules.commercial.api.activations import router as activations_router
         from .modules.commercial.api.billing_workspace import router as billing_workspace_router
@@ -606,6 +611,7 @@ def create_app(
             org_units_router,
             insights_router,
             delegation_templates_router,
+            access_requests_router,
             commitments_router,
             onboarding_router,
             org_claims_router,
@@ -837,6 +843,8 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    # Self-serve plan purchase (CR-147) is on only when the owners name a released region to quote it in.
+    app.state.self_serve_region = (settings.self_serve_region or "").strip() or None
     # The built-in rate table answers only when Stripe Tax cannot, and only once Finance has approved it (config/commercial/tax-rate-table.yaml).
     import os
     from pathlib import Path as _Path
@@ -1102,6 +1110,13 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
             settings.environment,
         )
     app.state.idv_face_route_ack = settings.idv_face_route_ack
+    app.state.idv_global_policy_ack = settings.idv_global_policy_ack
+    if settings.idv_global_policy_ack:
+        logging.getLogger("zid.idv").warning(
+            "ZID_IDV_GLOBAL_POLICY_ACK is set: a country with no policy of its own is served by the global identity policy (config/idv/global-policy.yaml), "
+            "on the owners' written acceptance of its stated values (environment=%s)",
+            settings.environment,
+        )
     if settings.idv_face_route_ack:
         logging.getLogger("zid.idv").warning(
             "ZID_IDV_FACE_ROUTE_ACK is set: a market's face-match route approves on a live face against an uploaded document photograph, with no liveness test and no check that the document is genuine (environment=%s)",

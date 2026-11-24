@@ -1,7 +1,7 @@
-/** The simple identity page: choose Passport or Aadhaar, photograph it, see Verified or Rejected; and it hands the person back to where they came from (`?next=`). */
+/** The identity page: a six-screen wizard (details, how it works, documents, review), then Verified, In review or Retake; and it hands the person back to where they came from (`?next=`). */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@zoiko/ui";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -73,38 +73,67 @@ function mount() {
 }
 
 describe("simple identity page", () => {
-  it("starts with one choice: passport or Aadhaar card", async () => {
+  it("starts a person at the first of six screens, the same for every country", async () => {
     fake.idv.cases.mockResolvedValue({ items: [] });
     mount();
-    expect(await screen.findByText("Choose your document")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: /Passport/ })).toBeTruthy();
-    expect(screen.getByRole("radio", { name: /Aadhaar card/ })).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText("Before you start")).toBeTruthy();
+    expect(screen.getByText("Step 1 of 6")).toBeTruthy();
+    expect(screen.getByText(/One government-issued identity document/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Country that issued/)).toBeNull(); // no country has to be typed to begin
+    expect(screen.getByRole("button", { name: "Start" })).toBeTruthy();
   });
 
-  it("opens an Aadhaar check for India on the face-match route, with no country to type", async () => {
+  it("will not leave the details screen until the names and a possible date of birth are given", async () => {
     fake.idv.cases.mockResolvedValue({ items: [] });
-    fake.idv.open.mockResolvedValue({ ...base, route: "WEB_FACE", market: "IN" });
     const user = userEvent.setup();
     mount();
-    await user.click(await screen.findByRole("radio", { name: /Aadhaar card/ }));
+    await user.click(await screen.findByRole("button", { name: "Start" }));
+    expect(await screen.findByText("Confirm your details")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => expect(fake.idv.open).toHaveBeenCalledWith("IN", "WEB_FACE"));
+    expect(await screen.findByText(/Type your given name/)).toBeTruthy();
+    expect(screen.getByText("Step 2 of 6")).toBeTruthy(); // still here
   });
 
-  it("opens a passport check for the typed country on the face-match route", async () => {
+  it("walks the five screens, then opens the case for the global policy and sends both photographs with the details", async () => {
     fake.idv.cases.mockResolvedValue({ items: [] });
-    fake.idv.open.mockResolvedValue(base);
+    fake.idv.open.mockResolvedValue({ ...base, route: "WEB_FACE", market: "GLOBAL" });
+    fake.idv.nonce.mockResolvedValue({ nonce: "n".repeat(16) });
+    fake.idv.documentImage.mockResolvedValue({ ...base, route: "WEB_FACE", decision: "APPROVED", state: "CLOSED" });
     const user = userEvent.setup();
     mount();
-    await user.click(await screen.findByRole("radio", { name: /Passport/ }));
-    const go = screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement;
-    expect(go.disabled).toBe(true); // the issuing country is needed
-    await user.type(screen.getByLabelText(/Country that issued/), "gb");
-    await waitFor(() => expect(go.disabled).toBe(false));
-    await user.click(go);
-    await waitFor(() => expect(fake.idv.open).toHaveBeenCalledWith("GB", "WEB_FACE"));
-  });
+    await user.click(await screen.findByRole("button", { name: "Start" }));
+    await user.type(await screen.findByLabelText(/Given name/), "Asha");
+    await user.type(screen.getByLabelText(/Family name/), "Rao");
+    fireEvent.change(screen.getByLabelText(/Date of birth/), { target: { value: "1990-05-17" } });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("How verification works")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Choose and photograph your document")).toBeTruthy();
+    // all ten identity documents are offered, and the bills and statements are not among them
+    expect(screen.getAllByRole("radio")).toHaveLength(10);
+    expect(screen.getByRole("radio", { name: "Driving licence" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: /bill/i })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Driving licence" }));
+    const jpeg = (name: string) => new File([new Uint8Array(30 * 1024)], name, { type: "image/jpeg" });
+    await user.upload(screen.getByLabelText("Document photograph"), jpeg("doc.jpg"));
+    await user.upload(screen.getByLabelText("Live photograph"), jpeg("me.jpg"));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/Agree to the comparison/)).toBeTruthy(); // the agreement is still needed
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Review and continue")).toBeTruthy();
+    expect(screen.getByText("Asha Rao")).toBeTruthy();
+    expect(screen.getByText("Driving licence")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Submit for verification" }));
+    await waitFor(() => expect(fake.idv.open).toHaveBeenCalledWith("GLOBAL", "WEB_FACE"));
+    await waitFor(() => expect(fake.idv.documentImage).toHaveBeenCalledTimes(1));
+    const [id, body] = fake.idv.documentImage.mock.calls[0] as [string, { image_base64: string; selfie_base64?: string; consent?: boolean; details?: { name?: string; birth_date?: string } }];
+    expect(id).toBe("c1");
+    expect(body.image_base64.length).toBeGreaterThan(0);
+    expect(body.selfie_base64?.length).toBeGreaterThan(0);
+    expect(body.consent).toBe(true);
+    expect(body.details).toEqual({ name: "Asha Rao", birth_date: "1990-05-17" }); // compared once with the document, never stored
+  }, 90_000);
 
   it("shows Verified when approved, and Rejected with the reasons when rejected", async () => {
     fake.idv.cases.mockResolvedValue({ items: [{ ...base, decision: "APPROVED", state: "CLOSED", signals: sent }] });
@@ -191,7 +220,7 @@ describe("simple identity page", () => {
     expect(screen.queryByText("Rejected")).toBeNull();
   });
 
-  it("does not put an old check on a retired route in front of the person: it shows the choice of document", async () => {
+  it("does not put an old check on a retired route in front of the person: it starts the wizard", async () => {
     fake.idv.cases.mockResolvedValue({
       items: [
         { ...base, case_id: "a", route: "WEB_AUTO", decision: "INDETERMINATE" },
@@ -200,7 +229,7 @@ describe("simple identity page", () => {
       ],
     });
     mount();
-    expect(await screen.findByText("Choose your document")).toBeTruthy();
+    expect(await screen.findByText("Before you start")).toBeTruthy();
     expect(screen.queryByText(/two lines of characters/)).toBeNull(); // the old passport-lines form
     expect(screen.queryByLabelText("Live photograph")).toBeNull();
   });

@@ -47,6 +47,7 @@ def catalog() -> Catalog:
             supported_profiles=tuple(body.get("supported_profiles") or ()),
             approved_recovery_cells=tuple(recovery.get("approved_recovery_cells") or ()),
             recovery_only=body.get("role") == "recovery_only",
+            display_name=body.get("display_name"),
         )
     return Catalog(
         cells=cells,

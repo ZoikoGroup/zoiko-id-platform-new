@@ -56,7 +56,7 @@ describe("the solution builder in every step", () => {
 
   it("marks the current step and shows no price anywhere", () => {
     const { container } = render(<SolutionBuilderView {...props("review")} />);
-    expect(screen.getByRole("button", { name: /5\. Review/ }).getAttribute("aria-current")).toBe("step");
+    expect(screen.getByRole("button", { name: /4\. Review/ }).getAttribute("aria-current")).toBe("step");
     expect(container.textContent).not.toMatch(/[$€£]\s?\d|\bper (month|check)\b/i);
     expect(container.textContent).toMatch(/signed quote or order form/);
   });

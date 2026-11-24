@@ -227,6 +227,18 @@ export type GrantStatus =
   | "EXPIRED"
   | "SUPERSEDED";
 export type Money = { amount: string; currency: string };
+/** A permission given to the signed-in person (`GET /v1/authority-grants/mine`): what it lets them do, until when and any money limit. Nothing about anyone else. */
+export type MyGrant = {
+  authority_grant_id: string;
+  status: string;
+  granted_by: string;
+  /** null: every action the company allows */
+  actions: string[] | null;
+  value_limit: { amount: string; currency: string } | null;
+  valid_from: Iso;
+  valid_to: Iso | null;
+  delegation_allowed: boolean;
+};
 export type AuthorityGrant = {
   authority_grant_id: string;
   status: GrantStatus;
@@ -738,6 +750,8 @@ export type CellView = {
   supported_profiles: string[];
   approved_recovery_cells: string[];
   recovery_only: boolean;
+  /** A plain place name for people, such as "United Kingdom (London)". Never the cell id. */
+  display_name?: string | null;
 };
 export type TenantResidency = {
   residency_profile_id: "SRP-0" | "SRP-1" | "SRP-2" | "SRP-3";
@@ -948,7 +962,9 @@ export type TenantMember = TenantRole & {
   last_sign_in_at: Iso | null;
   progress: MemberProgress;
 };
-export type Invitation = TenantRole & { person: Person; enrollment_ticket: string; enrollment_ticket_expires_at: Iso };
+/** What happened to the email, when one was asked for: SENT, or why not (NOT_CONFIGURED, INVALID_ADDRESS, FAILED, SUPPRESSED, THROTTLED, DISABLED, RENDER_FAILED, DUPLICATE). `to` is masked. */
+export type InvitationEmailResult = { status: string; to?: string };
+export type Invitation = TenantRole & { person: Person; enrollment_ticket: string; enrollment_ticket_expires_at: Iso; email?: InvitationEmailResult };
 export type TenantView = {
   tenant_id: string;
   display_name: string;
@@ -2326,6 +2342,21 @@ export type PaymentMethod = { brand: string; last4: string; exp_month: number; e
 /** An order the operator activated that waits for the first month's platform fee (CR-062). The plan switches only after this is paid. */
 export type ActivationWait = { order_id: string; plan: string | null; status: "AWAITING" | "PAID" | "CREDITED" | "CANCELLED"; amount: string; currency: string; created_at: string | null; paid_at: string | null };
 export type ActivationConfirm = { activated: boolean; status: string; reason?: string; already_active?: boolean; plan?: string | null };
+/** What buying a plan costs today, from the approved price book (CR-147). `purchase_enabled` is false until the owners switch self-serve purchase on. */
+export type PlanOffer = {
+  plan: string;
+  label: string;
+  amount: string;
+  currency: string;
+  price_book_version: number;
+  fee_is_floor: boolean;
+  current_plan: string | null;
+  purchase_enabled: boolean;
+  needs_billing_details: boolean;
+  billing_name: string | null;
+};
+export type PlanPurchaseIn = { expected_amount: string; expected_currency: string; legal_name?: string; country?: string };
+export type PlanPurchased = { url: string; order_id: string; amount: string; currency: string };
 export type BillingPayment = {
   configured: boolean;
   account_linked: boolean;

@@ -15,6 +15,7 @@ cells:
   uk-1:
     provider: aws
     region: eu-west-2            # London
+    display_name: "United Kingdom (London)"   # what people see instead of the cell id
     jurisdiction: {country: GB, legal_zone: UK}
     availability_zones: 3
     supported_profiles: [SRP-0, SRP-1]
@@ -44,6 +45,7 @@ cells:
   local-1:
     provider: local
     region: local-dev
+    display_name: "United Kingdom (London)"   # the local test cell reads like the real UK region; its id is never shown to a company
     jurisdiction: {country: GB, legal_zone: UK}
     availability_zones: 1
     supported_profiles: [SRP-0, SRP-1]
@@ -66,6 +68,7 @@ cells:
   eu-1:
     provider: aws
     region: eu-central-1         # Frankfurt
+    display_name: "Germany (Frankfurt)"
     jurisdiction: {country: DE, legal_zone: EU}
     availability_zones: 3
     supported_profiles: [SRP-0, SRP-1]
@@ -91,6 +94,7 @@ cells:
   eu-1-dr:
     provider: aws
     region: eu-west-1            # Ireland — same EU legal zone as eu-1
+    display_name: "Ireland (Dublin)"
     jurisdiction: {country: IE, legal_zone: EU}
     role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE §14)
     pre_provisioned_tiers: [T1, T2, T3]
@@ -101,6 +105,7 @@ cells:
   us-1:
     provider: aws
     region: us-east-1            # N. Virginia (proposed)
+    display_name: "United States (N. Virginia)"
     jurisdiction: {country: US, legal_zone: US}
     availability_zones: 3
     supported_profiles: [SRP-0, SRP-1]
@@ -124,6 +129,7 @@ cells:
   us-1-dr:
     provider: aws
     region: us-west-2            # Oregon (proposed) - same U.S. legal zone as us-1
+    display_name: "United States (Oregon)"
     jurisdiction: {country: US, legal_zone: US}
     role: recovery_only          # cannot accept authoritative C3 writes until fenced promotion (RESILIENCE section 14)
     pre_provisioned_tiers: [T1, T2, T3]

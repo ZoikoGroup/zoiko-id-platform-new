@@ -1398,6 +1398,41 @@
         "title": "PeriodQuery",
         "type": "object"
       },
+      "PlanPriceBody": {
+        "additionalProperties": false,
+        "description": "One plan and its monthly platform fee. There is no region field: a plan has one price everywhere (the price book has no region dimension).",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "plan": {
+            "enum": [
+              "LAUNCH",
+              "BUSINESS",
+              "SCALE",
+              "ENTERPRISE"
+            ],
+            "title": "Plan",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan",
+          "amount"
+        ],
+        "title": "PlanPriceBody",
+        "type": "object"
+      },
       "PlanRequestAnswer": {
         "additionalProperties": false,
         "properties": {
@@ -7496,6 +7531,50 @@
         "summary": "Execute Refund",
         "tags": [
           "commercial-payment-ops"
+        ]
+      }
+    },
+    "/v1/commercial/plan-prices": {
+      "post": {
+        "description": "Set one plan's monthly platform fee: select the plan, enter the amount (CR-147).\n\nIt does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that plan's platform-fee line (every other\nline is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,\nbecause the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the\nnew price applies to new purchases and orders.",
+        "operationId": "set_plan_price_v1_commercial_plan_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanPriceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Set Plan Price V1 Commercial Plan Prices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Plan Price",
+        "tags": [
+          "commercial"
         ]
       }
     },

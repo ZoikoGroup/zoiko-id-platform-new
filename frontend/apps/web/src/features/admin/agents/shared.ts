@@ -10,7 +10,7 @@ export const DIGEST_RE = /^sha-?256:[0-9a-f]{64}$/;
 
 /** The four activation gates a person must attest (ZID-MACHINE-001 §12.1). The other six are checked by the platform. */
 export const GATES: { id: AgentGate; label: string; help: string }[] = [
-  { id: "SECURITY_REVIEW", label: "Security review passed", help: "Threat, model and tool review for the agent's risk class. Must be done by someone who is not its sponsor, operator or publisher." },
+  { id: "SECURITY_REVIEW", label: "Security review passed", help: "Threat, model and tool review for the agent's risk class. Only a company Admin or Owner can record it, and not its sponsor, operator, publisher or registrant." },
   { id: "KILL_PATH_TESTED", label: "Kill path tested", help: "Suspending and revoking this agent was tried and stopped it." },
   { id: "SHORT_LIVED_CREDENTIALS", label: "Short-lived credentials", help: "It authenticates with short-lived workload credentials, not static secrets." },
   { id: "OBSERVABILITY", label: "Actions are traceable", help: "Its actions can be traced to the principal, workload, mandate and decision." },

@@ -119,6 +119,10 @@ class Settings(ServiceSettings):
     # ZID_IDV_FACE_ROUTE_ACK: the owner's acknowledgement that a market's face-match route (CR-129) decides without a liveness test, an evaluated engine or a check that
     # the document is genuine. It must equal `accept-no-liveness-no-evaluation`; without it that route refuses every request.
     idv_face_route_ack: str | None = None
+    # ZID_IDV_GLOBAL_POLICY_ACK: the owners' written acceptance of the built-in global identity policy (config/idv/global-policy.yaml): the values it states for photograph
+    # retention, how long an approval counts, the biometric basis and the expired-document rule. It must equal `accept-global-idv-policy`. Without it a country that has no policy of
+    # its own is refused, exactly as before; with it that country is served by the global policy. A country policy in market-policies.yaml always wins.
+    idv_global_policy_ack: str | None = None
     # First operator account from configuration (entrypoints/bootstrap_operator.py; one-shot, idempotent):
     # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID (uuid of the operator's principal), ZID_OPERATOR_ORIGIN (the Operator
     # Console's public origin; its redirect is <origin>/auth/callback unless ZID_OPERATOR_REDIRECT_URIS lists them),
@@ -198,6 +202,9 @@ class Settings(ServiceSettings):
     # ZID_PROOF_SCANNER_ADDRESS: host[:port] of the clamd malware scanner that checks uploaded proof documents; a deployed
     # environment refuses uploads without one (nothing is stored unscanned), local and test record NOT_SCANNED
     proof_scanner_address: str | None = None
+    # ZID_SELF_SERVE_REGION: the released cell name a company's self-serve plan purchase is quoted in (CR-147). Unset means self-serve purchase is off and a
+    # plan is still agreed with the team. The owners switch it on by naming a region whose SRE gate has passed (commercial.region_release).
+    self_serve_region: str | None = None
     # ZID_UPLOAD_RETENTION_DAYS: how long an uploaded evidence document is kept before its bytes are erased. The privacy officer
     # decides it; unset means the cell accepts no evidence upload (a retention is never invented). Uploads are scanned by the same clamd
     # as proof documents (ZID_PROOF_SCANNER_ADDRESS).

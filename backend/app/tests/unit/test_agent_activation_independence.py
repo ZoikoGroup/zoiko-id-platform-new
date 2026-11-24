@@ -67,3 +67,26 @@ def test_it_is_the_same_set_of_people_the_security_review_already_bars() -> None
 def test_an_agent_with_no_sponsor_does_not_let_an_anonymous_actor_through() -> None:
     """A missing sponsor is never 'equal' to a real actor, and activation still needs a sponsor elsewhere (AGENT_SPONSOR_REQUIRED)."""
     assert activator_blockers("someone-else", agent(sponsor_principal_id=None)) == []
+
+
+@pytest.mark.parametrize("roles", [["OWNER"], ["ADMIN"], ["ADMIN", "VIEWER"], ["OWNER", "ADMIN"]])
+def test_an_owner_or_an_admin_may_record_the_security_review(roles: list[str]) -> None:
+    from zid_platform.modules.machine.domain.agents import reviewer_role_blockers
+
+    assert reviewer_role_blockers(roles) == []
+
+
+@pytest.mark.parametrize("roles", [[], ["APPROVER"], ["OPERATOR"], ["VIEWER"], ["APPROVER", "OPERATOR", "VIEWER"], ["owner"]])
+def test_anyone_else_may_not_record_the_security_review(roles: list[str]) -> None:
+    """A person with no active Owner or Admin role, or nothing known about them, is refused. The names are exact: no case folding."""
+    from zid_platform.modules.machine.domain.agents import reviewer_role_blockers
+
+    assert reviewer_role_blockers(roles) == ["AGENT_REVIEW_ROLE_REQUIRED"]
+
+
+def test_the_role_rule_sits_on_top_of_independence_not_instead_of_it() -> None:
+    """An Owner who is the sponsor is still barred by the independence rule: the role check never runs for them."""
+    from zid_platform.modules.machine.domain.agents import reviewer_role_blockers
+
+    assert attestor_blockers("SECURITY_REVIEW", "sp", agent()) == ["AGENT_REVIEW_NOT_INDEPENDENT"]
+    assert reviewer_role_blockers(["OWNER"]) == []

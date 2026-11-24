@@ -84,8 +84,8 @@ The access readiness agent checks a company's mandates and proposes reviews for 
 
 **Once per company**
 1. **Tools** (Agents and tools, Tools; needs `machine.tool.manage`). Register and activate the two read tools. An API-bound agent may hold only tools at risk class 1 or lower with no side effect, so the proposal write is not on its list: the platform's own review service makes it.
-   - `read_mandate_metadata`: version `1`, canonical action `mandate.metadata.read`, risk class 1, side effect NONE.
-   - `read_agent_identity_status`: version `1`, canonical action `workload_identity.status.read`, risk class 1, side effect NONE.
+   - `read_mandate_metadata`: version `1.0.0`, canonical action `mandate.metadata.read`, risk class 1, side effect NONE.
+   - `read_agent_identity_status`: version `1.0.0`, canonical action `workload_identity.status.read`, risk class 1, side effect NONE.
    - The server of each is a registered application or service of the company.
 2. **API client** (Register an API client). The company makes its own key pair and pastes only the public key (see "Registering an API client" above). A **second person** approves the build.
 3. **Blueprint release.** Its id must be exactly `daara`, version for example `1.0.0`, from the client's digest. A **second person** approves it.

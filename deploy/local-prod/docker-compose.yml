@@ -20,7 +20,12 @@ x-backend: &backend
   environment: &backend-env
     ZID_ENVIRONMENT: production
     ZID_CELL_ID: local-1
+    # This cell's id in the ledger's writer fence (DEC-C5). Without it a mandate cannot be created and the access readiness agent cannot read mandates
+    # (DEPENDENCY_UNAVAILABLE). Pick it once and never change it: mandates record it as their home cell.
+    ZID_CELL_UUID: 00000000-0000-7000-8000-000000000001
     ZID_REGION: local-dev
+    # Self-serve plan purchase (CR-147): the released region a bought plan is quoted in. Leave it unset to switch self-serve purchase off.
+    ZID_SELF_SERVE_REGION: local-dev
     ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
     # keys: in the database, wrapped by a master key kept outside it (CR-060). Deployed environments need the written acceptance.
     ZID_KEY_PROVIDER: db
@@ -78,6 +83,10 @@ x-backend: &backend
     # THE OWNER'S ACKNOWLEDGEMENT (CR-129): a market's WEB_FACE route approves a person on a live face against an uploaded document photograph, with no liveness test and no check that the
     # document is genuine. Delete this line to switch every face-match route off. It is a local test setting; set it nowhere that real people are verified without Legal and Privacy.
     ZID_IDV_FACE_ROUTE_ACK: accept-no-liveness-no-evaluation
+    # LOCAL TEST ONLY: the owners' written acceptance of the built-in global identity policy (backend/config/idv/global-policy.yaml, values PROPOSED, not accepted by any owner). It lets a person verify from any
+    # country on this machine. Never copy it to a stack where real people are verified without Privacy, Legal and Compliance accepting every value in that file.
+    ZID_IDV_GLOBAL_POLICY_ACK: accept-global-idv-policy
+    ZID_IDV_GLOBAL_POLICY: /app/config/idv/global-policy.yaml  # where the cell reads the global policy (the config folder is mounted at /app/config)
   volumes:
     - ../../contracts:/app/contracts:ro
     - ${ZID_CONFIG_DIR:-../../backend/config}:/app/config:ro # a local-only copy of the config (ZID_CONFIG_DIR in .env) for the rehearsal; the repository's folder by default
@@ -340,6 +349,7 @@ services:
       ZID_TOKEN_ISSUER: ${ZID_TOKEN_ISSUER_URL:-http://localhost:8000}
       ZID_PUBLIC_ORIGIN: http://localhost:3100
       ZID_OAUTH_CLIENT_ID: zoiko-operator
+      ZID_COMPANY_SIGN_IN_URL: http://localhost:3000/sign-in  # where a customer who opened this page by mistake is sent
       ZID_OAUTH_REDIRECT_URI: http://127.0.0.1:3100/auth/callback
       ZID_ENVIRONMENT: production
       ZID_VALKEY_URL: redis://:${ZID_VALKEY_PASSWORD}@valkey:6379

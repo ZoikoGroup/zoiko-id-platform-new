@@ -599,6 +599,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tenant/members/{assignment_id}:email-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email Invitation
+         * @description Email the fixed invitation to the address given. The invitation gets a fresh single-use ticket (the one shown earlier stops working), which is returned so the link on screen stays valid.
+         */
+        post: operations["email_invitation_v1_tenant_members__assignment_id__email_invitation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tenant/members/{assignment_id}:reissue": {
         parameters: {
             query?: never;
@@ -893,6 +913,11 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** InvitationEmail */
+        InvitationEmail: {
+            /** Email */
+            email: string;
+        };
         /** Invite */
         Invite: {
             /** Display Name */
@@ -901,6 +926,11 @@ export interface components {
             email?: string | null;
             /** @default MEMBER */
             role: components["schemas"]["Role"];
+            /**
+             * Send Email
+             * @default false
+             */
+            send_email: boolean;
         };
         /**
          * Method
@@ -2306,6 +2336,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PersonName"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    email_invitation_v1_tenant_members__assignment_id__email_invitation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationEmail"];
             };
         };
         responses: {

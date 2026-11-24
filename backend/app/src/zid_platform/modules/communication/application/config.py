@@ -42,6 +42,8 @@ DEFAULT_ROUTES: Mapping[str, str] = {
     "single_use_signin_url": "/recover/email",
     # a changed security email (ZID-EM-017, CR-114): the page confirms `?t=` for the signed-in person
     "single_use_email_change_url": "/account/email-change",
+    # a team invitation (ZID-EM-004): the page splits `?t=<workspace>_<ticket>` and hands the person to the passkey setup
+    "single_use_invitation_url": "/join",
 }
 
 MARKETING_LISTS: Mapping[str, str] = {"ZID-EM-142": "product_updates"}

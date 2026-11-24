@@ -69,6 +69,7 @@ const API_PATH_PREFIXES = [
   "/presentations",
   "/v1/authority-grants",
   "/v1/delegation-templates",
+  "/v1/access-requests",
   "/v1/service-requests",
   "/v1/insights/",
   "/v1/approval-requests",

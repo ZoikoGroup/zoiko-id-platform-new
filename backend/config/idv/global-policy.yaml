@@ -1,0 +1,29 @@
+# The built-in global identity policy (docs/specs/identity-and-company-verification-design.md, section 6).
+#
+# STATUS: PROPOSED BY ENGINEERING. NOT ACCEPTED BY ANY OWNER. It does nothing unless the cell is configured with ZID_IDV_GLOBAL_POLICY_ACK=accept-global-idv-policy,
+# which is the owners' written acceptance of EVERY value below. Without that setting a country with no policy of its own is refused, exactly as before.
+#
+# It serves any country that has no entry of its own in market-policies.yaml (an entry there always wins). Every case records which policy decided it.
+# Each value marked DECISION is a legal or compliance choice with a named owner; the number written here is a proposal to be changed, not a recommendation of law.
+#
+# What it gives a person: a photograph of an identity document and a live selfie, compared by the platform (the face route), or two reviewers when the platform cannot decide.
+# The grade it leaves is the lowest the platform has (a document photograph and a face match, no liveness test, no chip read). It must never be described as more.
+markets:
+  GLOBAL:
+    policy_version: global-2026-1-proposed
+    purpose: KYC
+    chip: NOT_USED
+    face: NOT_USED
+    clone_check: NOT_USED
+    capture_integrity: NOT_USED
+    expired_document: REFUSE      # DECISION (Compliance): REFUSE | REVIEW | ACCEPT. Differs by country today; proposed: refuse an expired document.
+    retries: {nfc: 3, capture: 3}
+    media_retention_days: 14      # DECISION (Privacy): how long a photograph a PERSON decides on is kept, encrypted (1 to 90). The DPIA addendum proposes 7 to 14.
+    result_valid_days: 365        # DECISION (Compliance): how long an approval counts as an identity claim for screening and company checks (1 to 730).
+    review_sla_hours: 72          # DECISION (Operations): how long an exception may wait for its two reviewers before the queue calls it overdue (1 to 720).
+    alternates:
+      # The face route: the platform compares the face on the document with the live selfie. At or above the line it approves with nobody reviewing it.
+      # DECISION (Compliance): face_threshold, the line (0.2 to 0.99). 0.363 is only the engine authors' suggested starting point. It needs ZID_IDV_FACE_ROUTE_ACK as well.
+      - {route_id: WEB_FACE, may_approve: true, automatic: true, face_match: true, face_threshold: 0.363}
+      # The exception route: a person has no clear face match, or the platform could not read the photograph. Two independent reviewers decide.
+      - {route_id: WEB_REVIEW, may_approve: true, reviewers_needed: 2}
