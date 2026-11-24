@@ -23,7 +23,7 @@ export function SolutionBuilderSection() {
   const deps = useCellQuery([...BILLING_KEY, "builder", "dependencies"], (api) => api.billing.capabilityDependencies());
 
   const body = buildBody(draft);
-  const wantsPreview = body !== null && (step === "coverage" || step === "volumes" || step === "review");
+  const wantsPreview = body !== null && (step === "coverage" || step === "review");
   const preview = useCellQuery(
     [...BILLING_KEY, "builder", "preview", JSON.stringify(body)],
     (api) => api.billing.previewQuote(body as NonNullable<typeof body>),

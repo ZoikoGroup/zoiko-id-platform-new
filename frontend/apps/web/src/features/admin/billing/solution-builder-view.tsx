@@ -8,7 +8,6 @@ import {
   PURPOSES,
   STEPS,
   STATE_LABEL,
-  VOLUME_FIELDS,
   canAdvance,
   coverageGroups,
   dependents,
@@ -16,7 +15,6 @@ import {
   marketErrors,
   missingDependencies,
   nextStep,
-  parseVolume,
   stateTone,
   toggleFamily,
   type Draft,
@@ -42,7 +40,7 @@ export type BuilderProps = {
   mayRequest: boolean;
 };
 
-/** The B06 guided panel (ZID-COM-WF-2026-11 WF-C02): purpose, services, coverage, volumes and review. It shows no price, because none is signed: the only way forward
+/** The B06 guided panel (ZID-COM-WF-2026-11 WF-C02): purpose, services, coverage and review. It shows no price, because none is signed: the only way forward
  * is a quote the buyer approves. It is presentational; the container below it talks to the cell. */
 export function SolutionBuilderView(p: BuilderProps) {
   const index = STEPS.findIndex((s) => s.id === p.step);
@@ -73,7 +71,6 @@ export function SolutionBuilderView(p: BuilderProps) {
       {p.step === "purpose" ? <PurposeStep {...p} /> : null}
       {p.step === "services" ? <ServicesStep {...p} /> : null}
       {p.step === "coverage" ? <CoverageStep {...p} /> : null}
-      {p.step === "volumes" ? <VolumesStep {...p} /> : null}
       {p.step === "review" ? <ReviewStep {...p} /> : null}
 
       <div className="flex flex-wrap items-center gap-3">
@@ -201,37 +198,6 @@ function CoverageResult({ preview, pending, error }: { preview: QuotePreview | u
         </Card>
       ))}
     </div>
-  );
-}
-
-function VolumesStep({ draft, onDraft, catalogue }: BuilderProps) {
-  const name = (code: string) => catalogue.find((c) => c.family === code)?.name ?? code;
-  const set = (family: string, field: string, value: string) =>
-    onDraft({ ...draft, volumes: { ...draft.volumes, [family]: { ...(draft.volumes[family] ?? {}), [field]: value } } });
-  return (
-    <Card title="How much do you expect to use?" description="These are your forecasts. They help the deal desk prepare a quote and are never billed as usage. Leave a box blank if you do not know.">
-      <div className="space-y-4">
-        {draft.families.map((family) => (
-          <fieldset key={family} className="grid gap-3 sm:grid-cols-3">
-            <legend className="mb-1 text-sm font-medium text-ink">{name(family)}</legend>
-            {VOLUME_FIELDS.map((f) => {
-              const text = draft.volumes[family]?.[f.id] ?? "";
-              return (
-                <TextField
-                  key={f.id}
-                  label={f.label}
-                  description={f.help}
-                  inputMode="numeric"
-                  value={text}
-                  onChange={(v) => set(family, f.id, v)}
-                  errorMessage={parseVolume(text).ok ? undefined : "Enter a whole number, or leave blank."}
-                />
-              );
-            })}
-          </fieldset>
-        ))}
-      </div>
-    </Card>
   );
 }
 

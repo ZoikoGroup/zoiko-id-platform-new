@@ -10,6 +10,7 @@ the module dependency graph acyclic: commercial imports no other module.
     POST /v1/commercial/price-books                       a new DRAFT, optionally a copy       (commercial.catalog.manage)
     PUT  /v1/commercial/price-books/{id}/lines            set one line of a DRAFT              (commercial.catalog.manage)
     POST /v1/commercial/price-books/{id}:approve          a different operator approves        (commercial.catalog.manage)
+    POST /v1/commercial/plan-prices                       select a plan, enter its monthly fee; one price for every region (commercial.catalog.manage; CR-147)
     GET  /v1/commercial/plan-requests                     every company's open plan requests
     POST /v1/commercial/plan-requests/{id}:answer         accept (we will raise the order) or decline, with a reason
     GET  /v1/commercial/service-requests                  every company's open requests for a contracted service
@@ -391,6 +392,104 @@ async def approve_book(
         b = await store.price_book(conn, str(price_book_id))
     assert b is not None
     return _book_view(b)
+
+
+class PlanPriceBody(BaseModel):
+    """One plan and its monthly platform fee. There is no region field: a plan has one price everywhere (the price book has no region dimension)."""
+
+    model_config = ConfigDict(extra="forbid")
+    plan: Literal["LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"]
+    amount: Decimal = Field(gt=0, le=1_000_000, max_digits=12, decimal_places=2)
+
+
+@router.post("/v1/commercial/plan-prices", status_code=201)
+async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Set one plan's monthly platform fee: select the plan, enter the amount (CR-147).
+
+    It does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that plan's platform-fee line (every other
+    line is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,
+    because the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the
+    new price applies to new purchases and orders."""
+    now = datetime.now(UTC)
+    async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        current = await store.approved_price_book(conn, now)
+        if current is None:
+            raise _fail(
+                CommercialError(
+                    "NO_APPROVED_PRICE_BOOK",
+                    "There is no approved price book to change. Approve the first price book, then set plan prices.",
+                )
+            )
+        previous = next(
+            (
+                ln
+                for ln in await store.lines(conn, str(current["price_book_id"]))
+                if ln["sku_id"] == "ZID-BASE" and ln["plan_code"] == body.plan
+            ),
+            None,
+        )
+        if previous is None:
+            raise _fail(
+                CommercialError(
+                    "PLAN_LINE_MISSING",
+                    f"The approved price book has no platform fee line for {body.plan}.",
+                )
+            )
+        draft = await store.create_draft(
+            conn,
+            copy_of=str(current["price_book_id"]),
+            created_by=op.principal_id,
+            note=f"{body.plan} platform fee set to {body.amount}",
+        )
+        draft_id = str(draft["price_book_id"])
+        await store.put_line(
+            conn,
+            draft_id,
+            sku_id="ZID-BASE",
+            plan_code=body.plan,
+            unit_rate=body.amount,
+            unit_divisor=previous["unit_divisor"],
+            included_quantity=previous["included_quantity"],
+            minimum_amount=previous["minimum_amount"],
+        )
+        await log_change(
+            conn,
+            kind="PLAN_PRICE_SET",
+            ref=draft_id,
+            tenant_id=None,
+            actor=op.principal_id,
+            detail={
+                "plan": body.plan,
+                "amount": format(body.amount, "f"),
+                "previous": format(previous["unit_rate"].normalize(), "f"),
+                "currency": current["currency"],
+            },
+        )
+        if direct_mode():
+            try:
+                await store.approve(
+                    conn, draft_id, approver=_approver(op), effective_from=now, now=now
+                )
+                await log_change(
+                    conn,
+                    kind="PRICE_BOOK_APPROVED",
+                    ref=draft_id,
+                    tenant_id=None,
+                    actor=op.principal_id,
+                    detail={"effective_from": now.isoformat()},
+                )
+            except CommercialError as e:
+                raise _fail(e) from e
+        b = await store.price_book(conn, draft_id)
+    assert b is not None
+    return {
+        **_book_view(b),
+        "plan": body.plan,
+        "amount": format(body.amount, "f"),
+        "previous_amount": format(previous["unit_rate"].normalize(), "f"),
+        "awaiting_approval": b["status"] == "DRAFT",
+    }
 
 
 # --------------------------------------------------------------------------------------------- the market matrix (F06 / O01)

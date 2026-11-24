@@ -2342,6 +2342,21 @@ export type PaymentMethod = { brand: string; last4: string; exp_month: number; e
 /** An order the operator activated that waits for the first month's platform fee (CR-062). The plan switches only after this is paid. */
 export type ActivationWait = { order_id: string; plan: string | null; status: "AWAITING" | "PAID" | "CREDITED" | "CANCELLED"; amount: string; currency: string; created_at: string | null; paid_at: string | null };
 export type ActivationConfirm = { activated: boolean; status: string; reason?: string; already_active?: boolean; plan?: string | null };
+/** What buying a plan costs today, from the approved price book (CR-147). `purchase_enabled` is false until the owners switch self-serve purchase on. */
+export type PlanOffer = {
+  plan: string;
+  label: string;
+  amount: string;
+  currency: string;
+  price_book_version: number;
+  fee_is_floor: boolean;
+  current_plan: string | null;
+  purchase_enabled: boolean;
+  needs_billing_details: boolean;
+  billing_name: string | null;
+};
+export type PlanPurchaseIn = { expected_amount: string; expected_currency: string; legal_name?: string; country?: string };
+export type PlanPurchased = { url: string; order_id: string; amount: string; currency: string };
 export type BillingPayment = {
   configured: boolean;
   account_linked: boolean;

@@ -202,6 +202,9 @@ class Settings(ServiceSettings):
     # ZID_PROOF_SCANNER_ADDRESS: host[:port] of the clamd malware scanner that checks uploaded proof documents; a deployed
     # environment refuses uploads without one (nothing is stored unscanned), local and test record NOT_SCANNED
     proof_scanner_address: str | None = None
+    # ZID_SELF_SERVE_REGION: the released cell name a company's self-serve plan purchase is quoted in (CR-147). Unset means self-serve purchase is off and a
+    # plan is still agreed with the team. The owners switch it on by naming a region whose SRE gate has passed (commercial.region_release).
+    self_serve_region: str | None = None
     # ZID_UPLOAD_RETENTION_DAYS: how long an uploaded evidence document is kept before its bytes are erased. The privacy officer
     # decides it; unset means the cell accepts no evidence upload (a retention is never invented). Uploads are scanned by the same clamd
     # as proof documents (ZID_PROOF_SCANNER_ADDRESS).

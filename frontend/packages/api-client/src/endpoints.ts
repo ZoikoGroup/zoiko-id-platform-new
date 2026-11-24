@@ -859,6 +859,10 @@ export function createCellApi(t: Transport) {
       /** After Stripe sends the buyer back: the cell verifies the session and makes the card the default. */
       /** Orders that wait for the first month's platform fee before the plan switches (CR-062). */
       activations: () => get<M.Items<M.ActivationWait>>("/v1/billing/activations"),
+      /** What buying this plan costs today (CR-147). Reads only. */
+      planOffer: (plan: string) => get<M.PlanOffer>(`/v1/billing/plan-offers/${seg(plan)}`),
+      /** Raise the order for this plan and get Stripe's page for its exact amount. The plan changes only after Stripe confirms the payment. */
+      purchasePlan: (plan: string, body: M.PlanPurchaseIn) => post<M.PlanPurchased>(`/v1/billing/plans/${seg(plan)}:purchase`, body),
       /** Stripe's page for that amount: the address to send the buyer to. */
       payActivation: (orderId: string) => post<{ url: string }>(`/v1/billing/activations/${seg(orderId)}/pay`),
       /** Read the payment back from Stripe (the returned session, or the one this order last opened) and, only if it is paid in full, switch the plan. */

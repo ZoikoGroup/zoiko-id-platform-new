@@ -73,6 +73,11 @@ rules:
   - {match: "GET /v1/approval-requests*", gate: {action: d.create-scoped-delegation-request, mode: R}}
   - {match: "POST /v1/approval-requests", gate: {action: d.create-scoped-delegation-request, mode: S}}
   - {match: "POST /v1/approval-requests/*/decisions", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "POST /v1/access-requests", exempt: OWN_ACCOUNT, why: "a person asks for a permission or limit for themselves; it grants nothing"}
+  - {match: "GET /v1/access-requests/mine", exempt: OWN_ACCOUNT, why: "the caller's own requests, and nobody else's"}
+  - {match: "POST /v1/access-requests/*:withdraw", exempt: OWN_ACCOUNT, why: "the caller takes back their own open request"}
+  - {match: "GET /v1/access-requests", gate: {action: d.create-scoped-delegation-request, mode: R}}
+  - {match: "POST /v1/access-requests/*", gate: {action: d.create-scoped-delegation-request, mode: S}}
   - {match: "GET /v1/authority-grants/mine", exempt: OWN_ACCOUNT, why: "the caller's own permissions: what was given to them, and nothing about anyone else"}
   - {match: "GET /v1/authority-grants*", gate: {action: d.create-scoped-delegation-request, mode: R}}
   - {match: "GET /v1/delegation-templates", gate: {action: d.create-scoped-delegation-request, mode: R}}

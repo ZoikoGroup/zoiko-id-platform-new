@@ -1506,19 +1506,6 @@ export interface components {
             /** Subdivision */
             subdivision?: string | null;
         };
-        /** MandateIn */
-        MandateIn: {
-            /** Authority Claim */
-            authority_claim: string;
-            /** Lei */
-            lei?: string | null;
-            /** Mandate Evidence Refs */
-            mandate_evidence_refs?: string[];
-            /** Organization Ref */
-            organization_ref: string;
-            /** Subject Ref */
-            subject_ref: string;
-        };
         /** PresentationIn */
         PresentationIn: {
             /** Claims */
@@ -1816,6 +1803,19 @@ export interface components {
             professional_subject_ref: string;
             /** Requested Services */
             requested_services: string[];
+        };
+        /** MandateIn */
+        zid_platform__modules__credential__api__v2_authority__MandateIn: {
+            /** Authority Claim */
+            authority_claim: string;
+            /** Lei */
+            lei?: string | null;
+            /** Mandate Evidence Refs */
+            mandate_evidence_refs?: string[];
+            /** Organization Ref */
+            organization_ref: string;
+            /** Subject Ref */
+            subject_ref: string;
         };
         /**
          * V2EngagementIn
@@ -3873,7 +3873,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MandateIn"];
+                "application/json": components["schemas"]["zid_platform__modules__credential__api__v2_authority__MandateIn"];
             };
         };
         responses: {

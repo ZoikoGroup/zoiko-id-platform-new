@@ -3,13 +3,12 @@ import type { CapabilityDependencies, OfferCard, OfferState, SolutionIn, Solutio
 /** The solution builder's logic (ZID-COM-WF-2026-11 WF-C02, B06). The server decides what is available and what a configuration needs; this only
  * helps a person fill the form in and shows the answer truthfully. Nothing here prices anything, and a forecast is never usage. */
 
-export type StepId = "purpose" | "services" | "coverage" | "volumes" | "review";
+export type StepId = "purpose" | "services" | "coverage" | "review";
 
 export const STEPS: { id: StepId; label: string }[] = [
   { id: "purpose", label: "Purpose" },
   { id: "services", label: "Services" },
   { id: "coverage", label: "Coverage" },
-  { id: "volumes", label: "Volumes" },
   { id: "review", label: "Review" },
 ];
 
@@ -131,7 +130,6 @@ export function canAdvance(step: StepId, draft: Draft, deps: CapabilityDependenc
     if (Object.keys(marketErrors(draft)).length) return { ok: false, why: "Fix the market details." };
     return draft.subjectCountry.trim() || draft.payerCountry.trim() ? { ok: true } : { ok: false, why: "Name at least one country so coverage can be judged." };
   }
-  if (step === "volumes") return Object.keys(volumeErrors(draft)).length ? { ok: false, why: "Fix the volumes." } : { ok: true };
   return { ok: true };
 }
 

@@ -406,6 +406,7 @@ def create_app(
         from .modules.authentication.api.webauthn import router as webauthn_router
         from .modules.authority.api.approvals import router as approvals_router
         from .modules.authority.api.grants import router as grants_router
+        from .modules.authority.api.access_requests import router as access_requests_router
         from .modules.authority.api.templates import router as delegation_templates_router
         from .modules.commercial.api.activations import router as activations_router
         from .modules.commercial.api.billing_workspace import router as billing_workspace_router
@@ -610,6 +611,7 @@ def create_app(
             org_units_router,
             insights_router,
             delegation_templates_router,
+            access_requests_router,
             commitments_router,
             onboarding_router,
             org_claims_router,
@@ -841,6 +843,8 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    # Self-serve plan purchase (CR-147) is on only when the owners name a released region to quote it in.
+    app.state.self_serve_region = (settings.self_serve_region or "").strip() or None
     # The built-in rate table answers only when Stripe Tax cannot, and only once Finance has approved it (config/commercial/tax-rate-table.yaml).
     import os
     from pathlib import Path as _Path
