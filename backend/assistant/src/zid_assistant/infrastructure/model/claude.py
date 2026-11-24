@@ -13,7 +13,7 @@ from __future__ import annotations
 import anthropic
 from anthropic.types import OutputConfigParam
 
-from zid_assistant.settings import AssistantSettings
+from zid_assistant.settings import AssistantSettings, has_model_key, resolve_model_key
 
 from .base import (
     RESPONSE_SCHEMA,
@@ -40,13 +40,16 @@ class ClaudeProvider:
         if client is not None:
             self._client = client
             return
-        if settings.model_api_key_file is None:
+        if not has_model_key(settings):
             raise ModelUnavailable(
-                "no provider key file configured (ZID_ASSISTANT_MODEL_API_KEY_FILE)"
+                "no provider key configured (GROQ_API_KEY / GEMINI_API_KEY in backend/.env, or ZID_ASSISTANT_MODEL_API_KEY_FILE)"
             )
-        key = settings.model_api_key_file.read_text(encoding="utf-8").strip()
+        try:
+            key = resolve_model_key(settings)
+        except ValueError as exc:
+            raise ModelUnavailable(str(exc)) from exc
         if not key:
-            raise ModelUnavailable("the provider key file is empty")
+            raise ModelUnavailable("the provider key is empty")
         # max_retries=1: the gateway owns retries and breakers; the SDK must not multiply a slow provider's latency.
         self._client = anthropic.AsyncAnthropic(api_key=key, max_retries=1)
 

@@ -7,7 +7,7 @@ from dataclasses import replace
 from zid_assistant.application.snapshot import Knowledge
 from zid_assistant.settings import AssistantSettings
 
-ORIGIN = "http://localhost:3000"
+ORIGIN = "https://www.zoikoid.example"
 P = "/api/public/chat/v1"
 H = {"origin": ORIGIN}
 

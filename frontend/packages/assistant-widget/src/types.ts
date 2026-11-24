@@ -49,6 +49,8 @@ export interface Citation {
   title: string;
   span_id?: string | null;
   link_id?: string | null;
+  /** Last-reviewed date of the source, when the server knows it. */
+  reviewed_at?: string | null;
 }
 
 export interface Action {

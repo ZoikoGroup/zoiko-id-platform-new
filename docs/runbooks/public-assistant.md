@@ -72,3 +72,38 @@ By opaque reference only (there is no lookup by email): `application.retention.e
 ## 7. Restore from a bad release
 
 Roll back the image (the `assistant` image is independent of the platform image). Content rollback is a snapshot rollback: a previous **signed** snapshot is a valid snapshot. Run the P0 suite (`python -m pytest assistant/tests/security`) against the restored build before re-enabling.
+
+## Website integration (Zoiko iD website, Phase 2 readiness)
+
+The marketing website calls the assistant **through its own server-side route** (`/api/public/chat/v1`, added in the website repo), never straight from the browser. Requirements on the platform side:
+
+- **Origins.** Set `ZID_ASSISTANT_ALLOWED_ORIGINS` per environment to the website's exact origins, for example `["https://zoikoid.com","https://www.zoikoid.com"]` (the domain is an assumption until Product confirms it). Outside local/test the service refuses to start if an origin is not an exact `https` origin (no wildcard, path, credentials or localhost). Local website development: `http://localhost:3010` (already in `.env.example`).
+- **Headers.** The website proxy (`lib/assistant-proxy.ts`, vendored from `frontend/apps/web/src/server/assistant-proxy.ts`) forwards the browser's own `Origin` and sets `X-Forwarded-For` to the last hop its edge appended. The rate limiter keys on that header, so **the assistant must be reachable only from the website's servers** (private network or allow-list), otherwise a caller could forge it.
+- **Cookie.** The session cookie (`zid_pa_session`, `SameSite=Lax`, `Secure` outside local) is set on the website's domain by the proxy passing `Set-Cookie` through. It carries no identity and no tracking identifier.
+- **Kill switch.** The website must keep working when the assistant is off or unreachable: the widget hides itself and shows only static help links (`/bootstrap` reports `enabled: false`). Drill this on staging before launch.
+- **Limits.** Defaults: 1000 characters per message, 30 messages per 10 minutes per client, 20 sessions, 6 handoffs. Tighten them with the `ZID_ASSISTANT_RATE_LIMIT_*` and `ZID_ASSISTANT_MESSAGE_MAX_CHARS` settings if traffic is abusive.
+- **Content authority.** Answers must follow the Trust Center, Pricing and Enterprise pages. The Developer Overview FAQ currently makes compliance, SLA and security-implementation claims (SOC 2 / ISO 27001 / HIPAA, TLS 1.3, HSM, retention periods) that the Trust Center does not support; they are **not** used as sources and the assistant must not repeat them until Legal and Product reconcile the pages.
+
+### Website code (repo `Zoiko-ID-Website`, branch `vamshi-chatbot`)
+
+| File | Purpose |
+|---|---|
+| `lib/assistant-proxy.ts` | Vendored copy of the platform proxy (route and header allowlist, one session cookie). Keep identical to the source. |
+| `app/api/public/chat/v1/[...path]/route.ts` | Request-time relay; upstream from server-only `ZID_ASSISTANT_API_URL`. |
+| `components/assistant/*` | Vendored widget (`@zoiko/assistant-widget`) plus `AssistantMount.tsx` (lazy, client only; hidden on `/legal-*` and `/privacy-notice`; page-aware greeting; links to Talk to sales, Help & support, Contact, Trust Center when the service is off). |
+| `app/layout.tsx` | Mounts `AssistantMount` once, inside `Suspense`. |
+
+Re-sync after a widget change: copy `frontend/packages/assistant-widget/src/*` over `components/assistant/` (keep the two header comments in `AssistantWidget.tsx` and `useReveal.ts`) and `assistant-proxy.ts` over `lib/assistant-proxy.ts`.
+
+Local run: assistant on 8210 (`python -m zid_assistant`), website `npx next start -p 3010` (or `next dev -p 3010`) with `ZID_ASSISTANT_API_URL=http://localhost:8210`.
+
+### Launch checklist (Phase 5/6)
+
+- [ ] Privacy/DPA sign-off for the model vendor (OD-010/016/017); until then run with `ZID_ASSISTANT_AI_ANSWERS=false` (verified source excerpts only).
+- [ ] Content reviewed and approved by a named owner (all answers/sources are still `DRAFT_NOT_PUBLISHED`, owner `unassigned`); signed production snapshot; `ZID_ASSISTANT_ALLOW_SAMPLE_SNAPSHOT=false`.
+- [ ] Legal/Product reconcile the Developer Overview claims with the Trust Center (see above) and confirm the production domain.
+- [ ] Intake forms stay off for the first release (`ZID_ASSISTANT_INTAKE_SALES=false`, `INTAKE_SUPPORT=false`): the assistant only links to Talk to sales / Contact.
+- [ ] `ZID_ASSISTANT_ALLOWED_ORIGINS` set to the exact production origins; assistant reachable only from the website servers.
+- [ ] Kill-switch drill on staging: switch on, confirm the widget shows static links and the site is unaffected; clear.
+- [ ] Browser checks on real pages at phone and desktop widths (keyboard, screen reader, contrast, reduced motion).
+- [ ] Soft launch on staging, then a share of production traffic; review unanswered and refused questions weekly and feed them into `content/`.

@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef, useState } from "react";
 
 import { AssistantApiError, type AssistantClient } from "./client";
-import { COPY, DEFAULT_SALES_FIELDS, DEFAULT_SUPPORT_FIELDS, humanize } from "./copy";
+import { COPY, COUNTRIES, DEFAULT_SALES_FIELDS, DEFAULT_SUPPORT_FIELDS, humanize } from "./copy";
 import { uuid } from "./focus";
 import type { HandoffPurpose, IntakeConfig, IntakeFieldSpec, IntakePurposeConfig, IntakeReceipt, StaticHelpLink } from "./types";
 
@@ -26,10 +26,11 @@ export function Intake({ purpose, config, marketing, marketingFlag, client, loca
   const fields: IntakeFieldSpec[] = useMemo(() => {
     const given = config.fields && config.fields.length > 0 ? config.fields : purpose === "SALES" ? DEFAULT_SALES_FIELDS : DEFAULT_SUPPORT_FIELDS;
     const withOptions = given.map((f) => (f.name === "inquiry_type" && !f.options && config.inquiry_types ? { ...f, type: "select", options: config.inquiry_types } : f));
-    return withOptions.some((f) => f.name === "country_code") ? withOptions : [...withOptions, { name: "country_code", type: "country", required: true, max_length: 2, label: "Country code (for example US)" }];
+    return withOptions.some((f) => f.name === "country_code") ? withOptions : [...withOptions, { name: "country_code", type: "country", required: true, max_length: 2, label: "Country" }];
   }, [config, purpose]);
 
   const [values, setValues] = useState<Record<string, string>>({});
+  const [trap, setTrap] = useState(""); // honeypot: invisible to people, filled by bots
   const [consent, setConsent] = useState(false);
   const [wantsMarketing, setWantsMarketing] = useState(false);
   const [phase, setPhase] = useState<Phase>("editing");
@@ -70,6 +71,7 @@ export function Intake({ purpose, config, marketing, marketingFlag, client, loca
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (phase === "submitting") return; // one submission at a time
+    if (trap) return; // a bot filled the hidden field: do nothing and claim nothing
     const lacking = fields.filter((f) => f.required && !(values[f.name] ?? "").trim()).map((f) => f.name);
     const tooShort = fields.filter((f) => f.min_length && (values[f.name] ?? "").trim().length > 0 && (values[f.name] ?? "").trim().length < f.min_length).map((f) => f.name);
     const bad = [...lacking, ...tooShort];
@@ -129,6 +131,11 @@ export function Intake({ purpose, config, marketing, marketingFlag, client, loca
             <label htmlFor={id}>{label}{f.required ? <span className="zpa-req"> ({COPY.required})</span> : null}</label>
             {f.type === "textarea" ? (
               <textarea {...common} rows={4} maxLength={f.max_length} onChange={(e) => set(f.name, e.target.value)} />
+            ) : f.type === "country" || f.name === "country_code" ? (
+              <select {...common} autoComplete="country" onChange={(e) => set(f.name, e.target.value)}>
+                <option value="">{COPY.selectCountry}</option>
+                {COUNTRIES.map(([code, label]) => <option key={code} value={code}>{label} ({code})</option>)}
+              </select>
             ) : f.type === "select" || (f.options && f.options.length > 0) ? (
               <select {...common} onChange={(e) => set(f.name, e.target.value)}>
                 <option value="">Select…</option>
@@ -147,6 +154,10 @@ export function Intake({ purpose, config, marketing, marketingFlag, client, loca
           </div>
         );
       })}
+      <div className="zpa-hp" aria-hidden="true">
+        <label htmlFor={`${uid}-hp`}>{COPY.honeypotLabel}</label>
+        <input id={`${uid}-hp`} type="text" tabIndex={-1} autoComplete="off" value={trap} onChange={(e) => setTrap(e.target.value)} />
+      </div>
       <div className="zpa-check">
         <input id={`${uid}-consent`} type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} disabled={phase === "submitting"} />
         <label htmlFor={`${uid}-consent`}>{COPY.consent}</label>

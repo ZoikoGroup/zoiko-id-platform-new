@@ -54,6 +54,14 @@ _NEGATING = re.compile(
     re.IGNORECASE,
 )
 _SENT = re.compile(r"(?<=[.!?])\s+")
+# House style carried over from the website assistant: details the evidence never states, and an availability answer opened as a bare
+# "Yes"/"No". A draft that does either is rejected and the visitor gets the verified source excerpt instead.
+_INVENTED = re.compile(
+    r"tamper[- ]?(?:evident|proof)|issuance and verification|credential issuance|built[- ]in (?:flows?|layer)"
+    r"|code examples|integration guides|sample code|step[- ]by[- ]step|\bportal\b|\bdashboard\b|settings page",
+    re.IGNORECASE,
+)
+_BARE_OPENER = re.compile(r"^\s*(?:yes|no|yep|nope|sure|absolutely|certainly)\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +201,10 @@ def verify(
         return _reject(Reason.MODEL_OUTPUT_REJECTED, "sensitive_output")  # G5
     if _ACCOUNT_ASSERT.search(text):
         return _reject(Reason.MODEL_OUTPUT_REJECTED, "account_assertion")
+    if _BARE_OPENER.search(text):
+        return _reject(Reason.MODEL_OUTPUT_REJECTED, "unqualified_opener")
+    if _INVENTED.search(text):
+        return _reject(Reason.MODEL_OUTPUT_REJECTED, "invented_detail")
 
     snap = k.snapshot
     claim_ids: list[str] = []
