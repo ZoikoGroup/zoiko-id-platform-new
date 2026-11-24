@@ -839,6 +839,46 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (MACHINE spec §12.1; CR-021)"
+  verify.api_application:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-05 (CR-149)"
+  verify.api_credential:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-05, SEC-02 (CR-149)"
+  verify.api_access_token:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 SEC-02, SEC-03 (CR-149)"
+  verify.api_session:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 section 9, 10.1 (CR-150)"
+  verify.api_decision:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 section 10.2 (CR-150)"
+  verify.api_idempotency:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 section 10, Q11-Q12 (CR-150)"
+  verify.api_go_live_request:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 section 11, epic E10 (CR-153)"
+  verify.api_production_grant:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 section 11, gate G4 (CR-153)"
   agent.access_review_setup:
     role: cell
     module: access_readiness

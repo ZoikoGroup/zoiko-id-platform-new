@@ -628,6 +628,25 @@
         "title": "MoveBody",
         "type": "object"
       },
+      "NoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "NoteBody",
+        "type": "object"
+      },
       "PolicyBody": {
         "additionalProperties": false,
         "properties": {
@@ -1265,6 +1284,50 @@
         "title": "ApproveIn",
         "type": "object"
       },
+      "zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_ready": {
+            "default": false,
+            "title": "Billing Ready",
+            "type": "boolean"
+          },
+          "company_verified": {
+            "default": false,
+            "title": "Company Verified",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "privacy_reviewed": {
+            "default": false,
+            "title": "Privacy Reviewed",
+            "type": "boolean"
+          },
+          "provider_approved": {
+            "default": false,
+            "title": "Provider Approved",
+            "type": "boolean"
+          },
+          "terms_signed": {
+            "default": false,
+            "title": "Terms Signed",
+            "type": "boolean"
+          }
+        },
+        "title": "ApproveBody",
+        "type": "object"
+      },
       "zid_platform__modules__resilience__api__platform__ReasonBody": {
         "additionalProperties": false,
         "properties": {
@@ -1874,6 +1937,239 @@
         "summary": "Complete Review",
         "tags": [
           "operator-access"
+        ]
+      }
+    },
+    "/operator/verify-api/go-live-requests": {
+      "get": {
+        "operationId": "open_go_live_requests_operator_verify_api_go_live_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Go Live Requests Operator Verify Api Go Live Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Go Live Requests",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/go-live-requests/{request_id}:approve": {
+      "post": {
+        "operationId": "approve_go_live_operator_verify_api_go_live_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Go Live Operator Verify Api Go Live Requests  Request Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Go Live",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/go-live-requests/{request_id}:decline": {
+      "post": {
+        "operationId": "decline_go_live_operator_verify_api_go_live_requests__request_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decline Go Live Operator Verify Api Go Live Requests  Request Id  Decline Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Go Live",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/go-live-requests/{request_id}:review": {
+      "post": {
+        "operationId": "review_go_live_operator_verify_api_go_live_requests__request_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Go Live Operator Verify Api Go Live Requests  Request Id  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Go Live",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/grants/{tenant_id}:revoke": {
+      "post": {
+        "operationId": "revoke_grant_operator_verify_api_grants__tenant_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tenant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Grant Operator Verify Api Grants  Tenant Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Grant",
+        "tags": [
+          "verify-api"
         ]
       }
     },

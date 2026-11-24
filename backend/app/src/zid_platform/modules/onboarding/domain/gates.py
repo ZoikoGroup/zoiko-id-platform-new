@@ -142,6 +142,7 @@ TENANT_ADMIN_ACTIONS = (
     "metering.read",
     "notification.alert.read",
     "webhook.endpoint.read",
+    "verify_api.application.read",  # an administrator can see the Verify API applications; creating one or a credential commits the company and stays with the owner (CR-149)
     # company administration, change
     "commercial.budget.manage",
     "commercial.plan.request",

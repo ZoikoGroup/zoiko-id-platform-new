@@ -8,7 +8,10 @@ Rules (ZID-UX-PRICE-004 WF-P08, ZID-COM-001):
 - the price comes only from the approved price book, never from code: no approved book, no offer;
 - only Launch, Business and Scale are self-serve, and only upwards: Developer is automatic, Enterprise is a contract, a downgrade takes effect at the end of a period;
 - the buyer states the amount they reviewed; if the book moved since, the purchase is refused so they review again;
-- a second press of the button reuses the order that is already waiting, so there is one order and one payment per purchase.
+- a second press of the button reuses the order that is already waiting, so there is one order and one payment per purchase;
+- a company may hold an OFFER for a plan (CR-148): a lower monthly amount the team agreed for that company only, never above the list price, with a last day. The offer decides only the
+  amount; it is bought, paid and switched on exactly like the list price, and a reduction is carried as a discount the existing discount authority already approved when the offer was made;
+- there is no region to choose or configure: a plan's platform fee is the same everywhere, so its quote is not held to the regional release gate.
 """
 
 from __future__ import annotations
@@ -26,9 +29,11 @@ from zid_db import in_tenant
 from zid_platform.modules.commercial.application import orders_service as orders
 from zid_platform.modules.commercial.domain.orders import OrderError, QuoteLine
 from zid_platform.modules.commercial.infrastructure import catalogue_store as store
+from zid_platform.modules.commercial.infrastructure import plan_request_store as requests
 
 SELF_SERVE_PLANS = ("LAUNCH", "BUSINESS", "SCALE")
 BASE_SKU = "ZID-BASE"
+GLOBAL = "global"  # the quote region of a plan fee, which is priced the same in every region
 
 
 class SelfServeError(ValueError):
@@ -89,10 +94,24 @@ async def offer(
                 "DOWNGRADE_NOT_SELF_SERVE",
                 "A move to a smaller plan takes effect at the end of your billing period. Ask our team to schedule it.",
             )
+    # a price agreed for this company only: still open, not past its last day, in this book's currency and not above today's list price
+    async with in_tenant(conn, tenant_id):
+        agreed = await requests.open_offer(conn, code, now)
+    if agreed is not None and (
+        str(agreed["offer_currency"]) != str(book["currency"])
+        or Decimal(agreed["offer_amount"]) > fee
+    ):
+        agreed = None
+    amount = Decimal(agreed["offer_amount"]) if agreed is not None else fee
     return {
         "plan": code,
         "label": plan["label"],
-        "amount": _money(fee),
+        "amount": _money(amount),
+        "list_amount": _money(fee),
+        "negotiated": agreed is not None,
+        "offer_request_id": str(agreed["request_id"]) if agreed is not None else None,
+        "offer_expires_at": agreed["offer_expires_at"].isoformat() if agreed is not None else None,
+        "offer_approved_by": str(agreed["offer_approved_by"]) if agreed is not None else None,
         "currency": book["currency"],
         "price_book_id": str(book["price_book_id"]),
         "price_book_version": int(book["version"]),
@@ -124,7 +143,6 @@ async def purchase(
     principal: str,
     legal_name: str | None,
     country: str | None,
-    region: str,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Raise the order for this plan and hold it for payment. Returns the order and the exact amount to pay; the caller then opens Stripe for it."""
@@ -159,14 +177,18 @@ async def purchase(
             actor=principal,
         )
         await orders.link_tenant(conn, account, tenant_id, now)
+    # the agreed price is carried as the exact discount from the list price, so the order is for exactly the amount the company reviewed
+    list_amount = Decimal(o["list_amount"])
+    discount = (list_amount - Decimal(o["amount"])) / list_amount if o["negotiated"] else Decimal(0)
     try:
         quote = await orders.create_quote(
             conn,
             account_id=account,
             price_book_id=o["price_book_id"],
-            region=region,
+            region=GLOBAL,  # a plan fee has one price in every region: no regional release gate applies to it
+            region_gated=False,
             term_months=1,
-            lines=[QuoteLine(1, BASE_SKU, o["plan"], Decimal(1))],
+            lines=[QuoteLine(1, BASE_SKU, o["plan"], Decimal(1), discount_pct=discount)],
             prepaid=False,
             prepaid_discount=Decimal(0),
             liability_capped=True,
@@ -177,6 +199,18 @@ async def purchase(
         )
     except OrderError as e:
         raise SelfServeError(e.code, getattr(e, "detail", "") or "") from e
+    if o["negotiated"] and quote["status"] == "NEEDS_APPROVAL" and o["offer_approved_by"]:
+        # the reduction was approved under the discount bands when the offer was made: record that approval on this quote, as the person who gave it
+        try:
+            quote = await orders.approve_quote(
+                conn,
+                quote["quote_id"],
+                role=min(quote["approvers_required"]),
+                approver=o["offer_approved_by"],
+                direct=True,
+            )
+        except OrderError as e:
+            raise SelfServeError(e.code, getattr(e, "detail", "") or "") from e
     if quote["status"] not in ("VALIDATED", "APPROVED"):
         raise SelfServeError(
             "PLAN_NOT_AVAILABLE",
@@ -186,7 +220,7 @@ async def purchase(
         )
     # what the buyer authorised, bound to the price they saw: the digest of the review
     digest = hashlib.sha256(
-        f"{tenant_id}|{o['plan']}|{o['price_book_id']}|{o['amount']}|{o['currency']}|{principal}".encode()
+        f"{tenant_id}|{o['plan']}|{o['price_book_id']}|{o['amount']}|{o['list_amount']}|{o['offer_request_id']}|{o['currency']}|{principal}".encode()
     ).hexdigest()
     try:
         order = await orders.accept(

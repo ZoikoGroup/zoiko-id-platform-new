@@ -86,6 +86,18 @@ def test_each_hard_rule_rejects_on_its_own(change: dict[str, object], code: str)
     assert v.status == "REJECTED" and v.reasons == (code,), v.reasons
 
 
+def test_a_plan_fee_quote_is_not_held_to_the_regional_release_gate_but_every_other_quote_is() -> (
+    None
+):
+    """CR-147: a plan's platform fee is priced the same in every region, so a self-serve plan quote turns the gate off; the gate is on unless asked off."""
+    assert validate(quote(region="eu-9"), CAT, BANDS).reasons == ("REGION_NOT_RELEASED",)
+    v = validate(quote(region="global", region_gated=False), CAT, BANDS)
+    assert v.status == "VALIDATED" and v.reasons == ()
+    # turning the gate off changes nothing else: the other hard rules still reject
+    v = validate(quote(region="global", region_gated=False, liability_capped=False), CAT, BANDS)
+    assert v.reasons == ("UNCAPPED_LIABILITY",)
+
+
 @pytest.mark.parametrize(
     ("lines", "code"),
     [

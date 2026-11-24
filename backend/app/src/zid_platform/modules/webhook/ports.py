@@ -29,3 +29,10 @@ async def endpoint_is_active(conn: AsyncConnection, endpoint_id: str) -> bool:
         return str((await load_endpoint(conn, endpoint_id))["status"]) == "ACTIVE"
     except (WebhookError, ValueError):
         return False
+
+
+async def active_endpoint_count(conn: AsyncConnection) -> int:
+    """How many of the tenant's webhook endpoints are verified and ACTIVE (a Verify API company needs one before it can go live)."""
+    from zid_platform.modules.webhook.infrastructure.endpoint_store import list_endpoints
+
+    return sum(1 for e in await list_endpoints(conn) if str(e["status"]) == "ACTIVE")

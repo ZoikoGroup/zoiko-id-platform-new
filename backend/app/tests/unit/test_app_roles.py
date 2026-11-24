@@ -8,7 +8,7 @@ def test_cell_role_serves_all_cell_modules() -> None:
         data = client.get("/").json()["data"]
     assert data["service"] == "zoiko-id-cell" and data["cell_id"] == "uk-1"
     assert (
-        len(data["modules"]) == 34
+        len(data["modules"]) == 35
         and "mandate" in data["modules"]
         and "locator" not in data["modules"]
     )

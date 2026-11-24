@@ -10,7 +10,10 @@ import { EligibilityView, FinanceAuthorityView, FinanceOverviewView, FinanceRequ
 import { useDirectMode } from "./mode";
 import { ActivationRefundsView, DataDeletionStatusCard } from "./gap-views";
 import { MarketView } from "./market-views";
+import { PlanOffersView } from "./plan-offers";
+import { PlansAndPrices } from "./plans-prices";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
+import { VerifyGoLiveView } from "./verify-go-live";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
@@ -44,20 +47,20 @@ export function CommercialPage() {
         }
         description={
           direct
-            ? "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. You make and approve every change here yourself."
-            : "Price books, plans, quotes and orders, billing runs, suppliers and revenue assurance. Every action needs its own approved, unexpired grant; dual-control steps need a different operator."
+            ? "Start with Plans and prices to see and change what customers pay. The other tabs are for orders, billing runs, suppliers and checks. You make and approve every change yourself."
+            : "Start with Plans and prices to see and change what customers pay. The other tabs are for orders, billing runs, suppliers and checks. Each action needs its own approved grant, and some steps need a different operator to approve."
         }
       />
       <Banner tone="info" className="mb-5">
-        Rates here are draft proposals until a price book is approved. Nothing on this page publishes a price, promises a region or SLA, or reaches a customer before that
-        approval.
+        A price change applies to new purchases only. Companies that already have a plan keep the price they signed, and every change is saved with your name.
       </Banner>
       <Tabs
         label="Commercial"
         tabs={[
+          { id: "prices", label: "Plans and prices", content: <PlansAndPrices /> },
           {
             id: "catalogue",
-            label: GROUP_LABEL.catalogue,
+            label: "Price books (advanced)",
             content: (
               <div className="space-y-4">
                 <PriceBooksView />
@@ -76,12 +79,14 @@ export function CommercialPage() {
             content: (
               <div className="space-y-4">
                 <PlanRequestsView />
+                <PlanOffersView />
                 <ServiceRequestsView />
                 <Actions group="plans" />
                 <DataDeletionStatusCard />
               </div>
             ),
           },
+          { id: "verify-go-live", label: "Verify API go-live", content: <VerifyGoLiveView /> },
           { id: "market", label: "Market release", content: <MarketView /> },
           { id: "sales", label: GROUP_LABEL.sales, content: <Actions group="sales" /> },
           { id: "billing", label: GROUP_LABEL.billing, content: <Actions group="billing" /> },

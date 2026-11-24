@@ -52,39 +52,81 @@ export function OrdersCard() {
 
 const REQUESTS_KEY = [...BILLING_KEY, "plan-requests"];
 
-/** Where the company's ask for a different plan stands, in words. Asking changes nothing by itself. */
-function PlanRequestStatus({ request }: { request: PlanRequest }) {
+/** Where the company's ask for a different price stands, in words. Asking changes nothing by itself: the team answers with a price for this company, the company buys at it and pays,
+ * and only then does the plan change. */
+function PlanRequestStatus({ request, onBuy }: { request: PlanRequest; onBuy: (plan: string) => void }) {
   const withdraw = useCellMutation((api, id: string) => api.billing.withdrawPlanRequest(id), {
     invalidate: [REQUESTS_KEY],
     success: "Request withdrawn",
   });
+  const plan = request.plan.toLowerCase();
   if (request.status === "OPEN") {
     return (
       <Banner
         tone="info"
-        title="Your plan request is with our team"
+        title="Your request is with our team"
         action={
           <Button size="sm" variant="secondary" pending={withdraw.isPending} onPress={() => withdraw.mutate(request.request_id)}>
             Withdraw
           </Button>
         }
       >
-        You asked for the {request.plan.toLowerCase()} plan on <DateTime value={request.created_at} />. Our team will get back to you with an order to sign. Your plan does not change until you sign it.
+        You asked about the {plan} plan on <DateTime value={request.created_at} />
+        {request.desired_amount ? `, hoping to pay ${money(request.desired_amount, "USD")} a month` : ""}. Our team will reply with a price for your company. Your plan does not change until you buy it and pay.
         {withdraw.error ? <ApiErrorView error={withdraw.error} /> : null}
       </Banner>
     );
   }
   if (request.status === "ACCEPTED") {
+    const o = request.offer;
+    if (o?.state === "OPEN") {
+      return (
+        <Banner
+          tone="ok"
+          title={`Our team agreed a price for you: ${money(o.amount, o.currency)} a month for ${plan}`}
+          action={
+            <Button size="sm" onPress={() => onBuy(request.plan)}>
+              Buy at your price
+            </Button>
+          }
+        >
+          {Number(o.reduction_percent) > 0 ? `That is ${o.reduction_percent}% below the list price of ${money(o.list_amount, o.currency)}. ` : ""}
+          This price is for your company only and is open until <DateTime value={o.expires_at} />. Your plan changes only after you pay.
+          {request.decision_note ? ` Note from our team: ${request.decision_note}` : ""}
+        </Banner>
+      );
+    }
+    if (o?.state === "PENDING_APPROVAL") {
+      return (
+        <Banner tone="info" title={`Our team is confirming your price for ${plan}`}>
+          You will be told as soon as it is ready. Nothing is charged until you buy.
+        </Banner>
+      );
+    }
+    if (o?.state === "USED") {
+      return (
+        <Banner tone="ok" title={`You bought ${plan} at your agreed price`}>
+          {money(o.amount, o.currency)} a month, from your request on <DateTime value={request.created_at} />.
+        </Banner>
+      );
+    }
+    if (o?.state === "WITHDRAWN") {
+      return (
+        <Banner tone="warn" title={`The price our team offered for ${plan} was withdrawn`}>
+          You can still buy the plan at the list price, or ask again.
+        </Banner>
+      );
+    }
     return (
-      <Banner tone="ok" title={`Your request for ${request.plan.toLowerCase()} was accepted`}>
-        We will send you an order to sign. {request.decision_note ? `Note from our team: ${request.decision_note}` : ""}
+      <Banner tone="ok" title={`Your request for ${plan} was accepted`}>
+        Nothing changes until you buy the plan and pay. {request.decision_note ? `Note from our team: ${request.decision_note}` : ""}
       </Banner>
     );
   }
   if (request.status === "DECLINED") {
     return (
-      <Banner tone="warn" title={`Your request for ${request.plan.toLowerCase()} was not accepted`}>
-        {request.decision_note ?? "Our team did not give a reason."} You can ask again.
+      <Banner tone="warn" title={`Your request for ${plan} was not accepted`}>
+        {request.decision_note ?? "Our team did not give a reason."} You can buy the plan at the list price, or ask again.
       </Banner>
     );
   }
@@ -94,7 +136,7 @@ function PlanRequestStatus({ request }: { request: PlanRequest }) {
 
 /** One plan as a card: the name, the monthly fee, what it includes and a single action. Every figure is the published catalogue's; a figure it does
  * not state reads "Agreed per order", and the fee reads "Agreed in the order" when no price book is approved. */
-function PlanCard({ plan, isCurrent, price, onAsk, canAsk, hasOpen, onBuy }: { plan: CatalogPlan; isCurrent: boolean; price: { amount: string | null; currency: string | undefined }; onAsk: () => void; canAsk: boolean; hasOpen: boolean; onBuy: (() => void) | null }) {
+function PlanCard({ plan, isCurrent, price, deal, onAsk, canAsk, hasOpen, onBuy }: { plan: CatalogPlan; isCurrent: boolean; price: { amount: string | null; currency: string | undefined }; deal: { amount: string; list: string; currency: string; until: string | null } | null; onAsk: () => void; canAsk: boolean; hasOpen: boolean; onBuy: (() => void) | null }) {
   const free = price.amount !== null && Number(price.amount) === 0;
   const l = plan.limits;
   const included: [string, string][] = [
@@ -114,19 +156,34 @@ function PlanCard({ plan, isCurrent, price, onAsk, canAsk, hasOpen, onBuy }: { p
         <h3 className="text-lg font-semibold text-ink">{plan.label}</h3>
         {isCurrent ? <Badge tone="ok">Your plan</Badge> : null}
       </header>
-      <p className="mt-3 flex items-baseline gap-1">
-        {price.amount === null || !price.currency ? (
-          <span className="text-base font-medium text-ink-muted">Agreed in the order</span>
-        ) : free ? (
-          <span className="text-3xl font-semibold text-ink">Free</span>
-        ) : (
-          <>
-            {plan.platform_fee_is_floor ? <span className="text-sm text-ink-muted">From</span> : null}
-            <span className="text-3xl font-semibold tabular-nums text-ink">{money(price.amount, price.currency)}</span>
+      {deal ? (
+        <div className="mt-3">
+          <Badge tone="ok" size="xs">
+            Price agreed for your company
+          </Badge>
+          <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0">
+            <span className="text-3xl font-semibold tabular-nums text-ink">{money(deal.amount, deal.currency)}</span>
             <span className="text-sm text-ink-muted">/ month</span>
-          </>
-        )}
-      </p>
+            <span className="text-sm tabular-nums text-ink-subtle line-through">{money(deal.list, deal.currency)}</span>
+          </p>
+          {deal.until ? <p className="mt-0.5 text-xs text-ink-muted">Open until {new Date(deal.until).toLocaleDateString("en-GB")}</p> : null}
+        </div>
+      ) : null}
+      {!deal ? (
+        <p className="mt-3 flex items-baseline gap-1">
+          {price.amount === null || !price.currency ? (
+            <span className="text-base font-medium text-ink-muted">Agreed in the order</span>
+          ) : free ? (
+            <span className="text-3xl font-semibold text-ink">Free</span>
+          ) : (
+            <>
+              {plan.platform_fee_is_floor ? <span className="text-sm text-ink-muted">From</span> : null}
+              <span className="text-3xl font-semibold tabular-nums text-ink">{money(price.amount, price.currency)}</span>
+              <span className="text-sm text-ink-muted">/ month</span>
+            </>
+          )}
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-ink-subtle">Platform fee. Usage above what is included is charged at the rates below.</p>
       <ul className="mt-4 flex-1 space-y-2 border-t border-border pt-4 text-sm">
         {included.map(([label, value]) => (
@@ -149,16 +206,20 @@ function PlanCard({ plan, isCurrent, price, onAsk, canAsk, hasOpen, onBuy }: { p
           <Button className="w-full" variant="secondary" isDisabled>
             Current plan
           </Button>
-        ) : onBuy ? (
-          <Button className="w-full" variant="primary" icon={<CreditCard aria-hidden className="size-4" />} onPress={onBuy}>
-            {`Buy ${plan.label}`}
-          </Button>
-        ) : canAsk ? (
-          <Button className="w-full" variant="primary" isDisabled={hasOpen} onPress={onAsk}>
-            {hasOpen ? "A request is open" : "Review and ask for this plan"}
-          </Button>
         ) : (
-          <p className="text-center text-xs text-ink-muted">Only an owner or billing admin can ask for a plan.</p>
+          <div className="space-y-2">
+            {onBuy ? (
+              <Button className="w-full" variant="primary" icon={<CreditCard aria-hidden className="size-4" />} onPress={onBuy}>
+                {deal ? "Buy at your price" : `Buy ${plan.label}`}
+              </Button>
+            ) : null}
+            {canAsk ? (
+              <Button className="w-full" variant={onBuy ? "secondary" : "primary"} isDisabled={hasOpen} onPress={onAsk}>
+                {hasOpen ? "A request is open" : onBuy ? "Ask for a different price" : "Review and ask for this plan"}
+              </Button>
+            ) : null}
+            {!onBuy && !canAsk ? <p className="text-center text-xs text-ink-muted">Only an owner or billing admin can buy or ask for a plan.</p> : null}
+          </div>
         )}
       </div>
     </article>
@@ -269,8 +330,14 @@ function BuyDialog({ plan, current, catalog, onClose, onFallback }: { plan: Cata
         ) : null}
         {o ? (
           <>
+            {o.negotiated ? (
+              <Banner tone="ok" title="This is the price our team agreed for your company">
+                {money(o.amount, o.currency)} a month instead of the list price of {money(o.list_amount, o.currency)}.
+                {o.offer_expires_at ? ` It is open until ${new Date(o.offer_expires_at).toLocaleDateString("en-GB")}.` : ""}
+              </Banner>
+            ) : null}
             <ReviewSection plan={plan} current={current} catalog={catalog}>
-              The price is today's published price. Tax is added where it applies and shown on Stripe's page before you pay.
+              {o.negotiated ? "The table shows the list price; you pay your agreed price." : "The price is today's published price."} Tax is added where it applies and shown on Stripe's page before you pay.
             </ReviewSection>
             <section aria-label="What you pay" className="rounded-md border border-border bg-surface-sunken p-3 text-sm">
               <p className="flex items-baseline justify-between gap-3">
@@ -313,25 +380,27 @@ function BuyDialog({ plan, current, catalog, onClose, onFallback }: { plan: Cata
 
 function AskDialog({ plan, current, catalog, onClose }: { plan: CatalogPlan; current: CatalogPlan | undefined; catalog: Catalog | undefined; onClose: () => void }) {
   const [note, setNote] = useState("");
+  const [want, setWant] = useState("");
   const [understood, setUnderstood] = useState(false);
   const lost = losses(current, plan);
-  const ask = useCellMutation((api) => api.billing.requestPlan(plan.plan, note), {
+  const wantOk = want.trim() === "" || /^\d{1,7}(\.\d{1,2})?$/.test(want.trim().replace(/^\$/, "").replaceAll(",", ""));
+  const ask = useCellMutation((api) => api.billing.requestPlan(plan.plan, note, want.trim().replace(/^\$/, "").replaceAll(",", "")), {
     invalidate: [REQUESTS_KEY],
-    success: "Request sent to our team",
+    success: "Request sent. Our team will reply with a price",
     onSuccess: onClose,
   });
   return (
     <Dialog
       isOpen
       onOpenChange={(o) => !o && !ask.isPending && onClose()}
-      title={`Ask for the ${plan.label} plan`}
-      description="This tells our team what you want. Nothing is charged and your plan does not change until you sign an order."
+      title={`Ask for a different price: ${plan.label}`}
+      description="Tell our team what you would like to pay. They reply with a price for your company, you buy the plan at that price, and your plan changes only after you pay."
       footer={
         <>
           <Button variant="secondary" isDisabled={ask.isPending} onPress={onClose}>
             Cancel
           </Button>
-          <Button pending={ask.isPending} isDisabled={!understood} icon={<Send aria-hidden className="size-4" />} onPress={() => ask.mutate(undefined)}>
+          <Button pending={ask.isPending} isDisabled={!understood || !wantOk} icon={<Send aria-hidden className="size-4" />} onPress={() => ask.mutate(undefined)}>
             Send request
           </Button>
         </>
@@ -339,7 +408,7 @@ function AskDialog({ plan, current, catalog, onClose }: { plan: CatalogPlan; cur
     >
       <div className="space-y-4">
         <ReviewSection plan={plan} current={current} catalog={catalog}>
-          This is the published plan, not a quote. The price, term, tax and start date are fixed only in the signed order, and a figure shown as agreed per order is not yet known.
+          This is the list price. A different price for your company is agreed with our team before you pay, and tax is added where it applies.
         </ReviewSection>
         {lost.length ? (
           <Banner tone="warn" title="You would lose some of what you have now">
@@ -351,6 +420,15 @@ function AskDialog({ plan, current, catalog, onClose }: { plan: CatalogPlan; cur
           </Banner>
         ) : null}
         <TextField
+          label="Price you would like to pay a month (optional)"
+          value={want}
+          onChange={setWant}
+          inputMode="decimal"
+          placeholder="for example 4000"
+          description="In US dollars. It helps our team, and it is not a promise either way."
+          errorMessage={wantOk ? undefined : "Use numbers only, with at most two decimals."}
+        />
+        <TextField
           label="What do you need it for? (optional)"
           value={note}
           onChange={setNote}
@@ -359,7 +437,7 @@ function AskDialog({ plan, current, catalog, onClose }: { plan: CatalogPlan; cur
           description="For example: two more people with single sign-on, or a higher volume of access decisions."
         />
         <Checkbox isSelected={understood} onChange={setUnderstood}>
-          I understand this only asks our team for the plan. Nothing is charged and nothing changes until I sign an order.
+          I understand this only asks our team for a price. Nothing is charged and nothing changes until I buy the plan and pay.
         </Checkbox>
         {ask.error ? <ApiErrorView error={ask.error} title="The request was not sent" /> : null}
       </div>
@@ -375,13 +453,20 @@ export function PlansCard({ current }: { current: string }) {
   const mayAsk = !access.data?.enforced || access.data.permissions.includes("billing.subscription.request_change");
   const catalog = useCellQuery([...BILLING_KEY, "catalog"], (api) => api.billing.catalog());
   const requests = useCellQuery(REQUESTS_KEY, (api) => api.billing.planRequests());
+  // What each plan costs this company today: the list price, or a lower price the team agreed for it. The cell also says which plans cannot be bought here.
+  const offers = useCellQuery([...BILLING_KEY, "plan-offers"], (api) => api.billing.planOffers());
+  const offerOf = (code: string) => offers.data?.items.find((x) => x.plan === code);
+  const dealOf = (code: string) => {
+    const o = offerOf(code);
+    return o?.buyable && o.negotiated && o.amount && o.list_amount ? { amount: o.amount, list: o.list_amount, currency: o.currency ?? "USD", until: o.offer_expires_at ?? null } : null;
+  };
   const [asking, setAsking] = useState<CatalogPlan | null>(null);
   const [buying, setBuying] = useState<CatalogPlan | null>(null);
   // Buying needs the payment permission as well; the cell decides regardless. Only the bigger self-serve plans are offered for purchase: a move to a smaller one
   // takes effect at the end of a period and is arranged with our team.
   const mayBuy = !access.data?.enforced || access.data.permissions.includes("billing.payment.initiate");
   const rank = (code: string) => catalog.data?.plans.findIndex((p) => p.plan === code) ?? -1;
-  const buyable = (p: CatalogPlan) => mayBuy && Boolean(pricingReady) && SELF_SERVE.has(p.plan) && rank(p.plan) > rank(current);
+  const buyable = (p: CatalogPlan) => mayBuy && Boolean(pricingReady) && SELF_SERVE.has(p.plan) && (offerOf(p.plan)?.buyable ?? rank(p.plan) > rank(current));
   const latest = requests.data?.items[0];
   // Each plan's monthly platform fee, from the approved price book the catalogue came with (none until one is approved).
   const pricing = catalog.data?.pricing ?? null;
@@ -426,10 +511,16 @@ export function PlansCard({ current }: { current: string }) {
     },
   ];
   return (
-    <Card title="Choose a plan" description="What each plan includes. Asking for one sends a request to our team: nothing is charged and your plan does not change until an order is signed." padded={false}>
+    <Card title="Choose a plan" description="Buy a plan at its price now, or ask our team for a different price for your company. Either way your plan changes only after you pay." padded={false}>
       {latest && latest.status !== "WITHDRAWN" ? (
         <div className="border-b border-border p-4">
-          <PlanRequestStatus request={latest} />
+          <PlanRequestStatus
+            request={latest}
+            onBuy={(code) => {
+              const pl = catalog.data?.plans.find((x) => x.plan === code);
+              if (pl) setBuying(pl);
+            }}
+          />
         </div>
       ) : null}
       <QueryView query={catalog} loadingRows={2}>
@@ -448,6 +539,7 @@ export function PlansCard({ current }: { current: string }) {
                     isCurrent={p.plan === current}
                     price={{ amount: fee.get(p.plan) ?? null, currency: pricing?.currency }}
                     canAsk={mayAsk}
+                    deal={dealOf(p.plan)}
                     hasOpen={Boolean(open)}
                     onAsk={() => setAsking(p)}
                     onBuy={buyable(p) ? () => setBuying(p) : null}

@@ -273,3 +273,6 @@ rules:
   - {match: "POST /v1/evidence/legal-holds/*:release", gate: {action: f.release-legal-hold-override-retention, mode: X}}
   - {match: "POST /v1/evidence/*", gate: {action: f.view-authorized-audit-and-ledger-entries, mode: R}}
   - {match: "* /v1/privacy/admin/*", exempt: NO_MATRIX_ACTION, why: "data-protection administration has no row in matrices A to F; it stays under its protected action until the owners add one"}
+
+  # ------------------------------------------------------------------ the Verify API (CR-149, CR-150)
+  - {match: "* /v1/verify-api/*", exempt: NO_MATRIX_ACTION, why: "a company's applications and credentials stay under their protected actions verify_api.application.read (R1) and verify_api.application.manage (R2, owner); the matrices have no row for them. The partner's own server calls the rest with its own bearer token, not a company role."}

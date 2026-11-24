@@ -205,13 +205,48 @@ def _self_serve_fail(e: self_serve.SelfServeError) -> ZidError:
 
 
 @router.get(
+    "/v1/billing/plan-offers",
+    dependencies=[Depends(billing_gate.permission("billing.overview.read"))],
+)
+async def plan_offers_for_me(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What each plan costs this company today, in one call for the plan cards: the list price, and a lower price the team agreed for this company when there is one. A plan that cannot be
+    bought here (it is the company's own, a smaller one, or has no price yet) says why instead."""
+    tenant = caller.ctx.tenant_id or ""
+    items: list[dict[str, Any]] = []
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action="commercial.read", resource="billable:*")
+        for code in self_serve.SELF_SERVE_PLANS:
+            try:
+                o = await self_serve.offer(conn, tenant, code)
+            except self_serve.SelfServeError as e:
+                items.append({"plan": code, "buyable": False, "reason": e.code})
+                continue
+            items.append(
+                {
+                    "plan": code,
+                    "buyable": True,
+                    "amount": o["amount"],
+                    "list_amount": o["list_amount"],
+                    "currency": o["currency"],
+                    "negotiated": o["negotiated"],
+                    "offer_expires_at": o["offer_expires_at"],
+                }
+            )
+    return {"items": items}
+
+
+@router.get(
     "/v1/billing/plan-offers/{plan}",
     dependencies=[Depends(billing_gate.permission("billing.overview.read"))],
 )
 async def plan_offer(plan: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     """The review figure for buying this plan now. Reads only; it creates nothing and charges nothing."""
     tenant = caller.ctx.tenant_id or ""
-    region = getattr(request.app.state, "self_serve_region", None)
+    # Buying is possible when card payments are set up on this platform (Stripe) and it has a return address; there is no region to configure.
+    payable = (
+        getattr(request.app.state, "payment_setup", None) is not None
+        and getattr(request.app.state, "billing_return_origin", None) is not None
+    )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action="commercial.read", resource="billable:*")
         try:
@@ -227,7 +262,10 @@ async def plan_offer(plan: str, request: Request, caller: CallerDep) -> dict[str
         "price_book_version": offer["price_book_version"],
         "fee_is_floor": offer["fee_is_floor"],
         "current_plan": offer["current_plan"],
-        "purchase_enabled": region is not None,
+        "list_amount": offer["list_amount"],
+        "negotiated": offer["negotiated"],
+        "offer_expires_at": offer["offer_expires_at"],
+        "purchase_enabled": payable,
         "needs_billing_details": account is None,
         "billing_name": account["legal_name"] if account else None,
     }
@@ -244,13 +282,6 @@ async def purchase_plan(
     (`:confirm` above, or the signed webhook); this call changes no entitlement and charges no card."""
     setup = _need_payment_setup(request)
     tenant = caller.ctx.tenant_id or ""
-    region = getattr(request.app.state, "self_serve_region", None)
-    if region is None:
-        raise ZidError(
-            "SELF_SERVE_OFF",
-            "Buying a plan online is not switched on yet. Ask our team to set your plan up.",
-            http_status=501,
-        )
     origin = getattr(request.app.state, "billing_return_origin", None)
     if not origin:
         raise ZidError(
@@ -273,7 +304,6 @@ async def purchase_plan(
                 principal=principal,
                 legal_name=body.legal_name,
                 country=body.country,
-                region=region,
             )
         except self_serve.SelfServeError as e:
             raise _self_serve_fail(e) from e

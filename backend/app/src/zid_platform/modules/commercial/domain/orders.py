@@ -113,6 +113,9 @@ class Quote:
     account_currency: str | None = (
         None  # what the account is billed in; None means the caller did not say
     )
+    # A plan's platform fee has one price in every region, so a self-serve plan quote promises no regional service and is not judged against the release gate.
+    # Every other quote (an SLA, a deployment, a residency commitment) keeps the gate.
+    region_gated: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,7 +167,7 @@ def validate(quote: Quote, cat: Catalogue, bands: Sequence[Band]) -> Validation:
         quote.price_book_effective_from is None or quote.price_book_effective_from > quote.quoted_at
     ):
         add("PRICE_BOOK_NOT_EFFECTIVE")
-    if quote.region not in cat.released_regions:
+    if quote.region_gated and quote.region not in cat.released_regions:
         add(
             "REGION_NOT_RELEASED"
         )  # an SLA or deployment for an unlaunched cell cannot be promised (App. C)
