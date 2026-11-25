@@ -102,6 +102,26 @@ def evidence_ingest_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[
     return handle
 
 
+ANALYTICS_INGEST = "verify_analytics.ingest.v1"
+
+
+def analytics_ingest_handler(engine: AsyncEngine, cell_id: str):  # type: ignore[no-untyped-def]
+    """WF-02 section 04: the Command Center's facts, once per event id (the inbox dedupes; the fact table keys on the event id too)."""
+    from zid_platform.modules.verify_analytics.ports import ingest, wanted
+
+    async def apply(conn: AsyncConnection, event: CloudEvent) -> None:
+        await ingest(conn, event)
+
+    async def handle(event: CloudEvent) -> None:
+        if not wanted(event.type) or not event.tenantid:
+            return
+        ctx = RequestContext(new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid)
+        async with tenant_transaction(engine, ctx) as conn:
+            await consume(conn, ANALYTICS_INGEST, event, apply)
+
+    return handle
+
+
 def webhook_topics(env: str, region: str) -> list[str]:
     """Topics carrying the integration events an endpoint may subscribe to (EVENTS §17)."""
     from zid_platform.modules.webhook.ports import SUBSCRIBABLE
@@ -227,6 +247,19 @@ async def run(
                 alert_topics(env, region),
                 ALERTS,
                 alert_handler(engine, cell_id),
+                stop_after=stop_after,
+                idle_timeout_s=idle_timeout_s,
+                create_topics=create_topics,
+            )
+        )
+        from zid_platform.modules.verify_analytics.ports import DOMAINS as ANALYTICS_DOMAINS
+
+        consumers.append(
+            run_consumer(
+                bootstrap,
+                [f"zid.{env}.{region}.{d}.{lane}" for d in ANALYTICS_DOMAINS for lane in ("priority", "domain", "integration")],
+                ANALYTICS_INGEST,
+                analytics_ingest_handler(engine, cell_id),
                 stop_after=stop_after,
                 idle_timeout_s=idle_timeout_s,
                 create_topics=create_topics,

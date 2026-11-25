@@ -211,6 +211,14 @@ __all__ = [
 ]
 
 
+async def verified_domains(conn: AsyncConnection) -> list[str]:
+    """The domains the tenant has proven it controls, now (a return address must be on one of them: WF-01 S10)."""
+    from zid_platform.modules.tenant.domain.domains import DomainStatus
+    from zid_platform.modules.tenant.infrastructure.domain_store import list_domains
+
+    return [d.domain for d in await list_domains(conn) if d.status is DomainStatus.VERIFIED]
+
+
 async def searchable_domains(conn: AsyncConnection) -> list[tuple[str, str, str]]:
     """(id, domain, hint) of the tenant's domains, for authorization-aware search."""
     from zid_platform.modules.tenant.infrastructure.domain_store import list_domains

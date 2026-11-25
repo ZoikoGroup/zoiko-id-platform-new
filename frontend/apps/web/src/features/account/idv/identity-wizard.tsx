@@ -396,7 +396,7 @@ export function IdentityWizard() {
               </div>
             </div>
             <Banner tone="info" title="What happens next">
-              We compare the two photographs. If they match you are verified at once; if we cannot be sure, two people look at it. This is not a finding about who you are.
+              We compare the two photographs and show you the outcome when it is ready; if we cannot be sure, two people look at it. Finishing these steps is not the same as being verified, and this is not a finding about who you are.
             </Banner>
             {submit.error ? <Failed error={submit.error} /> : null}
             <Nav>

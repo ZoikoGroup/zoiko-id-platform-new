@@ -118,9 +118,9 @@ def capture_integrity(
     media_seen_before: bool,
     now: datetime,
     max_age: timedelta = timedelta(minutes=10),
-    attestation_required: bool = False,
 ) -> CaptureVerdict:
-    """Findings first (any one makes it a risk), then what could not be established. Never returns False unless the nonce, freshness, media digest and camera all checked out."""
+    """Findings first (any one makes it a risk), then what could not be established. Never returns False unless the nonce, freshness, media digest and camera all checked out, and the platform's
+    own device report verified: the client's word that no virtual camera was used is not established without it (WF-01 Q18)."""
     findings: list[str] = []
     if issued is None or issued.value != env.nonce:
         findings.append("CAPTURE_NONCE_UNKNOWN")
@@ -148,7 +148,7 @@ def capture_integrity(
     unknown: list[str] = []
     if env.virtual_camera is None:
         unknown.append("VIRTUAL_CAMERA_NOT_ASSESSED")
-    if env.device_attested is None and attestation_required:
+    if env.device_attested is None:
         unknown.append("DEVICE_ATTESTATION_NOT_AVAILABLE")
     if unknown:
         return CaptureVerdict(None, tuple(unknown))
@@ -194,11 +194,17 @@ def _norm(value: str) -> str:
 FIELDS = ("surname", "given_names", "document_number", "birth_date", "expiry_date")
 
 
-def compare_declared(printed: Mapping[str, str], declared: Mapping[str, str]) -> tuple[str, tuple[str, ...]]:
+def compare_declared(
+    printed: Mapping[str, str], declared: Mapping[str, str]
+) -> tuple[str, tuple[str, ...]]:
     """What the applicant typed against the platform's own reading of the printed lines: MATCH only when all four of surname, given names, document number and birth date were compared and agree;
     MISMATCH as soon as one differs; UNKNOWN when any could not be compared (a field not typed, or not read)."""
     fields = ("surname", "given_names", "document_number", "birth_date")
-    differing = tuple(f for f in fields if printed.get(f) and declared.get(f) and _norm(printed[f]) != _norm(declared[f]))
+    differing = tuple(
+        f
+        for f in fields
+        if printed.get(f) and declared.get(f) and _norm(printed[f]) != _norm(declared[f])
+    )
     if differing:
         return "MISMATCH", differing
     if all(printed.get(f) and declared.get(f) for f in fields):

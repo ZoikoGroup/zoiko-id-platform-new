@@ -14,3 +14,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
+dependencies {
+    // Play Integrity Standard API for the capture's device report (CaptureAttestation.kt; ZID-CP-WF01 Q18)
+    implementation("com.google.android.play:integrity:1.4.0")
+}

@@ -7,5 +7,11 @@
 #   root_pem_path: apple-app-attest-root.pem    Apple's App Attestation Root CA certificate (PEM), downloaded by a person from Apple's published location; relative paths are relative to this folder
 #   environment: production | development
 #
-# Android Play Integrity is NOT supported: its verdicts need a Google service account that nobody has configured here.
+# android:                              Google Play Integrity (standard requests; the app binds requestHash = base64url(SHA-256(challenge)))
+#   package_name: "com.example.app"     the app the verdict must be for
+#   certificate_sha256: ["<base64url>"] the app signing certificate digest(s) as Play Console shows them
+#   service_account_path: play-integrity-sa.json   a Google Cloud service-account key with Play Integrity access (keep it out of git); relative to this folder
+#   device_verdicts: [MEETS_DEVICE_INTEGRITY]      at least one must be present (default shown)
+#   max_age_seconds: 600
 ios: {}
+android: {}

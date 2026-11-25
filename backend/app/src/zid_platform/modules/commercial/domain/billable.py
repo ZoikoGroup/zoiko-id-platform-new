@@ -16,10 +16,10 @@ from decimal import Decimal
 
 # VERIFY_SESSION_START and VERIFY_CHECK_COMPLETE (CR-154) are production usage facts of the Verify API, held the same way (the billing policy, D12, is not ratified).
 # SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-104), and CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK (CR-070), are usage facts only: no SKU and no price stand
-# behind them, so they are recorded and never rated or invoiced.
+# behind them, so they are recorded and never rated or invoiced. IDV_SUBMISSION (ZID-CP-WF01 Q33) is the same: one hosted verification the person submitted.
 METERS = (
     "MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED", "SCREEN_CHECK", "SCREEN_MONITOR_PERIOD",
-    "CREDENTIAL_CHECK", "CREDENTIAL_SENSITIVE_CHECK", "VERIFY_SESSION_START", "VERIFY_CHECK_COMPLETE",
+    "CREDENTIAL_CHECK", "CREDENTIAL_SENSITIVE_CHECK", "VERIFY_SESSION_START", "VERIFY_CHECK_COMPLETE", "IDV_SUBMISSION",
 )  # fmt: skip
 PRINCIPAL_CLASSES = ("HUMAN", "NON_HUMAN")
 ORIGINS = ("API", "SDK", "CONSOLE", "PARTNER")
@@ -84,6 +84,11 @@ def key_credential_check(check_id: str) -> str:
 def key_credential_sensitive_check(check_id: str) -> str:
     """One completed sensitive-category check (a regulator adverse-finding check)."""
     return f"crdsns:{check_id}"
+
+
+def key_idv_submission(session_ref: str) -> str:
+    """One hosted verification session submitted: a repeated submission, a resume or a retake is the same event (WF-01 Q33)."""
+    return f"idvsub:{session_ref}"
 
 
 def key_screen_check(case_id: str, version: int) -> str:

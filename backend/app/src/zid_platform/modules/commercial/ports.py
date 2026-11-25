@@ -75,6 +75,7 @@ from zid_platform.modules.commercial.application.recorder import (
 from zid_platform.modules.commercial.application.recorder import (
     credential_usage_sink,
     freeze_month,
+    idv_usage_sink,
     ledger_summary,
     reconcile,
     record_active_human,
@@ -282,6 +283,7 @@ __all__ = [
     "finance_policy",
     "freeze_month",
     "fx_store",
+    "idv_usage_sink",
     "invoicing",
     "key_auth",
     "key_credential_check",
