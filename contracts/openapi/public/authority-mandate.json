@@ -479,6 +479,21 @@
         "title": "MandateCreate",
         "type": "object"
       },
+      "MandateSignBody": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_hash": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Canonical Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "canonical_hash"
+        ],
+        "title": "MandateSignBody",
+        "type": "object"
+      },
       "MandateStatus": {
         "enum": [
           "PENDING_APPROVAL",
@@ -1724,6 +1739,51 @@
         ]
       }
     },
+    "/v1/mandates/{mandate_id}/canonical": {
+      "get": {
+        "operationId": "canonical_v1_mandates__mandate_id__canonical_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mandate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mandate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Canonical V1 Mandates  Mandate Id  Canonical Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Canonical",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
     "/v1/mandates/{mandate_id}/reservations": {
       "post": {
         "operationId": "reserve_v1_mandates__mandate_id__reservations_post",
@@ -1847,6 +1907,61 @@
         ]
       }
     },
+    "/v1/mandates/{mandate_id}:countersign": {
+      "post": {
+        "operationId": "countersign_mandate_v1_mandates__mandate_id__countersign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mandate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mandate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateSignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Countersign Mandate V1 Mandates  Mandate Id  Countersign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Countersign Mandate",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
     "/v1/mandates/{mandate_id}:pause": {
       "post": {
         "operationId": "pause_v1_mandates__mandate_id__pause_post",
@@ -1932,6 +2047,61 @@
           }
         },
         "summary": "Revoke",
+        "tags": [
+          "mandate"
+        ]
+      }
+    },
+    "/v1/mandates/{mandate_id}:sign": {
+      "post": {
+        "operationId": "sign_mandate_v1_mandates__mandate_id__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mandate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mandate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MandateSignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign Mandate V1 Mandates  Mandate Id  Sign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Mandate",
         "tags": [
           "mandate"
         ]

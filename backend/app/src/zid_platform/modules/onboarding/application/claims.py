@@ -25,7 +25,6 @@ from zid_outbox import emit, next_version
 
 from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit
 from zid_platform.modules.organization.ports import (
-    proof_service,
     KybStatus,
     kyb_close,
     kyb_drafts_before,
@@ -33,6 +32,7 @@ from zid_platform.modules.organization.ports import (
     kyb_open_claims,
     kyb_routing,
     latest_kyb_case_id,
+    proof_service,
 )
 from zid_platform.modules.screening.ports import ScreeningStatus, case_for_kyb, close_for_kyb
 from zid_platform.modules.verification.ports import person_assurance_current

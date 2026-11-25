@@ -129,7 +129,7 @@ from zid_platform.modules.commercial.domain.invoicing import InvoicingError, ver
 from zid_platform.modules.commercial.domain.orders import OrderError, QuoteLine
 from zid_platform.modules.commercial.domain.payment_ops import OpsError
 from zid_platform.modules.commercial.domain.plan_requests import PlanRequestError
-from zid_platform.modules.commercial.domain.rating import Credit, RatingError
+from zid_platform.modules.commercial.domain.rating import MINOR_UNITS, Credit, RatingError
 from zid_platform.modules.commercial.domain.vendor import VendorError
 from zid_platform.modules.commercial.infrastructure import (
     bank_statement,
@@ -219,6 +219,7 @@ async def require_production_environment(
 
 __all__ = [
     "METERS",
+    "MINOR_UNITS",
     "PLAN_CODES",
     "BillableError",
     "CommercialError",

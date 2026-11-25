@@ -20,6 +20,9 @@ The person opening the launch link (no sign-in; the link is the grant):
 GET  /v1/verify-api/hosted/{token}                                     who is asking and why, whether this is a test
 POST /v1/verify-api/hosted/{token}:open                                the person opened it
 POST /v1/verify-api/hosted/{token}:simulate                            a sandbox test page picks a simulated outcome
+POST /v1/verify-api/hosted/{token}/consent                             a LIVE session: the person answers the notice (a decline ends the session, nothing photographed)
+POST /v1/verify-api/hosted/{token}/nonce                               a LIVE session: a one-time value the next capture must carry
+POST /v1/verify-api/hosted/{token}/capture                             a LIVE session: the document and live photographs; the answer is a retake with the tries left, or the end
 """
 
 from __future__ import annotations
@@ -35,8 +38,9 @@ from zid_db import tenant_transaction
 from zid_errors import ZidError
 
 from zid_platform.api_auth import request_engine
+from zid_platform.modules.verification.ports import partner_capture
 from zid_platform.modules.verify_api.api.verify_api import VerifyApiDep
-from zid_platform.modules.verify_api.application import partner_spec
+from zid_platform.modules.verify_api.application import hosted_live, partner_spec
 from zid_platform.modules.verify_api.application import sessions_service as svc
 from zid_platform.modules.verify_api.application.throttle import FailureLimiter
 from zid_platform.modules.verify_api.domain.model import PartnerError
@@ -51,6 +55,7 @@ _STATUS = {
     "ENVIRONMENT_MISMATCH": 403,
     "PRODUCT_NOT_ENTITLED": 403,
     "WORKFLOW_NOT_ENTITLED": 403,
+    "MARKET_NOT_ENABLED": 403,
     "NOT_FOUND": 404,
     "DECISION_NOT_AVAILABLE": 404,
     "LAUNCH_INVALID": 404,
@@ -60,11 +65,20 @@ _STATUS = {
     "WORKFLOW_VERSION_UNAVAILABLE": 422,
     "RETURN_ORIGIN_NOT_REGISTERED": 422,
     "RATE_LIMITED": 429,
+    "IP_NOT_ALLOWED": 403,
+}
+
+
+# answers only the person's own page can get (the live capture steps); a partner's server never sees them
+_HOSTED_STATUS = {
+    "CAPTURE_REFUSED": 422,
+    "CAPTURE_UNAVAILABLE": 503,
 }
 
 
 def _fail(e: PartnerError) -> ZidError:
-    return ZidError(e.code, e.detail, http_status=_STATUS.get(e.code, 422))
+    status = _STATUS.get(e.code) or _HOSTED_STATUS.get(e.code, 422)
+    return ZidError(e.code, e.detail, http_status=status, retryable=status >= 500)
 
 
 def _no_store(body: dict[str, Any], status: int = 200) -> JSONResponse:
@@ -125,6 +139,23 @@ class FixtureBody(BaseModel):
 class SandboxOutcomeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     outcome: str = Field(max_length=20)
+
+
+class HostedConsentBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    consented: bool
+    notice_version: str = Field(max_length=80)
+
+
+_IMAGE_B64 = (6 * 1024 * 1024 * 4) // 3 + 16
+
+
+class HostedCaptureBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nonce: str = Field(min_length=8, max_length=128)
+    captured_at: str = Field(max_length=40)
+    image_base64: str = Field(min_length=8, max_length=_IMAGE_B64)
+    selfie_base64: str = Field(min_length=8, max_length=_IMAGE_B64)
 
 
 @router.get("/v1/verify-api/openapi.json")
@@ -316,12 +347,64 @@ async def _hosted(request: Request, token: str, fn: Any) -> JSONResponse:
 
 @router.get("/v1/verify-api/hosted/{token}")
 async def hosted_context(token: str, request: Request) -> JSONResponse:
-    return await _hosted(request, token, lambda conn: svc.hosted_context(conn, token))
+    sv = partner_capture.services_from_state(request.app.state)
+
+    async def go(conn: Any) -> dict[str, Any]:
+        out = await svc.hosted_context(conn, token)
+        return (
+            {**out, **(await hosted_live.extras_for(conn, token, sv))} if out.get("live") else out
+        )
+
+    return await _hosted(request, token, go)
 
 
 @router.post("/v1/verify-api/hosted/{token}:open")
 async def hosted_open(token: str, request: Request) -> JSONResponse:
-    return await _hosted(request, token, lambda conn: svc.hosted_open(conn, token))
+    sv = partner_capture.services_from_state(request.app.state)
+
+    async def go(conn: Any) -> dict[str, Any]:
+        out = await svc.hosted_open(conn, token)
+        return (
+            {**out, **(await hosted_live.extras_for(conn, token, sv))} if out.get("live") else out
+        )
+
+    return await _hosted(request, token, go)
+
+
+@router.post("/v1/verify-api/hosted/{token}/consent")
+async def hosted_consent(token: str, body: HostedConsentBody, request: Request) -> JSONResponse:
+    sv = partner_capture.services_from_state(request.app.state)
+    return await _hosted(
+        request,
+        token,
+        lambda conn: hosted_live.consent(
+            conn, token, sv, notice_version=body.notice_version, consented=body.consented
+        ),
+    )
+
+
+@router.post("/v1/verify-api/hosted/{token}/nonce")
+async def hosted_nonce(token: str, request: Request) -> JSONResponse:
+    sv = partner_capture.services_from_state(request.app.state)
+    return await _hosted(request, token, lambda conn: hosted_live.nonce(conn, token, sv))
+
+
+@router.post("/v1/verify-api/hosted/{token}/capture")
+async def hosted_capture(token: str, body: HostedCaptureBody, request: Request) -> JSONResponse:
+    sv = partner_capture.services_from_state(request.app.state)
+    return await _hosted(
+        request,
+        token,
+        lambda conn: hosted_live.capture(
+            conn,
+            token,
+            sv,
+            nonce=body.nonce,
+            captured_at=body.captured_at,
+            image_base64=body.image_base64,
+            selfie_base64=body.selfie_base64,
+        ),
+    )
 
 
 @router.post("/v1/verify-api/hosted/{token}:simulate")

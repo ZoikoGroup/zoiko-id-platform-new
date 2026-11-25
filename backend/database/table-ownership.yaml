@@ -714,6 +714,11 @@ tables:
     module: mandate
     tenant_scoped: true
     source: "ZID-DATA-001 §8.3"
+  agent.mandate_signature:
+    role: cell
+    module: mandate
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): a person's confirmation of a mandate's exact terms, signed by the platform"
   agent.writer_fence:
     role: cell
     module: mandate
@@ -739,6 +744,41 @@ tables:
     module: machine
     tenant_scoped: true
     source: "proposed (ZID-GAP-001 WP-11; CR-067)"
+  agent.tool_action:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): what became of an authorized tool call"
+  agent.tool_action_receipt:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): the signed, append-only receipt of each revision of a tool action"
+  agent.revocation_event:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): a stop by scope, its epoch and enforcement, closed once by someone else"
+  agent.idp_binding:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): an outside identity provider's binding for one agent, kept as evidence"
+  agent.idp_proof:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): each outside token accepted as proof, by a digest of its id"
+  agent.agent_credential:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): a signed credential for one agent, bound to its public key, with a live status"
+  agent.credential_presentation:
+    role: cell
+    module: machine
+    tenant_scoped: true
+    source: "ZID-CP-WF07 v2.0 (CR-169): each presentation accepted as proof of key possession, by a digest of its id"
   agent.governance_policy:
     role: cell
     module: machine
@@ -854,6 +894,121 @@ tables:
     module: verify_api
     tenant_scoped: true
     source: "ZID-EXT-IDV-001 SEC-02, SEC-03 (CR-149)"
+  verify.api_assertion_jti:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-05, SEC-02, RFC 7523 replay defence (CR-158)"
+  verify.api_review_case:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): a review (or appeal) case for one session"
+  verify.api_review_lease:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): the live claim on a case"
+  verify.api_review_evidence:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): a case's evidence manifest, redacted by class"
+  verify.api_review_reveal:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): each reveal of sensitive evidence, with reason and expiry"
+  verify.api_review_proposal:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): a first-review proposal, never final"
+  verify.api_review_second:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): the independent second review"
+  verify.api_review_event:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): the append-only hash-chained case event log"
+  verify.api_review_hold:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): a regulatory hold placed by the operator plane"
+  verify.api_review_advice:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF04 v2.0 (CR-167): what an AI adviser said (advisory only, off by default)"
+  verify.api_fraud_observation:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): a sourced fact: a tenant-keyed token or an outcome, with an expiry"
+  verify.api_fraud_edge:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): a typed link between two of the company's sessions, with strength, method and version"
+  verify.api_fraud_lead:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): what a deterministic rule made of a group of links: no finding until adjudicated"
+  verify.api_fraud_note:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): a note or exculpatory fact on a lead, with its source"
+  verify.api_fraud_action:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): an exact-target action proposal: maker and approver are different people"
+  verify.api_fraud_action_target:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): the per-target receipt of an action proposal"
+  verify.api_fraud_event:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): the append-only audit chain: changes and reads"
+  verify.api_fraud_query:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): a typed, versioned graph query: maker and approver are different people"
+  verify.api_fraud_blocklist:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF05 v2.0 (CR-168): the company's own list of references with a confirmed finding behind them; never shared"
+  verify.api_logo:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-07, epic E19 (CR-166): a partner's uploaded, scanned, operator-approved logo for the verification page"
+  verify.api_credential_approval:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-05, section 05 (CR-162): two-person approval of a production credential"
+  verify.api_price:
+    role: cell
+    module: verify_api
+    tenant_scoped: false
+    source: "ZID-EXT-IDV-001 section 12, WF-15, decision D12 (CR-161): operator-set, effective-dated price of a Verify API usage fact"
+  verify.api_case:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 WF-14, WF-16, epic E18 (CR-159)"
   verify.api_session:
     role: cell
     module: verify_api

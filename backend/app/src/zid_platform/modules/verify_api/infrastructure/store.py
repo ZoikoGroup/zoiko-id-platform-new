@@ -17,9 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 _APP = (
     "application_id, tenant_id, name, environment, status, scopes, redirect_origins, created_by, created_at, updated_at, "
-    "allowed_workflows, default_workflow_id, branding"
+    "allowed_workflows, default_workflow_id, branding, ip_allowlist"
 )
-_CRED = "credential_id, application_id, tenant_id, client_id, secret_hint, status, created_by, created_at, expires_at, last_used_at, revoked_at, replaced_by"
+_CRED = "credential_id, application_id, tenant_id, client_id, secret_hint, status, created_by, created_at, expires_at, last_used_at, revoked_at, replaced_by, auth_method, public_jwk, cert_sha256"
 
 
 @asynccontextmanager
@@ -120,12 +120,13 @@ async def update_application_settings(
     allowed: list[str],
     default: str | None,
     branding: dict[str, str],
+    ip_allowlist: list[str],
     now: datetime,
 ) -> None:
     await conn.execute(
         text(
             "UPDATE verify.api_application SET redirect_origins = :o, allowed_workflows = :w, default_workflow_id = :d, "
-            "branding = CAST(:b AS jsonb), updated_at = :n WHERE application_id = :i"
+            "branding = CAST(:b AS jsonb), ip_allowlist = :ip, updated_at = :n WHERE application_id = :i"
         ),
         {
             "i": uuid.UUID(application_id),
@@ -133,6 +134,7 @@ async def update_application_settings(
             "w": allowed,
             "d": default,
             "b": json.dumps(branding),
+            "ip": ip_allowlist,
             "n": now,
         },
     )
@@ -148,15 +150,17 @@ async def insert_credential(
     application_id: str,
     tenant_id: str,
     client_id: str,
-    secret_hash: bytes,
-    secret_hint: str,
+    secret_hash: bytes | None,
+    secret_hint: str | None,
     created_by: str,
     expires_at: datetime,
+    public_jwk: dict[str, str] | None = None,
+    cert_sha256: bytes | None = None,
 ) -> None:
     await conn.execute(
         text(
-            "INSERT INTO verify.api_credential (credential_id, application_id, tenant_id, client_id, secret_hash, secret_hint, status, created_by, expires_at) "
-            "VALUES (:i, :a, :t, :c, :h, :hint, 'ACTIVE', :by, :x)"
+            "INSERT INTO verify.api_credential (credential_id, application_id, tenant_id, client_id, secret_hash, secret_hint, status, created_by, expires_at, auth_method, public_jwk, cert_sha256) "
+            "VALUES (:i, :a, :t, :c, :h, :hint, 'ACTIVE', :by, :x, :method, CAST(:jwk AS jsonb), :cert)"
         ),
         {
             "i": uuid.UUID(credential_id),
@@ -167,6 +171,11 @@ async def insert_credential(
             "hint": secret_hint,
             "by": uuid.UUID(created_by),
             "x": expires_at,
+            "method": "MTLS"
+            if cert_sha256 is not None
+            else ("PRIVATE_KEY_JWT" if public_jwk is not None else "SECRET"),
+            "jwk": json.dumps(public_jwk) if public_jwk is not None else None,
+            "cert": cert_sha256,
         },
     )
 
@@ -255,8 +264,8 @@ async def credential_for_client(conn: AsyncConnection, client_id: str) -> dict[s
     row = (
         await conn.execute(
             text(
-                "SELECT c.credential_id, c.application_id, c.tenant_id, c.secret_hash, c.status AS credential_status, c.expires_at AS credential_expires_at, "
-                "a.status AS application_status, a.environment, a.scopes AS application_scopes "
+                "SELECT c.credential_id, c.application_id, c.tenant_id, c.secret_hash, c.auth_method, c.public_jwk, c.cert_sha256, c.status AS credential_status, c.expires_at AS credential_expires_at, "
+                "a.status AS application_status, a.environment, a.scopes AS application_scopes, a.ip_allowlist "
                 "FROM verify.api_credential c JOIN verify.api_application a USING (application_id) WHERE c.client_id = :c"
             ),
             {"c": client_id},
@@ -311,7 +320,7 @@ async def token_with_state(conn: AsyncConnection, token_hash: bytes) -> dict[str
         await conn.execute(
             text(
                 "SELECT t.credential_id, t.application_id, t.tenant_id, t.environment, t.scopes, t.expires_at, "
-                "c.status AS credential_status, c.expires_at AS credential_expires_at, a.status AS application_status "
+                "c.status AS credential_status, c.expires_at AS credential_expires_at, a.status AS application_status, a.ip_allowlist "
                 "FROM verify.api_access_token t JOIN verify.api_credential c USING (credential_id) JOIN verify.api_application a ON a.application_id = t.application_id "
                 "WHERE t.token_hash = :h"
             ),
@@ -319,3 +328,30 @@ async def token_with_state(conn: AsyncConnection, token_hash: bytes) -> dict[str
         )
     ).first()
     return _row(row) if row else None
+
+
+# ------------------------------------------------------------------------------- client assertions
+
+
+async def remember_assertion(
+    conn: AsyncConnection,
+    *,
+    client_id: str,
+    jti: str,
+    tenant_id: str,
+    expires_at: datetime,
+    now: datetime,
+) -> bool:
+    """Record an assertion id until it expires. False when it was already used and has not yet expired: a signed assertion works once. Inside `auth_scope`.
+    The runtime role cannot delete, so an id whose earlier use has expired is simply taken over (the assertion that carried it is long dead); expired rows are cleared by the retention sweep."""
+    row = (
+        await conn.execute(
+            text(
+                "INSERT INTO verify.api_assertion_jti (client_id, jti, tenant_id, expires_at) VALUES (:c, :j, :t, :x) "
+                "ON CONFLICT (client_id, jti) DO UPDATE SET expires_at = EXCLUDED.expires_at "
+                "WHERE verify.api_assertion_jti.expires_at <= :n RETURNING jti"
+            ),
+            {"c": client_id, "j": jti, "t": uuid.UUID(tenant_id), "x": expires_at, "n": now},
+        )
+    ).first()
+    return row is not None

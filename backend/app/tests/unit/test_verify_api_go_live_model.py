@@ -11,7 +11,7 @@ from zid_platform.modules.verify_api.domain import model as m
 
 GOOD = {
     "markets": ["gb", "US", "gb"],
-    "methods": ["face_match", "document_authenticity"],
+    "methods": ["face_match"],
     "purpose_code": "customer_onboarding",
     "volume_band": "1k_10k",
     "use_case": "Verify new customers of our savings app.",
@@ -30,7 +30,7 @@ def refused(fn, *a, **k) -> str:  # type: ignore[no-untyped-def]
 
 def test_a_request_is_cleaned_sorted_and_stamped_with_the_current_terms() -> None:
     c = g.check_request(GOOD)
-    assert c["markets"] == ["GB", "US"] and c["methods"] == ["document_authenticity", "face_match"]
+    assert c["markets"] == ["GB", "US"] and c["methods"] == ["face_match"]
     assert (
         c["terms_version"] == g.TERMS_VERSION
         and c["use_case"] == "Verify new customers of our savings app."
@@ -133,6 +133,20 @@ def _record(**over):  # type: ignore[no-untyped-def]
     return g.manifest(**{**base, **over})
 
 
+def test_the_company_fact_is_a_registry_match_or_nothing_and_it_is_part_of_the_record() -> None:
+    from datetime import UTC, datetime
+
+    assert g.company_fact(None) == {"verified": False, "claim": None, "assessed_at": None}
+    at = datetime(2026, 11, 20, tzinfo=UTC)
+    fact = g.company_fact(("COMPANY_REGISTRY_MATCHED", at))
+    assert fact == {"verified": True, "claim": "COMPANY_REGISTRY_MATCHED", "assessed_at": at.isoformat()}
+    plain = _record()
+    assert "company_check" not in plain  # a record made without the check keeps its old digest
+    with_check = _record(company_check={"claim": fact["claim"], "assessed_at": fact["assessed_at"]})
+    assert with_check["company_check"]["claim"] == "COMPANY_REGISTRY_MATCHED"
+    assert g.digest(with_check) != g.digest(plain)  # the claim is covered by the digest
+
+
 def test_the_approval_record_says_exactly_what_was_allowed_and_its_digest_detects_any_change() -> (
     None
 ):
@@ -153,7 +167,7 @@ def test_the_approval_record_says_exactly_what_was_allowed_and_its_digest_detect
     assert g.digest(_record(markets=["GB", "US"])) == g.digest(a)
     for change in (
         {"markets": ["GB"]},
-        {"methods": ["document_authenticity"]},
+        {"methods": ["face_match", "document_authenticity"]},
         {"purpose_code": "fraud_prevention"},
         {"approver_id": "op3"},
         {"tenant_id": "t2"},

@@ -24,7 +24,7 @@ from zid_context import uuid7
 from zid_platform.modules.authority.ports import evaluate_approval
 from zid_platform.modules.decision.ports import AccessQuery
 from zid_platform.modules.evidence.ports import EvidenceClass
-from zid_platform.modules.machine.application import governance
+from zid_platform.modules.machine.application import governance, tool_actions
 from zid_platform.modules.machine.application.agents import _record, sponsor_is_active
 from zid_platform.modules.machine.domain.agents import AgentProfile, MachineError, Tool
 from zid_platform.modules.machine.domain.api_agents import api_tool_blockers
@@ -60,6 +60,7 @@ class ToolCall:
     purpose: str | None = None
     mandate_id: str | None = None
     approval_request_id: str | None = None
+    reservation_id: str | None = None  # the capacity this call will spend, when it names one (CR-169)
     value: tuple[str, str] | None = (
         None  # (amount as a decimal string, ISO currency) when the call spends money
     )
@@ -188,6 +189,7 @@ async def authorize_tool_call(
                 represented_principal_id=call.represented_principal_id,
             )
         )
+        problems.extend(await tool_actions.reservation_blockers(conn, mandate_id=call.mandate_id, reservation_id=call.reservation_id))
     context: str | None = None
     if tool is not None and not problems:
         context = call_context(
@@ -283,6 +285,13 @@ async def authorize_tool_call(
         issued_at=now,
         expires_at=datetime.fromtimestamp(claims["exp"], UTC),
     )
+    # CR-169: the grant is also the start of an action, and the first thing its receipt says is that the call was authorized and nothing has run
+    await tool_actions.record_authorized(
+        conn, tenant_id, action_id=nonce, agent_id=chain[0].agent_principal_id, tool_id=tool.tool_id, audience=tool.server_principal_id, resource=claims["resource"],
+        args_sha256=call.arguments_digest, decision_id=str(decision_id), chain_commitment=chain_commitment(chain), agent_chain=list(ids), mandate_id=call.mandate_id,
+        reservation_id=call.reservation_id, now=now,
+    )  # fmt: skip
+    await tool_actions.issue_first_receipt(conn, tenant_id, nonce, sign=sign, issuer=issuer, now=now)
     await _audit(
         conn,
         tenant_id,
@@ -391,6 +400,7 @@ async def redeem_grant(
             grant_jti=str(claims["jti"]),
         )
         return RedeemResult(False, refusal)
+    await tool_actions.record_dispatched(conn, str(claims["jti"]), now)  # CR-169: from here the server owes a report of what it did
     await _audit(
         conn,
         tenant_id,

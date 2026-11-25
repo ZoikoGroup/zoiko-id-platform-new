@@ -315,3 +315,38 @@ async def mandate_metadata_page(
         )
         for r in rows
     ]
+
+
+# ------------------------------------------------------------------------------- the exact text of a mandate, and who confirmed it (CR-169; mandate_0003)
+
+_CANONICAL = (
+    "mandate_id, tenant_id, authority_grant_id, represented_principal_id, executor_principal_id, purpose_id, resource_scope_id, allowed_actions, resource_scopes, tools, jurisdictions, currency, "
+    "value_limit, per_transaction_value_limit, count_limit, data_limit_bytes, valid_from, valid_to, delegation_allowed, max_delegation_depth, budget_mode, parent_mandate_id, created_by_principal_id"
+)
+
+
+async def canonical_row(conn: AsyncConnection, mandate_id: str) -> dict[str, Any] | None:
+    row = (await conn.execute(text(f"SELECT {_CANONICAL} FROM agent.mandate WHERE mandate_id = :id"), {"id": uuid.UUID(mandate_id)})).first()
+    return dict(row._mapping) if row else None
+
+
+async def add_signature(
+    conn: AsyncConnection, tenant_id: str, *, mandate_id: str, role: str, canonical_hash: str, signer: str, assurance_level: int, auth_time: Any, signature: str, key_id: str | None, signed_at: Any
+) -> bool:  # fmt: skip
+    """False when this person already confirmed this hash in this role (a repeat is not a second confirmation)."""
+    res = await conn.execute(
+        text(
+            "INSERT INTO agent.mandate_signature (signature_id, tenant_id, mandate_id, role, canonical_hash, signer_principal_id, assurance_level, auth_time, signature, key_id, signed_at) "
+            "VALUES (:s, :t, :m, :r, :h, :p, :a, :at, :sig, :k, :n) ON CONFLICT DO NOTHING"
+        ),
+        {"s": uuid.uuid4(), "t": uuid.UUID(tenant_id), "m": uuid.UUID(mandate_id), "r": role, "h": canonical_hash, "p": uuid.UUID(signer), "a": assurance_level, "at": auth_time, "sig": signature, "k": key_id, "n": signed_at},
+    )
+    return bool(res.rowcount)
+
+
+async def signatures_of(conn: AsyncConnection, mandate_id: str) -> list[dict[str, Any]]:
+    rows = await conn.execute(
+        text("SELECT signature_id, role, canonical_hash, signer_principal_id, assurance_level, auth_time, signature, key_id, signed_at FROM agent.mandate_signature WHERE mandate_id = :m ORDER BY signed_at, role"),
+        {"m": uuid.UUID(mandate_id)},
+    )
+    return [dict(x._mapping) for x in rows]

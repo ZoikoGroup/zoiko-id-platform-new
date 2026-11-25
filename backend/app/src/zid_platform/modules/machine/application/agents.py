@@ -666,6 +666,14 @@ async def activate(
             "AGENT_REVIEW_NOT_INDEPENDENT",
             "the sponsor, operator, publisher or registrant of an agent cannot activate it",
         )
+    # CR-169: a recorded stop that reached this agent must be closed by someone else first, and the person who made it never reinstates it
+    from zid_platform.modules.machine.application import revocation
+
+    stop = await revocation.reinstate_blockers(conn, agent_id, actor)
+    if stop:
+        raise MachineError(
+            stop[0], "this agent was stopped, and the stop has not been closed by someone else" if stop[0] == "REVOCATION_OPEN" else "the person who stopped this agent cannot reinstate it"
+        )
     evidence = await _evidence(conn, agent)
     new = await machine_store.change_agent_status(
         conn, agent_id, AgentStatus.ACTIVE, evidence=evidence

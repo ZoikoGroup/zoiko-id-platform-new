@@ -12,6 +12,10 @@ export type HostedView = {
   /** One of the approved themes; the page maps it to a fixed colour, never to anything the partner typed. */
   theme?: string;
   support_url?: string | null;
+  /** A production session: the person is photographed (document, then face). A sandbox session is a test page with no capture. */
+  live?: boolean;
+  notice_version?: string | null;
+  attempts_left?: number;
 };
 
 const TOKEN = /^zvl_[A-Za-z0-9_-]{20,80}$/;

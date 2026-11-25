@@ -37,14 +37,23 @@ from zid_platform.modules.evidence.ports import (
     LedgerError,
     chip_photo,
     effective_csca,
-    scan_content,
     trust_config,
     verify_chip,
 )
 from zid_platform.modules.verification.application import idv_case as svc
 from zid_platform.modules.verification.application import idv_claims, idv_media
-from zid_platform.modules.verification.application.idv_document import read_document
-from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions, face_signal
+from zid_platform.modules.verification.application.capture_checks import (
+    FACE_ROUTE_ACK,  # noqa: F401 - the owners' acknowledgement; tests and callers import it from here
+    CaptureError,
+    clean_and_read,
+    face_against_document,
+)
+from zid_platform.modules.verification.domain import document_details
+from zid_platform.modules.verification.domain.idv_decision import (
+    ChipAuth,
+    NfcAccess,
+    assertions,
+)
 from zid_platform.modules.verification.domain.idv_evidence import Envelope
 from zid_platform.modules.verification.domain.idv_policy import MarketRules, PolicyError
 from zid_platform.modules.verification.infrastructure import (
@@ -52,10 +61,9 @@ from zid_platform.modules.verification.infrastructure import (
     idv_policy_file,
     self_run_config,
 )
-from zid_platform.modules.verification.domain import document_details
-from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
 from zid_platform.modules.verification.infrastructure.image_inspect import (
-    sanitize as sanitize_image,
+    ImagingUnavailable,
+    read_page_text,
 )
 from zid_platform.protected import protected_action
 
@@ -423,39 +431,20 @@ async def chip(
     return out
 
 
-FACE_ROUTE_ACK = "accept-no-liveness-no-evaluation"
+def _capture_fail(e: CaptureError) -> ZidError:
+    return ZidError(e.code, e.detail, http_status=e.status, retryable=e.retryable)
 
 
 async def _face_against_document(request: Request, body: DocumentImageIn, selfie: bytes | None, document: bytes, threshold: float) -> tuple[Any, float | None, str | None]:
-    """The face-match route's comparison (CR-129): the live photograph against the document's own photograph, in memory, for this one call. It needs the owner's acknowledgement, the person's
-    agreement and a live photograph; the live photograph is scanned and re-encoded like the document, and neither image is kept. A face that cannot be found is a retake, never a failure."""
-    from zid_platform.modules.verification.infrastructure import face_lab
-
-    if getattr(request.app.state, "idv_face_route_ack", None) != FACE_ROUTE_ACK:
-        raise ZidError("FACE_ROUTE_NOT_ENABLED", "Verification with a face match is not enabled in this deployment.", http_status=403)
-    if not body.consent:
-        raise ZidError("FACE_CONSENT_REQUIRED", "Agree to the comparison of your photographs first.", http_status=422)
-    if selfie is None:
-        raise ZidError("LIVE_PHOTO_REQUIRED", "A live photograph is needed with the document photograph.", http_status=422)
-    verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), selfie)
-    if verdict.state == "INFECTED":
-        raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
-    if verdict.state != "CLEAN":
-        raise ZidError("SCAN_UNAVAILABLE", "The file could not be checked right now. Try again soon.", http_status=503, retryable=True)
+    """The face-match route's comparison (CR-129): the live photograph against the document's own photograph, in memory, for this one call. The comparison itself is the shared one (`capture_checks`), used
+    by a partner's customer too, so the two paths cannot drift apart. It needs the owner's acknowledgement, the person's agreement and a live photograph; neither image is kept."""
     try:
-        clean_selfie = await sanitize_image(selfie, transport=getattr(request.app.state, "imaging_transport", None))
-    except ImagingUnavailable as e:
-        raise ZidError(e.code, "The live photograph could not be inspected right now.", http_status=503, retryable=True) from e
-    try:
-        got = await face_lab.compare(clean_selfie, document)
-    except face_lab.FaceLabError as e:
-        if e.http_status == 422:
-            log.info("idv face comparison: no result (%s)", e.code)  # the sidecar's reason only: which photograph, no image
-            return face_signal(None, threshold), None, e.code  # no face, more than one face, unreadable: take it again
-        raise ZidError("FACE_ENGINE_UNAVAILABLE", "The face comparison is not available right now. Try again soon.", http_status=503, retryable=True) from e
-    cosine = float(got["cosine"])
-    log.info("idv face comparison: similarity %.3f, threshold %.3f", cosine, threshold)  # the number only, so a person can see whether the comparison works; no photograph, no name
-    return face_signal(cosine, threshold), cosine, None
+        return await face_against_document(
+            face_ack=getattr(request.app.state, "idv_face_route_ack", None), consent=body.consent, selfie=selfie, document=document, threshold=threshold,
+            scanner=getattr(request.app.state, "evidence_scanner", None), transport=getattr(request.app.state, "imaging_transport", None),
+        )  # fmt: skip
+    except CaptureError as e:
+        raise _capture_fail(e) from e
 
 
 @router.post("/v1/idv/cases/{case_id}/document-image")
@@ -467,27 +456,14 @@ async def document_image(
     # what arrives is scanned for malware first, then re-encoded by the sidecar as a plain JPEG with its metadata (location, device, time) removed. The checks, the printed-line reading and anything kept all use the clean
     # copy; only the replay digest is taken from what was received. A deployed cell with no scanner refuses rather than pretend to scan.
     selfie = _b64(body.selfie_base64) if body.selfie_base64 else None
-    verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), image)
-    if verdict.state == "INFECTED":
-        raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
-    if verdict.state != "CLEAN":
-        raise ZidError(
-            "SCAN_UNAVAILABLE",
-            "The file could not be checked right now. Try again soon.",
-            http_status=503,
-            retryable=True,
-        )
     try:
-        transport = getattr(request.app.state, "imaging_transport", None)
-        clean = await sanitize_image(image, transport=transport)
-        reading = await read_document(clean, transport=transport)
-    except ImagingUnavailable as e:
-        raise ZidError(
-            e.code,
-            "The document image could not be inspected right now.",
-            http_status=503,
-            retryable=True,
-        ) from e
+        clean, reading = await clean_and_read(
+            image,
+            scanner=getattr(request.app.state, "evidence_scanner", None),
+            transport=getattr(request.app.state, "imaging_transport", None),
+        )
+    except CaptureError as e:
+        raise _capture_fail(e) from e
     env = _envelope(body, image)
     now = datetime.now(UTC)
     tenant = str(caller.ctx.tenant_id or "")

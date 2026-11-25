@@ -30,6 +30,17 @@ RESOURCE = "verify_api_application:*"
 GO_LIVE_STATUS = {
     "NOT_FOUND": 404,
     "GO_LIVE_NOT_READY": 409,
+    "GO_LIVE_COMPANY_NOT_VERIFIED": 409,
+    "GO_LIVE_SIGNING_UNAVAILABLE": 503,
+    "PRICE_NOT_IN_FUTURE": 422,
+    "PRICE_STATE_INVALID": 409,
+    "PRICE_SELF_APPROVAL": 409,
+    "PRICE_EXISTS": 409,
+    "LOGO_CHANGED": 409,
+    "REGULATORY_HOLD": 423,
+    "HOLD_NOT_RELEASABLE": 409,
+    "CASE_OPEN": 409,
+    "CASE_NOT_FOUND": 404,
     "GO_LIVE_REQUEST_OPEN": 409,
     "GO_LIVE_ALREADY_APPROVED": 409,
     "GO_LIVE_STATE_INVALID": 409,
@@ -62,7 +73,7 @@ class GoLiveBody(BaseModel):
 async def go_live_status(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)
-        return await svc.status_view(conn)
+        return await svc.status_view(conn, caller.ctx.tenant_id or "")
 
 
 @router.post("/v1/verify-api/go-live-requests", status_code=201)

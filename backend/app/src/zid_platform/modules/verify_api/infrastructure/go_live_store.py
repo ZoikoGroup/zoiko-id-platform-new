@@ -16,7 +16,7 @@ _REQUEST = (
     "request_id, tenant_id, status, markets, methods, purpose_code, volume_band, use_case, terms_version, dpa_version, accepted_by, accepted_at, certification, "
     "reviewer_id, reviewed_at, decided_by, decided_at, note, created_at, updated_at"
 )
-_GRANT = "grant_id, tenant_id, request_id, status, markets, methods, manifest, manifest_digest, approved_by, approved_at, revoked_by, revoked_at, revoke_reason"
+_GRANT = "grant_id, tenant_id, request_id, status, markets, methods, manifest, manifest_digest, approved_by, approved_at, revoked_by, revoked_at, revoke_reason, signature"
 
 
 @asynccontextmanager
@@ -154,15 +154,17 @@ async def insert_grant(
     methods: list[str],
     manifest: dict[str, Any],
     digest: bytes,
+    signature: str,
     approved_by: str,
     approved_at: datetime,
 ) -> None:
     await conn.execute(
         text(
-            "INSERT INTO verify.api_production_grant (grant_id, tenant_id, request_id, status, markets, methods, manifest, manifest_digest, approved_by, approved_at) "
-            "VALUES (:g, :t, :r, 'ACTIVE', :mk, :me, CAST(:m AS jsonb), :d, :a, :at)"
+            "INSERT INTO verify.api_production_grant (grant_id, tenant_id, request_id, status, markets, methods, manifest, manifest_digest, signature, approved_by, approved_at) "
+            "VALUES (:g, :t, :r, 'ACTIVE', :mk, :me, CAST(:m AS jsonb), :d, :sig, :a, :at)"
         ),
         {
+            "sig": signature,
             "g": uuid.UUID(grant_id),
             "t": uuid.UUID(tenant_id),
             "r": uuid.UUID(request_id),

@@ -13,6 +13,7 @@ const app = (over: Partial<VerifyApiApplication> = {}): VerifyApiApplication => 
   allowed_workflows: [],
   default_workflow_id: null,
   branding: {},
+  ip_allowlist: [],
   created_at: "2026-11-24T10:00:00Z",
   updated_at: "2026-11-24T10:00:00Z",
   ...over,
@@ -46,6 +47,9 @@ describe("application settings form", () => {
     expect(draftProblem({ ...base, supportUrl: "nonsense" })).toContain("web address");
     expect(draftProblem({ ...base, locale: "english" })).toContain("language");
     expect(draftProblem({ ...base, origins: "http://evil.example" })).toContain("https://");
+    expect(draftProblem({ ...base, ipAllowlist: "0.0.0.0/0" })).toContain("every address");
+    expect(draftProblem({ ...base, ipAllowlist: "203.0.113.0/24\nnonsense" })).toContain("not an IP");
+    expect(toSettings({ ...base, ipAllowlist: "203.0.113.7\n203.0.113.7, 10.0.0.0/8" }).ip_allowlist).toEqual(["203.0.113.7", "10.0.0.0/8"]);
   });
   it("labels workflows with a fallback", () => {
     expect(workflowLabel("wf_document_selfie")).toBe("ID document and selfie");

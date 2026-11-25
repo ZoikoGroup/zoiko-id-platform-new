@@ -84,7 +84,7 @@ REFRESH_SECONDS = 20.0
 
 
 def set_openings(openings: dict[OpeningKey, Opening]) -> None:
-    global _openings, _merged, _loaded_at  # noqa: PLW0603
+    global _openings, _merged, _loaded_at
     _openings, _merged, _loaded_at = dict(openings), None, time.monotonic()
 
 
@@ -98,14 +98,14 @@ def openings_stale() -> bool:
 
 def registry() -> Registry:
     """The file's registry with each country's recorded opening applied."""
-    global _merged  # noqa: PLW0603
+    global _merged
     if _merged is None:
         _merged = apply_openings(file_registry(), _openings)
     return _merged
 
 
 def _reset() -> None:
-    global _merged, _openings, _loaded_at  # noqa: PLW0603
+    global _merged, _openings, _loaded_at
     file_registry.cache_clear()
     _merged, _openings, _loaded_at = None, {}, 0.0
 

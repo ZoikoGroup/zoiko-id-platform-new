@@ -3,6 +3,7 @@
 import { Banner, Button } from "@zoiko/ui";
 import { useCallback, useEffect, useState } from "react";
 
+import { LiveCheck } from "./live-check";
 import { BAD_LINK, finishedText, OUTCOME, purposeText, safeReturn, safeSupport, themeClass, type HostedView } from "./logic";
 
 type Step =
@@ -97,6 +98,22 @@ export function HostedVerification({ token }: { token: string | null }) {
   }
 
   const v = step.view;
+  if (v.live) {
+    return (
+      <section className="space-y-5">
+        <div aria-hidden className={`h-1.5 w-16 rounded-full ${themeClass(v.theme).bar}`} />
+        <LiveCheck requestedBy={v.requested_by} noticeVersion={v.notice_version ?? null} attemptsLeft={v.attempts_left ?? 0} call={call} />
+        {safeSupport(v.support_url) ? (
+          <p className="text-sm text-ink-muted">
+            Need help?{" "}
+            <a className={`underline ${themeClass(v.theme).link}`} href={safeSupport(v.support_url)!} target="_blank" rel="noreferrer noopener">
+              Contact {v.requested_by}
+            </a>
+          </p>
+        ) : null}
+      </section>
+    );
+  }
   return (
     <section className="space-y-5">
       <div aria-hidden className={`h-1.5 w-16 rounded-full ${themeClass(v.theme).bar}`} />

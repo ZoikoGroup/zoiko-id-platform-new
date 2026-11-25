@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from zid_context import uuid7
 from zid_db import tenant_transaction
 from zid_errors import ZidError
@@ -37,6 +37,10 @@ if TYPE_CHECKING:
     from zid_platform.api_auth import Caller
 
 log = logging.getLogger("zid.authzen")
+
+
+class _Simulated(Exception):  # noqa: N818 - a signal to roll back, not an error
+    """Raised on purpose to leave a transaction without committing it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,8 +81,12 @@ async def evaluate_access(
     q: AccessQuery,
     *,
     catalog: Mapping[str, Mapping[str, Any]],
+    simulate: bool = False,
 ) -> dict[str, Any]:
-    """The AuthZEN-shaped answer: `decision` is true only for ALLOW; Zoiko facts sit in `context`."""
+    """The AuthZEN-shaped answer: `decision` is true only for ALLOW; Zoiko facts sit in `context`.
+
+    `simulate` runs the same evaluation and then rolls its whole transaction back: no receipt, no overlay record and no billable decision survive, and the answer says so (`simulated`, and a decision id that names nothing).
+    Anything the evaluation wrote in the database is undone; only in-process counters are not."""
     ctx, authn = caller.ctx, caller.authn
     assert ctx.tenant_id is not None
     started = time.perf_counter()
@@ -103,7 +111,8 @@ async def evaluate_access(
         workload_ref=caller.certificate_thumbprint,
         requested_risk=RiskClass[q.risk_class] if q.risk_class else None,
     )
-    async with tenant_transaction(engine, ctx) as conn:
+
+    async def _decide(conn: AsyncConnection) -> tuple[Any, Any, str | None]:
         # The person decided for: a principal id as given, or a person the company's directory provisioned under the id its own system uses.
         resolved = await resolve_subject(conn, q.subject_type, q.subject_id)
         executor = resolved or NO_PERSON
@@ -186,6 +195,8 @@ async def evaluate_access(
         # trust path (SVC-14): a failure to record it is logged and left for the meter reconciliation to find, and
         # never changes or blocks the answer. The savepoint keeps the decision and its receipt in the transaction.
         try:
+            if simulate:
+                raise _Simulated  # asking "would this be allowed" is never a billable decision
             async with conn.begin_nested():
                 await record_billable(
                     conn,
@@ -196,12 +207,24 @@ async def evaluate_access(
                     source_request_id=ctx.request_id,
                     principal_class=None,
                 )
+        except _Simulated:
+            pass
         except Exception:
             log.exception("billable decision not recorded for %s", d.decision_id)
+        return d, verdict, resolved
+
+    try:
+        async with tenant_transaction(engine, ctx) as conn:
+            d, verdict, resolved = await _decide(conn)
+            if simulate:
+                raise _Simulated  # leaving the block this way rolls the whole transaction back
+    except _Simulated:
+        pass
     return {
         "decision": verdict.allow,
         "context": {
-            "decision_id": d.decision_id,
+            "decision_id": "simulated" if simulate else d.decision_id,
+            **({"simulated": True} if simulate else {}),
             # the overlay can only ever turn an ALLOW into a DENY, never the reverse
             "outcome": "DENY"
             if d.outcome.value == "ALLOW" and not verdict.allow

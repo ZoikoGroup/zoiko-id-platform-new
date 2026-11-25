@@ -213,6 +213,17 @@ def create_app(
             return None
         return await _person_claim(conn, subject_ref, now)
 
+    from .modules.verification.ports import partner_capture as _partner_capture
+    from .modules.verify_api.application import live_service as _verify_live
+    from .modules.verify_api.ports import go_live_service as _verify_go_live
+
+    _verify_live.configure(
+        lambda: _partner_capture.services_from_state(app.state)
+    )  # a production session is made only where the owners have published the face route and acknowledged its limits
+
+    _verify_go_live.configure_company_source(
+        _company_claim
+    )  # production for a Verify API partner needs the company's own registry-matched claim; the verify_api module imports no organization code
     configure_screening_sources(
         _screening_admin, _screening_claim
     )  # screening asks who may request it and which identity claim a subject rests on; it imports neither the tenant, verification nor organization module
@@ -271,6 +282,17 @@ def create_app(
     from .crypto_runtime import company_evidence_signer
 
     app.state.company_evidence_sign = company_evidence_signer(settings)
+    from .crypto_runtime import verify_go_live_signer
+
+    app.state.verify_go_live_sign = verify_go_live_signer(settings)
+    app.state.review_agent_enabled = settings.review_agent_enabled
+    app.state.mandate_signing = settings.mandate_signing if settings.mandate_signing in ("off", "enforce") else "off"
+    app.state.review_adviser = None  # no model is installed here; a deployment that has an approved one sets it
+    from .modules.verify_api.application import edge_cert as _edge_cert
+
+    app.state.partner_mtls = _edge_cert.config_from_settings(
+        settings
+    )  # client-certificate sign-in works only with trusted edge proxies AND their shared secret; otherwise it is off
     app.state.domain_checks = None  # DNS TXT / HTTPS well-known (real network; tests inject)
     app.state.secret_broker = _secret_broker(settings)
     app.state.token_settings = None
@@ -447,6 +469,11 @@ def create_app(
         from .modules.machine.api.api_agents import router as api_agents_router
         from .modules.machine.api.daara import router as agent_daara_router
         from .modules.machine.api.governance import router as agent_governance_router
+        from .modules.machine.api.agent_credentials import router as agent_credentials_router
+        from .modules.machine.api.idp import router as idp_router
+        from .modules.machine.api.mcp import router as mcp_router
+        from .modules.machine.api.revocation import router as revocation_router
+        from .modules.machine.api.tool_actions import router as tool_actions_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
@@ -563,8 +590,13 @@ def create_app(
         from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
         from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
+        from .modules.verify_api.api.approvals import router as verify_api_approvals_router
+        from .modules.verify_api.api.cases import router as verify_api_cases_router
+        from .modules.verify_api.api.fraud import router as verify_api_fraud_router
+        from .modules.verify_api.api.review import router as verify_api_review_router
         from .modules.verify_api.api.console_sessions import router as verify_api_console_router
         from .modules.verify_api.api.go_live import router as verify_api_go_live_router
+        from .modules.verify_api.api.logos import router as verify_api_logos_router
         from .modules.verify_api.api.results import router as verify_api_results_router
         from .modules.verify_api.api.sessions import router as verify_api_sessions_router
         from .modules.verify_api.api.usage import router as verify_api_usage_router
@@ -671,6 +703,11 @@ def create_app(
             agent_daara_router,
             access_readiness_router,
             tool_calls_router,
+            tool_actions_router,
+            revocation_router,
+            idp_router,
+            mcp_router,
+            agent_credentials_router,
             screening_signals_router,
             screening_requests_router,
             screening_provider_events_router,
@@ -684,6 +721,11 @@ def create_app(
             verify_api_go_live_router,
             verify_api_usage_router,
             verify_api_results_router,
+            verify_api_cases_router,
+            verify_api_review_router,
+            verify_api_fraud_router,
+            verify_api_logos_router,
+            verify_api_approvals_router,
             verify_api_admin_router,
             verify_api_sessions_router,
             commercial_admin_router,

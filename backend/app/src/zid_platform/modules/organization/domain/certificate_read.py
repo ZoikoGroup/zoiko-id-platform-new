@@ -30,9 +30,9 @@ NAME_MATCH = 0.85
 NAME_MISMATCH = 0.6  # between the two the reading is too uncertain to hold against anyone
 _MONTHS = {m: i for i, m in enumerate(["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"], 1)}
 
-_NUMBER = re.compile(r"(?:COMPANY|REGISTERED|REGISTRATION)\s*(?:NUMBER|NO\.?)\s*[:.\-]?\s*([A-Z]{0,2}\s?\d[\d\s]{4,9}\d)", re.I)
-_NAME = re.compile(r"CERTIFIES\s+THAT\s+(.{2,160}?)\s+(?:IS\s+THIS\s+DAY|HAS\s+THIS\s+DAY|WAS\s+INCORPORATED|IS\s+INCORPORATED)", re.I | re.S)
-_DATE = re.compile(r"(?:GIVEN\s+AT[^.\n]{0,60}?\s+ON|INCORPORATED\s+ON|DATE\s+OF\s+INCORPORATION)\s*[:.\-]?\s*(?:THE\s+)?(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})", re.I)
+_NUMBER = re.compile(r"(?:COMPANY|REGISTERED|REGISTRATION)\s*(?:NUMBER|NO\.?)\s*[:.\-]?\s*([A-Z]{0,2}\s?\d[\d\s]{4,9}\d)", re.IGNORECASE)
+_NAME = re.compile(r"CERTIFIES\s+THAT\s+(.{2,160}?)\s+(?:IS\s+THIS\s+DAY|HAS\s+THIS\s+DAY|WAS\s+INCORPORATED|IS\s+INCORPORATED)", re.IGNORECASE | re.DOTALL)
+_DATE = re.compile(r"(?:GIVEN\s+AT[^.\n]{0,60}?\s+ON|INCORPORATED\s+ON|DATE\s+OF\s+INCORPORATION)\s*[:.\-]?\s*(?:THE\s+)?(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ def _name_present(text: str, claimed_name: str) -> bool:
     for line in text.splitlines():
         words = line.split()
         for size in {max(1, want - 1), want, want + 1}:
-            for i in range(0, max(0, len(words) - size) + 1):
+            for i in range(max(0, len(words) - size) + 1):
                 if name_similarity(claimed_name, " ".join(words[i : i + size])) >= NAME_MATCH:
                     return True
     return False

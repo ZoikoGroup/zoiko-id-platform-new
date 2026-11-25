@@ -31,7 +31,12 @@ from zid_platform.modules.organization.ports import (
     proof_scanner_from_address,
     proof_service,
 )
-from zid_platform.modules.tenant.ports import Mode, check_category_transfer, load_residency, matrix_gate
+from zid_platform.modules.tenant.ports import (
+    Mode,
+    check_category_transfer,
+    load_residency,
+    matrix_gate,
+)
 from zid_platform.modules.verification.ports import ImagingUnavailable, read_page_text
 from zid_platform.protected import protected_action
 

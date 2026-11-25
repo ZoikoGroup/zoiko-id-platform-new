@@ -19,17 +19,24 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.commercial.ports import (
+    MINOR_UNITS,
     billable_store,
     key_verify_check_complete,
     key_verify_session_start,
     record_billable,
 )
+from zid_platform.modules.verify_api.application import pricing_service
 from zid_platform.modules.verify_api.domain import model as m
+from zid_platform.modules.verify_api.domain import pricing
 
 MONTH = re.compile(r"^(20\d{2})-(0[1-9]|1[0-2])$")
 BILLING_NOTE = (
     "These are usage counts only. Nothing is priced or invoiced yet: the billing policy for verifications has not been approved. "
     "Sandbox tests are shown separately and are never usage."
+)
+COST_NOTE = (
+    "This cost is indicative: production usage multiplied by the price Zoiko iD has approved, shown with the price used on every line. It is not an invoice and includes no tax. "
+    "A currency marked incomplete has usage with no approved price yet, so its total is not the full amount."
 )
 FINAL_OUTCOMES = ("verified", "not_verified")
 
@@ -140,12 +147,24 @@ async def report(conn: AsyncConnection, month_start: date) -> dict[str, Any]:
             "expired",
         ):
             bucket[k] = sum(i[k] for i in mine)
+    reconciliation = await _reconcile(conn, month_start, totals["production"])
+    cost = pricing.indicative_cost(
+        await pricing_service.approved(conn),
+        {
+            "VERIFY_SESSION_START": totals["production"]["sessions_started"],
+            "VERIFY_CHECK_COMPLETE": reconciliation["checks_completed"]["sessions"],
+        },
+        month_start=month_start,
+        minor_units=MINOR_UNITS,
+    )
     return {
         "month": f"{month_start:%Y-%m}",
-        "billing": {"state": "USAGE_FACTS_ONLY", "note": BILLING_NOTE},
+        "billing": {"state": "INDICATIVE_COST", "note": COST_NOTE, "cost": cost}
+        if cost
+        else {"state": "USAGE_FACTS_ONLY", "note": BILLING_NOTE, "cost": []},
         "totals": totals,
         "items": items,
-        "reconciliation": await _reconcile(conn, month_start, totals["production"]),
+        "reconciliation": reconciliation,
     }
 
 

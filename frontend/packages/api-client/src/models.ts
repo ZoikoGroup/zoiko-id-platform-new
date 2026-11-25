@@ -4942,17 +4942,22 @@ export type VerifyApiApplication = {
   allowed_workflows: string[];
   default_workflow_id: string | null;
   branding: VerifyApiBranding;
+  /** Networks the application's server may call from; empty means no restriction (CR-158). */
+  ip_allowlist: string[];
   created_at: Iso;
   updated_at: Iso;
 };
 /** Hosted-page settings: only these four, from an approved set. */
 export type VerifyApiBranding = { display_name?: string; theme?: string; support_url?: string; locale?: string };
-export type VerifyApiSettingsIn = { redirect_origins?: string[]; allowed_workflows?: string[]; default_workflow_id?: string; branding?: VerifyApiBranding };
+export type VerifyApiSettingsIn = { redirect_origins?: string[]; allowed_workflows?: string[]; default_workflow_id?: string; branding?: VerifyApiBranding; ip_allowlist?: string[] };
 /** What a person may see of a credential: the public client id and the last four characters of the secret, never the secret. */
 export type VerifyApiCredential = {
   credential_id: string;
   client_id: string;
-  secret_hint: string;
+  /** The last four characters of a secret credential's secret; null for a key credential, which has no secret. */
+  secret_hint: string | null;
+  auth_method: "SECRET" | "PRIVATE_KEY_JWT";
+  key_id: string | null;
   status: "ACTIVE" | "ROTATING" | "REVOKED" | "EXPIRED";
   created_at: Iso;
   expires_at: Iso;
@@ -5022,16 +5027,20 @@ export type VerifyApiGoLiveOperatorRequest = VerifyApiGoLiveRequest & { tenant_i
 export type VerifyApiAttestations = { company_verified: boolean; terms_signed: boolean; privacy_reviewed: boolean; billing_ready: boolean; provider_approved: boolean };
 export type VerifyApiUsageCounts = { sessions_started: number; verified: number; not_verified: number; inconclusive: number; review_required: number; canceled: number; expired: number };
 export type VerifyApiUsageRow = VerifyApiUsageCounts & { application_id: string; application_name: string; environment: "sandbox" | "production" };
+/** An indicative cost in one currency: each priced usage fact with the price used, and whether every fact with usage was priced. Money is text, never a float; this is not an invoice. */
+export type VerifyApiCostLine = { meter: string; label: string; units: number; unit_rate: string; amount: string; price_from: string };
+export type VerifyApiCost = { currency: string; lines: VerifyApiCostLine[]; total: string; complete: boolean };
 export type VerifyApiUsage = {
   month: string;
-  billing: { state: string; note: string };
+  billing: { state: string; note: string; cost: VerifyApiCost[] };
   totals: { sandbox: VerifyApiUsageCounts; production: VerifyApiUsageCounts };
   items: VerifyApiUsageRow[];
   reconciliation: { sessions_started: { sessions: number; ledger: number }; checks_completed: { sessions: number; ledger: number }; reconciled: boolean };
 };
-export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
+export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; signed: boolean; signature: string | null; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
 export type VerifyApiGoLive = {
   certification: VerifyApiGoLiveCheck[];
+  company: { verified: boolean; claim: string | null; assessed_at: string | null };
   request: VerifyApiGoLiveRequest | null;
   grant: VerifyApiGrant | null;
   terms_version: string;
@@ -5050,4 +5059,149 @@ export type VerifyApiGoLiveIn = {
   accept_dpa: boolean;
 };
 /** The one answer that carries a secret. It is shown once and never again. */
-export type VerifyApiIssued = { credential_id: string; client_id: string; client_secret: string; secret_hint: string; expires_at: Iso; replaces?: string; old_credential_valid_until?: Iso };
+/** A secret credential carries its secret here, once. A private-key credential has none: it carries the id of the public key instead. */
+export type VerifyApiIssued = { credential_id: string; client_id: string; auth_method: "SECRET" | "PRIVATE_KEY_JWT"; client_secret?: string; secret_hint?: string; key_id?: string; expires_at: Iso; replaces?: string; old_credential_valid_until?: Iso };
+/** A dispute, an appeal or an erasure request (CR-159). Never carries the customer reference. */
+export type VerifyApiCase = {
+  case_id: string;
+  kind: "DISPUTE" | "APPEAL" | "ERASURE";
+  status: "OPEN" | "IN_REVIEW" | "RESOLVED" | "REJECTED" | "WITHDRAWN";
+  session_id: string | null;
+  reason: string;
+  note: string | null;
+  sessions_erased: number | null;
+  created_at: Iso;
+  decided_at: Iso | null;
+};
+/** The operator's view of a case: which company, and who took it into review. Never the customer reference. */
+export type VerifyApiCaseOperator = VerifyApiCase & { tenant_id: string; reviewer_id: string | null };
+/** A second administrator's approval for a production credential (CR-162). The person who asked cannot decide it; it is spent once, within 24 hours, on exactly what it names. */
+export type VerifyApiApproval = { approval_id: string; application_id: string; action: "ISSUE" | "ROTATE"; credential_id: string | null; with_key: boolean; status: "PENDING" | "APPROVED" | "CONSUMED" | "CANCELED" | "REJECTED" | "EXPIRED"; requested_by: string; decided_by: string | null; note: string | null; created_at: Iso; expires_at: Iso; decided_at: Iso | null };
+export type VerifyApiApprovalIn = { action: "ISSUE" | "ROTATE"; credential_id?: string; public_jwk?: Record<string, string> };
+/** A review case (ZID-CP-WF04, CR-167). `case_version` is what a change must name; `lease` is who holds it now. */
+export type ReviewCaseState = "QUEUED" | "CLAIMED" | "INVESTIGATING" | "AWAITING_APPLICANT" | "ESCALATED" | "SPECIALIST_REVIEW" | "AWAITING_SECOND_REVIEW" | "RETURNED" | "APPROVED_FINAL";
+export type ReviewCase = {
+  case_id: string;
+  session_id: string;
+  case_type: "REVIEW" | "APPEAL";
+  parent_case_id: string | null;
+  status: ReviewCaseState;
+  case_version: number;
+  queue: "STANDARD" | "SPECIALIST";
+  four_eyes_required: boolean;
+  required_checks: string[];
+  findings: Record<string, "pass" | "fail" | "inconclusive">;
+  policy_version: string;
+  final_outcome: string | null;
+  created_at: Iso;
+  sla_due_at: Iso;
+  overdue: boolean;
+  lease: { reviewer: string; expires_at: Iso } | null;
+  on_hold: boolean;
+};
+export type ReviewEvidence = { evidence_id: string; kind: string; label: string; classification: "STANDARD" | "SENSITIVE" | "RESTRICTED"; content_hash: string; summary: Record<string, unknown> | null };
+export type ReviewCaseDetail = ReviewCase & {
+  evidence: ReviewEvidence[];
+  proposal: { proposal_id: string; outcome: string; reason_code: string; reviewer: string; created_at: Iso } | null;
+  appeal_case_id: string | null;
+  /** A proposal must name exactly this: it changes when the evidence does. */
+  evidence_manifest_hash: string;
+  /** The second reviewer's checklist, every point of which must be confirmed to approve. */
+  challenges: string[];
+  /** The only requests a reviewer may send the applicant, with their plain wording. */
+  info_templates: Record<string, string>;
+  /** The signed-in person asking, so the screen can tell what is theirs. */
+  viewer: string;
+};
+export type ReviewList = Items<ReviewCase> & { viewer: string };
+export type ReviewReveal = { evidence_id: string; label: string; detail: Record<string, unknown>; visible_until: Iso };
+export type ReviewEvent = { seq: number; type: string; actor: string; reason: string | null; data: Record<string, unknown>; digest: string; at: Iso };
+export type ReviewTrail = { case_id: string; chain_intact: boolean; problems: string[]; events: ReviewEvent[] };
+export type ReviewFeedback = "helpful" | "incorrect" | "ignored";
+export type ReviewAdvice = { advice_id: string; status: "ADVICE" | "ABSTAINED" | "REJECTED" | "FAILED"; advice?: { summary?: string; suggested_outcome?: string | null; citations?: string[] }; abstain_reason?: string | null; flags?: string[]; advisory_only?: boolean };
+export type ReviewProposeIn = { expected_case_version: number; proposed_outcome: string; reason_code: string; evidence_manifest_hash: string };
+export type ReviewSecondIn = { expected_case_version: number; decision: "approve" | "return" | "escalate"; challenge_answers: Record<string, boolean>; note?: string };
+/** Agent controls (ZID-CP-WF07, CR-169): stops, what became of an authorized call, outside provider bindings, credentials, mandate signing and risk signals. */
+export type StopScope = "AGENT" | "SPONSOR" | "BLUEPRINT" | "ISSUER" | "TENANT";
+export type EnforcementReport = { acknowledged: { point: string; how: string }[]; pending: unknown[]; failed: unknown[]; unsupported: { point: string; reason: string }[]; enforced_everywhere: boolean; epoch: number };
+export type StopPlan = {
+  dry_run: true;
+  scope: StopScope;
+  subject: string | null;
+  would_stop: { agents: string[]; agent_count: number; live_mandates: string[]; live_mandate_count: number; grants_not_yet_spent: number };
+  would_not_change: { actions_already_running_or_unknown: number; note: string };
+  enforcement: EnforcementReport;
+  as_of: Iso;
+};
+export type StopEvent = {
+  event_id: string;
+  epoch: number;
+  scope: StopScope;
+  subject: string | null;
+  reason: string;
+  actor: string;
+  targets: { agent_ids: string[]; agent_count: number; mandates_paused: number; bindings_revoked?: number };
+  enforcement: EnforcementReport;
+  effective_at: Iso;
+  state: "OPEN" | "CLOSED";
+  closed_by: string | null;
+  closed_at: Iso | null;
+  close_note: string | null;
+};
+export type ToolActionState = "AUTHORIZED" | "DISPATCHED" | "EXECUTED" | "FAILED" | "UNKNOWN" | "COMPENSATED";
+export type ToolActionReceipt = { receipt_id: string; revision: number; state: ToolActionState; digest: string; signature_valid?: boolean; issued_at: Iso; payload: { conclusion: string; outcomes: Record<string, boolean>; limits: string } };
+export type ToolAction = {
+  action_id: string;
+  agent_id: string;
+  tool_id: string;
+  resource: string;
+  state: ToolActionState;
+  conclusion: string;
+  revision: number;
+  reservation_id: string | null;
+  mandate_id: string | null;
+  updated_at: Iso;
+  latest_receipt?: ToolActionReceipt | null;
+};
+export type IdpBinding = {
+  binding_id: string;
+  agent_id: string;
+  profile: string;
+  profile_label: string;
+  certified: boolean;
+  issuer: string;
+  subject: string;
+  audience: string;
+  environment: string;
+  key_ids: string[];
+  state: "ACTIVE" | "STALE" | "EXPIRED" | "REVOKED";
+  last_ok_at: Iso | null;
+  last_failure: string | null;
+  external_claims: Record<string, string>;
+  note: string | null;
+  is_authority: false;
+};
+export type IdpBindingIn = { profile: string; issuer: string; subject: string; audience: string; keys: Record<string, unknown>[]; environment?: string };
+export type AgentCredentialItem = { credential_id: string; agent_id: string; key_thumbprint: string; audience: string | null; mandate_id: string | null; evidence_class: string; status: "ACTIVE" | "REVOKED"; issued_at: Iso; expires_at: Iso; authority_evaluated: false; credential?: string };
+export type CredentialVerdict = {
+  verdict: "NOT_VALID" | "VALID_BUT_POSSESSION_NOT_SHOWN" | "IDENTITY_VERIFIED_AUTHORITY_NOT_EVALUATED";
+  indicators: { identity_verified: boolean; credential_valid: boolean; key_possession: boolean | null; authority_evaluated: false; may_spend: null; limits: string };
+  reason_codes: string[];
+  as_of: Iso;
+};
+export type RiskSignal = { kind: string; severity: "attention" | "info"; subject: string; since: Iso | null; text: string; is_a_finding: false };
+export type RiskReport = { as_of: Iso; signals: RiskSignal[]; counts: { total: number; attention: number; by_kind: Record<string, number> }; cannot_see: string[]; score: null; note: string };
+export type MandateSigning = {
+  mandate_id: string;
+  canonical_hash: string;
+  canonical_terms: Record<string, unknown>;
+  signing: { required: string[]; have: string[]; missing: string[]; complete: boolean; stale: string[] };
+  signatures: { role: string; signer: string; canonical_hash: string; current: boolean; signature_valid?: boolean; signed_at: Iso }[];
+  note: string;
+};
+export type PreflightAnswer = { decision: "ALLOW" | "DENY" | "APPROVAL_REQUIRED" | "UNAVAILABLE"; reason_codes: string[]; canonical_request_hash: string; capacity: { available: boolean; reason: string | null } | null; simulated: true; limits: string };
+/** An operator-set price of a verification usage fact, from the first day of a month (CR-161). */
+export type VerifyApiPrice = { price_id: string; meter: string; label: string; currency: string; unit_rate: string; effective_from: string; status: "PROPOSED" | "APPROVED" | "REJECTED"; proposed_by: string; decided_by: string | null; note: string | null; created_at: Iso; decided_at: Iso | null };
+export type VerifyApiPriceList = { items: VerifyApiPrice[]; meters: { id: string; label: string }[]; currencies: string[] };
+export type VerifyApiPriceIn = { meter: string; currency: string; unit_rate: string; effective_from: string };
+export type VerifyApiCaseIn = { kind: "DISPUTE" | "APPEAL" | "ERASURE"; reason: string; session_id?: string; customer_reference?: string };

@@ -8,13 +8,14 @@ active. Whether a production session can be served is a separate, later gate (th
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
-from zid_platform.modules.verify_api.application import service
+from zid_platform.modules.verify_api.application import observe, service
 from zid_platform.modules.verify_api.domain import go_live as g
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.infrastructure import go_live_store as db
@@ -56,10 +57,29 @@ def grant_view(r: dict[str, Any]) -> dict[str, Any]:
         "markets": list(r["markets"]),
         "methods": list(r["methods"]),
         "manifest_digest": bytes(r["manifest_digest"]).hex(),
+        "signed": r.get("signature") is not None,
+        "signature": r.get("signature"),
         "approved_at": _iso(r["approved_at"]),
         "revoked_at": _iso(r["revoked_at"]),
         "revoke_reason": r["revoke_reason"],
     }
+
+
+CompanySource = Callable[[AsyncConnection, str], Awaitable[tuple[str, datetime] | None]]
+_company_source: CompanySource | None = None
+
+
+def configure_company_source(source: CompanySource | None) -> None:
+    """The composition root says how to read a company's own verification claim (this module imports no organization code). Unset, no company counts as verified: it fails closed."""
+    global _company_source
+    _company_source = source
+
+
+async def company_check(conn: AsyncConnection, tenant_id: str) -> dict[str, Any]:
+    """Run inside the company's own scope."""
+    if _company_source is None:
+        return g.company_fact(None)
+    return g.company_fact(await _company_source(conn, tenant_id))
 
 
 async def _checks(conn: AsyncConnection) -> list[dict[str, Any]]:
@@ -72,12 +92,13 @@ async def production_open(conn: AsyncConnection) -> bool:
     return await db.active_grant(conn) is not None
 
 
-async def status_view(conn: AsyncConnection) -> dict[str, Any]:
-    """Everything the Go live screen needs in one answer: the automatic checks now, the latest request, the grant, and the choices."""
+async def status_view(conn: AsyncConnection, tenant_id: str) -> dict[str, Any]:
+    """Everything the Go live screen needs in one answer: the automatic checks now, the company's own verification, the latest request, the grant, and the choices."""
     latest = await db.latest_request(conn)
     grant = await db.active_grant(conn)
     return {
         "certification": await _checks(conn),
+        "company": await company_check(conn, tenant_id),
         "request": request_view(latest) if latest else None,
         "grant": grant_view(grant) if grant else None,
         "terms_version": g.TERMS_VERSION,
@@ -183,6 +204,7 @@ async def decline(
     await db.move_request(
         conn, request_id, g.GoLiveStatus.DECLINED.value, now, decider=operator, note=clean
     )
+    observe.GO_LIVE.inc(event="declined")
     return request_view((await db.get_request(conn, request_id)) or r, operator=True)
 
 
@@ -193,9 +215,17 @@ async def approve(
     attestations: dict[str, Any],
     note: str | None,
     now: datetime | None = None,
+    *,
+    sign: Callable[[dict[str, Any]], str] | None = None,
 ) -> dict[str, Any]:
-    """Approve: a different operator from the reviewer, every confirmation given, the sandbox checks still met now. Leaves the company's production grant and the digest of what it allows."""
+    """Approve: a different operator from the reviewer, every confirmation given, the sandbox checks still met now. Leaves the company's production grant, the digest of what it allows and a signature over both.
+    With no signing key there is no approval: a grant is never made unsigned."""
     now = now or datetime.now(UTC)
+    if sign is None:
+        raise m.PartnerError(
+            "GO_LIVE_SIGNING_UNAVAILABLE",
+            "Approval needs the go-live signing key and none is configured. Nothing was approved.",
+        )
     r = await _operator_load(conn, request_id)
     g.check_transition(g.GoLiveStatus(r["status"]), g.GoLiveStatus.APPROVED)
     if r["reviewer_id"] is not None and str(r["reviewer_id"]) == operator:
@@ -214,7 +244,14 @@ async def approve(
             raise m.PartnerError(
                 "GO_LIVE_NOT_READY", "The company's sandbox checks are no longer all met."
             )
+        company = await company_check(conn, tenant_id)
+        if not company["verified"]:
+            raise m.PartnerError(
+                "GO_LIVE_COMPANY_NOT_VERIFIED",
+                "The company has no registry-verified company check on record. Documents alone are not enough; finish its company verification first.",
+            )
         record = g.manifest(
+            company_check={"claim": company["claim"], "assessed_at": company["assessed_at"]},
             tenant_id=tenant_id,
             request_id=request_id,
             markets=list(r["markets"]),
@@ -228,15 +265,26 @@ async def approve(
             approver_id=operator,
             approved_at=now,
         )
+    grant_id = str(uuid.uuid4())
+    digest = g.digest(record)
+    signature = sign(
+        {
+            "kind": "verify_api.production_grant.signed",
+            "grant_id": grant_id,
+            "manifest": record,
+            "manifest_digest": digest.hex(),
+        }
+    )
     await db.insert_grant(
         conn,
-        grant_id=str(uuid.uuid4()),
+        grant_id=grant_id,
         tenant_id=tenant_id,
         request_id=request_id,
         markets=list(r["markets"]),
         methods=list(r["methods"]),
         manifest=record,
-        digest=g.digest(record),
+        digest=digest,
+        signature=signature,
         approved_by=operator,
         approved_at=now,
     )
@@ -248,6 +296,7 @@ async def approve(
         decider=operator,
         note=clean_note or None,
     )
+    observe.GO_LIVE.inc(event="approved")
     return request_view((await db.get_request(conn, request_id)) or r, operator=True)
 
 
@@ -260,6 +309,7 @@ async def revoke(
     revoked = await db.revoke_grant(conn, tenant_id, operator, why, now)
     if revoked is None:
         raise m.PartnerError("NOT_FOUND", "That company has no active production grant.")
+    observe.GO_LIVE.inc(event="revoked")
     stopped = 0
     async with in_tenant(conn, tenant_id):
         for application_id in await db.production_application_ids(conn):

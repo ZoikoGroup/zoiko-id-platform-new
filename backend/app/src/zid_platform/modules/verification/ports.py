@@ -12,6 +12,7 @@ from zid_platform.modules.verification.application import (
     check_methods,
     coverage,
     market_releases,
+    partner_capture,
     policy_packs,
     register_refresh,
     regulated_claims,
@@ -19,6 +20,7 @@ from zid_platform.modules.verification.application import (
     suspensions,
 )
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
+from zid_platform.modules.verification.application.capture_checks import CaptureError
 from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
 from zid_platform.modules.verification.application.entitlements import (
     change_status as change_entitlement_status,
@@ -26,6 +28,7 @@ from zid_platform.modules.verification.application.entitlements import (
 from zid_platform.modules.verification.application.identity_signal_feed import (
     feed_pass as identity_feed_pass,
 )
+from zid_platform.modules.verification.application.idv_case import CaseError
 from zid_platform.modules.verification.application.policy_review import reevaluate_pending
 from zid_platform.modules.verification.application.reverification import (
     sweep as reverification_sweep,
@@ -61,11 +64,11 @@ from zid_platform.modules.verification.domain.certification import (
     refuse_unbacked_claim,
 )
 from zid_platform.modules.verification.domain.countries import (
+    OPENABLE,
     SANDBOX_ENVIRONMENTS,
     Availability,
     Capability,
     CountryError,
-    OPENABLE,
     Opening,
     OpeningKey,
     apply_openings,
@@ -123,20 +126,25 @@ from zid_platform.modules.verification.infrastructure import conformance_store a
 from zid_platform.modules.verification.infrastructure import (
     contract_entitlement_store as entitlements,
 )
-from zid_platform.modules.verification.infrastructure import register_sources
-from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
+from zid_platform.modules.verification.infrastructure import (
+    country_opening_store,
+    face_lab,
+    register_sources,
+)
 from zid_platform.modules.verification.infrastructure.certification_registry import (
     certification_registry,
 )
 from zid_platform.modules.verification.infrastructure.claim_templates import claim_templates
 from zid_platform.modules.verification.infrastructure.conformance_matrix import conformance_matrix
-from zid_platform.modules.verification.infrastructure import country_opening_store
-from zid_platform.modules.verification.infrastructure import face_lab
 from zid_platform.modules.verification.infrastructure.country_registry import (
     file_registry,
     openings,
     registry,
     set_openings,
+)
+from zid_platform.modules.verification.infrastructure.image_inspect import (
+    ImagingUnavailable,
+    read_page_text,
 )
 from zid_platform.modules.verification.infrastructure.offerings_catalog import offerings_catalog
 from zid_platform.modules.verification.infrastructure.pack_registry import pack_registry
@@ -145,42 +153,38 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
     product_line_registry,
 )
 
+PartnerServices = partner_capture.Services  # what a partner's customer's capture needs from the running cell (CR-164)
+
 __all__ = [
-    "ImagingUnavailable",
-    "face_calibration",
-    "read_page_text",
     "APPROVER_ROLES",
     "GATE_MODES",
+    "OPENABLE",
     "PACK_PURPOSE",
     "SANDBOX_ENVIRONMENTS",
     "Availability",
     "Capability",
+    "CaptureError",
+    "CaseError",
     "CertClaim",
     "CertRegistry",
     "CertificationError",
     "CountryError",
-    "OPENABLE",
-    "Opening",
-    "OpeningKey",
-    "apply_openings",
-    "check_opening",
-    "country_opening_store",
-    "face_lab",
-    "file_registry",
-    "openings",
-    "set_openings",
     "Entitlement",
     "EntitlementNotFound",
     "EntitlementStatus",
     "GateDecision",
+    "ImagingUnavailable",
     "LegalSource",
     "LineRegistry",
     "LineState",
+    "Opening",
+    "OpeningKey",
     "Outcome",
     "PackError",
     "PackKey",
     "PackRegistry",
     "PackStatus",
+    "PartnerServices",
     "PolicyPack",
     "PolicyPackError",
     "ProductLine",
@@ -192,6 +196,7 @@ __all__ = [
     "ServicePack",
     "SourceStatus",
     "WebhookRefusal",
+    "apply_openings",
     "assurance",
     "attestation_model",
     "attestations",
@@ -205,17 +210,22 @@ __all__ = [
     "check_cases",
     "check_method_model",
     "check_methods",
+    "check_opening",
     "claim_matches",
     "claim_model",
     "claim_templates",
     "conformance",
     "conformance_matrix",
     "conformance_model",
+    "country_opening_store",
     "coverage",
     "current_identity_claim",
     "entitlement_model",
     "entitlement_refusals",
     "entitlements",
+    "face_calibration",
+    "face_lab",
+    "file_registry",
     "fresh_reproof",
     "gate_decision",
     "identity_feed_pass",
@@ -223,15 +233,18 @@ __all__ = [
     "market_releases",
     "offerings_catalog",
     "offerings_model",
+    "openings",
     "pack_hash",
     "pack_needed",
     "pack_registry",
+    "partner_capture",
     "person_assurance_current",
     "policy_packs",
     "privacy_overlay_model",
     "privacy_overlays",
     "product_line_registry",
     "public_view",
+    "read_page_text",
     "reconcile_delayed",
     "reconstruct_decision",
     "record_presentation",
@@ -252,6 +265,7 @@ __all__ = [
     "route",
     "rtr_model",
     "seed_representative_proofing",
+    "set_openings",
     "shared_assertions",
     "sign_webhook",
     "suspension_model",

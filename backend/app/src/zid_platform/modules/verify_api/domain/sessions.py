@@ -122,13 +122,13 @@ CURRENT_VERSION = "2026-11-sandbox"
 WORKFLOWS: dict[str, dict[str, Any]] = {
     "wf_document_selfie": {
         "name": "Document and selfie",
-        "description": "The person photographs an identity document and takes a selfie. In the sandbox the outcome is simulated.",
-        "methods": ["document_authenticity", "face_match"],
+        "description": "The person photographs an identity document and takes a selfie, and the two are compared. In the sandbox the outcome is simulated; in production this is the one workflow offered, with the same single check.",
+        "methods": ["face_match"],
         "versions": [CURRENT_VERSION],
     },
     "wf_document_only": {
         "name": "Document only",
-        "description": "The person photographs an identity document. In the sandbox the outcome is simulated.",
+        "description": "The person photographs an identity document. Sandbox only: no live check serves it, so production refuses it.",
         "methods": ["document_authenticity"],
         "versions": [CURRENT_VERSION],
     },
@@ -138,13 +138,13 @@ PRODUCTS = [
         "method": "document_authenticity",
         "name": "Identity document check",
         "environments": ["sandbox"],
-        "note": "Sandbox only: outcomes are simulated. Live checks open per market after the production gate.",
+        "note": "Sandbox only: outcomes are simulated. There is no live document authenticity check yet, and a live result never claims one.",
     },
     {
         "method": "face_match",
         "name": "Face match to the document",
-        "environments": ["sandbox"],
-        "note": "Sandbox only: outcomes are simulated. A face check is enabled per market only after its privacy and testing gates.",
+        "environments": ["sandbox", "production"],
+        "note": "Live where Zoiko iD has enabled the country and your approval names it. A photograph of the document compared with a live photograph: no liveness test, and the document is not checked to be genuine. In the sandbox the outcome is simulated.",
     },
 ]
 PURPOSES = (

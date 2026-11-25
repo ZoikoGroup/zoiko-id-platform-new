@@ -57,7 +57,11 @@ from zid_platform.modules.federation.application.saml_login import (
     connection_acs_url,
 )
 from zid_platform.modules.federation.application.trust_chain import entity_configuration
-from zid_platform.modules.federation.domain.connection import CONNECTOR_REF, Connection, FederationError
+from zid_platform.modules.federation.domain.connection import (
+    CONNECTOR_REF,
+    Connection,
+    FederationError,
+)
 from zid_platform.modules.federation.infrastructure import connection_store as store
 from zid_platform.modules.federation.ports import count_active_connections
 from zid_platform.modules.session.ports import (
@@ -931,7 +935,10 @@ async def create_integration(
             change={"operation": "CREATE", "issuer": body.issuer},
         )
         if body.client_secret is not None:  # CR-138: sealed here, write-only; the connection keeps `connector:<id>` and never the secret
-            from zid_platform.modules.integration.ports import register_signin_connector, set_connector_secret  # at call time: integration imports federation
+            from zid_platform.modules.integration.ports import (  # at call time: integration imports federation
+                register_signin_connector,
+                set_connector_secret,
+            )
 
             who = caller.ctx.principal_id or ""
             connector_id = await register_signin_connector(
@@ -1083,7 +1090,10 @@ async def rotate(
                 raise http_error("VALIDATION_FAILED", "give the client secret only with client_secret_basic, and not together with a stored secret's name")
         sealed_ref = None
         if body.client_secret is not None:  # CR-138: a new secret replaces the sealed one at once, or starts a sealed one
-            from zid_platform.modules.integration.ports import register_signin_connector, set_connector_secret  # at call time: integration imports federation
+            from zid_platform.modules.integration.ports import (  # at call time: integration imports federation
+                register_signin_connector,
+                set_connector_secret,
+            )
 
             who = caller.ctx.principal_id or ""
             tenant = caller.ctx.tenant_id or ""

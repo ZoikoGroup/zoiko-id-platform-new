@@ -306,6 +306,23 @@ def company_evidence_signer(settings: Settings) -> Callable[[dict[str, Any]], st
     return lambda body: ring.sign(body, typ=COMPANY_EVIDENCE_TYP)
 
 
+VERIFY_GO_LIVE_TYP = "zid-verify-go-live+jwt"
+
+
+def verify_go_live_signer(settings: Settings) -> Callable[[dict[str, Any]], str] | None:
+    """Signs a Verify API production grant at approval (ZID-EXT-IDV-001 gate G4). None when no key is configured, and then no grant is approved rather than approved unsigned."""
+    signer = placement_signer(
+        settings,
+        dev_purpose="verify_go_live",
+        kid=f"verify-go-live-{settings.cell_id}",
+        kms_key_id=settings.verify_go_live_kms_key_id,
+    )
+    if signer is None:
+        return None
+    ring = KeyRing(signer)
+    return lambda body: ring.sign(body, typ=VERIFY_GO_LIVE_TYP)
+
+
 def handle_key_from_settings(
     settings: Settings, provider: KeyProvider | None = None, *, kms_client: object | None = None
 ) -> MacKey:

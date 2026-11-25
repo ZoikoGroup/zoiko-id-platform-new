@@ -142,6 +142,8 @@ TENANT_ADMIN_ACTIONS = (
     "metering.read",
     "notification.alert.read",
     "webhook.endpoint.read",
+    "verify_api.fraud.read",  # an administrator can read the company's own masked fraud graph; analysing, proposing and approving are separate duties the owner grants (CR-168)
+    "verify_api.review.read",  # an administrator can read review cases and their redacted evidence; working a case and the second review are separate duties the owner grants (CR-167)
     "verify_api.application.read",  # an administrator can see the Verify API applications; creating one or a credential commits the company and stays with the owner (CR-149)
     # company administration, change
     "commercial.budget.manage",

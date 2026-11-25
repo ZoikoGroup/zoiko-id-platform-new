@@ -47,6 +47,7 @@ function Granted({ d, onCreateProduction }: { d: VerifyApiGoLive; onCreateProduc
       <p className="text-xs text-ink-muted">
         Fingerprint of what was approved: <span className="font-mono break-all">{g.manifest_digest}</span>
       </p>
+      <p className="text-xs text-ink-muted">{g.signed ? "This approval is signed by Zoiko iD." : "This approval was made before signing existed and carries no signature."}</p>
       <Button size="sm" icon={<Rocket aria-hidden className="size-4" />} onPress={onCreateProduction}>
         Create a production application
       </Button>
@@ -101,6 +102,19 @@ function Asking({ d, onAsk }: { d: VerifyApiGoLive; onAsk: () => void }) {
               </span>
             </li>
           ))}
+          <li className="flex items-start gap-2 text-sm">
+            {d.company.verified ? <CheckCircle2 aria-hidden className="mt-0.5 size-4 text-ok-fg" /> : <Circle aria-hidden className="mt-0.5 size-4 text-ink-muted" />}
+            <span>
+              <span className={d.company.verified ? "text-ink" : "font-medium text-ink"}>Your company is verified against its registry</span>
+              {d.company.verified ? (
+                <span className="sr-only"> (done)</span>
+              ) : (
+                <span className="block text-xs text-ink-muted">
+                  You can still ask, but we cannot approve production until your company verification is complete. Finish it under Organization.
+                </span>
+              )}
+            </span>
+          </li>
         </ul>
       </section>
       <Button size="sm" icon={<Rocket aria-hidden className="size-4" />} isDisabled={!ready} onPress={onAsk}>

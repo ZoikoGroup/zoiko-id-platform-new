@@ -16,9 +16,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 from zid_outbox import emit
 
+from zid_platform.modules.verify_api.application import live_service, observe
 from zid_platform.modules.verify_api.application import usage_service as usage
 from zid_platform.modules.verify_api.application.service import VerifyApiCaller
 from zid_platform.modules.verify_api.domain import app_settings
+from zid_platform.modules.verify_api.domain import live as lv
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.domain import sessions as s
 from zid_platform.modules.verify_api.infrastructure import session_store as db
@@ -73,10 +75,10 @@ def decision_view(d: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
         "outcome": d["outcome"],
         "assurance": {"scheme": "zoikoid-proofing", "level": "SANDBOX_SIMULATED"}
         if d["sandbox"]
-        else None,
+        else (dict(lv.LIVE_ASSURANCE) if d["outcome"] == "verified" else None),
         "checks": list(d["checks"]),
         "reason_codes": list(d["reason_codes"]),
-        "evidence_receipt_id": None,  # a sandbox decision has no evidence behind it: nothing real was checked
+        "evidence_receipt_id": None,  # no signed evidence receipt exists yet; a sandbox decision has no evidence behind it at all
         "policy_version": d["policy_version"],
         "region": d["region"],
         "completed_at": _iso(d["completed_at"]),
@@ -103,6 +105,12 @@ async def _announce(
     """Tell the company's registered webhook endpoints (through the platform's outbox and the webhook module) that a session changed. Only opaque ids, the status and the outcome travel: no
     photograph, no document data, no score. The company's own customer reference is theirs and is included so they can match it without a lookup."""
     tenant = str(row["tenant_id"])  # from the session row, never from a request
+    env = row["environment"].lower()
+    if name == CLOSED_EVENT:
+        observe.SESSIONS.inc(environment=env, event="closed")
+    else:
+        observe.SESSIONS.inc(environment=env, event="decided")
+        observe.DECISIONS.inc(environment=env, outcome=str(data.get("outcome") or "unknown"))
     async with in_tenant(
         conn, tenant
     ):  # the hosted page has no signed-in company: this is the session's own
@@ -188,11 +196,6 @@ async def _create(
     """The one way a session is made, for a first request and for a recheck alike. The caller has already been required to hold the right scope."""
     now = now or datetime.now(UTC)
     idem = s.check_idempotency_key(key)
-    if caller.environment != "SANDBOX":
-        raise m.PartnerError(
-            "PRODUCT_NOT_ENTITLED",
-            "Live verification is not open for this application. Use the sandbox.",
-        )
     app = await store.get_application(conn, caller.application_id)
     if app is None or app["status"] != "ACTIVE":
         raise m.PartnerError("AUTH_INVALID", "The application is not active.")
@@ -208,6 +211,9 @@ async def _create(
             "WORKFLOW_NOT_ENTITLED",
             f"This application may not start {clean['workflow_id']}. Allowed: {', '.join(allowed)}.",
         )
+    if caller.environment == "PRODUCTION":
+        # refused BEFORE anything is created, so a customer is never asked for a photograph that cannot be checked
+        await live_service.require_enabled(conn, clean)
     if clean["return_origin"] is not None and clean["return_origin"] not in list(
         app["redirect_origins"]
     ):
@@ -269,6 +275,7 @@ async def _create(
     await usage.meter_session_started(
         conn, created_row
     )  # production only; a sandbox session is never usage
+    observe.SESSIONS.inc(environment=created_row["environment"].lower(), event="started")
     return session_view(
         created_row, url=launch_url(origin, token), url_expires=launch_expires
     ), True
@@ -463,6 +470,39 @@ async def apply_outcome(
     if outcome is None:
         await _announce_closed(conn, row, target)
         return None
+    made = await _write_decision(
+        conn,
+        row,
+        target=target,
+        outcome=outcome,
+        checks=checks,
+        reasons=list(reasons),
+        sandbox=True,
+        policy_version=SANDBOX_POLICY,
+        now=now,
+    )
+    if target is s.Status.MANUAL_REVIEW:
+        # a session waiting for review is queued for a reviewer; imported here because review finalizes through this module
+        from zid_platform.modules.verify_api.application import review_service
+
+        async with in_tenant(conn, str(row["tenant_id"])):
+            await review_service.open_from_session(conn, {**row, "status": target.value}, now)
+    return made
+
+
+async def _write_decision(
+    conn: AsyncConnection,
+    row: dict[str, Any],
+    *,
+    target: s.Status,
+    outcome: s.Outcome,
+    checks: list[dict[str, str]],
+    reasons: list[str],
+    sandbox: bool,
+    policy_version: str,
+    now: datetime,
+) -> dict[str, Any]:
+    """Store a decision (a new version that supersedes an earlier one), count the usage fact, and tell the company's webhook endpoints. One path for a simulated result and a live one, so they behave alike."""
     prior = await db.latest_decision(conn, row["session_id"])
     decision_id = s.new_decision_id()
     await db.insert_decision(
@@ -475,16 +515,19 @@ async def apply_outcome(
         outcome=outcome.value,
         checks=checks,
         reason_codes=reasons,
-        sandbox=True,
-        policy_version=SANDBOX_POLICY,
+        sandbox=sandbox,
+        policy_version=policy_version,
         region=row["region"],
         completed_at=now,
     )
     made = await db.latest_decision(conn, row["session_id"])
     assert made is not None
-    await usage.meter_check_completed(
-        conn, row, outcome.value, now
-    )  # production only; one fact per session, however often its decision is revised
+    async with in_tenant(
+        conn, str(row["tenant_id"])
+    ):  # the person's page has no signed-in company: the usage fact is written in the session's own scope, or the ledger would silently refuse it
+        await usage.meter_check_completed(
+            conn, row, outcome.value, now
+        )  # production only; one fact per session, however often its decision is revised
     await _announce(
         conn,
         row,
@@ -501,6 +544,41 @@ async def apply_outcome(
         },
     )
     return made
+
+
+async def record_decision(
+    conn: AsyncConnection,
+    row: dict[str, Any],
+    *,
+    target: s.Status,
+    outcome: s.Outcome,
+    checks: list[dict[str, str]],
+    reasons: list[str],
+    sandbox: bool,
+    policy_version: str,
+    now: datetime,
+) -> dict[str, Any]:
+    """The live check ends a session here: the status, the link, then the decision."""
+    await db.set_status(
+        conn,
+        row["session_id"],
+        target.value,
+        now,
+        opened=row["opened_at"] is None,
+        completed=target in s.FINAL,
+    )
+    await db.end_launch(conn, row["session_id"])
+    return await _write_decision(
+        conn,
+        row,
+        target=target,
+        outcome=outcome,
+        checks=checks,
+        reasons=reasons,
+        sandbox=sandbox,
+        policy_version=policy_version,
+        now=now,
+    )
 
 
 async def simulate_for_partner(
@@ -591,6 +669,8 @@ def _public(row: dict[str, Any]) -> dict[str, Any]:
         "workflow": s.WORKFLOWS[row["workflow_id"]]["name"],
         "status": row["status"],
         "sandbox": row["environment"] == "SANDBOX",
+        "live": row["environment"] == "PRODUCTION",
+        "logo": bool(row.get("has_logo")),
         "link_expires_at": _iso(row["launch_expires_at"]),
         "outcomes": [f.value for f in s.Fixture] if row["environment"] == "SANDBOX" else [],
     }
