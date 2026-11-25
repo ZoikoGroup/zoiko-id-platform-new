@@ -72,48 +72,6 @@
         "title": "ActivateNowIn",
         "type": "object"
       },
-      "AdvanceBody": {
-        "additionalProperties": false,
-        "properties": {
-          "evidence_ref": {
-            "anyOf": [
-              {
-                "maxLength": 256,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Evidence Ref"
-          },
-          "probes": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Probes"
-          },
-          "step": {
-            "pattern": "^[A-Z_]{2,40}$",
-            "title": "Step",
-            "type": "string"
-          }
-        },
-        "required": [
-          "step"
-        ],
-        "title": "AdvanceBody",
-        "type": "object"
-      },
       "BreakGlassBody": {
         "additionalProperties": false,
         "properties": {
@@ -1418,6 +1376,48 @@
           }
         },
         "title": "ApproveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__resilience__api__platform__AdvanceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "probes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probes"
+          },
+          "step": {
+            "pattern": "^[A-Z_]{2,40}$",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "AdvanceBody",
         "type": "object"
       },
       "zid_platform__modules__resilience__api__platform__ReasonBody": {
@@ -4204,7 +4204,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdvanceBody"
+                "$ref": "#/components/schemas/zid_platform__modules__resilience__api__platform__AdvanceBody"
               }
             }
           },

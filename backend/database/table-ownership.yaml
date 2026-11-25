@@ -1339,6 +1339,36 @@ tables:
     module: verification
     tenant_scoped: false
     source: "ZID-RCG-003 RCG-G02 official-register attestation snapshots, append-only (proposed, CR-073)"
+  verify.route_capability:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-CP-WF09 E02/E03 (CR-171): one provider's capability for one method, versioned and append-only; APPROVED needs a second person and dated evidence"
+  verify.route_decision:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-CP-WF09 E05 (CR-171): the frozen, reason-coded result of one route resolution, one per idempotency key, append-only"
+  verify.route_attempt_event:
+    role: cell
+    module: verification
+    tenant_scoped: true
+    source: "ZID-CP-WF09 E06 (CR-171): every state change of a provider attempt, append-only; the first event of an idempotency key is unique"
+  verify.route_release:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-CP-WF09 E08/WF-09.12 (CR-171): a route release, versioned and append-only, with its dependency digest"
+  verify.route_data_flow:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-CP-WF09 WF-09.10 (CR-172): a provider data-flow graph, versioned and append-only; a legal determination names its digest"
+  verify.route_release_approval:
+    role: cell
+    module: verification
+    tenant_scoped: false
+    source: "ZID-CP-WF09 WF-09.12 (CR-171): one approval per approver and release, bound to the approved dependency digest"
   verify.provider_contract_entitlement:
     role: cell
     module: verification

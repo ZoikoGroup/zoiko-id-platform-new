@@ -84,6 +84,7 @@ const API_PATH_PREFIXES = [
   "/provisioning/directory-syncs",
   // Phase F: evidence, privacy, customer lockbox, residency, workload identity
   "/v1/evidence/",
+  "/v1/routing/", // CR-171 provider coverage, route decisions, attempts and releases (the back-office console; applicants never call these)
   "/v1/trust/issuer$", // the issuer's signed trust bundle, shown in the trust inspector (public on the cell, exact path only)
   "/v1/privacy/",
   "/v1/lockbox-requests",

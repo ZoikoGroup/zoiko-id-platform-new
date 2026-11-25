@@ -588,6 +588,7 @@ def create_app(
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
         from .modules.verification.api.v2_providers import router as v2_providers_router
+        from .modules.verification.api.routing import router as verification_routing_router
         from .modules.verification.api.v2_self_run import router as v2_self_run_router
         from .modules.verification.api.v2_source_of_funds import router as v2_sof_router
         from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
@@ -682,6 +683,7 @@ def create_app(
             kyb_company_router,
             v2_alternatives_router,
             v2_providers_router,
+            verification_routing_router,
             privacy_v2_router,
             privacy_rights_v2_router,
             privacy_policy_v2_router,

@@ -97,6 +97,14 @@ rules:
   - {match: "POST /v1/policy-releases/*:validate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
   - {match: "POST /v1/policy-releases/*:simulate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
   - {match: "POST /v1/policy-releases/*:compare", gate: {action: d.propose-approval-workflow-policies, mode: S}}  # CR-170 signed what-if analysis; same rights as a single simulation
+  - {match: "GET /v1/routing/*", gate: {action: b.view-verification-state-expiration, mode: R}}  # CR-171 provider capabilities, coverage, route decisions and traces
+  - {match: "POST /v1/routing/capabilities/*:approve", gate: {action: d.approve-eligible-pending-request, mode: A}}  # CR-171 a second person approves a provider capability
+  - {match: "POST /v1/routing/capabilities/*:suspend", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "POST /v1/routing/capabilities/*:retire", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "POST /v1/routing/releases/*:approve", gate: {action: d.approve-eligible-pending-request, mode: A}}
+  - {match: "POST /v1/routing/releases/*:publish", gate: {action: d.change-role-taxonomy-permission-catalog, mode: A}}
+  - {match: "POST /v1/routing/releases/*:rollback", gate: {action: d.change-role-taxonomy-permission-catalog, mode: A}}
+  - {match: "POST /v1/routing/*", gate: {action: d.propose-approval-workflow-policies, mode: S}}  # CR-171 resolve, attempts, preflight, releases (draft)
   - {match: "POST /v1/policy-releases/*:review", gate: {action: d.approve-eligible-pending-request, mode: A}}
   - {match: "POST /v1/policy-releases/*:publish", gate: {action: d.change-role-taxonomy-permission-catalog, mode: A}}
 

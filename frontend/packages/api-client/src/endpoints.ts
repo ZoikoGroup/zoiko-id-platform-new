@@ -627,6 +627,27 @@ export function createCellApi(t: Transport) {
         t.request<{ sync_id: string; version: number }>("PUT", `/provisioning/directory-syncs/${seg(id)}/credential`, { body: { secret } }),
     },
 
+    routing: {
+      capabilities: () => get<M.Items<M.RoutingCapability>>("/v1/routing/capabilities"),
+      coverage: (method?: string) => get<M.RoutingCoverage>("/v1/routing/coverage", { method }),
+      claims: () => get<M.RoutingClaim>("/v1/routing/claims"),
+      decision: (id: string) => get<M.RouteDecisionView>(`/v1/routing/decisions/${seg(id)}`),
+      attempt: (id: string) => get<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}`),
+      dataFlow: (provider: string) => get<M.RouteDataFlow>(`/v1/routing/providers/${seg(provider)}/data-flow`),
+      recordDataFlow: (provider: string, hops: M.RouteHop[]) => post<M.RouteDataFlowResult>(`/v1/routing/providers/${seg(provider)}/data-flow`, { hops }),
+      advance: (id: string, body: { target: string; reason?: string; external_operation_id?: string }) => post<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}:advance`, body),
+      fail: (id: string, body: Record<string, boolean>) => post<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}:fail`, body),
+      approveCapability: (provider: string, method: string, reason: string) => post<Record<string, unknown>>(`/v1/routing/capabilities/${seg(provider)}/${seg(method)}:approve`, { reason }),
+      suspendCapability: (provider: string, method: string, reason: string) => post<Record<string, unknown>>(`/v1/routing/capabilities/${seg(provider)}/${seg(method)}:suspend`, { reason }),
+      preflight: (scenarios: (M.RouteScenarioIn & { required?: boolean })[], proposed: Record<string, unknown>[] = []) => post<M.RoutePreflight>("/v1/routing/preflight", { scenarios, proposed }),
+      releases: () => get<M.Items<M.RouteRelease>>("/v1/routing/releases"),
+      createRelease: (body: { risk: "LOW" | "HIGH"; scope?: Record<string, string> }) => post<M.RouteRelease>("/v1/routing/releases", body),
+      approveRelease: (id: string, role: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:approve`, { role }),
+      publishRelease: (id: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:publish`, {}),
+      rollbackRelease: (id: string, reason: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:rollback`, { reason }),
+      reconcile: (lines: { provider_id: string; external_operation_id: string; amount_minor: number; currency: string }[]) => post<M.RouteReconciliation>("/v1/routing/reconcile", { lines }),
+    },
+
     evidence: {
       /** Several receipts in one signed package that expires; creating one needs a fresh strong sign-in. */
       bulkExports: (limit?: number) => get<M.Items<M.BulkExport>>("/v1/evidence/bulk-exports", { limit }),

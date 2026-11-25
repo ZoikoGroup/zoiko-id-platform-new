@@ -1905,27 +1905,6 @@
         "title": "RecognitionBody",
         "type": "object"
       },
-      "ReconcileBody": {
-        "additionalProperties": false,
-        "properties": {
-          "period_end": {
-            "format": "date-time",
-            "title": "Period End",
-            "type": "string"
-          },
-          "period_start": {
-            "format": "date-time",
-            "title": "Period Start",
-            "type": "string"
-          }
-        },
-        "required": [
-          "period_start",
-          "period_end"
-        ],
-        "title": "ReconcileBody",
-        "type": "object"
-      },
       "RefundBody": {
         "additionalProperties": false,
         "properties": {
@@ -2800,6 +2779,27 @@
           "plan"
         ],
         "title": "PlanBody",
+        "type": "object"
+      },
+      "zid_platform__modules__operator_access__api__commercial_admin__ReconcileBody": {
+        "additionalProperties": false,
+        "properties": {
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period_start",
+          "period_end"
+        ],
+        "title": "ReconcileBody",
         "type": "object"
       },
       "zid_platform__modules__operator_access__api__commercial_admin__ResolveBody": {
@@ -10879,7 +10879,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReconcileBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ReconcileBody"
               }
             }
           },
