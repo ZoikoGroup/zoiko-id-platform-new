@@ -412,6 +412,12 @@ export function createCellApi(t: Transport) {
     },
 
     /** Applications and credentials a company's server uses to call the Verify API (CR-149). A secret is in exactly one answer: creating or rotating a credential. */
+    /** The restricted evidence room (ZID-CP-WF12 WF-12.03): a signed-in member asks for a document; staff decide; the grant works only for the person who asked. */
+    trustRoom: {
+      catalogue: () => get<M.TrustRoomCatalogue>("/trust/v1/room/catalogue"),
+      mine: () => get<M.Items<M.TrustRoomMine>>("/trust/v1/evidence-requests"),
+      ask: (body: { evidence_id: string; organization: string; purpose: string; accept_terms: boolean }) => post<M.TrustRoomMine>("/trust/v1/evidence-requests", body),
+    },
     verifyApi: {
       applications: () => get<M.Items<M.VerifyApiApplication>>("/v1/verify-api/applications"),
       /** The five-step first-verification checklist and its time (ZID-CP-WF10, WF-10.01). */
@@ -1587,6 +1593,9 @@ export function createOperatorApi(t: Transport) {
       regionCheck: (region: string) => get<{ region: string; may_claim_data_stays: boolean; blockers: string[] }>(`/v1/trust-center/privacy/region-check?region=${encodeURIComponent(region)}`),
       roomRequests: (open = true) => get<M.Items<M.TrustRoomRequest>>(`/v1/trust-center/room/requests${open ? "?open=true" : ""}`),
       decideRoom: (id: string, body: { approve: boolean; reason?: string; hours?: number; max_downloads?: number }) => post<{ status: string; access_token?: string }>(`/v1/trust-center/room/requests/${seg(id)}:decide`, body),
+      advisories: () => get<{ items: M.TrustAdvisory[] }>("/v1/trust-center/advisories"),
+      draftAdvisory: (body: { incident_ref: string; kind: string; title: string; body: string; reason: string }) => post<unknown>("/v1/trust-center/advisories", body),
+      approveAdvisory: (id: string, seq: number) => post<unknown>(`/v1/trust-center/advisories/${seg(id)}/versions/${seq}:approve`),
       revokeRoom: (id: string) => post<{ revoked_at: string }>(`/v1/trust-center/room/requests/${seg(id)}:revoke`),
     },
 

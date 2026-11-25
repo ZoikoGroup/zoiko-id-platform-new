@@ -52,6 +52,7 @@ describe("the proxy allowlist", () => {
     ["Verify API go-live requests", "/v1/verify-api/go-live"],
     ["Verify API case review and four-eyes (CR-167)", "/v1/verify-api/review-cases"],
     ["Verify API fraud graph (CR-168)", "/v1/verify-api/fraud"],
+    ["the restricted evidence room (WF-12.03)", "/trust/v1/"],
     ["Verify API endpoint health (CR-173)", "/v1/verify-api/diagnostics"],
     ["the error catalog", "/v1/verify-api/errors$"],
     ["the SDK register", "/v1/verify-api/sdks$"],

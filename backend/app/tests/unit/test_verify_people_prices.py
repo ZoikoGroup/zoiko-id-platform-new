@@ -49,3 +49,27 @@ def test_a_table_with_a_free_charge_or_a_non_floor_minimum_is_refused() -> None:
         pp.parse({"version": "x", "status": "P", "currency": "USD", "minimum_model": "FLOOR", "plans": {"a": {"name": "A", "charge": "0", "minimum_monthly": "1"}}})
     with pytest.raises(ValueError):
         pp.parse({"version": "x", "status": "P", "currency": "USD", "minimum_model": "PLATFORM_FEE", "plans": {}})
+
+
+def test_the_public_route_serves_the_table_and_an_estimate_and_refuses_what_it_should() -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from zid_errors import ZidError
+    from zid_platform.modules.verify_api.api import sessions as api
+
+    app = FastAPI()
+    app.include_router(api.router)
+
+    @app.exception_handler(ZidError)
+    async def _h(_r, e):  # type: ignore[no-untyped-def]
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse({"error": {"code": e.code}}, status_code=e.http_status)
+
+    c = TestClient(app)
+    base = c.get("/v1/verify-api/pricing/people").json()
+    assert base["status"] == "PROPOSED" and [p["code"] for p in base["plans"]] == ["essentials", "business", "advanced", "enterprise"] and "estimate" not in base
+    assert next(p for p in base["plans"] if p["code"] == "enterprise")["rate_per_verification"] is None
+    assert c.get("/v1/verify-api/pricing/people?plan=business&verifications=600").json()["estimate"]["total"] == "774.00"
+    assert c.get("/v1/verify-api/pricing/people?plan=enterprise&verifications=5").status_code == 422
+    assert c.get("/v1/verify-api/pricing/people?plan=gold&verifications=5").status_code == 404

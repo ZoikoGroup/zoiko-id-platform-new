@@ -8,6 +8,7 @@ import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { RegError } from "../regulatory/common";
 
+import { Advisories, RecordEvidence, RecordFigure } from "./forms";
 import { figure, hoursText } from "./logic";
 
 const K = ["trust", "ops"] as const;
@@ -81,6 +82,7 @@ function Evidence() {
   ];
   return (
     <div className="space-y-3">
+      <RecordEvidence />
       <QueryView query={q}>{(d) => <DataTable caption="Evidence records" columns={cols} rows={d.items} rowKey={(e) => e.evidence_id} empty="No evidence recorded. A claim cannot be published without it." />}</QueryView>
       {[confirm, lifecycle].map((m, i) => (m.error ? <RegError key={i} error={m.error} /> : null))}
     </div>
@@ -148,6 +150,7 @@ function Availability() {
   const validate = useCellMutation((api, id: string) => api.trustCenter.validateSnapshot(id), { invalidate: [K as never], success: "Validated: now shown publicly" });
   return (
     <div className="space-y-3">
+      <RecordFigure />
       <Banner tone="info" title="A figure is public only after a second person validates it">Record a figure from raw counts; a different person validates it. An empty window is never shown as 100%.</Banner>
       <QueryView query={q}>
         {(d) => (
@@ -204,9 +207,10 @@ function Disclosures() {
 }
 
 function Room() {
-  const q = useCellQuery([...K, "room"], (api) => api.trustCenter.roomRequests(true));
+  const q = useCellQuery([...K, "room"], (api) => api.trustCenter.roomRequests(false));
   const [reason, setReason] = useState("");
   const [token, setToken] = useState<string | null>(null);
+  const revoke = useCellMutation((api, id: string) => api.trustCenter.revokeRoom(id), { invalidate: [K as never], success: "Access withdrawn at once" });
   const decide = useCellMutation((api, v: { id: string; approve: boolean }) => api.trustCenter.decideRoom(v.id, { approve: v.approve, reason }), {
     invalidate: [K as never], success: "Decision recorded", onSuccess: (r) => setToken(r.access_token ?? null),
   });
@@ -222,7 +226,8 @@ function Room() {
               { key: "o", header: "Company", render: (r) => r.organization },
               { key: "p", header: "Purpose", render: (r) => r.purpose },
               { key: "d", header: "Asked", render: (r) => new Date(r.created_at).toLocaleString() },
-              { key: "a", header: "", render: (r) => <div className="flex gap-1"><Button variant="secondary" onPress={() => decide.mutate({ id: r.request_id, approve: true })}>Approve</Button><Button variant="secondary" isDisabled={reason.trim().length < 3} onPress={() => decide.mutate({ id: r.request_id, approve: false })}>Refuse</Button></div> },
+              { key: "st", header: "State", render: (r) => r.status.toLowerCase() },
+              { key: "a", header: "", render: (r) => r.status === "REQUESTED" ? <div className="flex gap-1"><Button variant="secondary" onPress={() => decide.mutate({ id: r.request_id, approve: true })}>Approve</Button><Button variant="secondary" isDisabled={reason.trim().length < 3} onPress={() => decide.mutate({ id: r.request_id, approve: false })}>Refuse</Button></div> : r.status === "APPROVED" ? <Button variant="secondary" onPress={() => revoke.mutate(r.request_id)}>Withdraw access</Button> : null },
             ]}
             rows={d.items}
             rowKey={(r) => r.request_id}
@@ -230,7 +235,7 @@ function Room() {
           />
         )}
       </QueryView>
-      {decide.error ? <RegError error={decide.error} /> : null}
+      {[decide, revoke].map((m, i) => (m.error ? <RegError key={i} error={m.error} /> : null))}
     </div>
   );
 }
@@ -251,6 +256,7 @@ export function TrustOperationsPage() {
           { id: "reports", label: "Vulnerability reports", content: <Reports /> },
           { id: "withdrawals", label: "Withdrawals", content: <Withdrawals /> },
           { id: "availability", label: "Availability", content: <Availability /> },
+          { id: "advisories", label: "Advisories", content: <Advisories /> },
           { id: "privacy", label: "Privacy", content: <Disclosures /> },
           { id: "room", label: "Document requests", content: <Room /> },
         ]}

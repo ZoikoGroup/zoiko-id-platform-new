@@ -6043,6 +6043,73 @@
         ]
       }
     },
+    "/v1/verify-api/pricing/people": {
+      "get": {
+        "description": "The Verify People prices as shown on the pricing page, and an estimate for a plan and a monthly volume. Proposed prices, not an invoice. Public.",
+        "operationId": "people_pricing_v1_verify_api_pricing_people_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "plan",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z]{3,20}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plan"
+            }
+          },
+          {
+            "in": "query",
+            "name": "verifications",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verifications"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "People Pricing",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/products": {
       "get": {
         "operationId": "products_v1_verify_api_products_get",

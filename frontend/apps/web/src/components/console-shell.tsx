@@ -80,6 +80,7 @@ const NAV: NavGroup[] = [
       { id: "command-center", label: "Command Center", href: "/verify-api/command-center", icon: Gauge },
       { id: "idv-cases", label: "Verification cases", href: "/admin/idv-cases", icon: ScanFace },
       { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
+      { id: "trust-room", label: "Security documents", href: "/trust-room", icon: ShieldCheck },
     ],
   },
   {

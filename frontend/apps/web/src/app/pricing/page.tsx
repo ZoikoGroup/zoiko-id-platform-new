@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { count, money } from "@/features/admin/billing/shared";
 import { Calculator } from "@/features/pricing/calculator";
+import { PeopleCalculator, type PeoplePlan } from "@/features/pricing/people-calculator";
 import { ADD_ONS, DISCLAIMER, ENTERPRISE_NOTE, FAQ, GLOSSARY, HERO, PLAN_ORDER, PLATFORM_NOTE, SKU_LABEL, SUBHERO } from "@/features/pricing/copy";
 import { PricingExplorer } from "@/features/pricing/explorer";
 import { contextFromLink } from "@/features/pricing/logic";
@@ -48,7 +49,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
   const linked = token ? await load<PublicContext>(`/v1/public/pricing/context-link/${token}`) : null;
   const initialContext = linked ? contextFromLink(linked) : undefined;
   const linkProblem = token !== null && linked === null;
-  const [structure, catalog] = await Promise.all([load<PublicPricingPage>("/v1/public/pricing/page"), load<Catalog>("/v1/catalog")]);
+  const [structure, catalog, people] = await Promise.all([load<PublicPricingPage>("/v1/public/pricing/page"), load<Catalog>("/v1/catalog"), load<{ plans: PeoplePlan[]; currency: string; status: string }>("/v1/verify-api/pricing/people")]);
   const plans = (catalog?.plans ?? []).slice().sort((a, b) => order(a) - order(b));
   const priced = catalog?.status === "PRICED";
 
@@ -68,6 +69,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
           </ButtonLink>
         </div>
       </section>
+
+      {people ? <PeopleCalculator plans={people.plans} currency={people.currency} status={people.status} /> : null}
 
       {structure ? (
         <>

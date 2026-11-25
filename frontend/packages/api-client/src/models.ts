@@ -5523,3 +5523,6 @@ export type FraudOverview = {
   coverage: { sessions: number; sessions_with_observation: number; sessions_without: number; note: string };
   definitions: Record<string, string>;
 };
+export type TrustRoomCatalogue = { items: { evidence_id: string; scheme: string; kind: string; legal_entity: string; products: string[]; period_end: string; state: string }[]; terms_version: string };
+export type TrustRoomMine = { request_id: string; evidence_id: string; organization: string; purpose: string; status: string; created_at: string; decision_reason: string; grant_expires_at: string | null; downloads_left: number | null; revoked: boolean };
+export type TrustAdvisory = { advisory_id: string; incident_ref: string; versions: { seq: number; kind: string; title: string; body: string; published: boolean; created_at: string }[] };

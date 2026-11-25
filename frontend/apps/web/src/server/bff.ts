@@ -151,6 +151,7 @@ const API_PATH_PREFIXES = [
   "/v1/verify-api/go-live",
   "/v1/verify-api/review-cases",
   "/v1/verify-api/fraud",
+  "/trust/v1/",
   "/v1/verify-api/diagnostics",
   "/v1/verify-api/errors$",
   "/v1/verify-api/sdks$",

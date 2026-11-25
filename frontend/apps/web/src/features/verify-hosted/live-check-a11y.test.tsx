@@ -14,12 +14,12 @@ async function violations(container: HTMLElement) {
   return r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
 }
 
-const ok = async (body: unknown) => {
+const ok = async (body: unknown): Promise<{ ok: boolean; data?: unknown }> => {
   const action = (body as { action?: string }).action;
   if (action === "nonce") return { ok: true, data: { nonce: "n".repeat(16), attempts_left: 3 } };
   return { ok: true, data: { return_origin: null } };
 };
-const refuse = async () => ({ ok: false });
+const refuse = async (_body: unknown): Promise<{ ok: boolean; data?: unknown }> => ({ ok: false });
 
 function view(call = ok) {
   return render(

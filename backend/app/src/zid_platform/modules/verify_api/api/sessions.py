@@ -49,19 +49,26 @@ from zid_errors import ZidError
 from zid_platform.api_auth import request_engine
 from zid_platform.modules.verification.ports import partner_capture
 from zid_platform.modules.verify_api.api.verify_api import VerifyApiDep
-from zid_platform.modules.verify_api.application import hosted_live, partner_spec
+from zid_platform.modules.verify_api.application import (
+    hosted_live,
+    onboarding_service,
+    partner_spec,
+)
 from zid_platform.modules.verify_api.application import sessions_service as svc
 from zid_platform.modules.verify_api.application.throttle import FailureLimiter
-from zid_platform.modules.verify_api.application import onboarding_service
 from zid_platform.modules.verify_api.domain import api_versions as api_versions_rules
 from zid_platform.modules.verify_api.domain import claims as claims_rules
-from zid_platform.modules.verify_api.domain import model as PartnerModel
 from zid_platform.modules.verify_api.domain import credential_policy as credential_policy_rules
 from zid_platform.modules.verify_api.domain import errors as error_catalog
-from zid_platform.modules.verify_api.domain import fixtures, mcp_dev
-from zid_platform.modules.verify_api.domain import sdk_catalog
+from zid_platform.modules.verify_api.domain import fixtures, mcp_dev, people_prices, sdk_catalog
+from zid_platform.modules.verify_api.domain import model as PartnerModel
 from zid_platform.modules.verify_api.domain.model import PartnerError
-from zid_platform.modules.verify_api.infrastructure import api_version_register, sdk_register, store
+from zid_platform.modules.verify_api.infrastructure import (
+    api_version_register,
+    people_price_register,
+    sdk_register,
+    store,
+)
 
 router = APIRouter(tags=["verify-api"])
 _hosted_limiter = FailureLimiter()
@@ -280,6 +287,22 @@ async def developer_mcp(request: Request) -> Response:
 async def developer_mcp_registry() -> JSONResponse:
     """The tools this MCP server offers, and the ones that are deliberately off with the reason. Public."""
     return JSONResponse(mcp_dev.registry(), headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/v1/verify-api/pricing/people")
+async def people_pricing(plan: str | None = Query(default=None, pattern=r"^[a-z]{3,20}$"), verifications: int | None = Query(default=None, ge=0, le=1_000_000_000)) -> JSONResponse:
+    """The Verify People prices as shown on the pricing page, and an estimate for a plan and a monthly volume. Proposed prices, not an invoice. Public."""
+    table = people_price_register.table()
+    out: dict[str, Any] = {
+        "version": table.version, "status": table.status, "currency": table.currency,
+        "plans": [{"code": p.code, "name": p.name, "custom": p.custom, "rate_per_verification": None if p.charge is None else format(p.charge, "f"), "monthly_minimum": None if p.minimum_monthly is None else format(p.minimum_monthly, "f")} for p in table.plans.values()],
+    }  # fmt: skip
+    if plan is not None and verifications is not None:
+        try:
+            out["estimate"] = people_prices.estimate(table, plan, verifications)
+        except PartnerError as e:
+            raise ZidError(e.code, e.detail, http_status=404 if e.code == "PLAN_UNKNOWN" else 422) from e
+    return JSONResponse(out, headers={"Cache-Control": "public, max-age=60"})
 
 
 @router.get("/v1/verify-api/claims")
