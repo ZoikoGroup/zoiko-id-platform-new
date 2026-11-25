@@ -95,7 +95,7 @@ capabilities:
     name: "Evidence Service (+ privacy: erasure, legal holds; assurance: independent UAT and release evidence; Evidence & Compliance in §21.1)"
     owns: "Decision receipts, proofs, immutable commitments"
     must_not_own: "Direct personal identifiers by default (enforced in Phase F, INV-09)"
-    modules: [evidence, privacy, assurance]
+    modules: [evidence, privacy, assurance, trust_center]
     forbidden_schemas: [core, authn]
 
   tenant-cell:

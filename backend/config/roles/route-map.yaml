@@ -57,6 +57,8 @@ rules:
   - {match: "* /v1/screening/ownership/*", exempt: INLINE_EVALUATION, why: "the handler requires a tenant OWNER or ADMIN; it reads only this tenant's own cases and tells the company nothing a check found (CR-122)"}
   - {match: "* /v1/screening/cases*", exempt: INLINE_EVALUATION, why: "the handler requires a tenant OWNER or ADMIN and checks the signed market policy for the tenant (WF06 S01 to S03, CR-113)"}
   - {match: "POST /v1/integrations/screening/*", exempt: PROTOCOL, why: "a licensed screening provider's callback, authorised by its own signing key, a clock window and a replay check (WF06 section 10, CR-113)"}
+  - {match: "* /trust/v1/*", exempt: INLINE_EVALUATION, why: "the evidence room: the handler requires a signed-in member and binds every request, grant and download to that person and company, with staff approval, expiry and revocation (ZID-CP-WF12 WF-12.03, CR-174)"}
+  - {match: "* /v1/trust-center/*", exempt: OPERATOR_PLANE, why: "the Trust Center claims register is worked by Zoiko staff holding a trust capability; every action is a JIT grant with separation of duties (ZID-CP-WF12, CR-174)"}
   - {match: "* /v1/screening/review/*", exempt: OPERATOR_PLANE, why: "the restricted screening case queue and decisions are worked by operators in a case role (WF06 S04, S05, S09, CR-113)"}
   - {match: "* /v1/screening/providers*", exempt: OPERATOR_PLANE, why: "licensed screening providers are governed by operators and Finance, read only here (WF06 S11, CR-113)"}
   - {match: "* /v1/screening/gates*", exempt: OPERATOR_PLANE, why: "release gates for a screening module in a market are signed by operators in named roles (WF06 section 22, CR-113)"}

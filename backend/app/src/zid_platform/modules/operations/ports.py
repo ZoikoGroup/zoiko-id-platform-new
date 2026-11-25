@@ -47,4 +47,14 @@ async def public_incidents(conn: AsyncConnection, *, cell_id: str | None, limit:
     return out
 
 
-__all__ = ["Catalogue", "CatalogueError", "catalogue_journeys", "public_incidents", "service_catalogue"]
+async def incident_summary(conn: AsyncConnection, incident_id: str) -> dict[str, Any] | None:
+    """One incident's id, severity, status, services and whether it is a security incident, for a module that publishes about it (the Trust Center's advisories). None if there is no such incident."""
+    from zid_platform.modules.operations.infrastructure.store import load_incident
+
+    i = await load_incident(conn, incident_id)
+    if i is None:
+        return None
+    return {"incident_id": i.incident_id, "severity": i.severity.value, "status": i.status.value, "services": list(i.services), "security": i.security}
+
+
+__all__ = ["Catalogue", "CatalogueError", "catalogue_journeys", "incident_summary", "public_incidents", "service_catalogue"]

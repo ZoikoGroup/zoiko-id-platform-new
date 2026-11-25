@@ -492,6 +492,116 @@ def _release_capabilities() -> tuple[Capability, ...]:
     )
 
 
+TRUST_REVIEW_ROLES = ("product", "legal", "security", "privacy", "sre", "finance", "marketing")
+
+
+def _trust_capabilities() -> tuple[Capability, ...]:
+    """The Trust Center's claims governance (ZID-CP-WF12 WF-12.09 to 12.11; CR-174). A reviewer's role is the capability they hold, so it cannot be claimed in a request."""
+
+    def cap(name: str, description: str, *, two_person: bool, minutes: int) -> Capability:
+        return _cap(
+            name,
+            description,
+            risk=3,
+            evidence=3,
+            scope=Scope.PLATFORM,
+            customer_data=False,
+            two_person=two_person,
+            minutes=minutes,
+            break_glass=False,
+        )
+
+    return (
+        cap(
+            "trust.claim.author",
+            "Draft a public claim and link evidence to it; cannot review, publish or withdraw anything (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.evidence.manage",
+            "Record evidence and its lifecycle (confirmed by the issuer, expired, suspended, withdrawn); cannot approve a claim that uses it (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        *(
+            cap(
+                f"trust.claim.review_{role}",
+                f"Approve or refuse a public claim as the {role} reviewer; never one's own claim, one reviewing role per person (CR-174)",
+                two_person=True,
+                minutes=120,
+            )
+            for role in TRUST_REVIEW_ROLES
+        ),
+        cap(
+            "trust.claim.publish",
+            "Publish a fully approved claim through the publication gate, or roll back to the last approved version (CR-174)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "trust.status.record",
+            "Record a measured availability figure from raw service counts; cannot validate it (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.status.validate",
+            "Validate a recorded availability figure as the second person, so it can be shown publicly; never the person who recorded it (CR-174)",
+            two_person=True,
+            minutes=120,
+        ),
+        cap(
+            "trust.advisory.draft",
+            "Draft a public advisory, update or correction about an incident; cannot approve it (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.advisory.approve",
+            "Approve the exact text of a public advisory version as Security or Legal; never one's own (CR-174)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "trust.report.triage",
+            "Read vulnerability reports from outside, acknowledge, triage, assign and close them (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.privacy.author",
+            "Draft a privacy, subprocessor, retention, biometric or transfer disclosure; cannot approve it (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.privacy.approve",
+            "Approve a privacy disclosure as Privacy or Vendor Management; never one's own (CR-174)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "trust.room.approve",
+            "Approve or deny a business's request for a restricted evidence artifact and set the access it gets (CR-174)",
+            two_person=True,
+            minutes=60,
+        ),
+        cap(
+            "trust.room.revoke",
+            "Revoke a restricted evidence grant at once (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+        cap(
+            "trust.claim.withdraw",
+            "Withdraw a published claim at once, by one responder, with a reason; a review is then required (CR-174)",
+            two_person=False,
+            minutes=240,
+        ),
+    )
+
+
 CAPABILITIES: dict[str, Capability] = {
     c.name: c
     for c in (
@@ -741,6 +851,7 @@ CAPABILITIES: dict[str, Capability] = {
         *_release_capabilities(),
         *_kyb_policy_capabilities(),
         *_screening_capabilities(),
+        *_trust_capabilities(),
         _cap(
             "prod.db.breakglass",
             "Captured, JIT-only database session (breakglass_dba)",
@@ -815,6 +926,37 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
             }
         ),
         "Whoever prepares a market release signs no gate or approval of it, and holds one signing role only (ZID-RCG-003 RG-08)",
+    ),
+    ConflictRule(
+        "trust-claim-author-vs-reviewer",
+        frozenset(
+            {
+                "trust.claim.author",
+                *(f"trust.claim.review_{r}" for r in TRUST_REVIEW_ROLES),
+                "trust.claim.publish",
+            }
+        ),
+        "Whoever drafts a public claim reviews and publishes none of it, and a reviewer holds one reviewing role only (ZID-CP-WF12 WF-12.11)",
+    ),
+    ConflictRule(
+        "trust-status-recorder-vs-validator",
+        frozenset({"trust.status.record", "trust.status.validate"}),
+        "Whoever records an availability figure does not validate it (ZID-CP-WF12 WF-12.06)",
+    ),
+    ConflictRule(
+        "trust-advisory-drafter-vs-approver",
+        frozenset({"trust.advisory.draft", "trust.advisory.approve"}),
+        "Whoever drafts a public advisory does not approve it (ZID-CP-WF12 WF-12.08)",
+    ),
+    ConflictRule(
+        "trust-privacy-author-vs-approver",
+        frozenset({"trust.privacy.author", "trust.privacy.approve"}),
+        "Whoever drafts a privacy disclosure does not approve it (ZID-CP-WF12 WF-12.05)",
+    ),
+    ConflictRule(
+        "trust-evidence-manager-vs-reviewer",
+        frozenset({"trust.evidence.manage", *(f"trust.claim.review_{r}" for r in TRUST_REVIEW_ROLES)}),
+        "Whoever records evidence does not approve a claim that relies on it (ZID-CP-WF12 WF-12.10)",
     ),
     ConflictRule(
         "screening-source-stager-vs-approver",

@@ -204,6 +204,25 @@
         ]
       }
     },
+    "/.well-known/security.txt": {
+      "get": {
+        "operationId": "security_txt__well_known_security_txt_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Security Txt",
+        "tags": [
+          "trust-center-public"
+        ]
+      }
+    },
     "/.well-known/ssf-configuration": {
       "get": {
         "operationId": "configuration__well_known_ssf_configuration_get",

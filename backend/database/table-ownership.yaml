@@ -2519,3 +2519,78 @@ tables:
     module: tenant
     tenant_scoped: true
     source: "CR-061 (permanent per-company member number)"
+  platform.tc_evidence:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.10 evidence artifact with its assessed scope (CR-174)"
+  platform.tc_claim_revision:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.09 one immutable version of a public claim (CR-174)"
+  platform.tc_approval:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.11 hash-bound reviewer decisions, append-only (CR-174)"
+  platform.tc_publication:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.11 publications and rollbacks, append-only (CR-174)"
+  platform.tc_withdrawal:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.11 emergency withdrawals and their retrospective review (CR-174)"
+  platform.tc_sli_snapshot:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.06 measured availability, recorded and validated by two people (CR-174)"
+  platform.tc_advisory:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.08 public incident advisory tied to an operators' incident (CR-174)"
+  platform.tc_advisory_version:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.08 append-only advisory versions with corrections (CR-174)"
+  platform.tc_report:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.07 vulnerability report from outside (CR-174)"
+  platform.tc_report_event:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.07 append-only report timeline (CR-174)"
+  platform.tc_disclosure:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.05 numbered privacy, subprocessor, retention, biometric and transfer disclosures (CR-174)"
+  platform.tc_evidence_blob:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.03 scanned bytes of a restricted evidence artifact (CR-174)"
+  platform.tc_room_request:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.03 a signed-in business's request for restricted evidence (CR-174)"
+  platform.tc_room_grant:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.03 expiring revocable access bound to the requester (CR-174)"
+  platform.tc_room_access:
+    role: cell
+    module: trust_center
+    tenant_scoped: false
+    source: "ZID-CP-WF12 WF-12.03 append-only access history (CR-174)"

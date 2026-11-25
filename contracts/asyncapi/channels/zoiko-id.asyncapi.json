@@ -2270,6 +2270,31 @@
         }
       }
     },
+    "trust.domain": {
+      "address": "zid.{env}.{region}.trust.domain",
+      "messages": {
+        "trust_claim_published": {
+          "$ref": "#/components/messages/trust_claim_published"
+        },
+        "trust_claim_withdrawn": {
+          "$ref": "#/components/messages/trust_claim_withdrawn"
+        },
+        "trust_evidence_lifecycle_changed": {
+          "$ref": "#/components/messages/trust_evidence_lifecycle_changed"
+        },
+        "trust_vulnerability_reported": {
+          "$ref": "#/components/messages/trust_vulnerability_reported"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "verification.domain": {
       "address": "zid.{env}.{region}.verification.domain",
       "messages": {
@@ -6528,6 +6553,50 @@
         "x-zid-source": "ZID-MACHINE-001",
         "x-zid-status": "catalogued"
       },
+      "trust_claim_published": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.trust.claim.published.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A public claim revision was put live through the publication gate; ids, revision, content hash, channels and locale only, never the approvers' notes.",
+        "title": "trust.claim.published",
+        "x-zid-source": "ZID-CP-WF12 v2.0; CR-174",
+        "x-zid-status": "proposed"
+      },
+      "trust_claim_withdrawn": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.trust.claim.withdrawn.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A published claim was withdrawn by an authorized responder; ids, revision, channels and the review due time only. Subscribers must purge every cached copy.",
+        "title": "trust.claim.withdrawn",
+        "x-zid-source": "ZID-CP-WF12 v2.0; CR-174",
+        "x-zid-status": "proposed"
+      },
+      "trust_evidence_lifecycle_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.trust.evidence.lifecycle_changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An evidence record's lifecycle changed (expired, suspended, superseded or withdrawn); ids and the new state only. Claims resting on it must be re-evaluated.",
+        "title": "trust.evidence.lifecycle_changed",
+        "x-zid-source": "ZID-CP-WF12 v2.0; CR-174",
+        "x-zid-status": "proposed"
+      },
+      "trust_vulnerability_reported": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.trust.vulnerability.reported.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A vulnerability report arrived through the public form; the reference, the reporter's own severity and the response target only, never the report text or the contact.",
+        "title": "trust.vulnerability.reported",
+        "x-zid-source": "ZID-CP-WF12 v2.0; CR-174",
+        "x-zid-status": "proposed"
+      },
       "verification_api_session_closed": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.api.session_closed.v1",
@@ -7969,6 +8038,13 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/tool.priority"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_trust_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/trust.domain"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

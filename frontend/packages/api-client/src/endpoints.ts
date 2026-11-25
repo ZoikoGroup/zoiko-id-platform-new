@@ -1546,6 +1546,39 @@ export function createOperatorApi(t: Transport) {
     },
 
     /** ZID-RCG-003 regulatory records (CR-067 to CR-085). Every write is one operator capability; the cell enforces who may do what. */
+    /** The Trust Center's claims register (ZID-CP-WF12; CR-174). A reviewer's role is the capability they hold, never a field they type. */
+    trustCenter: {
+      claims: (status?: string) => get<M.Items<M.TrustClaimRow>>(`/v1/trust-center/claims${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+      claim: (id: string, revision: number) => get<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}`),
+      draft: (body: M.TrustClaimInput) => post<M.TrustClaim>("/v1/trust-center/claims", body),
+      revise: (id: string, body: M.TrustClaimInput) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions`, body),
+      approve: (id: string, revision: number, role: M.TrustRole, evidenceDigests: string[]) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:approve`, { role, evidence_digests: evidenceDigests }),
+      refuse: (id: string, revision: number, role: M.TrustRole, reason: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:refuse`, { role, reason }),
+      publish: (id: string, revision: number, expectedHash: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:publish`, { expected_hash: expectedHash }),
+      rollback: (id: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}:rollback`),
+      withdraw: (id: string, reason: string, revision?: number) => post<M.TrustWithdrawal>(`/v1/trust-center/claims/${seg(id)}:withdraw`, { reason, revision }),
+      withdrawals: (open = false) => get<M.Items<M.TrustWithdrawalRow>>(`/v1/trust-center/withdrawals${open ? "?open=true" : ""}`),
+      reviewWithdrawal: (id: string, note: string) => post<{ withdrawal_id: string }>(`/v1/trust-center/withdrawals/${seg(id)}:review`, { note }),
+      evidence: () => get<M.Items<M.TrustEvidence>>("/v1/trust-center/evidence"),
+      recordEvidence: (body: M.TrustEvidenceInput) => post<M.TrustEvidence>("/v1/trust-center/evidence", body),
+      confirmEvidence: (id: string) => post<M.TrustEvidence>(`/v1/trust-center/evidence/${seg(id)}:confirm`),
+      evidenceLifecycle: (id: string, lifecycle: string) => post<M.TrustEvidence & { claims_resting_on_it: { claim_id: string; revision: number }[] }>(`/v1/trust-center/evidence/${seg(id)}:lifecycle`, { lifecycle }),
+      monitoring: () => get<M.TrustMonitoring>("/v1/trust-center/monitoring"),
+      scan: (pages: { url: string; content: string }[]) => post<M.TrustScan>("/v1/trust-center/scans", { pages }),
+      reports: (open = true) => get<M.Items<M.TrustReport>>(`/v1/trust-center/reports${open ? "?open=true" : ""}`),
+      report: (id: string) => get<M.TrustReport & { summary: string; affected: string; contact: string | null; timeline: { seq: number; kind: string; note: string; at: string }[] }>(`/v1/trust-center/reports/${seg(id)}`),
+      triage: (id: string, body: { state?: string; severity?: string; note?: string }) => post<M.TrustReport>(`/v1/trust-center/reports/${seg(id)}:triage`, body),
+      snapshots: () => get<M.Items<M.TrustSnapshot>>("/v1/trust-center/availability/snapshots"),
+      recordSnapshot: (body: { service: string; region: string; window_label: string; numerator: number; denominator: number; exclusions: string; source_ref: string }) => post<M.TrustSnapshot>("/v1/trust-center/availability/snapshots", body),
+      validateSnapshot: (id: string) => post<M.TrustSnapshot>(`/v1/trust-center/availability/snapshots/${seg(id)}:validate`),
+      disclosures: () => get<M.Items<M.TrustDisclosure>>("/v1/trust-center/privacy/disclosures"),
+      approveDisclosure: (id: string) => post<M.TrustDisclosure>(`/v1/trust-center/privacy/disclosures/${seg(id)}:approve`),
+      regionCheck: (region: string) => get<{ region: string; may_claim_data_stays: boolean; blockers: string[] }>(`/v1/trust-center/privacy/region-check?region=${encodeURIComponent(region)}`),
+      roomRequests: (open = true) => get<M.Items<M.TrustRoomRequest>>(`/v1/trust-center/room/requests${open ? "?open=true" : ""}`),
+      decideRoom: (id: string, body: { approve: boolean; reason?: string; hours?: number; max_downloads?: number }) => post<{ status: string; access_token?: string }>(`/v1/trust-center/room/requests/${seg(id)}:decide`, body),
+      revokeRoom: (id: string) => post<{ revoked_at: string }>(`/v1/trust-center/room/requests/${seg(id)}:revoke`),
+    },
+
     regulatory: {
       readiness: () => get<M.RegulatoryReadiness>("/v1/regulatory/readiness"),
       /** The Face lab (CR-128): the lab engine's state and the approval gate's missing records. */

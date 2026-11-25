@@ -1078,3 +1078,27 @@ events:
     source: ZID-DTV-WF-01 section 14; CR-107
     lane: domain
     source_status: "proposed"
+  trust.claim.published:
+    cloudevents_type: com.zoiko.id.trust.claim.published.v1
+    meaning: "A public claim revision was put live through the publication gate; ids, revision, content hash, channels and locale only, never the approvers' notes."
+    source: ZID-CP-WF12 v2.0; CR-174
+    lane: domain
+    source_status: "proposed"
+  trust.claim.withdrawn:
+    cloudevents_type: com.zoiko.id.trust.claim.withdrawn.v1
+    meaning: "A published claim was withdrawn by an authorized responder; ids, revision, channels and the review due time only. Subscribers must purge every cached copy."
+    source: ZID-CP-WF12 v2.0; CR-174
+    lane: domain
+    source_status: "proposed"
+  trust.evidence.lifecycle_changed:
+    cloudevents_type: com.zoiko.id.trust.evidence.lifecycle_changed.v1
+    meaning: "An evidence record's lifecycle changed (expired, suspended, superseded or withdrawn); ids and the new state only. Claims resting on it must be re-evaluated."
+    source: ZID-CP-WF12 v2.0; CR-174
+    lane: domain
+    source_status: "proposed"
+  trust.vulnerability.reported:
+    cloudevents_type: com.zoiko.id.trust.vulnerability.reported.v1
+    meaning: "A vulnerability report arrived through the public form; the reference, the reporter's own severity and the response target only, never the report text or the contact."
+    source: ZID-CP-WF12 v2.0; CR-174
+    lane: domain
+    source_status: "proposed"

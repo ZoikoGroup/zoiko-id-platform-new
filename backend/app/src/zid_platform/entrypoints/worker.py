@@ -541,8 +541,16 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         return {"purged": await purge_expired(conn, before=now - timedelta(days=settings.verify_analytics_retention_days))}
 
+    async def trust_center_sweep(conn: AsyncConnection, now: datetime) -> object:
+        """WF-12.12: a live public claim whose own date has passed, or whose evidence is no longer current, is taken out of service; the public page already hides it on every read."""
+        from zid_platform.modules.trust_center.ports import expire_due
+
+        gone = await expire_due(conn, now=now)
+        return {"taken_out_of_service": len(gone), "claims": [f"{g['claim_id']}#{g['revision']}:{g['reason']}" for g in gone]}
+
     return [
         ("evidence", evidence),
+        ("trust_center", trust_center_sweep),
         ("key_events", key_events),
         ("operator_access", operator),
         ("privacy", privacy),

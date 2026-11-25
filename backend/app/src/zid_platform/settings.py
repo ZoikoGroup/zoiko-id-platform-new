@@ -1,6 +1,6 @@
 """Typed settings. Environment variables use the ZID_ prefix; no secret defaults (DEC-F5)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import Field
@@ -272,6 +272,18 @@ class Settings(ServiceSettings):
     verify_analytics_min_group: int = Field(default=20, ge=2, le=1000)
     verify_analytics_stale_minutes: int = Field(default=15, ge=1, le=24 * 60)
     verify_analytics_retention_days: int = Field(default=400, ge=30, le=3650)
+    # ZID-CP-WF12 Trust Center (CR-174). /.well-known/security.txt is served only when a contact is configured and its expiry is still ahead: a file that says nothing true, or has lapsed,
+    # is worse than none. ZID_TRUST_SECURITY_CONTACT is a mailto: or https: URI; ZID_TRUST_SECURITY_EXPIRES is an ISO 8601 time with a zone; the policy and encryption values are https URLs.
+    trust_security_contact: str | None = None
+    trust_security_expires: datetime | None = None
+    trust_security_policy_url: str | None = None
+    trust_security_encryption_url: str | None = None
+    trust_security_acknowledgments_url: str | None = None
+    # a secret mixed into the hash of a reporter's network address so the stored value cannot be reversed or compared across deployments
+    # Owner decisions (DEC-01, DEC-11) the code cannot make: how long after an emergency withdrawal its review is due, and the version of the confidentiality terms Legal approved.
+    trust_withdrawal_review_hours: int = Field(default=72, ge=1, le=24 * 30)
+    trust_room_terms_version: str = "UNAPPROVED-DRAFT"
+    trust_report_salt: str = "change-me-in-deployment"
     # reviewed languages the hosted page may offer (BCP 47); a language is listed only once its legal notice and copy are reviewed, never machine-translated
     hosted_verify_languages: list[str] = Field(default_factory=lambda: ["en"])
     email_routes: dict[str, str] = Field(default_factory=dict)

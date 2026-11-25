@@ -116,6 +116,15 @@ def create_app(
     ).rstrip("/")
     app.state.hosted_verify_languages = list(settings.hosted_verify_languages)
     # WF-02 Command Center policy (D-01): smallest group a figure may describe, freshness limit; the cell a customer's incidents are filtered by
+    app.state.trust_security_contact = settings.trust_security_contact
+    app.state.trust_security_expires = settings.trust_security_expires
+    app.state.trust_security_policy_url = settings.trust_security_policy_url
+    app.state.trust_security_encryption_url = settings.trust_security_encryption_url
+    app.state.trust_security_acknowledgments_url = settings.trust_security_acknowledgments_url
+    app.state.trust_report_salt = settings.trust_report_salt
+    app.state.trust_withdrawal_review_hours = settings.trust_withdrawal_review_hours
+    app.state.trust_room_terms_version = settings.trust_room_terms_version
+    app.state.trust_report_tenant = settings.operator_tenant_id
     app.state.verify_analytics_min_group = settings.verify_analytics_min_group
     app.state.verify_analytics_stale_minutes = settings.verify_analytics_stale_minutes
     app.state.cell_id = settings.cell_id
@@ -592,6 +601,9 @@ def create_app(
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.trust_center.api.public import router as trust_center_public_router
+        from .modules.trust_center.api.register import router as trust_center_router
+        from .modules.trust_center.api.room import router as trust_center_room_router
         from .modules.verification.api.address_checks import router as address_checks_router
         from .modules.verification.api.applicant import hosted_gate
         from .modules.verification.api.applicant import router as applicant_router
@@ -699,6 +711,9 @@ def create_app(
             idv_cases_router,
             applicant_router,
             verify_analytics_router,
+            trust_center_router,
+            trust_center_public_router,
+            trust_center_room_router,
             biometric_methods_router,
             check_methods_router,
             check_cases_router,

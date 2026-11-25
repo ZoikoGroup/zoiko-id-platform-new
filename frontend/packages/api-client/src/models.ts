@@ -5470,3 +5470,37 @@ export type DevCertification = { application_id: string; suite: DevSuiteStatus; 
 
 export type DevTryIt = { request: { method: string; path: string; headers: Record<string, string>; body?: Record<string, unknown> }; status: number; response: Record<string, unknown>; sandbox: true; note: string };
 export type DevClaims = { as_of: string; claims: { id: string; statement: string; basis: string; evidence: string }[]; not_claimed: { claim: string; reason: string }[]; rule: string };
+
+// ------------------------------------------------------------------------------------------------------------------------------ Trust Center (ZID-CP-WF12; CR-174)
+export type TrustRole = "product" | "legal" | "security" | "privacy" | "sre" | "finance" | "marketing";
+export type TrustClaimRow = { claim_id: string; revision: number; exact_text: string; locale: string; claim_type: string; status: string; valid_until: string | null; channels: string[]; created_at: string };
+export type TrustClaim = {
+  claim_id: string; revision: number; exact_text: string; locale: string; claim_type: string; effective_class: string; scope: { entity_id: string; service: string; markets: string[]; environment: string };
+  channels: string[]; evidence_digests: string[]; valid_until: string | null; author: string; content_hash: string; status: string;
+  approvals: { approver: string; role: string; refused: boolean; reason: string; decided_at: string; this_version: boolean }[];
+  still_needed: string[]; blockers: { code: string; detail: string }[]; ready_to_publish: boolean;
+  history: { revision: number; content_hash: string; status: string; created_at: string; published_at: string | null; withdrawn_at: string | null; was_published: boolean }[];
+  manifest_digest?: string; rolled_back_from?: number;
+};
+export type TrustClaimInput = {
+  exact_text: string; locale: string; claim_type: string; entity_id: string; service: string; markets: string[]; environment?: "production" | "sandbox"; channels: string[]; evidence_digests: string[]; valid_until?: string | null;
+};
+export type TrustWithdrawal = { withdrawal_id: string; claim_id: string; revision: number; channels: string[]; review_due: string; purge_required: boolean };
+export type TrustWithdrawalRow = { withdrawal_id: string; claim_id: string; revision: number; actor: string; reason: string; at: string; review_due: string; reviewed_by: string | null; reviewed_at: string | null };
+export type TrustEvidence = {
+  evidence_id: string; digest: string; evidence_type: string; scheme: string; issuer: string; assessor: string; legal_entity: string; products: string[]; regions: string[]; exclusions: string[];
+  period_start: string; period_end: string; holder: string; lifecycle: string; issuer_confirmed: boolean; restricted: boolean;
+};
+export type TrustEvidenceInput = {
+  digest: string; evidence_type: string; scheme: string; issuer: string; assessor?: string; legal_entity: string; products: string[]; regions: string[]; exclusions?: string[];
+  period_start: string; period_end: string; holder: string; restricted?: boolean;
+};
+export type TrustMonitoring = {
+  as_of: string; counts: Record<string, number>; unsupported_live_claims: number; median_hours_published_to_withdrawn: number | null;
+  expiring: { claim_id: string; revision: number; reason: string; days_left: number | null }[]; release_gate: { open: boolean; reasons: string[] };
+};
+export type TrustScan = { pages: number; claim_like_statements: number; findings: { url: string; sentence: string; code: string; detail: string }[]; clean: boolean };
+export type TrustReport = { report_id: string; reference: string; severity: string; state: string; received_at: string; ack_due: string; acknowledged_at: string | null; assignee: string | null };
+export type TrustSnapshot = { snapshot_id: string; service: string; region: string; window: string; state: string; percent: number | null; note: string; source_ref: string; validated: boolean };
+export type TrustDisclosure = { disclosure_id: string; kind: string; subject: string; market: string; revision: number; payload: Record<string, unknown>; effective_from: string; status: string; approved: boolean; author?: string };
+export type TrustRoomRequest = { request_id: string; evidence_id: string; organization: string; purpose: string; status: string; created_at: string; tenant_id: string; requester: string };
