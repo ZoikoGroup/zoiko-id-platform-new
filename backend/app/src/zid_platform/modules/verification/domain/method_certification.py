@@ -49,6 +49,7 @@ def board(
     optical_checks_produced: Iterable[str],
     apple_attestation_configured: bool,
     imaging_configured: bool,
+    android_attestation_configured: bool = False,
 ) -> list[Row]:
     produced = set(optical_checks_produced)
     rows: list[Row] = []
@@ -151,13 +152,13 @@ def board(
         Row(
             "DEVICE_ATTESTATION",
             Level.BUILT_UNPROVEN,
-            "Apple App Attest is verified in code, tested on a synthetic chain only."
-            if apple_attestation_configured
-            else "Apple App Attest is verified in code, tested on a synthetic chain only; it is not configured.",
+            "Apple App Attest and Android Play Integrity are verified in code, tested on synthetic inputs only; "
+            + ("App Attest is configured" if apple_attestation_configured else "App Attest is not configured")
+            + ", "
+            + ("Play Integrity is configured." if android_attestation_configured else "Play Integrity is not configured."),
             (
-                "Android attestation (not built)",
-                "A real device attestation chain",
-                "The app's identifiers in configuration",
+                "A real device attestation chain and a real Play Integrity verdict",
+                "The apps' identifiers, signing-certificate digests and the Google service account in configuration",
             ),
         )
     )

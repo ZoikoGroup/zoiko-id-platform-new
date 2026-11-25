@@ -87,6 +87,13 @@ const read = await readChipThroughRelay(cfg, verificationId, { document_number, 
 const result = await finishChipRead(cfg, verificationId, read.token); // judged now; the session is decided once
 ```
 
+## The capture's device report (Play Integrity, App Attest)
+
+`android/chipbridge/.../CaptureAttestation.kt` asks Play for a Standard Integrity token bound to one capture: `requestHash = base64url(SHA-256("<nonce>:<sha256 hex of the media>"))`. The app sends it as
+`{"platform": "ANDROID_PLAY_INTEGRITY", "report": {"integrity_token": ...}}` with the capture. The server decodes it with Google and checks the package, the signing-certificate digest, the device verdict and
+the freshness (`backend/.../device_attestation.py`, configured in `backend/config/idv/device-attestation.yaml`). Not configured, or Google unreachable, is "not established", never a pass. Same status as
+the rest of this module: written from Google's documented API, never compiled.
+
 ## What is not here, and why
 
 - No app project, no signing identity, no store listing: the two modules above are libraries a developer adds to an app. They need the Android SDK or Xcode, an Apple developer account with the NFC tag reading capability, and a signing key.

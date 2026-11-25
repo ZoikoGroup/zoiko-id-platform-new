@@ -20,6 +20,10 @@ from zid_platform.modules.verification.application import (
     right_to_rent,
     suspensions,
 )
+from zid_platform.modules.verification.application.applicant_flow import (
+    configure_usage_sink as configure_idv_usage_sink,
+)
+from zid_platform.modules.verification.application.applicant_flow import idv_coverage
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
 from zid_platform.modules.verification.application.capture_checks import CaptureError
 from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
@@ -215,6 +219,7 @@ __all__ = [
     "claim_matches",
     "claim_model",
     "claim_templates",
+    "configure_idv_usage_sink",
     "conformance",
     "conformance_matrix",
     "conformance_model",
@@ -230,6 +235,7 @@ __all__ = [
     "fresh_reproof",
     "gate_decision",
     "identity_feed_pass",
+    "idv_coverage",
     "invalidate_for_decision",
     "market_releases",
     "offerings_catalog",

@@ -261,6 +261,19 @@ class Settings(ServiceSettings):
     # ZID_SMTP_INSECURE_LOCAL (local/test only): talk to a local mail sink (for example Mailpit) without TLS. Refused anywhere else.
     smtp_insecure_local: bool = False
     email_public_base_url: str | None = None
+    # ZID-CP-WF01 hosted verification lifetimes (owner decision ZID-EXT-IDV-001 D09; these defaults stand until it is ratified). ZID_HOSTED_VERIFY_*:
+    # the business's one-use link, a cross-device handoff link, the person's session credential, and the session itself.
+    hosted_verify_launch_minutes: int = Field(default=15, ge=1, le=24 * 60)
+    hosted_verify_handoff_minutes: int = Field(default=5, ge=1, le=60)
+    hosted_verify_access_minutes: int = Field(default=60, ge=5, le=24 * 60)
+    hosted_verify_session_hours: int = Field(default=24, ge=1, le=30 * 24)
+    # ZID-CPS-WF-02 Command Center policy (owner decision D-01; these are the document's proposals until ratified): the smallest group a figure may
+    # describe (ZID_VERIFY_ANALYTICS_MIN_GROUP), how old the newest ingested event may be before figures are provisional, and how long facts are kept.
+    verify_analytics_min_group: int = Field(default=20, ge=2, le=1000)
+    verify_analytics_stale_minutes: int = Field(default=15, ge=1, le=24 * 60)
+    verify_analytics_retention_days: int = Field(default=400, ge=30, le=3650)
+    # reviewed languages the hosted page may offer (BCP 47); a language is listed only once its legal notice and copy are reviewed, never machine-translated
+    hosted_verify_languages: list[str] = Field(default_factory=lambda: ["en"])
     email_routes: dict[str, str] = Field(default_factory=dict)
     email_flood_per_template_hour: int = 5
     email_flood_per_recipient_hour: int = 20

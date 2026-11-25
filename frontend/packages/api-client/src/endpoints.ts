@@ -19,6 +19,7 @@ import type { components as Res } from "./generated/residency";
 import type { components as Wl } from "./generated/workload-identity";
 import type * as M from "./models";
 import type * as C from "./checks";
+import type * as VA from "./verify-analytics";
 import { seg, type Transport } from "./runtime/transport";
 
 type S<C extends { schemas: Record<string, unknown> }, K extends keyof C["schemas"]> = C["schemas"][K];
@@ -903,6 +904,29 @@ export function createCellApi(t: Transport) {
         t.request<{ change_id: string; status: "PENDING_CONFIRMATION"; address: string; expires_at: string }>("PUT", "/v1/account/contact", { body: { address } }),
       /** The single-use link from the confirmation email. */
       confirmMine: (token: string) => t.request<{ status: "APPLIED"; address: string }>("POST", "/v1/account/contact:confirm", { body: { token } }),
+    },
+
+    /** The Command Center (ZID-CPS-WF-02): aggregates under the analytics bundles; cost and price under billing access. */
+    verifyAnalytics: {
+      access: () => get<VA.Access>("/v1/verify-analytics/access/me"),
+      overview: (w: VA.Window) => get<VA.Overview>("/v1/verify-analytics/overview", w),
+      query: (body: VA.QueryIn) => post<VA.QueryResult>("/v1/verify-analytics/query", body),
+      snapshot: (id: string) => get<VA.QueryResult>(`/v1/verify-analytics/snapshots/${seg(id)}`),
+      definitions: () => get<{ metrics: VA.Definition[] }>("/v1/verify-analytics/definitions"),
+      quality: () => get<{ quality: VA.Quality; watermark_utc: string | null; sources: VA.Freshness[]; stale_after_minutes: number }>("/v1/verify-analytics/quality"),
+      operations: (days = 7) => get<VA.Operations>("/v1/verify-analytics/operations", { days }),
+      economics: (w: VA.Window) => get<VA.Economics>("/v1/verify-analytics/economics", w),
+      coverage: () => get<VA.Coverage>("/v1/verify-analytics/coverage"),
+      timeline: (ref: string) => get<VA.Timeline>(`/v1/verify-analytics/sessions/${seg(ref)}/timeline`),
+      corrections: () => get<M.Items<VA.Correction>>("/v1/verify-analytics/corrections"),
+      requestCorrection: (body: { event_id: string; reason: string }) => post<{ correction_id: string }>("/v1/verify-analytics/corrections", body),
+      approveCorrection: (id: string) => post<{ approved: boolean }>(`/v1/verify-analytics/corrections/${seg(id)}:approve`),
+      exports: () => get<M.Items<VA.ExportJob>>("/v1/verify-analytics/exports"),
+      createExport: (body: { snapshot_id: string; format: "csv" | "json"; purpose: string }) => post<VA.ExportCreated>("/v1/verify-analytics/exports", body),
+      revokeExport: (id: string) => post<{ status: string }>(`/v1/verify-analytics/exports/${seg(id)}:revoke`),
+      grants: () => get<M.Items<VA.Grant>>("/v1/verify-analytics/grants"),
+      give: (body: { grantee_principal_id: string; bundle: string; expires_at?: string }) => post<{ grant_id: string }>("/v1/verify-analytics/grants", body),
+      takeAway: (id: string) => t.request<void>("DELETE", `/v1/verify-analytics/grants/${seg(id)}`),
     },
 
     billing: {

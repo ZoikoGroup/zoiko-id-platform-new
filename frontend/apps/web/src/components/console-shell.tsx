@@ -74,6 +74,15 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    // ZID-CPS-WF-02 section 06: one Verify API destination; the Command Center links to the existing case, spend and developer pages rather than copying them
+    label: "Verify API",
+    items: [
+      { id: "command-center", label: "Command Center", href: "/verify-api/command-center", icon: Gauge },
+      { id: "idv-cases", label: "Verification cases", href: "/admin/idv-cases", icon: ScanFace },
+      { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
+    ],
+  },
+  {
     label: "My account",
     items: [
       { id: "account", label: "My account", href: "/account", icon: LayoutDashboard },
@@ -154,13 +163,16 @@ export function ConsoleShell({
   // A person the Owner gave billing access (Billing Admin, Billing Viewer, Invoice reader) is not an administrator but needs the Billing page.
   const billing = useCellQuery(["billing", "access", "shell"], (api) => api.billing.access(), { enabled: Boolean(tenant) && !me.isAdmin });
   const billingAccess = !me.isAdmin && (billing.data?.permissions.length ?? 0) > 0;
+  // A person the Owner gave an analytics bundle is not an administrator but needs the Command Center (WF-02 section 09).
+  const analytics = useCellQuery(["verify-analytics", "access", "shell"], (api) => api.verifyAnalytics.access(), { enabled: Boolean(tenant) && !me.isAdmin });
+  const analyticsAccess = !me.isAdmin && (analytics.data?.permissions.length ?? 0) > 0;
   // While the company loads the full navigation is drawn, so the sidebar does not reflow when the role arrives (a
   // layout shift, UX-30); a person who is not an administrator then loses the administration links, which only ever
   // led to pages the cell refuses them. Once it is known, the navigation follows the role (UX-02).
   // What the person's roles may do (the role matrix). Approvers, Operators and Viewers get the pages their role is for; a plain Member gets none.
   const permissions = useCellQuery(["tenant", "permissions", "shell"], (api) => api.tenant.myPermissions(), { enabled: Boolean(tenant) && !me.isAdmin });
   const roleKnown = !company.isLoading;
-  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess, rights: permissions.data?.rights }) : NAV).map((g) => ({
+  const nav: NavGroup[] = (roleKnown ? visibleNav(NAV, { isAdmin: me.isAdmin, pendingOwner: me.pendingOwner && !me.personal, billingAccess, analyticsAccess, rights: permissions.data?.rights }) : NAV).map((g) => ({
     ...g,
     items: g.items.map((i) =>
       i.id === "alerts" && openCount > 0 ? { ...i, badge: openCount, badgeTone: criticalOpen.length ? ("danger" as const) : ("warn" as const) } : i,

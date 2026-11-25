@@ -61,6 +61,7 @@ describe("the proxy allowlist", () => {
     ["Verify API scope changes and approvals (CR-173)", "/v1/verify-api/scope-changes"],
     ["the issuer trust bundle (CR-170)", "/v1/trust/issuer$"],
     ["provider coverage and routing (CR-171)", "/v1/routing/"],
+    ["the Command Center's aggregates (WF-02)", "/v1/verify-analytics/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

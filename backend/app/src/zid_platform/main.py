@@ -110,6 +110,23 @@ def create_app(
         send_invitation_email
     )  # the tenant module emails an invitation through this, never by importing communication
     app.state.environment = settings.environment
+    # WF-01: where the hosted verification page is served (the web app), for the launch links a business hands to a person
+    app.state.hosted_verify_base = (
+        settings.email_public_base_url or settings.public_base_url or ""
+    ).rstrip("/")
+    app.state.hosted_verify_languages = list(settings.hosted_verify_languages)
+    # WF-02 Command Center policy (D-01): smallest group a figure may describe, freshness limit; the cell a customer's incidents are filtered by
+    app.state.verify_analytics_min_group = settings.verify_analytics_min_group
+    app.state.verify_analytics_stale_minutes = settings.verify_analytics_stale_minutes
+    app.state.cell_id = settings.cell_id
+    from datetime import timedelta as _td
+
+    from .modules.privacy.ports import applicant_session as _applicant_session
+
+    _applicant_session.configure_lifetimes(  # the owners' D09 values, from settings
+        launch=_td(minutes=settings.hosted_verify_launch_minutes), handoff=_td(minutes=settings.hosted_verify_handoff_minutes),
+        access=_td(minutes=settings.hosted_verify_access_minutes), session=_td(hours=settings.hosted_verify_session_hours),
+    )  # fmt: skip
     app.state.evidence_tsa_configured = bool(settings.evidence_tsa_url)  # WF-05 trust-list view
     if settings.agent_builds == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
@@ -230,6 +247,10 @@ def create_app(
     configure_credential_usage_sink(
         credential_usage_sink
     )  # usage facts for the credential check meters (CR-070); the credential module never imports commercial
+    from .modules.commercial.ports import idv_usage_sink
+    from .modules.verification.ports import configure_idv_usage_sink
+
+    configure_idv_usage_sink(idv_usage_sink)  # one IDV_SUBMISSION per submitted hosted session (WF-01 Q33); verification never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
     if settings.agent_governance == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
@@ -458,24 +479,24 @@ def create_app(
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
         from .modules.evidence.api.public_proof import router as evidence_public_proof_router
-        from .modules.evidence.api.wf08 import public_router as evidence_status_public_router
-        from .modules.evidence.api.wf08 import router as evidence_wf08_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
         from .modules.evidence.api.v2_holds import router as privacy_holds_v2_router
         from .modules.evidence.api.v2_trust_store import router as evidence_v2_trust_store_router
         from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
+        from .modules.evidence.api.wf08 import public_router as evidence_status_public_router
+        from .modules.evidence.api.wf08 import router as evidence_wf08_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
+        from .modules.machine.api.agent_credentials import router as agent_credentials_router
         from .modules.machine.api.agents import router as agents_router
         from .modules.machine.api.api_agents import router as api_agents_router
         from .modules.machine.api.daara import router as agent_daara_router
         from .modules.machine.api.governance import router as agent_governance_router
-        from .modules.machine.api.agent_credentials import router as agent_credentials_router
         from .modules.machine.api.idp import router as idp_router
-        from .modules.machine.api.mcp import router as mcp_router
         from .modules.machine.api.mcp import metadata_router as mcp_metadata_router
+        from .modules.machine.api.mcp import router as mcp_router
         from .modules.machine.api.revocation import router as revocation_router
         from .modules.machine.api.tool_actions import router as tool_actions_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
@@ -572,6 +593,8 @@ def create_app(
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
         from .modules.verification.api.address_checks import router as address_checks_router
+        from .modules.verification.api.applicant import hosted_gate
+        from .modules.verification.api.applicant import router as applicant_router
         from .modules.verification.api.biometric_methods import (
             router as biometric_methods_router,
         )
@@ -585,24 +608,25 @@ def create_app(
         from .modules.verification.api.device_checks import router as device_checks_router
         from .modules.verification.api.idv_cases import router as idv_cases_router
         from .modules.verification.api.offerings import router as offerings_router
+        from .modules.verification.api.routing import router as verification_routing_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
         from .modules.verification.api.v2_providers import router as v2_providers_router
-        from .modules.verification.api.routing import router as verification_routing_router
         from .modules.verification.api.v2_self_run import router as v2_self_run_router
         from .modules.verification.api.v2_source_of_funds import router as v2_sof_router
         from .modules.verification.api.v2_travel_rule import router as v2_travel_rule_router
         from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
+        from .modules.verify_analytics.api.analytics import router as verify_analytics_router
         from .modules.verify_api.api.approvals import router as verify_api_approvals_router
         from .modules.verify_api.api.cases import router as verify_api_cases_router
-        from .modules.verify_api.api.fraud import router as verify_api_fraud_router
-        from .modules.verify_api.api.review import router as verify_api_review_router
         from .modules.verify_api.api.console_sessions import router as verify_api_console_router
+        from .modules.verify_api.api.fraud import router as verify_api_fraud_router
         from .modules.verify_api.api.go_live import router as verify_api_go_live_router
         from .modules.verify_api.api.logos import router as verify_api_logos_router
         from .modules.verify_api.api.results import router as verify_api_results_router
+        from .modules.verify_api.api.review import router as verify_api_review_router
         from .modules.verify_api.api.sessions import router as verify_api_sessions_router
         from .modules.verify_api.api.usage import router as verify_api_usage_router
         from .modules.verify_api.api.verify_api import router as verify_api_router
@@ -673,6 +697,8 @@ def create_app(
             v2_workflows_router,
             v2_self_run_router,
             idv_cases_router,
+            applicant_router,
+            verify_analytics_router,
             biometric_methods_router,
             check_methods_router,
             check_cases_router,
@@ -761,6 +787,10 @@ def create_app(
             communication_router,
         ):
             app.include_router(router)
+        # WF-01: a hosted session passes the verification module's market and return-address gate; privacy never imports verification for it
+        from .modules.privacy.ports import applicant_session
+
+        applicant_session.configure_hosted_gate(hosted_gate)
         if app.state.operator_password_logins:
             from .modules.authentication.api.operator_password import (
                 router as operator_password_router,

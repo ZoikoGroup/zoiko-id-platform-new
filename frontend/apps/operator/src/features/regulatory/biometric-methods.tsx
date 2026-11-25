@@ -182,7 +182,14 @@ function ProposeDialog({ from, isOpen, onClose, widen = false }: { from: Biometr
           <p className="text-sm sm:col-span-2">
             <MethodLabel method={from.scope.method} /> · {scopeText(from.scope)}
           </p>
-        ) : (
+        ) : null}
+        {from && target === "PILOT_GATED" && !scope.pilot_tenant ? (
+          <p role="alert" className="text-sm text-danger-fg sm:col-span-2">
+            This scope is for every tenant, and a pilot runs for one named tenant. A scope&apos;s tenant cannot change, so propose a new scope with
+            a pilot tenant instead (METHOD_PILOT_NEEDS_TENANT).
+          </p>
+        ) : null}
+        {from ? null : (
           <>
             <TextField label="Scope ID" description="lowercase, e.g. face-gb-acme-2-1" value={f.scope_id} onChange={set("scope_id")} mono isRequired />
             <Select

@@ -8,6 +8,7 @@ const icon = (() => null) as unknown as NavGroup["items"][number]["icon"];
 const item = (id: string) => ({ id, label: id, href: `/${id}`, icon });
 const NAV: NavGroup[] = [
   { label: "Company", items: ["overview", "alerts", "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "checks", "settings"].map(item) },
+  { label: "Verify API", items: ["command-center", "idv-cases", "verification-spend"].map(item) },
   { label: "My account", items: ["account", "sessions", "passkeys"].map(item) },
   { label: "Administration", items: ["idp", "verification", "credentials", "authority", "mandates", "policies", "evidence"].map(item) },
 ];
@@ -36,6 +37,14 @@ describe("UX-02 role default: a Member sees no administration", () => {
     expect(seen).toContain("billing");
     expect(seen).not.toContain("team");
     expect(seen).not.toContain("settings");
+  });
+
+  it("shows the Command Center, and not the case or spend pages, to a Member the Owner gave an analytics bundle (WF-02)", () => {
+    expect(ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false }))).not.toContain("command-center");
+    const seen = ids(visibleNav(NAV, { isAdmin: false, pendingOwner: false, analyticsAccess: true }));
+    expect(seen).toContain("command-center");
+    expect(seen).not.toContain("idv-cases");
+    expect(seen).not.toContain("verification-spend");
   });
 
   // The role matrix cells (ZID-ENG-DEC-007), as `GET /v1/tenant/me/permissions` returns them for one role.

@@ -5,6 +5,8 @@ export type NavStanding = {
   isAdmin: boolean;
   pendingOwner: boolean;
   billingAccess?: boolean;
+  /** Holds at least one Command Center key (WF-02 analytics bundles); such a person sees the Command Center, which then shows only what they may read. */
+  analyticsAccess?: boolean;
   /** What the person's roles could do, from the role matrix (`GET /v1/tenant/me/permissions`): matrix action id -> modes (X, S, A, R, T). */
   rights?: Record<string, string[]>;
 };
@@ -42,6 +44,7 @@ function pageAllowed(id: string, rights: Record<string, string[]> | undefined): 
  * refuses the calls by itself (UX-03), so hiding is courtesy, never the protection. */
 const ADMIN_ITEMS = new Set([
   "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "checks", "settings",
+  "command-center", "idv-cases", "verification-spend",
 ]);
 /** What the registrant who has not yet been confirmed as owner needs: the way to get confirmed. */
 const SETUP_ITEMS = new Set(["onboarding", "organization", "setup"]);
@@ -54,7 +57,7 @@ export function visibleNav(groups: NavGroup[], who: NavStanding): NavGroup[] {
     .map((g) => ({
       ...g,
       items: g.items.filter(
-        (i) => (g.label !== "Administration" && !ADMIN_ITEMS.has(i.id) && !(i.id in PAGE_RIGHTS)) || (who.pendingOwner && SETUP_ITEMS.has(i.id)) || (who.billingAccess === true && i.id === "billing") || pageAllowed(i.id, who.rights),
+        (i) => (g.label !== "Administration" && !ADMIN_ITEMS.has(i.id) && !(i.id in PAGE_RIGHTS)) || (who.pendingOwner && SETUP_ITEMS.has(i.id)) || (who.billingAccess === true && i.id === "billing") || (who.analyticsAccess === true && i.id === "command-center") || pageAllowed(i.id, who.rights),
       ),
     }))
     .filter((g) => g.items.length > 0);

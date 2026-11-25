@@ -52,6 +52,11 @@ async def open_session(
     notice_version: str | None,
     provider_service_ref: str | None,
     pack_id: str | None,
+    market: str | None = None,
+    environment: str | None = None,
+    return_url: str | None = None,
+    return_state: str | None = None,
+    expires_at: datetime | None = None,
 ) -> dict[str, Any]:
     allowed_modes = {m["id"] for m in ctl.alternatives_config()}
     if alternative_mode and alternative_mode not in allowed_modes and alternative_mode != "NONE":
@@ -79,12 +84,14 @@ async def open_session(
             subject = uuid.UUID(subject_ref.removeprefix("sub_"))
         except ValueError:
             subject = None
+    if market and subject is None:
+        subject = uuid.uuid4()  # a hosted person the business did not name: a fresh pseudonymous subject, so their own consent and rights attach to it
     await conn.execute(
         text("""
             INSERT INTO privacy.verification_session (session_ref, tenant_id, subject_principal_id, activity_code, purpose_code,
                 data_category, country, subregion, assurance_goal, alternative_mode, notice_version, provider_service_ref, decision_id,
-                allowed_at_open, reason_codes, state, created_by)
-            VALUES (:r, :t, :s, :a, :p, :d, :c, :sr, :g, :alt, :n, :ps, :dec, :al, :rc, 'OPEN', :by)
+                allowed_at_open, reason_codes, state, created_by, market, applicant_id, environment, return_url, return_state, expires_at)
+            VALUES (:r, :t, :s, :a, :p, :d, :c, :sr, :g, :alt, :n, :ps, :dec, :al, :rc, 'OPEN', :by, :m, :app, :env, :ru, :rs, :exp)
         """),
         {
             "r": ref,
@@ -103,6 +110,14 @@ async def open_session(
             "al": bool(decision["allowed"]),
             "rc": static,
             "by": uuid.UUID(actor),
+            "m": market,
+            "app": subject
+            if market
+            else None,  # the pseudonymous person a hosted proofing case is opened for
+            "env": environment,
+            "ru": return_url,
+            "rs": return_state,
+            "exp": expires_at,
         },
     )
     return await status(conn, tenant_id, ref)

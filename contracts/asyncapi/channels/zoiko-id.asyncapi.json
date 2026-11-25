@@ -2312,8 +2312,17 @@
         "verification_fraud_signal": {
           "$ref": "#/components/messages/verification_fraud_signal"
         },
+        "verification_idv_biometric_evaluated": {
+          "$ref": "#/components/messages/verification_idv_biometric_evaluated"
+        },
         "verification_idv_case_decided": {
           "$ref": "#/components/messages/verification_idv_case_decided"
+        },
+        "verification_idv_nfc_trust_evaluated": {
+          "$ref": "#/components/messages/verification_idv_nfc_trust_evaluated"
+        },
+        "verification_idv_provider_check_finished": {
+          "$ref": "#/components/messages/verification_idv_provider_check_finished"
         },
         "verification_manual_review_required": {
           "$ref": "#/components/messages/verification_manual_review_required"
@@ -2357,8 +2366,41 @@
         "verification_screening_decided": {
           "$ref": "#/components/messages/verification_screening_decided"
         },
+        "verification_session_canceled": {
+          "$ref": "#/components/messages/verification_session_canceled"
+        },
+        "verification_session_capture_attempt_completed": {
+          "$ref": "#/components/messages/verification_session_capture_attempt_completed"
+        },
+        "verification_session_capture_started": {
+          "$ref": "#/components/messages/verification_session_capture_started"
+        },
+        "verification_session_created": {
+          "$ref": "#/components/messages/verification_session_created"
+        },
+        "verification_session_finalized": {
+          "$ref": "#/components/messages/verification_session_finalized"
+        },
+        "verification_session_media_accepted": {
+          "$ref": "#/components/messages/verification_session_media_accepted"
+        },
+        "verification_session_method_selected": {
+          "$ref": "#/components/messages/verification_session_method_selected"
+        },
+        "verification_session_notice_acknowledged": {
+          "$ref": "#/components/messages/verification_session_notice_acknowledged"
+        },
+        "verification_session_notice_presented": {
+          "$ref": "#/components/messages/verification_session_notice_presented"
+        },
         "verification_session_policy_reevaluated": {
           "$ref": "#/components/messages/verification_session_policy_reevaluated"
+        },
+        "verification_session_review_required": {
+          "$ref": "#/components/messages/verification_session_review_required"
+        },
+        "verification_session_submitted": {
+          "$ref": "#/components/messages/verification_session_submitted"
         },
         "verification_started": {
           "$ref": "#/components/messages/verification_started"
@@ -6651,6 +6693,17 @@
         "x-zid-source": "ZID-VERIFY-001",
         "x-zid-status": "catalogued"
       },
+      "verification_idv_biometric_evaluated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.idv.biometric_evaluated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "An approved engine ran liveness and face comparison on a case (case id, presentation-attack and match results as codes, engine and evaluation ids, policy version); never a template, an image or a score.",
+        "title": "verification.idv.biometric_evaluated",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
       "verification_idv_case_decided": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.idv.case_decided.v1",
@@ -6660,6 +6713,28 @@
         "summary": "An identity proofing case reached a decision (APPROVED, REVIEW_REQUIRED, REJECTED, INDETERMINATE or ABANDONED) with the reason codes, the six signal states, what may be asserted and the policy version and digest it was decided under; no document data, image, score or person.",
         "title": "verification.idv.case_decided",
         "x-zid-source": "ZID-DTV-WF-03 section 18; CR-110",
+        "x-zid-status": "proposed"
+      },
+      "verification_idv_nfc_trust_evaluated": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.idv.nfc_trust_evaluated.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A passport chip was judged (case id, passive and chip authentication states, which trust list and version it was judged against, policy version); never a data group or a certificate.",
+        "title": "verification.idv.nfc_trust_evaluated",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_idv_provider_check_finished": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.idv.provider_check_finished.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "One provider call made for a proofing case finished (case id, provider, outcome OK, TECHNICAL_ERROR or POLICY_DENIED, latency in milliseconds); never the image, the reading or a score.",
+        "title": "verification.idv.provider_check_finished",
+        "x-zid-source": "ZID-CPS-WF-02 M11",
         "x-zid-status": "proposed"
       },
       "verification_manual_review_required": {
@@ -6838,6 +6913,105 @@
         "x-zid-source": "ZID-ED-04 Director, Beneficial Owner and Sanctions Screening section 04-06; CR-043",
         "x-zid-status": "proposed"
       },
+      "verification_session_canceled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.canceled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A hosted session ended because the person left (session ref, by whom); a terminal state on record.",
+        "title": "verification.session.canceled",
+        "x-zid-source": "ZID-CPS-WF-02 section 05.1",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_capture_attempt_completed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.capture_attempt_completed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "One capture attempt in a hosted session ended (session ref, attempt number from the case's own counter, step, result code such as ACCEPTED, RETAKE_NEEDED, RISK or TECHNICAL_FAILED); never the media.",
+        "title": "verification.session.capture_attempt_completed",
+        "x-zid-source": "ZID-CPS-WF-02 M06, Q06, Q49",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_capture_started": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.capture_started.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A one-time capture value was issued (session ref, step, method, region, a digest of the value); never the value itself.",
+        "title": "verification.session.capture_started",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_created": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.created.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A business opened a hosted verification session (session ref, market, region, purpose, notice version, environment); the person is an opaque reference only.",
+        "title": "verification.session.created",
+        "x-zid-source": "ZID-CP-WF01 sections 05, 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_finalized": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.finalized.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A submitted hosted session reached a final state (session ref, state, outcome, decision version, policy version, decision digest, environment); raised again with a higher decision version if a later decision supersedes it. No document data, image, score or person.",
+        "title": "verification.session.finalized",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_media_accepted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.media_accepted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "Evidence was accepted on a hosted session's case (session ref, case version, media digest, whether the capture's origin was established); never the media.",
+        "title": "verification.session.media_accepted",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_method_selected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.method_selected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The person chose a method the server offered (session ref, method, the rules it is pinned to, the device's stated capabilities).",
+        "title": "verification.session.method_selected",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_notice_acknowledged": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.notice_acknowledged.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The person acknowledged the notice (session ref, notice version, locale, the activity's lawful basis, whether they agreed to a face comparison).",
+        "title": "verification.session.notice_acknowledged",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_notice_presented": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.notice_presented.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The notice was first shown in a hosted session (session ref, privacy notice version, market notice version).",
+        "title": "verification.session.notice_presented",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
       "verification_session_policy_reevaluated": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.verification.session.policy_reevaluated.v1",
@@ -6847,6 +7021,28 @@
         "summary": "A verification session that had not finished was re-evaluated because the policy pack governing its region changed or its provider was suspended; session id, country, capability, the pack it started under, the pack that governs now and the result only.",
         "title": "verification.session.policy_reevaluated",
         "x-zid-source": "ZID-RCG-003 section 12 T40; CR-092",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_review_required": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.review_required.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A submitted hosted session needs a person to review it (session ref, state, decision version, policy version, decision digest); no reason detail.",
+        "title": "verification.session.review_required",
+        "x-zid-source": "ZID-CP-WF01 section 09",
+        "x-zid-status": "proposed"
+      },
+      "verification_session_submitted": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.session.submitted.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "The person made the one final submission (session ref, case version, environment). Raised once per session.",
+        "title": "verification.session.submitted",
+        "x-zid-source": "ZID-CP-WF01 sections 08, 09",
         "x-zid-status": "proposed"
       },
       "verification_started": {

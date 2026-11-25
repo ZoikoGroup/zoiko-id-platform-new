@@ -153,6 +153,12 @@ async def credential_usage_sink(
     )
 
 
+async def idv_usage_sink(conn: AsyncConnection, tenant_id: str, session_ref: str, at: datetime) -> None:
+    """Records what the verification module reports (ZID-CP-WF01 Q33): one IDV_SUBMISSION per hosted session the person submitted. A usage fact only: nothing is rated
+    or invoiced, and the submission never depends on this. Wired by the composition root."""
+    await record(conn, tenant_id=tenant_id, meter="IDV_SUBMISSION", key=b.key_idv_submission(session_ref), at=at, principal_class="HUMAN", transaction_type="SUBMITTED")
+
+
 async def record_active_human(
     conn: AsyncConnection, *, tenant_id: str, principal_id: str, at: datetime | None = None
 ) -> bool:
