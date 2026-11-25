@@ -2201,6 +2201,12 @@
     "verification.domain": {
       "address": "zid.{env}.{region}.verification.domain",
       "messages": {
+        "verification_api_session_closed": {
+          "$ref": "#/components/messages/verification_api_session_closed"
+        },
+        "verification_api_session_decided": {
+          "$ref": "#/components/messages/verification_api_session_decided"
+        },
         "verification_assertion_created": {
           "$ref": "#/components/messages/verification_assertion_created"
         },
@@ -6328,6 +6334,28 @@
         "title": "tool.suspended",
         "x-zid-source": "ZID-MACHINE-001",
         "x-zid-status": "catalogued"
+      },
+      "verification_api_session_closed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.api.session_closed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification session started through a Verify API application ended without a decision: canceled or expired (session id, application id, customer reference, status, sandbox flag).",
+        "title": "verification.api.session_closed",
+        "x-zid-source": "ZID-EXT-IDV-001 epic E08; CR-152",
+        "x-zid-status": "proposed"
+      },
+      "verification_api_session_decided": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.verification.api.session_decided.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A verification session started through a company's Verify API application got a decision (session id, application id, the company's own customer reference, status, outcome, decision id and version, the decision it supersedes, reason codes, policy version, whether it was a sandbox simulation); no document data, photograph, score or person.",
+        "title": "verification.api.session_decided",
+        "x-zid-source": "ZID-EXT-IDV-001 epic E08; CR-152",
+        "x-zid-status": "proposed"
       },
       "verification_assertion_created": {
         "contentType": "application/cloudevents+json",

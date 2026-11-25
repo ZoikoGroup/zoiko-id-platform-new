@@ -1,18 +1,18 @@
-"""A usage meter for hosted identity verifications (ZID-CP-WF01 S08, Q33): one submitted session.
+"""Two usage meters for the Verify API (CR-154; ZID-EXT-IDV-001 epic E17): a session started and a check completed, in production.
 
-Revision ID: commercial_0044
-Revises: commercial_0043
+Revision ID: commercial_0045
+Revises: commercial_0044
 Create Date: 2026-11-24
 
-The billable meters are a closed set held in check constraints. This widens them to carry IDV_SUBMISSION, recorded once when a person makes the one final submission of a hosted
-session (the key is the session, so a repeat, a resume or a retake is the same event). It is a usage fact only, like the screening and credential meters: no SKU row and no price
-is added, so nothing is rated or invoiced until the owners define the unit and approve a price. Existing events, windows and budgets are untouched.
+The billable meters are a closed set held in check constraints. This widens them to carry VERIFY_SESSION_START (one production session started) and VERIFY_CHECK_COMPLETE (one production session that reached a
+final decision). They are usage facts only, exactly like the screening and credential-check meters: no SKU row and no price is added, so nothing is rated or invoiced until the owners ratify the billable-event
+policy (D12) and approve a price. Existing events, windows and budgets are untouched.
 """
 
 from zid_platform.migrations import execute_script as _run
 
-revision = "commercial_0044"
-down_revision = "commercial_0043"
+revision = "commercial_0045"
+down_revision = "commercial_0044"
 branch_labels = None
 depends_on = None
 
@@ -22,7 +22,7 @@ OLD = (
 )
 NEW = (
     "('MAH', 'AUTH_EVENT', 'POLICY_DECISION', 'M2M_GRANT', 'VC_ISSUED', 'VC_PRESENTED', 'SCREEN_CHECK', 'SCREEN_MONITOR_PERIOD', "
-    "'CREDENTIAL_CHECK', 'CREDENTIAL_SENSITIVE_CHECK', 'IDV_SUBMISSION')"
+    "'CREDENTIAL_CHECK', 'CREDENTIAL_SENSITIVE_CHECK', 'VERIFY_SESSION_START', 'VERIFY_CHECK_COMPLETE')"
 )
 TABLES = ("billable_event", "billable_adjustment", "meter_window", "budget")
 

@@ -564,7 +564,8 @@ def test_the_operator_surface_needs_grants_and_a_second_approver(
         )
         assert r.status_code == 201, r.text
         priced = r.json()
-        assert priced["plan"] == "LAUNCH" and priced["amount"] == "349.00"
+        assert priced["plan"] == "LAUNCH" and priced["item"] == "ZID-BASE"
+        assert priced["amount"] == "349"
         assert priced["previous_amount"] == "299" and priced["currency"] == "USD"
         assert (
             priced["status"] == "DRAFT" and priced["awaiting_approval"] is True
@@ -598,6 +599,41 @@ def test_the_operator_surface_needs_grants_and_a_second_approver(
             == 401
         )
 
+        # a usage rate is changed the same way: pick the item and the plan, type the amount. Small decimals are kept and the per-1,000 unit is untouched.
+        r = api.post(
+            "/v1/commercial/plan-prices",
+            json={"plan": "BUSINESS", "item": "ZID-AUTH", "amount": "0.315"},
+            headers=o.bearer(alice),
+        )
+        assert r.status_code == 201, r.text
+        rate = r.json()
+        assert rate["item"] == "ZID-AUTH" and rate["amount"] == "0.315"
+        assert rate["previous_amount"] == "0.26"
+        rate_book = api.get(
+            f"/v1/commercial/price-books/{rate['price_book_id']}", headers=o.bearer(alice)
+        ).json()
+        auth = next(
+            ln for ln in rate_book["lines"] if ln["sku"] == "ZID-AUTH" and ln["plan"] == "BUSINESS"
+        )
+        assert auth["unit_rate"] == "0.315" and auth["unit_divisor"] == 1000
+        base = {ln["plan"]: ln["unit_rate"] for ln in rate_book["lines"] if ln["sku"] == "ZID-BASE"}
+        assert base["BUSINESS"] == "1499"  # the monthly fee was not touched
+        # an item that is not a price, and a plan that has no such rate, are refused
+        assert (
+            api.post(
+                "/v1/commercial/plan-prices",
+                json={"plan": "BUSINESS", "item": "ZID-NOPE", "amount": "1"},
+                headers=o.bearer(alice),
+            ).status_code
+            == 422
+        )
+        r = api.post(
+            "/v1/commercial/plan-prices",
+            json={"plan": "ENTERPRISE", "item": "ZID-AUTH", "amount": "1"},
+            headers=o.bearer(alice),
+        )
+        assert r.status_code == 422 and r.json()["error"]["code"] == "PLAN_LINE_MISSING"
+
         # moving a tenant to a plan needs a grant for that tenant, and records the change
         body = {"plan": "BUSINESS"}
         url = f"/v1/commercial/tenants/{tenant}/entitlement"
@@ -611,7 +647,20 @@ def test_the_operator_surface_needs_grants_and_a_second_approver(
             resource_scope=f"tenant:{tenant}",
             target_tenant_id=tenant,
         )
+        # a plan with a price is never switched on by this call alone: it is bought, or agreed as an offer the company then pays (CR-148)
         r = api.put(url, json=body, headers=o.bearer(alice))
+        assert r.status_code == 409 and r.json()["error"]["code"] == "PAYMENT_REQUIRED", r.text
+        assert "Make an offer" in r.json()["error"]["message"]
+        short = api.put(
+            url, json={**body, "complimentary_reason": "too short"}, headers=o.bearer(alice)
+        )
+        assert short.status_code == 422  # a free grant needs a real reason
+        # nothing changed yet: the company is still on its default plan
+        r = api.put(
+            url,
+            json={**body, "complimentary_reason": "Design partner, signed side letter 2026-11"},
+            headers=o.bearer(alice),
+        )
         assert r.status_code == 200, r.text
         assert r.json()["plan_code"] == "BUSINESS" and r.json()["version"] == 1
         assert api.put(url, json={"plan": "PLATINUM"}, headers=o.bearer(alice)).status_code == 422

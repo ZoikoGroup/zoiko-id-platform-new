@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from zid_assistant import POLICY_VERSION
-from zid_assistant.application import router, verifier
+from zid_assistant.application import router, routes, verifier
 from zid_assistant.application.retrieval import Hit, SpanIndex
 from zid_assistant.application.snapshot import Knowledge
 from zid_assistant.domain.content import Answer, ClaimKind, ContentState, Route
@@ -64,6 +64,7 @@ _DEFAULT_COPY = {
     "sample_label": "Engineering sample content, not an approved publication.",
 }
 _SENT = re.compile(r"(?<=[.!?])\s+")
+_LIBRARY_EXACT = 6.0  # best_answer score that means "this is the library question itself"
 _STATIC_HELP_LINKS = ("OVERVIEW", "DEVELOPER-DOCS", "HELP-SUPPORT", "CONTACT")
 
 
@@ -350,6 +351,15 @@ class AssistantPipeline:
                 "HUMAN",
             )
 
+        # the reviewed launch library keeps its exact wording: a near-verbatim library question is answered from the library below, and the
+        # website assistant's approved routes handle every other phrasing
+        approved = routes.match(text)
+        if (
+            approved is not None
+            and router.best_answer(self.k, text, None, min_score=_LIBRARY_EXACT) is None
+        ):
+            return done(self._route_packet(approved, ctx, expires), "ROUTE")
+
         intent = decision.intent
         if intent is not None and intent.route in (Route.REFUSE, Route.ESCALATE, Route.CLARIFY):
             dec = {
@@ -515,6 +525,28 @@ class AssistantPipeline:
         )
 
     # ------------------------------------------------------------------ pieces
+    def _route_packet(
+        self, r: routes.ApprovedRoute, ctx: Context, expires: datetime | None
+    ) -> AnswerPacket:
+        """One approved route (the website assistant's response style) as a packet: fixed text, the first usable link as the one
+        recommended action, and citations only from eligible snapshot sources."""
+        snap = self.k.snapshot
+        sids = tuple(
+            s for s in r.sources if s in snap.sources and source_eligible(snap, s, ctx).allowed
+        )
+        is_sample = any(snap.sources[s].state is not ContentState.PUBLISHED for s in sids)
+        action = next((a for a in (self._link_action(i) for i in r.links) if a is not None), None)
+        return self._packet(
+            r.decision,
+            r.text,
+            intent_id=None,
+            reason=r.reason,
+            actions=[action] if action else [],
+            citations=self._citations(sids) if r.decision is Decision.ANSWER else [],
+            sample=is_sample,
+            expires=expires,
+        )
+
     def _cta_for(self, intent: object) -> list[Action]:
         link_id = getattr(intent, "cta_link_id", None)
         a = self._link_action(link_id)

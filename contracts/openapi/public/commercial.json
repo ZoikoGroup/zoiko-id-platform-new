@@ -198,25 +198,6 @@
         "title": "AppointBody",
         "type": "object"
       },
-      "ApproveBody": {
-        "additionalProperties": false,
-        "properties": {
-          "effective_from": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Effective From"
-          }
-        },
-        "title": "ApproveBody",
-        "type": "object"
-      },
       "ApproveQuoteBody": {
         "additionalProperties": false,
         "properties": {
@@ -1398,9 +1379,9 @@
         "title": "PeriodQuery",
         "type": "object"
       },
-      "PlanPriceBody": {
+      "PlanOfferBody": {
         "additionalProperties": false,
-        "description": "One plan and its monthly platform fee. There is no region field: a plan has one price everywhere (the price book has no region dimension).",
+        "description": "The monthly amount one company will pay for the plan it asked for. Never above the list price; below it is a reduction held to the discount authority.",
         "properties": {
           "amount": {
             "anyOf": [
@@ -1414,6 +1395,84 @@
               }
             ],
             "title": "Amount"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "valid_days": {
+            "default": 14,
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "PlanOfferBody",
+        "type": "object"
+      },
+      "PlanOfferWithdraw": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "PlanOfferWithdraw",
+        "type": "object"
+      },
+      "PlanPriceBody": {
+        "additionalProperties": false,
+        "description": "One price: pick the item and the plan, type the amount. The item is the monthly plan fee by default, or one of the usage rates charged above what a plan\nincludes. There is no region field: a plan has one price everywhere (the price book has no region dimension).",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "item": {
+            "default": "ZID-BASE",
+            "enum": [
+              "ZID-BASE",
+              "ZID-HUM",
+              "ZID-AUTH",
+              "ZID-PDP",
+              "ZID-M2M",
+              "ZID-VCI",
+              "ZID-VCP",
+              "ZID-FED",
+              "ZID-SCIM"
+            ],
+            "title": "Item",
+            "type": "string"
           },
           "plan": {
             "enum": [
@@ -2668,6 +2727,25 @@
         "title": "VerifyPackBody",
         "type": "object"
       },
+      "zid_platform__modules__operator_access__api__commercial_admin__ApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          }
+        },
+        "title": "ApproveBody",
+        "type": "object"
+      },
       "zid_platform__modules__operator_access__api__commercial_admin__NoticeBody": {
         "additionalProperties": false,
         "properties": {
@@ -2693,6 +2771,19 @@
       "zid_platform__modules__operator_access__api__commercial_admin__PlanBody": {
         "additionalProperties": false,
         "properties": {
+          "complimentary_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complimentary Reason"
+          },
           "plan": {
             "enum": [
               "DEVELOPER",
@@ -3872,7 +3963,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"
               }
             }
           },
@@ -5157,7 +5248,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"
               }
             }
           },
@@ -6002,7 +6093,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"
               }
             }
           },
@@ -7534,9 +7625,33 @@
         ]
       }
     },
+    "/v1/commercial/plan-offers": {
+      "get": {
+        "description": "Prices made for one company that still wait: for a second operator's approval, or for the company to buy at them (CR-148).",
+        "operationId": "waiting_plan_offers_v1_commercial_plan_offers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Waiting Plan Offers V1 Commercial Plan Offers Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Waiting Plan Offers",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
     "/v1/commercial/plan-prices": {
       "post": {
-        "description": "Set one plan's monthly platform fee: select the plan, enter the amount (CR-147).\n\nIt does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that plan's platform-fee line (every other\nline is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,\nbecause the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the\nnew price applies to new purchases and orders.",
+        "description": "Set one price: select the item (the monthly plan fee, or a usage rate) and the plan, enter the amount (CR-147).\n\nIt does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that one line (every other\nline is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,\nbecause the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the\nnew price applies to new purchases and orders.",
         "operationId": "set_plan_price_v1_commercial_plan_prices_post",
         "requestBody": {
           "content": {
@@ -7653,6 +7768,164 @@
           }
         },
         "summary": "Answer Plan Request",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/plan-requests/{request_id}:approve-offer": {
+      "post": {
+        "description": "A different operator, holding the role the reduction needs, lets the company buy at the offered price.",
+        "operationId": "approve_plan_offer_v1_commercial_plan_requests__request_id__approve_offer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Plan Offer V1 Commercial Plan Requests  Request Id  Approve Offer Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Plan Offer",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/plan-requests/{request_id}:offer": {
+      "post": {
+        "description": "Answer a company's request with the price that company will pay (CR-148). It moves no plan and charges nothing: the company buys the plan at this amount, pays on Stripe, and\nthe plan switches only after that payment is confirmed. A price below the list price needs the discount authority (direct mode: you are it; governed mode: a second operator approves).",
+        "operationId": "offer_plan_price_v1_commercial_plan_requests__request_id__offer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanOfferBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Offer Plan Price V1 Commercial Plan Requests  Request Id  Offer Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Offer Plan Price",
+        "tags": [
+          "commercial"
+        ]
+      }
+    },
+    "/v1/commercial/plan-requests/{request_id}:withdraw-offer": {
+      "post": {
+        "description": "Take an offer back. A plan already bought at it is untouched; the company can no longer buy at that price.",
+        "operationId": "withdraw_plan_offer_v1_commercial_plan_requests__request_id__withdraw_offer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanOfferWithdraw"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Plan Offer V1 Commercial Plan Requests  Request Id  Withdraw Offer Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Plan Offer",
         "tags": [
           "commercial"
         ]
@@ -7887,7 +8160,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ApproveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"
               }
             }
           },

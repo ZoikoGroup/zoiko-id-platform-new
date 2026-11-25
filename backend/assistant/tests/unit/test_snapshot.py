@@ -31,7 +31,7 @@ def content(tmp_path: Path) -> Path:
 
 def test_launch_content_shape() -> None:
     k = build_knowledge(CONTENT, allow_local_http=False)
-    assert len(k.intents) == 18 and len(k.answers) == 28
+    assert len(k.intents) == 18 and len(k.answers) == 29
     assert len(k.snapshot.capabilities) == 25
     assert k.snapshot.sample is True
     # nothing is approved by existing (CONTENT-005): every answer is a draft, every capability unreleased

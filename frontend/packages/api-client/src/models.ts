@@ -389,16 +389,35 @@ export type ProvisioningSourceCreated = ProvisioningSource & { client_created: b
 
 /** A company's ask for a different plan; the commercial team answers it. It never changes the entitlement. */
 export type PlanRequestStatus = "OPEN" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
+/** A price the team agreed for one company and one plan (CR-148). It moves no plan: the company buys at this amount and pays it. */
+export type PlanOfferInfo = {
+  state: "PENDING_APPROVAL" | "OPEN" | "USED" | "WITHDRAWN";
+  amount: string;
+  list_amount: string;
+  currency: string;
+  reduction_percent: string;
+  expires_at: Iso;
+  offered_at?: Iso;
+};
 export type PlanRequest = {
   request_id: string;
   plan: string;
   current_plan: string;
   note: string | null;
+  /** What the company hoped to pay a month, if it said. */
+  desired_amount: string | null;
   status: PlanRequestStatus;
   created_at: Iso;
   decided_at: Iso | null;
   decision_note: string | null;
+  /** The team's price for this company, once made. */
+  offer: PlanOfferInfo | null;
 };
+/** One plan as this company would pay for it today: the list price, or a lower agreed one. */
+export type MyPlanPrice = { plan: string; buyable: boolean; reason?: string; amount?: string; list_amount?: string; currency?: string; negotiated?: boolean; offer_expires_at?: Iso | null };
+/** An offer made, or still waiting for approval or for the company to buy at it (operator side). */
+export type WaitingPlanOffer = { request_id: string; tenant_id: string; company: string | null; plan: string; offer: PlanOfferInfo | null; offered_by: string | null };
+export type PlanOfferMade = { request_id: string; tenant_id: string; plan: string; company: string | null; offer: PlanOfferInfo; awaiting_approval?: boolean; note?: string | null };
 
 export type ApprovalListItem = {
   approval_request_id: string;
@@ -2347,6 +2366,10 @@ export type PlanOffer = {
   plan: string;
   label: string;
   amount: string;
+  /** The list price. Equal to `amount` unless the team agreed a lower price for this company (`negotiated`). */
+  list_amount: string;
+  negotiated: boolean;
+  offer_expires_at: Iso | null;
   currency: string;
   price_book_version: number;
   fee_is_floor: boolean;
@@ -4906,3 +4929,125 @@ export type IdvMediaGrant = { grant_id: string; expires_at: string; reads_left: 
 export type IdvMedia = { content_type: string; image_base64: string; checks: Record<string, string>; reads_left: number };
 export type AgeCheckIn = { threshold: number; birth_date?: string };
 export type AgeCheckResult = { threshold: number; result: "AT_LEAST" | "UNDER" | "UNDETERMINED"; method: "VERIFIED_BIRTH_DATE" | "ESTIMATION" | "SELF_DECLARED"; valid_until: string | null; reason_codes: string[]; fallback_offered: boolean; limitations: string[] };
+
+/** A company's Verify API application (CR-149): one environment, the scopes it holds, and the exact origins its hosted flow may return to. */
+export type VerifyApiApplication = {
+  application_id: string;
+  name: string;
+  environment: "SANDBOX" | "PRODUCTION";
+  status: "ACTIVE" | "SUSPENDED" | "RETIRED";
+  scopes: string[];
+  redirect_origins: string[];
+  /** Workflows this application may start; empty means every approved workflow. */
+  allowed_workflows: string[];
+  default_workflow_id: string | null;
+  branding: VerifyApiBranding;
+  created_at: Iso;
+  updated_at: Iso;
+};
+/** Hosted-page settings: only these four, from an approved set. */
+export type VerifyApiBranding = { display_name?: string; theme?: string; support_url?: string; locale?: string };
+export type VerifyApiSettingsIn = { redirect_origins?: string[]; allowed_workflows?: string[]; default_workflow_id?: string; branding?: VerifyApiBranding };
+/** What a person may see of a credential: the public client id and the last four characters of the secret, never the secret. */
+export type VerifyApiCredential = {
+  credential_id: string;
+  client_id: string;
+  secret_hint: string;
+  status: "ACTIVE" | "ROTATING" | "REVOKED" | "EXPIRED";
+  created_at: Iso;
+  expires_at: Iso;
+  last_used_at: Iso | null;
+  revoked_at: Iso | null;
+  replaced_by: string | null;
+};
+export type VerifyApiApplicationDetail = VerifyApiApplication & { credentials: VerifyApiCredential[] };
+export type VerifyApiApplicationIn = { name: string; environment?: "SANDBOX" | "PRODUCTION"; scopes?: string[]; redirect_origins?: string[] };
+export type VerifyApiSession = {
+  session_id: string;
+  status: string;
+  customer_reference: string;
+  workflow_id: string;
+  country: string;
+  purpose_code: string;
+  created_at: Iso;
+  completed_at: Iso | null;
+  expires_at: Iso;
+  mode: "sandbox" | "production";
+  /** The session this one rechecks, when it is a recheck. */
+  recheck_of?: string | null;
+  /** Present only in the answer that creates the session, never read back. */
+  launch_url?: string;
+  launch_expires_at?: Iso;
+};
+export type VerifyApiSessionPage = { items: VerifyApiSession[]; next_cursor: string | null };
+export type VerifyApiResultRow = VerifyApiSession & { application_id: string; application_name: string };
+export type VerifyApiResultPage = { items: VerifyApiResultRow[]; next_cursor: string | null };
+export type VerifyApiDecision = {
+  decision_id: string;
+  decision_version: number;
+  supersedes_decision_id: string | null;
+  outcome: "verified" | "not_verified" | "inconclusive" | "review_required";
+  checks: { method: string; result: string }[];
+  reason_codes: string[];
+  policy_version: string;
+  completed_at: Iso;
+  sandbox: boolean;
+  assurance: { scheme: string; level: string } | null;
+};
+export type VerifyApiResultDetail = VerifyApiResultRow & {
+  decisions: VerifyApiDecision[];
+  rechecks: { session_id: string; status: string; created_at: Iso }[];
+  can_recheck: boolean;
+};
+export type VerifyApiResultQuery = { application_id?: string; environment?: string; status?: string; customer_reference?: string; cursor?: string; limit?: number };
+export type VerifyApiTestSessionIn = { customer_reference?: string; country?: string; purpose_code?: string };
+export type VerifyApiGoLiveCheck = { id: string; label: string; met: boolean; help: string };
+export type VerifyApiGoLiveRequest = {
+  request_id: string;
+  status: "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "DECLINED" | "WITHDRAWN";
+  markets: string[];
+  methods: string[];
+  purpose_code: string;
+  volume_band: string;
+  use_case: string;
+  terms_version: string;
+  dpa_version: string;
+  certification: VerifyApiGoLiveCheck[];
+  note: string | null;
+  created_at: Iso;
+  decided_at: Iso | null;
+};
+/** An open go-live request as the operator plane reads it. */
+export type VerifyApiGoLiveOperatorRequest = VerifyApiGoLiveRequest & { tenant_id: string; reviewer_id: string | null; accepted_by: string; attestations: string[] };
+export type VerifyApiAttestations = { company_verified: boolean; terms_signed: boolean; privacy_reviewed: boolean; billing_ready: boolean; provider_approved: boolean };
+export type VerifyApiUsageCounts = { sessions_started: number; verified: number; not_verified: number; inconclusive: number; review_required: number; canceled: number; expired: number };
+export type VerifyApiUsageRow = VerifyApiUsageCounts & { application_id: string; application_name: string; environment: "sandbox" | "production" };
+export type VerifyApiUsage = {
+  month: string;
+  billing: { state: string; note: string };
+  totals: { sandbox: VerifyApiUsageCounts; production: VerifyApiUsageCounts };
+  items: VerifyApiUsageRow[];
+  reconciliation: { sessions_started: { sessions: number; ledger: number }; checks_completed: { sessions: number; ledger: number }; reconciled: boolean };
+};
+export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
+export type VerifyApiGoLive = {
+  certification: VerifyApiGoLiveCheck[];
+  request: VerifyApiGoLiveRequest | null;
+  grant: VerifyApiGrant | null;
+  terms_version: string;
+  dpa_version: string;
+  options: { methods: string[]; purposes: string[]; volume_bands: { id: string; label: string }[] };
+};
+export type VerifyApiGoLiveIn = {
+  markets: string[];
+  methods: string[];
+  purpose_code: string;
+  volume_band: string;
+  use_case: string;
+  terms_version: string;
+  dpa_version: string;
+  accept_terms: boolean;
+  accept_dpa: boolean;
+};
+/** The one answer that carries a secret. It is shown once and never again. */
+export type VerifyApiIssued = { credential_id: string; client_id: string; client_secret: string; secret_hint: string; expires_at: Iso; replaces?: string; old_credential_valid_until?: Iso };

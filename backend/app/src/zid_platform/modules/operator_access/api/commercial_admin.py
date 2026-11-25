@@ -35,7 +35,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from zid_db import in_tenant, tenant_transaction
@@ -49,6 +49,7 @@ from zid_platform.modules.commercial.ports import (
     Credit,
     FinanceError,
     InvoicingError,
+    OfferError,
     OrderError,
     PlanRequestError,
     QuoteLine,
@@ -81,6 +82,7 @@ from zid_platform.modules.commercial.ports import (
     partner_model,
     partner_store,
     payment_event_queue,
+    plan_offers,
     plan_requests,
     pricing_governance,
     profitability_service,
@@ -255,6 +257,8 @@ class ApproveBody(BaseModel):
 class PlanBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan: PlanCode
+    # Moving a company to a plan that has a price, with no order and no payment, is a free grant. It is allowed only with a recorded reason, and it is flagged by revenue assurance (CR-148).
+    complimentary_reason: str | None = Field(default=None, min_length=10, max_length=500)
 
 
 class OverrideBody(BaseModel):
@@ -394,19 +398,42 @@ async def approve_book(
     return _book_view(b)
 
 
+PriceItem = Literal[
+    "ZID-BASE",  # the monthly platform fee
+    "ZID-HUM",  # each person above the included amount
+    "ZID-AUTH",  # sign-ins above the included amount (per 1,000)
+    "ZID-PDP",  # access decisions above the included amount (per 10,000)
+    "ZID-M2M",  # machine grants above the included amount (per 1,000)
+    "ZID-VCI",  # each credential issued
+    "ZID-VCP",  # each credential check
+    "ZID-FED",  # each extra single sign-on connection, per month
+    "ZID-SCIM",  # each extra provisioning source, per month
+]
+
+
 class PlanPriceBody(BaseModel):
-    """One plan and its monthly platform fee. There is no region field: a plan has one price everywhere (the price book has no region dimension)."""
+    """One price: pick the item and the plan, type the amount. The item is the monthly plan fee by default, or one of the usage rates charged above what a plan
+    includes. There is no region field: a plan has one price everywhere (the price book has no region dimension)."""
 
     model_config = ConfigDict(extra="forbid")
     plan: Literal["LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"]
-    amount: Decimal = Field(gt=0, le=1_000_000, max_digits=12, decimal_places=2)
+    item: PriceItem = "ZID-BASE"
+    amount: Decimal = Field(gt=0, le=1_000_000, max_digits=14, decimal_places=6)
+
+    @model_validator(mode="after")
+    def _whole_cents_for_the_monthly_fee(self) -> PlanPriceBody:
+        # A monthly fee is a bill amount: two decimals at most. A usage rate keeps small decimals (0.015 must not become 0.02).
+        exponent = self.amount.as_tuple().exponent
+        if self.item == "ZID-BASE" and isinstance(exponent, int) and exponent < -2:
+            raise ValueError("a monthly fee has at most two decimals")
+        return self
 
 
 @router.post("/v1/commercial/plan-prices", status_code=201)
 async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep) -> dict[str, Any]:
-    """Set one plan's monthly platform fee: select the plan, enter the amount (CR-147).
+    """Set one price: select the item (the monthly plan fee, or a usage rate) and the plan, enter the amount (CR-147).
 
-    It does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that plan's platform-fee line (every other
+    It does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that one line (every other
     line is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,
     because the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the
     new price applies to new purchases and orders."""
@@ -425,7 +452,7 @@ async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep)
             (
                 ln
                 for ln in await store.lines(conn, str(current["price_book_id"]))
-                if ln["sku_id"] == "ZID-BASE" and ln["plan_code"] == body.plan
+                if ln["sku_id"] == body.item and ln["plan_code"] == body.plan
             ),
             None,
         )
@@ -433,20 +460,20 @@ async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep)
             raise _fail(
                 CommercialError(
                     "PLAN_LINE_MISSING",
-                    f"The approved price book has no platform fee line for {body.plan}.",
+                    f"The approved price book has no {body.item} line for {body.plan}, so there is no price to change.",
                 )
             )
         draft = await store.create_draft(
             conn,
             copy_of=str(current["price_book_id"]),
             created_by=op.principal_id,
-            note=f"{body.plan} platform fee set to {body.amount}",
+            note=f"{body.plan} {body.item} set to {body.amount}",
         )
         draft_id = str(draft["price_book_id"])
         await store.put_line(
             conn,
             draft_id,
-            sku_id="ZID-BASE",
+            sku_id=body.item,
             plan_code=body.plan,
             unit_rate=body.amount,
             unit_divisor=previous["unit_divisor"],
@@ -461,6 +488,7 @@ async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep)
             actor=op.principal_id,
             detail={
                 "plan": body.plan,
+                "item": body.item,
                 "amount": format(body.amount, "f"),
                 "previous": format(previous["unit_rate"].normalize(), "f"),
                 "currency": current["currency"],
@@ -486,7 +514,8 @@ async def set_plan_price(body: PlanPriceBody, request: Request, op: OperatorDep)
     return {
         **_book_view(b),
         "plan": body.plan,
-        "amount": format(body.amount, "f"),
+        "item": body.item,
+        "amount": format(body.amount.normalize(), "f"),
         "previous_amount": format(previous["unit_rate"].normalize(), "f"),
         "awaiting_approval": b["status"] == "DRAFT",
     }
@@ -1840,6 +1869,155 @@ async def answer_plan_request(
             ) from e
 
 
+# ------------------------------------------------------------------------------- a price for one company (CR-148)
+
+
+class PlanOfferBody(BaseModel):
+    """The monthly amount one company will pay for the plan it asked for. Never above the list price; below it is a reduction held to the discount authority."""
+
+    model_config = ConfigDict(extra="forbid")
+    amount: Decimal = Field(gt=0, le=1_000_000, max_digits=12, decimal_places=2)
+    valid_days: int = Field(default=14, ge=1, le=60)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class PlanOfferWithdraw(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+_OFFER_STATUS = {
+    "NO_APPROVED_PRICE_BOOK": 409,
+    "PRICE_NOT_PUBLISHED": 409,
+    "PLAN_NOT_SELF_SERVE": 409,
+    "POLICY_NOT_SIGNED": 409,
+    "OFFER_NOT_AWAITING_APPROVAL": 409,
+    "OFFER_NOT_ACTIVE": 409,
+    "OFFER_EXPIRED": 409,
+    "OFFER_SELF_APPROVAL": 403,
+    "APPROVER_ROLE_MISSING": 403,
+    "OFFER_NEEDS_SEVERAL_ROLES": 422,
+}
+
+
+def _offer_fail(e: OfferError | PlanRequestError) -> ZidError:
+    table = _OFFER_STATUS if isinstance(e, OfferError) else _PLAN_REQUEST_STATUS
+    return ZidError(e.code, e.detail or e.code, http_status=table.get(e.code, 422))
+
+
+def _policy_lock(request: Request) -> bool:
+    return str(getattr(request.app.state, "environment", "production")) not in ("local", "test")
+
+
+async def notify_plan_offer(conn: Any, made: dict[str, Any]) -> None:
+    """Tell the company, in its own Alerts, that it has a price for the plan it asked about. Raised in the company's tenant context, never the operator's."""
+    from zid_platform.modules.notification.ports import AlertDraft, Severity, raise_alert
+
+    offer = made["offer"]
+    plan = str(made["plan"]).title()
+    draft = AlertDraft(
+        severity=Severity.INFO,
+        kind="commercial.plan_offer.made",
+        title=f"Your price for the {plan} plan: {offer['amount']} {offer['currency']} a month",
+        body=(made.get("note") or "")
+        or f"The list price is {offer['list_amount']} {offer['currency']}. This price is for your company only.",
+        object_type="plan_request",
+        object_ref=made["request_id"],
+        href="/admin/billing",
+        recommended_action="Open Billing and buy the plan at your price before it ends.",
+        is_task=False,
+        mandatory=False,
+        correlation_key=f"plan_offer.made:{made['request_id']}",
+    )
+    async with in_tenant(conn, made["tenant_id"]):
+        await raise_alert(conn, made["tenant_id"], draft, now=datetime.now(UTC))
+
+
+@router.get("/v1/commercial/plan-offers")
+async def waiting_plan_offers(request: Request, op: OperatorDep) -> dict[str, Any]:
+    """Prices made for one company that still wait: for a second operator's approval, or for the company to buy at them (CR-148)."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        return {"items": await plan_offers.waiting(conn)}
+
+
+@router.post("/v1/commercial/plan-requests/{request_id}:offer")
+async def offer_plan_price(
+    request_id: uuid.UUID, body: PlanOfferBody, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Answer a company's request with the price that company will pay (CR-148). It moves no plan and charges nothing: the company buys the plan at this amount, pays on Stripe, and
+    the plan switches only after that payment is confirmed. A price below the list price needs the discount authority (direct mode: you are it; governed mode: a second operator approves)."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            made = await plan_offers.make_offer(
+                conn,
+                str(request_id),
+                amount=body.amount,
+                valid_days=body.valid_days,
+                note=body.note,
+                operator_id=op.principal_id,
+                direct=direct_mode(),
+                direct_approver=DIRECT_APPROVER,
+                policy_lock=_policy_lock(request),
+            )
+        except (OfferError, PlanRequestError) as e:
+            raise _offer_fail(e) from e
+        except OrderError as e:
+            raise _order_fail(e) from e
+        if not made["awaiting_approval"]:
+            await notify_plan_offer(conn, made)
+        return made
+
+
+@router.post("/v1/commercial/plan-requests/{request_id}:approve-offer")
+async def approve_plan_offer(
+    request_id: uuid.UUID, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """A different operator, holding the role the reduction needs, lets the company buy at the offered price."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            approved = await plan_offers.approve_offer(
+                conn,
+                str(request_id),
+                approver_id=str(op.principal_id),
+                policy_lock=_policy_lock(request),
+            )
+        except (OfferError, PlanRequestError) as e:
+            raise _offer_fail(e) from e
+        except OrderError as e:
+            raise _order_fail(e) from e
+        await notify_plan_offer(conn, {**approved, "note": None})
+        return approved
+
+
+@router.post("/v1/commercial/plan-requests/{request_id}:withdraw-offer")
+async def withdraw_plan_offer(
+    request_id: uuid.UUID, body: PlanOfferWithdraw, request: Request, op: OperatorDep
+) -> dict[str, Any]:
+    """Take an offer back. A plan already bought at it is untouched; the company can no longer buy at that price."""
+    async with (
+        tenant_transaction(request_engine(request), request.state.operator_ctx) as conn,
+        operator_scope(conn),
+    ):
+        await _require(conn, op, "commercial.catalog.manage", None, "commercial:catalogue")
+        try:
+            return await plan_offers.withdraw_offer(
+                conn, str(request_id), operator_id=op.principal_id, reason=body.reason
+            )
+        except (OfferError, PlanRequestError) as e:
+            raise _offer_fail(e) from e
+
+
 class ServiceRequestMove(BaseModel):
     model_config = ConfigDict(extra="forbid")
     status: Literal["IN_PROGRESS", "ACTIVE", "DECLINED"]
@@ -2024,6 +2202,16 @@ async def set_plan(
         raise ZidError("VALIDATION_FAILED", "Unknown plan.", http_status=422)
     async with tenant_transaction(request_engine(request), request.state.operator_ctx) as conn:
         await _require(conn, op, "tenant.config.change", tenant, f"tenant:{tenant}")
+        target = await store.plan(conn, body.plan)
+        free = target is not None and Decimal(target["platform_fee"]) == 0
+        if not free and not body.complimentary_reason:
+            # a plan with a price is bought, or agreed as an offer the company then pays: never switched on by this call alone
+            raise ZidError(
+                "PAYMENT_REQUIRED",
+                f"The {body.plan.title()} plan has a price, so it is not switched on here without payment. The company can buy it in Billing, or you can answer its request with a price "
+                "(Plan requests, Make an offer). To grant it free of charge, give a reason of at least 10 characters.",
+                http_status=409,
+            )
         book = await store.approved_price_book(conn, now)
         async with in_tenant(conn, tenant):
             try:
@@ -2053,8 +2241,19 @@ async def set_plan(
                 ref=result["entitlement_id"],
                 tenant_id=tenant,
                 actor=op.principal_id,
-                reason="OPERATOR_PLAN_CHANGE",
-                detail={"plan": body.plan, "previous_plan": result["previous_plan"]},
+                reason="OPERATOR_PLAN_CHANGE" if free else "COMPLIMENTARY_PLAN_CHANGE",
+                detail={
+                    "plan": body.plan,
+                    "previous_plan": result["previous_plan"],
+                    **(
+                        {}
+                        if free
+                        else {
+                            "complimentary": True,
+                            "complimentary_reason": body.complimentary_reason,
+                        }
+                    ),
+                },
             )
     return {**result, "effective_from": now.isoformat()}
 

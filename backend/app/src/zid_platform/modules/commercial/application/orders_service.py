@@ -22,7 +22,7 @@ from zid_platform.modules.commercial.application import events, vendor_service
 from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application.change_log import log_change
 from zid_platform.modules.commercial.domain import orders as rules
-from zid_platform.modules.commercial.infrastructure import catalogue_store
+from zid_platform.modules.commercial.infrastructure import catalogue_store, plan_request_store
 from zid_platform.modules.commercial.infrastructure.finance_config import finance_policy
 
 QUOTE_VALIDITY = timedelta(days=30)
@@ -147,6 +147,11 @@ async def _bands(conn: AsyncConnection) -> list[rules.Band]:
     return [rules.Band(Decimal(r[0]) if r[0] is not None else None, frozenset(r[1])) for r in rows]
 
 
+async def discount_roles(conn: AsyncConnection, discount: Decimal) -> frozenset[str]:
+    """The roles whose approval a reduction of `discount` (a fraction, 0.07 = 7%) needs under the discount bands. Nothing is needed for no reduction."""
+    return rules.approvers_for(discount, await _bands(conn))
+
+
 async def create_quote(
     conn: AsyncConnection,
     *,
@@ -162,6 +167,7 @@ async def create_quote(
     pilot: bool,
     actor: str,
     now: datetime | None = None,
+    region_gated: bool = True,
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     book = await catalogue_store.price_book(conn, price_book_id)
@@ -189,6 +195,7 @@ async def create_quote(
         liability_capped=liability_capped,
         residency_commitment=residency_commitment,
         account_currency=account[0],
+        region_gated=region_gated,
     )
     v = rules.validate(quote, await _catalogue(conn, price_book_id), await _bands(conn))
     payload = {
@@ -600,6 +607,9 @@ async def activate(
             price_book_version=None,
             effective_from=start,
         )
+        await plan_request_store.mark_offer_used(
+            conn, o["plan_code"]
+        )  # a price agreed for this company is spent once the plan is switched on at it
     if o["amends_order_id"]:
         await conn.execute(
             text(

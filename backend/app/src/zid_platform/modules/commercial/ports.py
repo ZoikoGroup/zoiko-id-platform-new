@@ -31,6 +31,7 @@ from zid_platform.modules.commercial.application import eligibility_service as e
 from zid_platform.modules.commercial.application import finance_service as finance
 from zid_platform.modules.commercial.application import invoicing_service as invoicing
 from zid_platform.modules.commercial.application import orders_service as orders
+from zid_platform.modules.commercial.application import plan_offer_service as plan_offers
 from zid_platform.modules.commercial.application import plan_request_service as plan_requests
 from zid_platform.modules.commercial.application import recon_service as recon
 from zid_platform.modules.commercial.application import refund_service as refunds
@@ -65,6 +66,7 @@ from zid_platform.modules.commercial.application.events import (
     entitlement_changed,
     meter_window_frozen,
 )
+from zid_platform.modules.commercial.application.plan_offer_service import OfferError
 from zid_platform.modules.commercial.application.rating_service import latest as latest_rating
 from zid_platform.modules.commercial.application.rating_service import run as run_rating
 from zid_platform.modules.commercial.application.recorder import (
@@ -110,6 +112,8 @@ from zid_platform.modules.commercial.domain.billable import (
     key_screen_period,
     key_vc_issued,
     key_vc_presented,
+    key_verify_check_complete,
+    key_verify_session_start,
     next_month,
     window_month,
 )
@@ -228,6 +232,7 @@ __all__ = [
     "FinanceKind",
     "InvoicingError",
     "NoTaxConfigured",
+    "OfferError",
     "OnlinePayment",
     "OpsError",
     "OrderError",
@@ -289,6 +294,8 @@ __all__ = [
     "key_screen_period",
     "key_vc_issued",
     "key_vc_presented",
+    "key_verify_check_complete",
+    "key_verify_session_start",
     "latest_rating",
     "lead_store",
     "ledger_summary",
@@ -306,6 +313,7 @@ __all__ = [
     "partner_store",
     "payment_event_queue",
     "plan_aware_transfer_gate",
+    "plan_offers",
     "plan_request_limit",
     "plan_requests",
     "plan_throughput_status",

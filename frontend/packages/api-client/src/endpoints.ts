@@ -408,6 +408,27 @@ export function createCellApi(t: Transport) {
       resolve: (id: string) => post<M.PlatformAlert>(`/v1/alerts/${seg(id)}:resolve`),
     },
 
+    /** Applications and credentials a company's server uses to call the Verify API (CR-149). A secret is in exactly one answer: creating or rotating a credential. */
+    verifyApi: {
+      applications: () => get<M.Items<M.VerifyApiApplication>>("/v1/verify-api/applications"),
+      application: (id: string) => get<M.VerifyApiApplicationDetail>(`/v1/verify-api/applications/${seg(id)}`),
+      createApplication: (body: M.VerifyApiApplicationIn) => post<M.VerifyApiApplication>("/v1/verify-api/applications", body),
+      updateSettings: (id: string, body: M.VerifyApiSettingsIn) => t.request<M.VerifyApiApplicationDetail>("PUT", `/v1/verify-api/applications/${seg(id)}/settings`, { body }),
+      changeApplication: (id: string, change: "suspend" | "resume" | "retire") => post<M.VerifyApiApplicationDetail>(`/v1/verify-api/applications/${seg(id)}:${change}`),
+      issueCredential: (id: string) => post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials`),
+      rotateCredential: (id: string, credentialId: string, overlapHours?: number) =>
+        post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials/${seg(credentialId)}:rotate`, overlapHours ? { overlap_hours: overlapHours } : {}),
+      revokeCredential: (id: string, credentialId: string) => post<M.VerifyApiCredential>(`/v1/verify-api/applications/${seg(id)}/credentials/${seg(credentialId)}:revoke`),
+      sessions: (id: string, query: { status?: string; cursor?: string } = {}) => get<M.VerifyApiSessionPage>(`/v1/verify-api/applications/${seg(id)}/sessions`, query),
+      createTestSession: (id: string, body: M.VerifyApiTestSessionIn = {}) => post<M.VerifyApiSession>(`/v1/verify-api/applications/${seg(id)}/test-sessions`, body),
+      results: (query: M.VerifyApiResultQuery = {}) => get<M.VerifyApiResultPage>("/v1/verify-api/sessions", query),
+      result: (id: string) => get<M.VerifyApiResultDetail>(`/v1/verify-api/sessions/${seg(id)}`),
+      recheck: (id: string) => post<M.VerifyApiSession>(`/v1/verify-api/sessions/${seg(id)}:recheck`),
+      usage: (month?: string) => get<M.VerifyApiUsage>("/v1/verify-api/usage", month ? { month } : undefined),
+      goLive: () => get<M.VerifyApiGoLive>("/v1/verify-api/go-live"),
+      askToGoLive: (body: M.VerifyApiGoLiveIn) => post<M.VerifyApiGoLiveRequest>("/v1/verify-api/go-live-requests", body),
+      withdrawGoLive: (id: string) => post<M.VerifyApiGoLiveRequest>(`/v1/verify-api/go-live-requests/${seg(id)}:withdraw`),
+    },
     webhooks: {
       eventTypes: () => get<M.Items<M.WebhookEventType>>("/v1/webhooks/event-types"),
       signingKeys: () => get<{ keys: Record<string, unknown>[] }>("/v1/webhooks/signing-keys"),
@@ -870,9 +891,15 @@ export function createCellApi(t: Transport) {
       evaluateBudgets: () => post<{ raised: { key: string; threshold: number }[] }>("/v1/budgets:evaluate"),
       /** The company's own requests for a different plan, newest first, with the team's answer. */
       planRequests: () => get<M.Items<M.PlanRequest>>("/v1/billing/plan-requests"),
-      /** Ask for a different plan. Changes no entitlement: the move is a signed order. */
-      requestPlan: (plan: string, note?: string) =>
-        post<{ request_id: string; status: M.PlanRequestStatus; plan: string; current_plan: string }>("/v1/billing/plan-requests", { plan, note: note?.trim() || null }),
+      /** Ask for a different price for a plan, optionally saying what you would like to pay a month. Changes no entitlement: the team answers with a price for this company, and the plan switches only after it is paid. */
+      requestPlan: (plan: string, note?: string, desiredAmount?: string) =>
+        post<{ request_id: string; status: M.PlanRequestStatus; plan: string; current_plan: string }>("/v1/billing/plan-requests", {
+          plan,
+          note: note?.trim() || null,
+          ...(desiredAmount?.trim() ? { desired_amount: desiredAmount.trim() } : {}),
+        }),
+      /** What each plan costs this company today, in one call: the list price, or the lower price the team agreed for it. */
+      planOffers: () => get<M.Items<M.MyPlanPrice>>("/v1/billing/plan-offers"),
       /** What is due now and the saved card (brand and last four only). */
       payment: () => get<M.BillingPayment>("/v1/billing/payment"),
       /** Pay what is outstanding on one issued invoice with the saved card, now. One idempotency key per click. */
@@ -1259,10 +1286,28 @@ export function createOperatorApi(t: Transport) {
       /** ACCEPTED: the team will raise the order. DECLINED: the company is told why. The entitlement is untouched. */
       answerPlanRequest: (id: string, decision: "ACCEPTED" | "DECLINED", note?: string) =>
         post<{ request_id: string; status: M.PlanRequestStatus; tenant_id: string }>(`/v1/commercial/plan-requests/${seg(id)}:answer`, { decision, note: note?.trim() || null }),
+      /** Answer a request with the monthly price that company will pay. It moves no plan and charges nothing; the company buys at it and pays on Stripe. */
+      offerPlanPrice: (id: string, body: { amount: string; valid_days: number; note?: string }) =>
+        post<M.PlanOfferMade>(`/v1/commercial/plan-requests/${seg(id)}:offer`, { amount: body.amount, valid_days: body.valid_days, note: body.note?.trim() || null }),
+      /** A different operator, with the role the reduction needs, lets the company buy at the offered price. */
+      approvePlanOffer: (id: string) => post<M.PlanOfferMade>(`/v1/commercial/plan-requests/${seg(id)}:approve-offer`, {}),
+      /** Take an offer back. A plan already bought at it is untouched. */
+      withdrawPlanOffer: (id: string, reason?: string) =>
+        post<{ request_id: string; state: string }>(`/v1/commercial/plan-requests/${seg(id)}:withdraw-offer`, { reason: reason?.trim() || null }),
+      /** Prices made for one company that still wait for approval, or for the company to buy at them. */
+      planOffers: () => get<M.Items<M.WaitingPlanOffer>>("/v1/commercial/plan-offers"),
       /** Every company's open requests for a contracted service (dedicated isolation, sovereign service, key custody, named support), oldest first. */
       serviceRequests: () => get<M.Items<M.ServiceRequest & { tenant_id: string }>>("/v1/commercial/service-requests"),
       moveServiceRequest: (id: string, status: "IN_PROGRESS" | "ACTIVE" | "DECLINED", note?: string) =>
         post<{ request_id: string; status: string; tenant_id: string }>(`/v1/commercial/service-requests/${seg(id)}:move`, { status, note: note?.trim() || null }),
+      /** Verify API partners asking to open production (CR-153): open requests, oldest first. */
+      goLiveRequests: () => get<M.Items<M.VerifyApiGoLiveOperatorRequest>>("/operator/verify-api/go-live-requests"),
+      goLiveReview: (id: string) => post<M.VerifyApiGoLiveOperatorRequest>(`/operator/verify-api/go-live-requests/${seg(id)}:review`, {}),
+      goLiveApprove: (id: string, confirmed: M.VerifyApiAttestations, note?: string) =>
+        post<M.VerifyApiGoLiveOperatorRequest>(`/operator/verify-api/go-live-requests/${seg(id)}:approve`, { ...confirmed, note: note?.trim() || null }),
+      goLiveDecline: (id: string, note: string) => post<M.VerifyApiGoLiveOperatorRequest>(`/operator/verify-api/go-live-requests/${seg(id)}:decline`, { note: note.trim() }),
+      revokeProductionGrant: (tenantId: string, note: string) =>
+        post<M.VerifyApiGrant & { applications_stopped: number }>(`/operator/verify-api/grants/${seg(tenantId)}:revoke`, { note: note.trim() }),
       exceptions: () => get<M.Items<M.AssuranceException>>("/v1/commercial/exceptions"),
       /** What the payment provider reported that needs a person, oldest first. `resolved` also lists the closed ones. */
       paymentEvents: (resolved = false) => get<M.Items<M.PaymentEvent>>("/v1/commercial/payment-events", resolved ? { resolved: "true" } : undefined),

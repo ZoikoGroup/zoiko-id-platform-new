@@ -9,7 +9,7 @@ A production snapshot needs signed P01..P05 records, named owners and gates G1/G
 |---|---|---|
 | `manifest.yaml` | `Manifest` | snapshot id, version, `sample: true` |
 | `intents.yaml` | `Intent` | the 18 intents INT-01..INT-18, routes, priorities, deterministic keywords and phrases |
-| `answers.yaml` | `Answer` | the 28 draft answers KB-001..KB-028 (exact Doc 05 text) |
+| `answers.yaml` | `Answer` | 29 draft answers: KB-001..KB-028 (exact Doc 05 text) and KB-029 (website-grounded) |
 | `p01_capabilities.yaml` | `Capability` | CAP-001..CAP-025 candidates, all `EVIDENCE_PENDING` |
 | `p02_sources.yaml` | `Source` | 17 sample sources (PUB-001..PUB-017) with short generic spans |
 | `p03_destinations.yaml` | `Destination` | link ids; real website routes `ACTIVE`, authenticated flows `SUSPENDED` |

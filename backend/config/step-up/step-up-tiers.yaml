@@ -144,7 +144,7 @@ actions:
     family: keys-and-integrations
     gate: "Key-management approval"
     control: "One-time secret display; no secret re-display; rotate and audit."
-    catalogue_actions: [integration.application.manage, machine.workload.manage]
+    catalogue_actions: [integration.application.manage, machine.workload.manage, verify_api.application.manage]
   - id: rotate-revoke-critical-enterprise-keys-or-production-certificates
     group: credentials-agents-evidence-infrastructure
     action: "Rotate / revoke critical enterprise keys or production certificates"

@@ -109,5 +109,5 @@ capabilities:
     name: "Integration Edge (§21.1)"
     owns: "API gateway, webhooks, adapters, developer sandbox"
     must_not_own: "Canonical identity or authority state"
-    modules: [integration, webhook]
+    modules: [integration, webhook, verify_api]
     forbidden_schemas: [core, authz, agent]

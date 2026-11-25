@@ -34,7 +34,7 @@ PLANES: dict[str, tuple[str, ...]] = {
     ),
     "trust": ("organization", "verification", "credential", "screening"),
     "security-evidence": ("signals", "evidence", "privacy", "assurance"),
-    "integration": ("federation", "provisioning", "integration", "onboarding", "webhook"),
+    "integration": ("federation", "provisioning", "integration", "onboarding", "webhook", "verify_api"),
     "control": (
         "tenant",
         "resilience",

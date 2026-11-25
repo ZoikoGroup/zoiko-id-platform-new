@@ -598,6 +598,18 @@ events:
     source: ZID-CP-WF01 section 09
     lane: domain
     source_status: "proposed"
+  verification.api.session_decided:
+    cloudevents_type: com.zoiko.id.verification.api.session_decided.v1
+    meaning: "A verification session started through a company's Verify API application got a decision (session id, application id, the company's own customer reference, status, outcome, decision id and version, the decision it supersedes, reason codes, policy version, whether it was a sandbox simulation); no document data, photograph, score or person."
+    source: ZID-EXT-IDV-001 epic E08; CR-152
+    lane: domain
+    source_status: "proposed"
+  verification.api.session_closed:
+    cloudevents_type: com.zoiko.id.verification.api.session_closed.v1
+    meaning: "A verification session started through a Verify API application ended without a decision: canceled or expired (session id, application id, customer reference, status, sandbox flag)."
+    source: ZID-EXT-IDV-001 epic E08; CR-152
+    lane: domain
+    source_status: "proposed"
   screening.case.outcome_changed:
     cloudevents_type: com.zoiko.id.screening.case.outcome_changed.v1
     meaning: "A screening case moved between in review and complete (case id, market, outcome IN_REVIEW or COMPLETE, revision; no name, list, candidate, disposition or reason, and nothing that says what a check found). The customer reads the case under its own access for the calibrated status."

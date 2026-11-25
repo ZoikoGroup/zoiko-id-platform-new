@@ -20,6 +20,8 @@ sources:
     spans:
       - {span_id: s1, text: "Common identity use cases include workforce single sign-on, customer sign-in, partner and supplier access, developer integrations and governed access for software and AI agents."}
       - {span_id: s2, text: "The right approach depends on who or what is being identified, which action must be authorized and what evidence is required afterwards."}
+      - {span_id: s3, text: "Zoiko iD sits alongside your existing identity providers rather than replacing them. Your provider continues to authenticate people and workloads, while Zoiko iD adds the authority layer: who or what is allowed to act, under which delegated mandate, and with what evidence. (Website, Enterprise page FAQ)"}
+      - {span_id: s4, text: "Login proves who or what is present. Delegated authority defines what that actor is permitted to do on someone's behalf, within which limits, and for how long. (Website, Enterprise page FAQ)"}
   - source_id: PUB-003
     title: "Layered identity architecture"
     canonical_url: "https://zoikoid.com/architecture-guides"
@@ -111,6 +113,7 @@ sources:
     spans:
       - {span_id: s1, text: "A certification or audit report is an independent attestation about a defined scope, entity and period; it is not implied by describing security controls."}
       - {span_id: s2, text: "Only certifications and reports that an organization has published for the applicable service can be cited as evidence."}
+      - {span_id: s3, text: "Practices, standards alignment, certification, independent assessment and reports are different things. Keep them apart when reading any statement. No certification claim is published on this page. (Website, Trust Center)"}
   - source_id: PUB-014
     title: "Plans, pricing and commercial terms"
     canonical_url: "https://zoikoid.com/pricing-overview"
@@ -118,6 +121,8 @@ sources:
     claim_ids: [CL-07]
     spans:
       - {span_id: s1, text: "Plans, prices, service levels and trial terms apply only as stated in a current, published commercial source for the relevant market."}
+      - {span_id: s2, text: "Zoiko iD pricing and usage terms depend on the capabilities and deployment scope approved for a specific evaluation. Public pricing figures, units and plans are shown only when formally published. (Website, Pricing overview)"}
+      - {span_id: s3, text: "An inquiry is not a contract, an offer or an acceptance of one. It means the request was received. (Website, Pricing overview)"}
   - source_id: PUB-015
     title: "Privacy rights requests"
     canonical_url: "https://zoikoid.com/privacy-notice"

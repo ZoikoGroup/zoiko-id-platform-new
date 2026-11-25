@@ -350,16 +350,48 @@ function examples(m: RoleMatrix, role: string, mode: Mode, n = 3): string[] {
   return out;
 }
 
-export const STARTERS = (roles: string[]): { label: string; text: string; description?: string; icon?: string }[] => {
-  const base: { label: string; text: string; description?: string; icon?: string }[] = [
-    { label: "What can I do?", text: "What can I do with my role?", description: "Your role and what it allows.", icon: "user" },
+type Starter = { label: string; text: string; description?: string; icon?: string };
+
+const WHAT_CAN_I_DO: Starter = { label: "What can I do?", text: "What can I do with my role?", description: "Your role and what it allows.", icon: "user" };
+const PASSKEYS: Starter = { label: "Manage my passkeys", text: "Where do I manage my passkeys?", description: "Sign-in and recovery settings.", icon: "lock" };
+
+/** The first cards a person sees. They follow the person's highest role, so each role is offered the questions that matter to it. */
+const ROLE_STARTERS: Record<string, Starter[]> = {
+  OWNER: [
+    WHAT_CAN_I_DO,
+    { label: "Grant a role", text: "How do I grant a role?", description: "Where role grants start.", icon: "share" },
+    { label: "Role approvals", text: "Who can approve role grants?", description: "Who signs off on access changes.", icon: "shield" },
+    PASSKEYS,
+  ],
+  ADMIN: [
+    WHAT_CAN_I_DO,
     { label: "Invite someone", text: "Can I invite a viewer?", description: "Who you can bring into your team.", icon: "share" },
     { label: "Role approvals", text: "Who can approve role grants?", description: "Who signs off on access changes.", icon: "shield" },
-    { label: "Manage my passkeys", text: "Where do I manage my passkeys?", description: "Sign-in and recovery settings.", icon: "lock" },
-  ];
-  if (roles.includes("VIEWER") && roles.length === 1) base[1] = { label: "What can a viewer see?", text: "What can a viewer do?", description: "What read-only access covers.", icon: "document" };
-  base.push({ label: "Get more access", text: "How do I get Admin access?" });
-  return base;
+    PASSKEYS,
+  ],
+  APPROVER: [
+    { label: "What can I approve?", text: "What can I approve with my role?", description: "Your role and what it allows.", icon: "user" },
+    { label: "Approve a role grant", text: "Can I approve a role grant?", description: "Sign off on access changes.", icon: "shield" },
+    { label: "Approve my own request?", text: "Can I approve my own request?", description: "How independent approval works.", icon: "share" },
+    PASSKEYS,
+  ],
+  OPERATOR: [
+    { label: "What can I run?", text: "What can I do with my role?", description: "Your role and what it allows.", icon: "user" },
+    { label: "What can I prepare?", text: "What can I prepare or request?", description: "Work that others approve.", icon: "share" },
+    { label: "Can I approve?", text: "Can I approve a role grant?", description: "Who signs off on access changes.", icon: "shield" },
+    PASSKEYS,
+  ],
+  VIEWER: [
+    { label: "What can I see?", text: "What can a viewer do?", description: "What read-only access covers.", icon: "document" },
+    { label: "Who approves access?", text: "Who can approve role grants?", description: "Who signs off on access changes.", icon: "shield" },
+    { label: "Get more access", text: "How do I get Operator access?", description: "How a role change is requested.", icon: "share" },
+    PASSKEYS,
+  ],
+};
+
+export const STARTERS = (roles: string[]): Starter[] => {
+  const top = ROLE_ORDER.find((r) => roles.includes(r)) ?? "VIEWER";
+  return [...(ROLE_STARTERS[top] ?? ROLE_STARTERS["VIEWER"] ?? [])];
 };
 
 // ----------------------------------------------------------------------------------------------------------------- the engine

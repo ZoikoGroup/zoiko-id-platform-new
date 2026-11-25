@@ -45,25 +45,42 @@ export const ACTIONS: Action[] = [
   {
     id: "plan-price",
     group: "catalogue",
-    title: "Set a plan's monthly price",
+    title: "Set a price",
     description:
-      "Select the plan and enter its monthly platform fee. The price is the same in every region. It copies the approved price book, changes only this plan's fee and leaves the new book as a draft for a second operator to approve. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
+      "The simple way is the Plans and prices tab. This is the same action: pick what to change and the plan, then type the amount. The price is the same in every region. It copies the approved price book, changes only this one price and leaves the new book as a draft for a second operator to approve. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
     directDescription:
-      "Select the plan and enter its monthly platform fee. The price is the same in every region. It copies the approved price book, changes only this plan's fee and approves the new book at once. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
+      "The simple way is the Plans and prices tab. This is the same action: pick what to change and the plan, then type the amount. The price is the same in every region. It copies the approved price book, changes only this one price and approves the new book at once. Companies that already have the plan keep the price they signed; the new price applies to new purchases.",
     method: "POST",
     path: "/v1/commercial/plan-prices",
     capability: "commercial.catalog.manage",
-    confirm: "set this plan's price",
+    confirm: "set this price",
     fields: [
+      {
+        key: "item",
+        label: "What to change",
+        kind: "select",
+        required: true,
+        options: [
+          { id: "ZID-BASE", label: "Monthly plan fee" },
+          { id: "ZID-HUM", label: "Each extra person" },
+          { id: "ZID-AUTH", label: "Extra sign-ins (per 1,000)" },
+          { id: "ZID-PDP", label: "Extra access decisions (per 10,000)" },
+          { id: "ZID-M2M", label: "Extra machine grants (per 1,000)" },
+          { id: "ZID-VCI", label: "Each credential issued" },
+          { id: "ZID-VCP", label: "Each credential check" },
+          { id: "ZID-FED", label: "Each extra single sign-on connection" },
+          { id: "ZID-SCIM", label: "Each extra provisioning source" },
+        ],
+      },
       {
         key: "plan",
         label: "Plan",
         kind: "select",
         required: true,
         options: ["LAUNCH", "BUSINESS", "SCALE", "ENTERPRISE"].map((id) => ({ id, label: id })),
-        help: "Developer is always free. Enterprise is a minimum (a spend floor), not a fixed fee.",
+        help: "Developer is always free. Enterprise is a minimum (a spend floor), not a fixed fee, and has no usage rates.",
       },
-      { key: "amount", label: "Monthly price (USD)", kind: "decimal", required: true, placeholder: "299.00", help: "Up to two decimals. The same amount applies in every region." },
+      { key: "amount", label: "New price (USD)", kind: "decimal", required: true, placeholder: "299.00", help: "Type the amount. A monthly fee has up to two decimals; a usage rate keeps small decimals. The same amount applies in every region." },
     ],
   },
   {
@@ -490,12 +507,22 @@ export const ACTIONS: Action[] = [
     id: "plan-set",
     group: "plans",
     title: "Move a tenant to a plan",
-    description: "From now, on the currently approved price book. Recorded in the change log; revenue assurance flags it if no signed order backs it.",
+    description:
+      "Moves a company to the free plan, or grants a paid plan free of charge with a recorded reason. A paid plan is otherwise bought by the company, or agreed as a price you set under Plan requests (Make an offer): it is switched on only after the company pays. Recorded in the change log; revenue assurance flags a paid plan with no order behind it.",
     method: "PUT",
     path: "/v1/commercial/tenants/{tenant_id}/entitlement",
     capability: "tenant.config.change",
     confirm: "change this tenant's plan",
-    fields: [tenant, { key: "plan", label: "Plan", kind: "select", options: PLANS, required: true }],
+    fields: [
+      tenant,
+      { key: "plan", label: "Plan", kind: "select", options: PLANS, required: true },
+      {
+        key: "complimentary_reason",
+        label: "Reason for a free grant (paid plans only)",
+        placeholder: "Design partner, signed side letter 2026-11",
+        help: "Leave empty for the free plan. A paid plan is refused without a reason of at least 10 characters, and the grant is flagged for review.",
+      },
+    ],
   },
   {
     id: "enforcement-set",

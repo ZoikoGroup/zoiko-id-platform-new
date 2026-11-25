@@ -14,11 +14,12 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+# VERIFY_SESSION_START and VERIFY_CHECK_COMPLETE (CR-154) are production usage facts of the Verify API, held the same way (the billing policy, D12, is not ratified).
 # SCREEN_CHECK and SCREEN_MONITOR_PERIOD (CR-104), and CREDENTIAL_CHECK and CREDENTIAL_SENSITIVE_CHECK (CR-070), are usage facts only: no SKU and no price stand
 # behind them, so they are recorded and never rated or invoiced. IDV_SUBMISSION (ZID-CP-WF01 Q33) is the same: one hosted verification the person submitted.
 METERS = (
     "MAH", "AUTH_EVENT", "POLICY_DECISION", "M2M_GRANT", "VC_ISSUED", "VC_PRESENTED", "SCREEN_CHECK", "SCREEN_MONITOR_PERIOD",
-    "CREDENTIAL_CHECK", "CREDENTIAL_SENSITIVE_CHECK", "IDV_SUBMISSION",
+    "CREDENTIAL_CHECK", "CREDENTIAL_SENSITIVE_CHECK", "VERIFY_SESSION_START", "VERIFY_CHECK_COMPLETE", "IDV_SUBMISSION",
 )  # fmt: skip
 PRINCIPAL_CLASSES = ("HUMAN", "NON_HUMAN")
 ORIGINS = ("API", "SDK", "CONSOLE", "PARTNER")
@@ -98,6 +99,16 @@ def key_screen_check(case_id: str, version: int) -> str:
 def key_screen_period(case_id: str, month: date) -> str:
     """One monitoring period: a case under continuous monitoring counts once per UTC month however many rescreens run in it."""
     return f"scrmon:{case_id}:{month:%Y%m}"
+
+
+def key_verify_session_start(session_id: str) -> str:
+    """One Verify API session started in production: the same session recorded twice is one event, and a repeated create (same idempotency key) is the same session."""
+    return f"vfstart:{session_id}"
+
+
+def key_verify_check_complete(session_id: str) -> str:
+    """One Verify API session that reached a final decision in production, once, however many times its decision is revised."""
+    return f"vfdone:{session_id}"
 
 
 def key_mah(month: date, principal_id: str) -> str:

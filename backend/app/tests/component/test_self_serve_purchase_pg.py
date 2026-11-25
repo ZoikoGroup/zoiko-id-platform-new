@@ -35,7 +35,6 @@ async def buy(
         principal=principal,
         legal_name=kw.get("legal_name", "Acme Ltd"),
         country=kw.get("country", "GB"),
-        region=kw.get("region", "uk-1"),
     )
 
 
@@ -89,6 +88,16 @@ def test_a_plan_is_bought_from_the_approved_book_and_switches_only_after_it_is_p
             ]
             async with eng.begin() as c:
                 assert (await orders.order_view(c, oid))["status"] == "AWAITING_PAYMENT"
+                # a plan fee has one price everywhere: there is no region to choose, and the quote is not held to the regional release gate
+                region = (
+                    await c.execute(
+                        text(
+                            "SELECT q.region FROM commercial.quote q JOIN commercial.sales_order o USING (quote_id) WHERE o.order_id = :o"
+                        ),
+                        {"o": uuid.UUID(oid)},
+                    )
+                ).scalar_one()
+                assert region == "global"
 
             # pressing the button again reuses the waiting order: one order, one payment
             async with eng.begin() as c:
@@ -105,14 +114,14 @@ def test_a_plan_is_bought_from_the_approved_book_and_switches_only_after_it_is_p
             async with eng.begin() as c:
                 with pytest.raises(activations.ActivationError) as e:
                     await activations.record_payment(
-                        c, tenant, oid, payment_ref="pi_short", amount_minor=100_00, currency="USD"
+                        c, tenant, oid, payment_ref=f"pi_ss_short_{oid}", amount_minor=100_00, currency="USD"
                     )
                 assert e.value.code == "ACTIVATION_AMOUNT_MISMATCH"
             async with tenant_transaction(eng, ctx(tenant)) as t:
                 assert await catalogue_store.active_entitlement(t) is None
             async with eng.begin() as c:
                 await activations.record_payment(
-                    c, tenant, oid, payment_ref="pi_ok", amount_minor=1499_00, currency="USD"
+                    c, tenant, oid, payment_ref=f"pi_ss_{oid}", amount_minor=1499_00, currency="USD"
                 )
                 done = await orders.activate(c, oid, actor=buyer, direct=True, require_payment=True)
             assert done["status"] == "ACTIVATED"
@@ -130,24 +139,6 @@ def test_a_plan_is_bought_from_the_approved_book_and_switches_only_after_it_is_p
                     assert e.value.code == expect
                 up = await self_serve.offer(c, tenant, "SCALE")
                 assert up["amount"] == "4999.00" and up["current_plan"] == "BUSINESS"
-
-    import asyncio
-
-    asyncio.run(run())
-
-
-def test_a_region_that_is_not_released_refuses_the_purchase_and_raises_no_order(
-    rt_url: str, owner_url: str
-) -> None:
-    cco, cfo, founder = uid(), uid(), uid()
-    tenant, buyer = uid(), uid()
-
-    async def run() -> None:
-        await setup(rt_url, owner_url, cco=cco, cfo=cfo, founder=founder)
-        async with engine(rt_url) as eng, eng.begin() as c:
-            with pytest.raises(self_serve.SelfServeError) as e:
-                await buy(c, tenant, "LAUNCH", principal=buyer, amount="299.00", region="eu-9")
-            assert e.value.code == "PLAN_NOT_AVAILABLE"
 
     import asyncio
 

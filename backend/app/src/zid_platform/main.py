@@ -530,6 +530,7 @@ def create_app(
         from .modules.operator_access.api.screening_watches import (
             router as screening_watches_router,
         )
+        from .modules.operator_access.api.verify_api_admin import router as verify_api_admin_router
         from .modules.organization.api.kyb_company import router as kyb_company_router
         from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
@@ -586,6 +587,12 @@ def create_app(
         from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.verify_analytics.api.analytics import router as verify_analytics_router
+        from .modules.verify_api.api.console_sessions import router as verify_api_console_router
+        from .modules.verify_api.api.go_live import router as verify_api_go_live_router
+        from .modules.verify_api.api.results import router as verify_api_results_router
+        from .modules.verify_api.api.sessions import router as verify_api_sessions_router
+        from .modules.verify_api.api.usage import router as verify_api_usage_router
+        from .modules.verify_api.api.verify_api import router as verify_api_router
         from .modules.webhook.api.v2 import router as webhooks_v2_router
         from .modules.webhook.api.webhooks import router as webhooks_router
 
@@ -698,6 +705,13 @@ def create_app(
             commercial_router,
             billing_workspace_router,
             stripe_webhook_router,
+            verify_api_router,
+            verify_api_console_router,
+            verify_api_go_live_router,
+            verify_api_usage_router,
+            verify_api_results_router,
+            verify_api_admin_router,
+            verify_api_sessions_router,
             commercial_admin_router,
             commercial_finance_router,
             commercial_payment_ops_router,
@@ -877,8 +891,12 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
-    # Self-serve plan purchase (CR-147) is on only when the owners name a released region to quote it in.
-    app.state.self_serve_region = (settings.self_serve_region or "").strip() or None
+    app.state.verify_hosted_origin = (
+        settings.verify_hosted_origin
+        or settings.billing_return_origin
+        or settings.consent_url
+        or ""
+    ).strip().rstrip("/") or None
     # The built-in rate table answers only when Stripe Tax cannot, and only once Finance has approved it (config/commercial/tax-rate-table.yaml).
     import os
     from pathlib import Path as _Path
