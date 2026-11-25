@@ -20,6 +20,14 @@ verify() { # image-ref workflow-file
   echo "signature verified: $1"
 }
 
+# Optional release-token gate (ZID-ENG-REL-002). When ZID_REQUIRE_RELEASE_TOKEN=1 the roll is refused unless tools/scripts/release_cell.py verifies a signed token for THIS release cell:
+# the approved fingerprint, an unchanged evidence ledger, not expired, same market and region. Needs python3 with `cryptography` on the machine running this script.
+if [ "${ZID_REQUIRE_RELEASE_TOKEN:-0}" = "1" ]; then
+  : "${ZID_RELEASE_TOKEN:?set ZID_RELEASE_TOKEN, ZID_RELEASE_CELL, ZID_RELEASE_LEDGER and ZID_RELEASE_PUBLIC_KEY}"
+  python3 ../../tools/scripts/release_cell.py verify --token "$ZID_RELEASE_TOKEN" --cell "${ZID_RELEASE_CELL:?}" --ledger "${ZID_RELEASE_LEDGER:?}" --public "${ZID_RELEASE_PUBLIC_KEY:?}"     || { echo "release token refused: nothing was changed" >&2; exit 1; }
+  echo "release token verified"
+fi
+
 BACKEND="${ZID_BACKEND_REPO:-ghcr.io/zoikogroup/zoiko-id-platform}@${DIGEST}"
 verify "$BACKEND" build-image.yml
 sed -i "s|^ZID_BACKEND_IMAGE=.*|ZID_BACKEND_IMAGE=${BACKEND}|" .env

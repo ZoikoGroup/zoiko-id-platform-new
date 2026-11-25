@@ -45,3 +45,7 @@ Delete the copied policy and unset the acknowledgement afterwards. A local rehea
 - The result is graded `FACE_MATCH_NO_LIVENESS` and says so. It does not claim document authenticity or liveness.
 - Chip (NFC) reading, an independent PAD lab report and a document-authenticity engine are not part of this check. They need the engine, lab and provider work listed in the release-readiness register.
 - No public statement about this capability may be made until the claims register approves it.
+
+## Deploying on the GCP virtual machines
+
+The VM deployment (`deploy/gcp-vm/`) needs no Cloud KMS: the go-live grant is signed by the database-held key provider. See the "Trust Center, identity verification and the images you need" section of `deploy/gcp-vm/README.md` for the images to build, the new DNS name (`trust.<domain>`), the settings, and the optional release-token gate. The Caddyfile in that folder had the `operator.<domain>` site defined twice, which makes Caddy refuse to start; that is fixed and the file now passes `caddy validate`.

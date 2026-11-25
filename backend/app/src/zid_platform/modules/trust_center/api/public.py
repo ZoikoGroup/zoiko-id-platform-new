@@ -97,6 +97,9 @@ async def vulnerability_report(body: TrustReportIn, request: Request) -> JSONRes
     now = datetime.now(UTC)
     ip = request.client.host if request.client else "unknown"
     salt = str(getattr(request.app.state, "trust_report_salt", ""))
+    if str(getattr(request.app.state, "environment", "production")) not in ("local", "dev", "test") and (len(salt) < 32 or salt == "change-me-in-deployment"):
+        # a deployed cell never hashes reporter addresses with a known placeholder: the form stays closed until the operator sets ZID_TRUST_REPORT_SALT
+        raise ZidError("REPORTS_NOT_CONFIGURED", "Vulnerability reports are not open on this deployment yet. Write to the security contact instead.", http_status=503, retryable=True)
     source = hashlib.sha256(f"{salt}|{ip}|{now:%Y-%m-%d}".encode()).hexdigest()
     tenant = str(getattr(request.app.state, "trust_report_tenant", "") or "")
     base_ctx = current_context() or RequestContext("req_unknown", "cor_unknown", "zoiko-id", "unknown")

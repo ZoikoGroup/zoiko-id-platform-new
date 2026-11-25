@@ -231,6 +231,27 @@ An agent is software you build elsewhere. Zoiko iD never builds it; it only chec
 
 Where approved builds are required (any environment that is not local, test or dev), a release or a workload binding is refused unless its build is approved.
 
+## Trust Center, identity verification and the images you need
+
+**Images to build and sign (all by the workflows already in `.github/workflows/`, from `main`):**
+
+| Image | Built by | Needed for |
+|---|---|---|
+| `zoiko-id-platform` | `build-image.yml` | cell, global, worker, outbox relay, consumer, migrate |
+| `zoiko-id-web` | `build-frontend-image.yml` | the console, the Verify API hosted page, the public Trust Center |
+| `zoiko-id-operator` | `build-frontend-image.yml` | the Operator Console (profile `operator`) |
+| `zoiko-id-ocr`, `zoiko-id-face` | `build-sidecar-image.yml` | the identity-check sidecars (profile `idv`): the company certificate check and the face match |
+
+Everything else is an upstream image pinned in the compose files (Caddy, Valkey, ClamAV, OpenBao, Redpanda, SpiceDB, SPIRE). Nothing is built on the VM. A new release adds database streams (`verify_api`, `trust_center`, `verify_analytics`): `deploy.sh` runs `migrate` as the owner role before it restarts, so they apply on the next roll.
+
+**DNS and TLS.** Add `trust.<domain>` next to `id.`, `api.`, `global.` and `operator.`; Caddy issues its certificate. The Trust Center host serves only `/trust`, `/trust/*`, `/.well-known/security.txt` and the static assets; every other path is a 404.
+
+**Settings the Trust Center needs** are in `env.example` (security contact and expiry, a real report salt, the withdrawal review window, the confidentiality terms version). The report salt must be set before the public form is used.
+
+**Identity verification for partners.** On this VM there is no Cloud KMS: the Verify API go-live grant is signed by the database-held key provider (`key_provider=db`), so `ZID_VERIFY_GO_LIVE_KMS_KEY_ID` stays unset. Live sessions stay closed until `docs/runbooks/verify-api-open-a-market.md` is complete: a published market policy, `ZID_IDV_FACE_ROUTE_ACK`, an approved go-live grant, the `idv` profile running (scanner, imaging and face sidecars) and a price decision. None of those is a deployment step an engineer can take alone.
+
+**Release token (optional).** `ZID_REQUIRE_RELEASE_TOKEN=1` makes `deploy.sh` refuse a release unless `tools/scripts/release_cell.py verify` accepts a token signed for exactly this cell (see `docs/specs/trace-workbench-reconciliation.md`).
+
 ## Day two
 
 - **Release:** `./deploy.sh sha256:<backend> sha256:<web>` verifies signatures, migrates, restarts, waits for readiness. After a release that adds a schema, run `./db-init.sh post`.

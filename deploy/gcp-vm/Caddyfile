@@ -38,6 +38,21 @@ global.{$ZID_DOMAIN} {
 	reverse_proxy cell:8000
 }
 
+# Public Trust Center (ZID-CP-WF12): read-only pages and the security.txt file, on their own host, no sign-in. Only these paths reach the web app from the internet on this host;
+# everything else is a plain 404 so the console is never served here. The data comes from the cell's /public/* routes, which the web app reads server-side.
+trust.{$ZID_DOMAIN} {
+	import no_forwarded_cert
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	@public path /trust /trust/* /.well-known/security.txt /_next/* /favicon.ico
+	handle @public {
+		reverse_proxy web:3000
+	}
+	handle {
+		respond 404
+	}
+}
+
 # Operator Console (only when the `operator` compose profile is running). Restrict by source IP or put IAP in front.
 operator.{$ZID_DOMAIN} {
 	import no_forwarded_cert
@@ -49,14 +64,3 @@ operator.{$ZID_DOMAIN} {
 	respond 403
 }
 
-# Operator Console (only when the `operator` compose profile is running). Not for the open internet: only the source addresses in
-# OPERATOR_ALLOWED_CIDRS (default: nobody but the VM itself) reach it. Put IAP in front instead if you prefer.
-operator.{$ZID_DOMAIN} {
-	import no_forwarded_cert
-	encode zstd gzip
-	@allowed remote_ip {$OPERATOR_ALLOWED_CIDRS:127.0.0.1/32}
-	handle @allowed {
-		reverse_proxy operator:3000
-	}
-	respond 403
-}
