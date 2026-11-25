@@ -588,13 +588,30 @@ export type ReceiptSummary = {
 export type ReceiptAnnotation = { annotation_id: string; kind: string; body: Record<string, unknown>; record_hash: string; created_at: Iso };
 export type ReceiptDetail = ReceiptSummary & { receipt: Record<string, unknown>; annotations: ReceiptAnnotation[] };
 export type VerificationCheck = { name: string; ok: boolean; detail: string };
+/** The verification result as separate axes, with no overall success (ZID-CP-WF08 section 08.1, CR-170). */
+export type VerificationAxes = {
+  signature_integrity: "VALID" | "INVALID" | "INDETERMINATE";
+  issuer_trust: "TRUSTED" | "UNTRUSTED" | "UNKNOWN";
+  proof_completeness: "COMPLETE" | "PARTIAL" | "MISSING";
+  time_proof: "VERIFIED_TIMESTAMP" | "UNVERIFIED_TIMESTAMP" | "NONE" | "INVALID";
+  status_at_decision: string;
+  status_now: string;
+  status_freshness: "CURRENT" | "STALE" | "UNKNOWN";
+  real_world_claim_verification: "NOT_ASSESSED";
+  execution_status: string;
+  reasons: string[];
+  caveat: string;
+  success: null;
+};
 export type ReceiptVerification = {
   receipt_id: string;
+  /** Only the integrity checks passed. It is not an overall verdict: read `axes`. */
   ok: boolean;
   receipt_hash_valid: boolean;
   ledgered: boolean;
   sealed: boolean;
   checks: VerificationCheck[];
+  axes?: VerificationAxes;
 };
 export type ReplayResultValue =
   | "VERIFIED_MATCH"
@@ -5205,3 +5222,86 @@ export type VerifyApiPrice = { price_id: string; meter: string; label: string; c
 export type VerifyApiPriceList = { items: VerifyApiPrice[]; meters: { id: string; label: string }[]; currencies: string[] };
 export type VerifyApiPriceIn = { meter: string; currency: string; unit_rate: string; effective_from: string };
 export type VerifyApiCaseIn = { kind: "DISPUTE" | "APPEAL" | "ERASURE"; reason: string; session_id?: string; customer_reference?: string };
+
+// ---- WF08 evidence services (CR-170): authority history, status lists, disclosure-tier exports, signed what-if
+export type AuthorityEdge = {
+  edge_type: string;
+  edge_id: string;
+  version: number;
+  subject: string;
+  state: string;
+  issuer: string;
+  obtained_at: Iso | null;
+  effective_from: Iso | null;
+  effective_until: Iso | null;
+  evidence_digest: string | null;
+};
+export type AuthoritySnapshot = {
+  snapshot_id: string;
+  decision_ref: string;
+  subject_ref: string;
+  decision_at: Iso;
+  verdict: "COMPLETE" | "INDETERMINATE";
+  reasons: string[];
+  snapshot_digest: string;
+  signer_kid: string;
+  integrity: "VALID" | "INVALID";
+  integrity_problems: string[];
+  body: { edges: AuthorityEdge[]; caveat: string };
+};
+export type ExportTier = "PUBLIC_MINIMAL" | "CUSTOMER_EVIDENCE" | "AUDITOR_DOSSIER";
+export type ExportRequestIn = {
+  receipt_id: string;
+  tier: ExportTier;
+  recipient?: { name: string; kind: string; contact: string } | null;
+  purpose?: string;
+  legal_basis?: string | null;
+  retention_days?: number;
+  recipient_country?: string | null;
+};
+export type ExportRequest = {
+  request_id: string;
+  receipt_id: string;
+  tier: ExportTier;
+  recipient: { name?: string; kind?: string };
+  purpose: string;
+  legal_basis: string | null;
+  retention_days: number;
+  recipient_country: string | null;
+  cross_border: boolean;
+  needs_second_person: boolean;
+  state: "REQUESTED" | "APPROVED" | "REFUSED" | "ISSUED";
+  requested_by: string;
+  requested_at: Iso;
+  decided_by: string | null;
+  decision_reason: string | null;
+  issued_at: Iso | null;
+  expires_at: Iso | null;
+  package_digest: string | null;
+};
+export type StatusSlot = { list_id: string; position: number; purpose: string; size_bits: number };
+export type StatusPublication = { list_id: string; version: number; issued_at: Iso; expires_at: Iso; jws: string };
+export type TrustBundleView = {
+  bundle: {
+    schema: string;
+    issuer: string;
+    environment: string;
+    version: number;
+    issued_at: Iso;
+    expires_at: Iso;
+    keys: { kid: string; state: "ACTIVE" | "RETIRED" | "COMPROMISED"; compromised_from?: Iso | null }[];
+    pq_hybrid: string;
+    limits: string;
+  };
+  typ: string;
+};
+export type WhatIfAnalysis = {
+  analysis_id: string;
+  signature: string;
+  claims: {
+    analysis: true;
+    affects_receipts: false;
+    statement: string;
+    summary: { scenarios: number; counts: Record<string, number>; widens_access: boolean; narrows_access: boolean; changes: { index: number; kind: string }[] };
+  };
+};

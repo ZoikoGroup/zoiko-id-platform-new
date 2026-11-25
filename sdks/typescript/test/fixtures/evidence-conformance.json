@@ -1,0 +1,2322 @@
+{
+ "about": "Shared conformance vectors for the Python and TypeScript evidence verifiers. Generated; do not edit.",
+ "bundles": [
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 1,
+     "merkle_root": "sha-256:bec023fe9e75ad9cd81a1d6b6495d028b18740c3d33d4620bc3a9e1370299170",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjEsInRyZWVfc2l6ZSI6MSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OmJlYzAyM2ZlOWU3NWFkOWNkODFhMWQ2YjY0OTVkMDI4YjE4NzQwYzNkMzNkNDYyMGJjM2E5ZTEzNzAyOTkxNzAiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.RkHb43xrzps0-WIqMwZiWMwZWE2PToEZMR4tXsovmC1ks9-huUA3rciIXvGUfAw_Sa8CkvSzbV8wS0gAnhJetA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 1
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [],
+     "leaf_index": 0,
+     "tree_size": 1
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:01.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:908fa1320e9d27bf4a11148a16f8e71da5a089e31a8bac3129c0fd37f4e23a65",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": null,
+     "record_hash": "sha-256:5600c4d2eb244fb3d683072f6c96b8018e64a48f58d58ea2c1323be27b813d52",
+     "record_id": "r1",
+     "record_type": "decision_receipt",
+     "sequence_no": 1
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 1.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r1"
+    },
+    "record_id": "r1",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjEsInRyZWVfc2l6ZSI6MSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OmJlYzAyM2ZlOWU3NWFkOWNkODFhMWQ2YjY0OTVkMDI4YjE4NzQwYzNkMzNkNDYyMGJjM2E5ZTEzNzAyOTkxNzAiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.RkHb43xrzps0-WIqMwZiWMwZWE2PToEZMR4tXsovmC1ks9-huUA3rciIXvGUfAw_Sa8CkvSzbV8wS0gAnhJetA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "valid, tree of 1",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 2,
+     "merkle_root": "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjIsInRyZWVfc2l6ZSI6MiwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjljZjViMmM2MTExZDhhNTBkYjZkYzQ2NTZlNjA1OWM4ZTE4NmYzZDE3MjEyZGFhMzM5YjY3ZjIzNzkyZWQ5NGEiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.pBk3p2M1VVMlX_LmFVOoRuDdsO274V6q7F4ho3Of2mT5rJzzdQ_sb3myBCyof1c7YF-Kw2nEOiMhZahXVtqUng",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 2
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:bec023fe9e75ad9cd81a1d6b6495d028b18740c3d33d4620bc3a9e1370299170"
+     ],
+     "leaf_index": 1,
+     "tree_size": 2
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:02.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:908fa1320e9d27bf4a11148a16f8e71da5a089e31a8bac3129c0fd37f4e23a65",
+     "record_hash": "sha-256:b4799e958f1a58ddb1aa691ae2482f53f0fb80c1bf3e59e940e865f79422e19f",
+     "record_id": "r2",
+     "record_type": "decision_receipt",
+     "sequence_no": 2
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 3.0,
+     "outcome": "ALLOW",
+     "receipt_id": "r2"
+    },
+    "record_id": "r2",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjIsInRyZWVfc2l6ZSI6MiwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjljZjViMmM2MTExZDhhNTBkYjZkYzQ2NTZlNjA1OWM4ZTE4NmYzZDE3MjEyZGFhMzM5YjY3ZjIzNzkyZWQ5NGEiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.pBk3p2M1VVMlX_LmFVOoRuDdsO274V6q7F4ho3Of2mT5rJzzdQ_sb3myBCyof1c7YF-Kw2nEOiMhZahXVtqUng",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "valid, tree of 2",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "valid, tree of 5",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 8,
+     "merkle_root": "sha-256:f0348cd75a13c1e2ad5d207a7541d3785890660f787199db5cda529ba71f4108",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjgsInRyZWVfc2l6ZSI6OCwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OmYwMzQ4Y2Q3NWExM2MxZTJhZDVkMjA3YTc1NDFkMzc4NTg5MDY2MGY3ODcxOTlkYjVjZGE1MjliYTcxZjQxMDgiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.XPYUo9MH_pLenQL4ROSldk8wDSAdgfzplKvh-dkgliVLIaVrfEjk5ty-i2ZdWKDlqPIDjW5fj6mn_LPS9kCn2g",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 8
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:2c1b186dc6de6ca0270b975a410a480dae935d2af5c18879a0a4492711cfe938",
+      "sha-256:abd8508d3f521e82f36c81ddf168e55a9fe95b898096528a042e58c2228209ea",
+      "sha-256:4232bbcafc087c2ce7fb4ded05e788595436badaf32f80e36fee87eb22c00a58"
+     ],
+     "leaf_index": 7,
+     "tree_size": 8
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:08.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0c28d028e8dfaa096ff2764aa37392341c6000c1bd830b93ddf1421ac8f7f7be",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:ea1ac55c4dda3bfa32f971a83905eed57f4aecd0562e0134d5ea364e71d96fcd",
+     "record_hash": "sha-256:c07e409f231f4cae6dfbf3b0dbe78dfc1e82922f4e22ab56e4c89c5036e89ce6",
+     "record_id": "r8",
+     "record_type": "decision_receipt",
+     "sequence_no": 8
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 12.0,
+     "outcome": "ALLOW",
+     "receipt_id": "r8"
+    },
+    "record_id": "r8",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjgsInRyZWVfc2l6ZSI6OCwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OmYwMzQ4Y2Q3NWExM2MxZTJhZDVkMjA3YTc1NDFkMzc4NTg5MDY2MGY3ODcxOTlkYjVjZGE1MjliYTcxZjQxMDgiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.XPYUo9MH_pLenQL4ROSldk8wDSAdgfzplKvh-dkgliVLIaVrfEjk5ty-i2ZdWKDlqPIDjW5fj6mn_LPS9kCn2g",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "valid, tree of 8",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": null,
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": true
+   },
+   "name": "record withheld: structural only",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "bundle",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "keys taken from the bundle itself",
+   "require_timestamp": false,
+   "trusted_keys": null
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "DENY",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "record_hash"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered record",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r999",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "record_identity"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered record id",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2030-01-01T00:00:00.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "entry_hash"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered ledger entry time",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "entry_hash",
+     "inclusion_proof"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "checkpoint_covers_entry",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered entry hash",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:1111111111111111111111111111111111111111111111111111111111111111",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "inclusion_proof"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered proof path",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "inclusion_proof"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "short proof path",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 0,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "inclusion_proof"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "wrong leaf index",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:2222222222222222222222222222222222222222222222222222222222222222",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered merkle root",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 99,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "structure"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash"
+    ],
+    "structural_only": false
+   },
+   "name": "tampered checkpoint range",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "checkpoint_signature"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof"
+    ],
+    "structural_only": false
+   },
+   "name": "signature from another key",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "ECghrd16RB_BP1Fi6ssZBYvtQMLApzpKW-MfRN4LEUU",
+     "y": "E5qOHFI3nsUxKNtFlIMOIlwl3yrqnekYI2tmtwDj3DY"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "checkpoint_signature"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof"
+    ],
+    "structural_only": false
+   },
+   "name": "signing key not pinned",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "some-other-kid",
+     "kty": "EC",
+     "use": "sig",
+     "x": "QCRv1C8f2LR9aKcSn1GDUsQ2e-APJn1aT_m4q9-28L8",
+     "y": "cVLTtHY0K9s5fB91x_yQjwJfFSL_hpK72778lgz45B4"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGY",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "checkpoint_signature"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof"
+    ],
+    "structural_only": false
+   },
+   "name": "truncated signature",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/2",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "format"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [],
+    "structural_only": false
+   },
+   "name": "unknown format",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "md5",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "profile"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format"
+    ],
+    "structural_only": false
+   },
+   "name": "hash algorithm outside the allowlist",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": "AAAA",
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [],
+    "keys_source": "trusted",
+    "ok": true,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature",
+     "external_timestamp"
+    ],
+    "structural_only": false
+   },
+   "name": "a timestamp reference nobody can check",
+   "require_timestamp": false,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  },
+  {
+   "bundle": {
+    "checkpoint": {
+     "alg": "ES256",
+     "checkpoint_id": "cp-1",
+     "created_at": "2026-10-21T09:01:00.000000Z",
+     "external_timestamp_ref": null,
+     "first_sequence": 1,
+     "last_sequence": 5,
+     "merkle_root": "sha-256:50d034b9f97820496dee6fffdd17d2e9c512acbdf496ee2d8b41568600d52f5b",
+     "partition_id": "tenant:t1:uk-1",
+     "previous_checkpoint_hash": null,
+     "signature": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+     "signer_key_id": "evidence-k1",
+     "tree_size": 5
+    },
+    "format": "zid-evidence-bundle/1",
+    "inclusion_proof": {
+     "hashes": [
+      "sha-256:554ad32e6bd4b8968fe1bebfb65320a3ff8a690a82d5f6b4cd5ddd2bedc25fdd",
+      "sha-256:9cf5b2c6111d8a50db6dc4656e6059c8e186f3d17212daa339b67f23792ed94a",
+      "sha-256:d1a416a5c33f73492cc4903fc5b394d47797f3d32c2963b9bce18e37c00f4085"
+     ],
+     "leaf_index": 2,
+     "tree_size": 5
+    },
+    "keys": {
+     "keys": [
+      {
+       "alg": "ES256",
+       "crv": "P-256",
+       "kid": "evidence-k1",
+       "kty": "EC",
+       "use": "sig",
+       "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+       "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+      }
+     ]
+    },
+    "ledger_entry": {
+     "committed_at": "2026-10-21T09:00:03.000000Z",
+     "effective_at": null,
+     "entry_hash": "sha-256:0a016aa49d3be79c6c5a8b28d57055a209df508937f487f682d90615bea446a9",
+     "evidence_class": "E3",
+     "observed_at": null,
+     "partition_id": "tenant:t1:uk-1",
+     "previous_entry_hash": "sha-256:f109fda8ca2e9cbe387a6638e6d14c451b41cd56d508809dc44a1dac534bbd7a",
+     "record_hash": "sha-256:e8f68fac3d0d5ed2342691b73314fb627d029c1a75c287c784984273b026d00c",
+     "record_id": "r3",
+     "record_type": "decision_receipt",
+     "sequence_no": 3
+    },
+    "profile": {
+     "canonicalization": "RFC8785-JCS",
+     "hash_alg": "sha-256",
+     "merkle": "RFC9162",
+     "signature": "JWS"
+    },
+    "record": {
+     "amount": 4.5,
+     "outcome": "ALLOW",
+     "receipt_id": "r3"
+    },
+    "record_id": "r3",
+    "record_type": "decision_receipt",
+    "signatures": [
+     {
+      "jws": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImV2aWRlbmNlLWsxIiwidHlwIjoiemlkLWV2aWRlbmNlLWNoZWNrcG9pbnQrandzIn0.eyJjaGVja3BvaW50X2lkIjoiY3AtMSIsInBhcnRpdGlvbl9pZCI6InRlbmFudDp0MTp1ay0xIiwiZmlyc3Rfc2VxdWVuY2UiOjEsImxhc3Rfc2VxdWVuY2UiOjUsInRyZWVfc2l6ZSI6NSwibWVya2xlX3Jvb3QiOiJzaGEtMjU2OjUwZDAzNGI5Zjk3ODIwNDk2ZGVlNmZmZmRkMTdkMmU5YzUxMmFjYmRmNDk2ZWUyZDhiNDE1Njg2MDBkNTJmNWIiLCJwcmV2aW91c19jaGVja3BvaW50X2hhc2giOm51bGwsImNyZWF0ZWRfYXQiOiIyMDI2LTEwLTIxVDA5OjAxOjAwLjAwMDAwMFoiLCJzaWduZXJfa2V5X2lkIjoiZXZpZGVuY2UtazEiLCJhbGciOiJFUzI1NiJ9.U25n9Jvu_H7iXTuk9nUh70dzUr4wdxYaoy8wAR-es89ot2FZQ5AxlK388DkF_5CrdtXS9a5bD1fSDMsiGYMoXA",
+      "kid": "evidence-k1",
+      "type": "checkpoint"
+     }
+    ]
+   },
+   "expected": {
+    "failed": [
+     "external_timestamp"
+    ],
+    "keys_source": "trusted",
+    "ok": false,
+    "passed": [
+     "format",
+     "profile",
+     "record_identity",
+     "record_hash",
+     "entry_hash",
+     "checkpoint_covers_entry",
+     "inclusion_proof",
+     "checkpoint_signature"
+    ],
+    "structural_only": false
+   },
+   "name": "an anchor was required but none present",
+   "require_timestamp": true,
+   "trusted_keys": [
+    {
+     "alg": "ES256",
+     "crv": "P-256",
+     "kid": "evidence-k1",
+     "kty": "EC",
+     "use": "sig",
+     "x": "0mVoV6wiNl7PMdzpWDgNvXLci5kpsBF2mw2pU5QJVk0",
+     "y": "-CY56ixfOvTpnob2JOOiAX-hgIgS8eeHtzNRljRa5s8"
+    }
+   ]
+  }
+ ],
+ "hash_alg": "sha-256",
+ "jcs": [
+  {
+   "canonical_hex": "7b7d",
+   "sha256": "sha-256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+   "value": {}
+  },
+  {
+   "canonical_hex": "5b5d",
+   "sha256": "sha-256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "value": []
+  },
+  {
+   "canonical_hex": "7b2261223a5b312c322c7b2279223a747275652c227a223a6e756c6c7d5d2c2262223a317d",
+   "sha256": "sha-256:d6ae48f46655f67e859afc5c997311f8d21e10c126c66dddd2b6a5bc49dfe25e",
+   "value": {
+    "a": [
+     1,
+     2,
+     {
+      "y": true,
+      "z": null
+     }
+    ],
+    "b": 1
+   }
+  },
+  {
+   "canonical_hex": "7b2265223a322c22c3a9223a312c22f09f9880223a332c22efac81223a347d",
+   "sha256": "sha-256:910c91db8b57ef813f4dd2f1e7068ead3d5a6281c7aa5224feeebcdda86d6eb3",
+   "value": {
+    "e": 2,
+    "é": 1,
+    "ﬁ": 4,
+    "😀": 3
+   }
+  },
+  {
+   "canonical_hex": "226c696e655c6e627265616b205c2271756f7465645c22205c5c206261636b205c753030303120636f6e74726f6c207f2064656c22",
+   "sha256": "sha-256:62c33fd6a2fa4c0f076ecf1e126837af01a172d250ecdd0a04737b4584f5d059",
+   "value": "line\nbreak \"quoted\" \\ back \u0001 control  del"
+  },
+  {
+   "canonical_hex": "5b302c302c312e352c31652b32312c31652d372c3132333435363738393031323334353638303030302c302e3030303030312c342e35652d372c393030373139393235343734303939322c2d393030373139393235343734303939325d",
+   "sha256": "sha-256:498c139018d228e843b4c4697c871f2cd9f2efb8ea682b3ed8cf39a6241f94ef",
+   "value": [
+    0,
+    -0.0,
+    1.5,
+    1e+21,
+    1e-07,
+    1.2345678901234568e+20,
+    1e-06,
+    4.5e-07,
+    9007199254740992,
+    -9007199254740992
+   ]
+  },
+  {
+   "canonical_hex": "7b22616d6f756e74223a31322e352c226e6573746564223a7b226b223a2276222c226c697374223a5b5d7d2c226f6b223a66616c73657d",
+   "sha256": "sha-256:236a611ad01c104233d8129f3822bfa6bd6fd9d22711726778c0f53283cd8527",
+   "value": {
+    "amount": 12.5,
+    "nested": {
+     "k": "v",
+     "list": []
+    },
+    "ok": false
+   }
+  }
+ ]
+}

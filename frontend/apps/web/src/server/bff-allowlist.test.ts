@@ -44,12 +44,24 @@ describe("the proxy allowlist", () => {
     ["screening cases and their minimal status", "/v1/screening/cases"],
     ["screening owners roll-up", "/v1/screening/ownership/rollup"],
     ["identity proofing cases", "/v1/idv/"],
+    ["Verify API applications, credentials and their sessions", "/v1/verify-api/applications"],
+    ["Verify API results", "/v1/verify-api/sessions"],
+    ["Verify API usage", "/v1/verify-api/usage"],
+    ["Verify API disputes, appeals and erasure requests", "/v1/verify-api/cases"],
+    ["Verify API credential approvals", "/v1/verify-api/credential-approvals"],
+    ["Verify API go-live requests", "/v1/verify-api/go-live"],
+    ["Verify API case review and four-eyes (CR-167)", "/v1/verify-api/review-cases"],
+    ["the issuer trust bundle (CR-170)", "/v1/trust/issuer$"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });
 
   it("keeps the SCIM service and HR events off the browser proxy: external clients call the cell directly", () => {
     for (const closed of ['"/scim/', '"/provisioning/lifecycle-events']) expect(block).not.toContain(closed);
+  });
+
+  it("keeps the partner-facing Verify API routes off the browser proxy: a partner's server and the person being verified use their own credential", () => {
+    for (const closed of ['"/v1/verify-api/oauth2', '"/v1/verify-api/whoami', '"/v1/verify-api/hosted', '"/v1/verify-api/openapi', '"/v1/verify-api/workflows', '"/v1/verify-api/products', '"/v1/verify-api/"']) expect(block).not.toContain(closed);
   });
 
   it("does not open the reviewer, operator or sign-up relays through the bearer proxy", () => {

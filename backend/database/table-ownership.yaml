@@ -1814,6 +1814,41 @@ tables:
     module: evidence
     tenant_scoped: true
     source: "EVIDENCE-001 §20 (CR-011)"
+  authz.policy_what_if:
+    role: cell
+    module: policy_authoring
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E12 (CR-170): signed what-if analysis of a draft against the active release; analysis only, never attached to a receipt"
+  evidence.authority_snapshot:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E02 (CR-170): signed, append-only record of who held which authority when a decision was made"
+  evidence.status_list:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E09 (CR-170): one signed status list per tenant and purpose"
+  evidence.status_slot:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E09 (CR-170): a random position in a status list for one credential or agent"
+  evidence.status_change:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E09 (CR-170): each revocation or reinstatement of a slot, append-only"
+  evidence.status_publication:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E09 (CR-170): each signed publication of a list; the only evidence table with a public read policy"
+  evidence.export_request:
+    role: cell
+    module: evidence
+    tenant_scoped: true
+    source: "ZID-CP-WF08 E06 (CR-170): a disclosure-tier export with a named recipient, purpose, legal basis and a second person where required"
   evidence.custody_record:
     role: cell
     module: evidence

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -18,9 +19,10 @@ from admin_fixture import make_admin
 from conftest import CELL, ctx, engine
 from fastapi.testclient import TestClient
 from sqlalchemy import text
-from zid_crypto import KeyRing, LocalSigner
+from zid_crypto import KeyRing, LocalSigner, peek_header
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
+from zid_platform.modules.evidence.ports import configure_runtime, current_runtime, verify_evidence
 from zid_platform.modules.machine.application import tool_actions as svc
 from zid_platform.modules.machine.domain.agents import AgentProfile, AgentStatus, BlueprintRelease, ReviewStatus, SideEffect, Tool, ToolStatus
 from zid_platform.modules.machine.domain.tool_action import RECEIPT_TYP
@@ -180,13 +182,24 @@ def test_a_grant_starts_an_action_only_its_server_reports_and_unknown_is_never_a
         items = receipts.json()["items"]
         assert [i["state"] for i in items] == ["AUTHORIZED", "UNKNOWN", "EXECUTED"] and all(i["signature_valid"] is True for i in items)
         assert [i["payload"]["conclusion"] for i in items] == ["AUTHORIZED_NOT_YET_RUN", "OUTCOME_UNKNOWN", "EXECUTED_AS_REPORTED"]
-        header, claims = ring.verify(items[-1]["signature"], typ=RECEIPT_TYP)
-        assert claims["receipt_for"] == action_id and claims["agent_chain"] == [child, root] and header["kid"] == items[-1]["key_id"]
+        claims = verify_evidence(items[-1]["signature"], RECEIPT_TYP)
+        assert claims["receipt_for"] == action_id and claims["agent_chain"] == [child, root] and peek_header(items[-1]["signature"])["kid"] == items[-1]["key_id"]
+        # receipts are signed by the EVIDENCE key, not the key that signs access tokens: a token-key holder cannot forge one
+        token_kids = {k["kid"] for k in ring.jwks()["keys"]}
+        assert items[-1]["key_id"] not in token_kids
+        import pytest as _pytest
+
+        with _pytest.raises(Exception):  # noqa: B017, PT011 - the token keyring does not verify it
+            ring.verify(items[-1]["signature"], typ=RECEIPT_TYP)
         assert "person" not in str(claims).lower() and ARGS in str(claims)  # identifiers and digests only
         # a receipt verifies after the signing key is rotated, and nobody can edit one
-        ring.rotate(LocalSigner("issuer-act-2"))
-        again_items = http.get(f"/v1/machine/tool-actions/{action_id}/receipts", headers=bearer(human)).json()["items"]
-        assert all(i["signature_valid"] is True for i in again_items)
+        rt = current_runtime()
+        configure_runtime(replace(rt, signer=LocalSigner("evidence-key-rotated-1"), historic_keys=(*rt.historic_keys, rt.signer.public_jwk())))
+        try:
+            again_items = http.get(f"/v1/machine/tool-actions/{action_id}/receipts", headers=bearer(human)).json()["items"]
+            assert all(i["signature_valid"] is True for i in again_items)  # the old public key stays published, so earlier receipts still verify
+        finally:
+            configure_runtime(rt)
         with pytest.raises(Exception, match="append-only"):
             asyncio.run(db("UPDATE agent.tool_action_receipt SET state = 'EXECUTED' WHERE action_id = CAST(:a AS uuid)", a=action_id))
         with pytest.raises(Exception, match="append-only"):

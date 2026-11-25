@@ -220,3 +220,17 @@ async def list_releases(conn: AsyncConnection, limit: int = 200) -> list[dict[st
         }
         for r in rows
     ]
+
+
+async def insert_what_if(
+    conn: AsyncConnection, *, tenant_id: str, release_id: str, candidate_hash: str, active_hash: str | None, scenarios: int, claims: Mapping[str, Any], signature: str, created_by: str
+) -> str:
+    analysis_id = uuid.uuid4()
+    await conn.execute(
+        text("""
+            INSERT INTO authz.policy_what_if (analysis_id, tenant_id, release_id, candidate_hash, active_hash, scenarios, claims, signature, created_by)
+            VALUES (:i, :t, :r, :c, :a, :n, CAST(:cl AS jsonb), :s, :b)
+        """),
+        {"i": analysis_id, "t": uuid.UUID(tenant_id), "r": uuid.UUID(release_id), "c": candidate_hash, "a": active_hash, "n": scenarios, "cl": json.dumps(claims), "s": signature, "b": uuid.UUID(created_by)},
+    )
+    return str(analysis_id)

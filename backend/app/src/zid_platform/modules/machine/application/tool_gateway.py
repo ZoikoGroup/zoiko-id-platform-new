@@ -157,6 +157,7 @@ async def authorize_tool_call(
     issuer: str,
     action_catalogued: Callable[[str], bool],
     now: datetime | None = None,
+    receipt_sign: Sign | None = None,
 ) -> GatewayResult:
     now = now or datetime.now(UTC)
     if not ARGS_DIGEST.match(call.arguments_digest):
@@ -291,7 +292,7 @@ async def authorize_tool_call(
         args_sha256=call.arguments_digest, decision_id=str(decision_id), chain_commitment=chain_commitment(chain), agent_chain=list(ids), mandate_id=call.mandate_id,
         reservation_id=call.reservation_id, now=now,
     )  # fmt: skip
-    await tool_actions.issue_first_receipt(conn, tenant_id, nonce, sign=sign, issuer=issuer, now=now)
+    await tool_actions.issue_first_receipt(conn, tenant_id, nonce, sign=receipt_sign or sign, issuer=issuer, now=now)  # a receipt is evidence: its own key, never the token key
     await _audit(
         conn,
         tenant_id,

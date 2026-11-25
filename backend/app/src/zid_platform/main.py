@@ -457,6 +457,9 @@ def create_app(
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
+        from .modules.evidence.api.public_proof import router as evidence_public_proof_router
+        from .modules.evidence.api.wf08 import public_router as evidence_status_public_router
+        from .modules.evidence.api.wf08 import router as evidence_wf08_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
@@ -634,6 +637,9 @@ def create_app(
             credential_v2_identity_router,
             evidence_v2_extract_router,
             principals_router,
+            evidence_public_proof_router,
+            evidence_status_public_router,
+            evidence_wf08_router,
             evidence_router,
             evidence_v2_router,
             evidence_v2_documents_router,

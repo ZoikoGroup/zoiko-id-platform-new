@@ -219,6 +219,9 @@ export function createCellApi(t: Transport) {
       editDraft: (id: string, body: { policies: string; cases: M.PolicyTestCase[] }) =>
         t.request<M.PolicyReleaseView>("PUT", `/v1/policy-releases/${seg(id)}`, { body }),
       validate: (id: string) => post<M.PolicyValidation>(`/v1/policy-releases/${seg(id)}:validate`),
+      /** Many scenarios under the draft and the active release; kept as a signed analysis that never touches a receipt. */
+      compare: (id: string, scenarios: { principal: string; action: string; resource: string; context: Record<string, unknown> }[]) =>
+        post<M.WhatIfAnalysis>(`/v1/policy-releases/${seg(id)}:compare`, { scenarios }),
       simulate: (id: string, body: { principal: string; action: string; resource: string; context: Record<string, unknown> }) =>
         post<M.PolicySimulation>(`/v1/policy-releases/${seg(id)}:simulate`, body),
       review: (id: string) => post<M.PolicyReleaseView>(`/v1/policy-releases/${seg(id)}:review`),
@@ -630,6 +633,21 @@ export function createCellApi(t: Transport) {
       createBulkExport: (body: M.BulkExportIn) => post<Record<string, unknown>>("/v1/evidence/bulk-exports", body),
       bulkExport: (id: string) => get<Record<string, unknown>>(`/v1/evidence/bulk-exports/${seg(id)}`),
       keys: () => get<{ keys: Record<string, unknown>[] }>("/v1/evidence/keys"),
+      /** Who held which authority when a decision was made: written once, signed, never edited. */
+      authoritySnapshot: (decisionRef: string) => get<M.AuthoritySnapshot>(`/v1/evidence/authority-snapshots/${seg(decisionRef)}`),
+      exportRequests: () => get<M.Items<M.ExportRequest>>("/v1/evidence/export-requests"),
+      requestExport: (body: M.ExportRequestIn) => post<M.ExportRequest>("/v1/evidence/export-requests", body),
+      approveExport: (id: string, reason?: string) => post<M.ExportRequest>(`/v1/evidence/export-requests/${seg(id)}:approve`, { reason: reason ?? null }),
+      refuseExport: (id: string, reason: string) => post<M.ExportRequest>(`/v1/evidence/export-requests/${seg(id)}:refuse`, { reason }),
+      issueExport: (id: string) => post<Record<string, unknown>>(`/v1/evidence/export-requests/${seg(id)}:issue`, {}),
+      allocateStatusSlot: (purpose: string, subjectRef: string) => post<M.StatusSlot>(`/v1/evidence/status-lists/${seg(purpose)}/subjects`, { subject_ref: subjectRef }),
+      revokeStatus: (purpose: string, subjectRef: string, reason: string) =>
+        post<Record<string, unknown>>(`/v1/evidence/status-lists/${seg(purpose)}/subjects/${seg(subjectRef)}:revoke`, { reason }),
+      reinstateStatus: (purpose: string, subjectRef: string, reason: string) =>
+        post<Record<string, unknown>>(`/v1/evidence/status-lists/${seg(purpose)}/subjects/${seg(subjectRef)}:reinstate`, { reason }),
+      publishStatusList: (purpose: string) => post<M.StatusPublication>(`/v1/evidence/status-lists/${seg(purpose)}:publish`, {}),
+      /** The issuer's signed trust bundle (public). */
+      trustBundle: () => get<M.TrustBundleView>("/v1/trust/issuer"),
       receipts: (q: { action?: string; outcome?: string; evidence_class?: string; before?: string; limit?: number } = {}) =>
         get<M.Items<M.ReceiptSummary>>("/v1/evidence/receipts", q),
       receipt: (id: string) => get<M.ReceiptDetail>(`/v1/evidence/receipts/${seg(id)}`),

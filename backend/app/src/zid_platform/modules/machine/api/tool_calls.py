@@ -15,6 +15,7 @@ about two minutes. The tool still validates it (audience, expiry, nonce, argumen
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -24,10 +25,11 @@ from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.decision.ports import AccessQuery, evaluate_access
-from zid_platform.modules.machine.application import preflight
+from zid_platform.modules.machine.application import authority_history, preflight
 from zid_platform.modules.machine.application import tool_gateway as gateway
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.domain.tool_gateway import GRANT_TYP
+from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.protected import catalog
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-tool-gateway"])
@@ -107,7 +109,13 @@ async def authorize_tool_call(
                 sign=lambda claims, typ: settings.keyring.sign(claims, typ=typ),
                 issuer=settings.issuer,
                 action_catalogued=lambda action: action in catalog(),
+                receipt_sign=sign_evidence,
             )
+            if result.allowed:
+                # the authority as it stood for this decision, in the same transaction: no grant without its history (fails closed)
+                await authority_history.record_for_allowed_call(
+                    conn, tenant, decision_id=result.decision_id, agent_id=agent_id, agent_chain=list(result.chain), mandate_id=body.mandate_id, at=datetime.now(UTC)
+                )
     except MachineError as e:
         raise _http(e) from e
     if not result.allowed:

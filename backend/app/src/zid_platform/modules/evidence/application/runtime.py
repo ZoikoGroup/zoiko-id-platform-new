@@ -82,6 +82,20 @@ class EvidenceRuntime:
 _runtime: EvidenceRuntime | None = None
 
 
+def sign_evidence(claims: Mapping[str, Any], typ: str) -> str:
+    """Sign a statement with the EVIDENCE signing key: never the key that signs access tokens, so a token-key compromise cannot forge a receipt."""
+    from zid_crypto import sign_jws
+
+    return sign_jws(current_runtime().signer, claims, typ=typ)
+
+
+def verify_evidence(token: str, typ: str) -> Mapping[str, Any]:
+    """The claims of a statement signed by the evidence key, historic keys included (rotation never invalidates the past). Raises when it does not verify."""
+    from zid_crypto import verify_jws
+
+    return verify_jws(token, keys=current_runtime().trusted_keys(), typ=typ)[1]
+
+
 def configure_runtime(runtime: EvidenceRuntime | None) -> None:
     global _runtime
     _runtime = runtime

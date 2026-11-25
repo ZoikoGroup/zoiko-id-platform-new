@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -20,6 +21,7 @@ from sqlalchemy import text
 from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
+from zid_platform.modules.evidence.ports import configure_runtime, current_runtime, verify_evidence
 from zid_platform.modules.mandate.domain.canonical import SIGNATURE_TYP
 from zid_platform.modules.mandate.domain.ledger import Budget, MandateStatus
 from zid_platform.modules.mandate.infrastructure.ledger_store import MandateRecord, create_mandate
@@ -115,7 +117,7 @@ def test_the_grantor_and_an_independent_second_person_confirm_the_exact_hash_and
         assert body["signing"]["have"] == ["GRANTOR"] and body["signing"]["missing"] == ["APPROVER"] and body["signing"]["complete"] is False
         s = body["signatures"][0]
         assert s["role"] == "GRANTOR" and s["signer"] == grantor and s["current"] is True and s["signature_valid"] is True and s["assurance_level"] >= 2 and s["auth_time"]
-        _header, claims = ring.verify(s["signature"], typ=SIGNATURE_TYP)
+        claims = verify_evidence(s["signature"], SIGNATURE_TYP)
         assert claims["canonical_hash"] == h and claims["mandate_id"] == str(spending_id) and claims["role"] == "GRANTOR" and claims["signer"] == grantor
         assert len(sign(grantor).json()["signatures"]) == 1  # the same confirmation twice is still one
 
@@ -129,8 +131,12 @@ def test_the_grantor_and_an_independent_second_person_confirm_the_exact_hash_and
         assert code(http.post(f"/v1/mandates/{quiet_id}:countersign", headers=bearer(approver), json={"canonical_hash": q})) == "MANDATE_NO_SECOND_CONFIRMATION_NEEDED"
 
         # every confirmation still verifies after the signing key is rotated, and none can be edited
-        ring.rotate(LocalSigner("issuer-sign-2"))
-        assert all(x["signature_valid"] is True for x in canonical(spending_id, grantor)["signatures"])
+        rt = current_runtime()
+        configure_runtime(replace(rt, signer=LocalSigner("evidence-key-rotated-2"), historic_keys=(*rt.historic_keys, rt.signer.public_jwk())))
+        try:
+            assert all(x["signature_valid"] is True for x in canonical(spending_id, grantor)["signatures"])
+        finally:
+            configure_runtime(rt)
         with pytest.raises(Exception, match="append-only"):
             asyncio.run(db("UPDATE agent.mandate_signature SET role = 'APPROVER' WHERE tenant_id = :t"))
         with pytest.raises(Exception, match="append-only"):

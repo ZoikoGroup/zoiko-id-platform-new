@@ -26,6 +26,7 @@ from zid_platform.modules.machine.application import tool_gateway as gateway
 from zid_platform.modules.machine.domain.agents import MachineError, ToolStatus
 from zid_platform.modules.machine.domain.tool_gateway import ARGS_DIGEST, args_digest
 from zid_platform.modules.machine.infrastructure import machine_store
+from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.protected import catalog
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-tool-gateway"])
@@ -135,7 +136,7 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
 
         async with tenant_transaction(engine, caller.ctx) as conn:
             result = await gateway.authorize_tool_call(
-                conn, tenant, call, decide=decide, sign=lambda claims, typ: settings.keyring.sign(claims, typ=typ), issuer=settings.issuer, action_catalogued=lambda action: action in catalog(),
+                conn, tenant, call, decide=decide, sign=lambda claims, typ: settings.keyring.sign(claims, typ=typ), issuer=settings.issuer, action_catalogued=lambda action: action in catalog(), receipt_sign=sign_evidence,
             )  # fmt: skip
     except MachineError as e:
         return _tool_error(rid, [e.code])

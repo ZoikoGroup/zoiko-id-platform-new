@@ -84,6 +84,7 @@ const API_PATH_PREFIXES = [
   "/provisioning/directory-syncs",
   // Phase F: evidence, privacy, customer lockbox, residency, workload identity
   "/v1/evidence/",
+  "/v1/trust/issuer$", // the issuer's signed trust bundle, shown in the trust inspector (public on the cell, exact path only)
   "/v1/privacy/",
   "/v1/lockbox-requests",
   "/v1/operator-access-policy$",
@@ -136,6 +137,16 @@ const API_PATH_PREFIXES = [
   "/v1/commercial/capability-dependencies$",
   "/v1/commercial/quotes/preview$",
   "/v1/commercial/configurations",
+  // The Verify API developer console (ZID-EXT-IDV-001) and its case review (CR-167): named one by one. The partner-facing routes of the same API (the token
+  // endpoint, whoami, the hosted verification pages, the OpenAPI document) are called by a partner's server or by the person being verified with their own
+  // credential, never through a signed-in person's bearer, so they stay off this list.
+  "/v1/verify-api/applications",
+  "/v1/verify-api/sessions",
+  "/v1/verify-api/usage",
+  "/v1/verify-api/cases",
+  "/v1/verify-api/credential-approvals",
+  "/v1/verify-api/go-live",
+  "/v1/verify-api/review-cases",
 ];
 
 /** Browser-facing cell flows relayed on this origin (cell session cookie + Origin check). */

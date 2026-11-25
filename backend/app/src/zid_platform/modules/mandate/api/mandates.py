@@ -42,6 +42,7 @@ from zid_platform.api_auth import (
     request_engine,
 )
 from zid_platform.modules.commercial.ports import require_feature
+from zid_platform.modules.evidence.ports import sign_evidence, verify_evidence
 from zid_platform.modules.mandate.application import signing
 from zid_platform.modules.mandate.domain.canonical import SIGNATURE_TYP, Role
 from zid_platform.modules.mandate.application.service import (
@@ -481,7 +482,7 @@ async def canonical(mandate_id: uuid.UUID, request: Request, caller: CallerDep) 
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _own_or_oversight(conn, caller, str(mandate_id), action="mandate.read")
         try:
-            return await signing.view(conn, str(mandate_id), lambda token: settings.keyring.verify(token, typ=SIGNATURE_TYP)[1])
+            return await signing.view(conn, str(mandate_id), lambda token: verify_evidence(token, SIGNATURE_TYP))
         except LedgerError as e:
             raise _ledger(e) from e
 
@@ -495,8 +496,8 @@ async def _confirm(request: Request, caller: Caller, mandate_id: uuid.UUID, body
         try:
             return await signing.sign(
                 conn, caller.ctx.tenant_id or "", mandate_id=str(mandate_id), role=role, signer=caller.ctx.principal_id or "", presented_hash=body.canonical_hash,
-                assurance_level=caller.authn.level, auth_time=caller.session_auth_time, signer_fn=lambda claims, typ: settings.keyring.sign(claims, typ=typ), issuer=settings.issuer,
-                verify=lambda token: settings.keyring.verify(token, typ=SIGNATURE_TYP)[1],
+                assurance_level=caller.authn.level, auth_time=caller.session_auth_time, signer_fn=sign_evidence, issuer=settings.issuer,
+                verify=lambda token: verify_evidence(token, SIGNATURE_TYP),
             )  # fmt: skip
         except LedgerError as e:
             raise _ledger(e) from e

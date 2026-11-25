@@ -1,12 +1,14 @@
 import type { ReceiptVerification, ReplayOutcome } from "@zoiko/api-client";
 import { Banner } from "@zoiko/ui";
 
+import { axisLines, bannerTone, reasonLine } from "./verification-axes";
+
 /** Integrity (UX-14): is this the receipt that was committed, in the ledger, under a signed checkpoint? It says nothing
  * about whether the decision was right: that is the replay's job, shown separately. */
 export function VerificationResult({ verification }: { verification: ReceiptVerification }) {
   return (
     <Banner
-      tone={verification.ok ? "ok" : verification.ledgered && !verification.sealed ? "info" : "danger"}
+      tone={bannerTone(verification.axes, verification.ok) ?? (verification.ok ? "ok" : verification.ledgered && !verification.sealed ? "info" : "danger")}
       title={
         verification.ok
           ? "Integrity verified: receipt, ledger entry, signed checkpoint and inclusion proof"
@@ -17,6 +19,25 @@ export function VerificationResult({ verification }: { verification: ReceiptVeri
               : "Integrity verification failed"
       }
     >
+      {verification.axes ? (
+        <div className="mt-2 space-y-2 text-xs">
+          <ul aria-label="What was checked, one statement each" className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+            {axisLines(verification.axes).map((l) => (
+              <li key={l.label}>
+                <span className="font-medium">{l.label}:</span> {l.value}
+              </li>
+            ))}
+          </ul>
+          {verification.axes.reasons.length ? (
+            <ul className="list-disc pl-4">
+              {verification.axes.reasons.map((r) => (
+                <li key={r}>{reasonLine(r)}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-ink-muted">{verification.axes.caveat}</p>
+        </div>
+      ) : null}
       <ul className="mt-1 space-y-0.5 text-xs">
         {verification.checks.map((c) => (
           <li key={c.name}>

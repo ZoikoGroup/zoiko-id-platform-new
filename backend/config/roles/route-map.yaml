@@ -96,6 +96,7 @@ rules:
   - {match: "PUT /v1/policy-releases/*", gate: {action: d.propose-approval-workflow-policies, mode: S}}
   - {match: "POST /v1/policy-releases/*:validate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
   - {match: "POST /v1/policy-releases/*:simulate", gate: {action: d.propose-approval-workflow-policies, mode: S}}
+  - {match: "POST /v1/policy-releases/*:compare", gate: {action: d.propose-approval-workflow-policies, mode: S}}  # CR-170 signed what-if analysis; same rights as a single simulation
   - {match: "POST /v1/policy-releases/*:review", gate: {action: d.approve-eligible-pending-request, mode: A}}
   - {match: "POST /v1/policy-releases/*:publish", gate: {action: d.change-role-taxonomy-permission-catalog, mode: A}}
 
@@ -240,6 +241,20 @@ rules:
   - {match: "POST /v1/machine/builds/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
   - {match: "POST /v1/machine/tool-calls:authorize", exempt: PROTOCOL, why: "an agent asks the tool gateway with its own workload credential; the policy decision and the sponsor checks decide (WP-11)"}
   - {match: "POST /v1/machine/tool-grants:redeem", exempt: PROTOCOL, why: "a tool's own server spends a grant it was issued; the audience must be its own principal and the chain is re-checked (WP-11)"}
+  - {match: "POST /v1/machine/tool-calls:preflight", exempt: PROTOCOL, why: "an agent asks whether a call would be allowed with its own workload credential; the real gateway runs and its transaction is thrown away (CR-169)"}
+  - {match: "POST /v1/machine/mcp", exempt: PROTOCOL, why: "an agent uses the tool gateway through an MCP-style front with its own workload credential; it decides nothing itself (CR-169)"}
+  - {match: "POST /v1/machine/tool-actions/*:finalize", exempt: PROTOCOL, why: "a tool's own server reports what became of an action it redeemed; only that server is accepted (CR-169)"}
+  - {match: "POST /v1/machine/revocations:plan", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /v1/machine/revocations/*:close", gate: {action: e.approve-agent-authority-sensitive-tool-grant, mode: A}}
+  - {match: "POST /v1/machine/revocations", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agents/*/idp-bindings", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /v1/machine/idp-bindings/*:present", gate: {action: e.prepare-tenant-sso-external-trust-link, mode: S}}
+  - {match: "POST /v1/machine/idp-bindings/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agents/*/credentials", gate: {action: e.create-privileged-service-principal, mode: S}}
+  - {match: "POST /v1/machine/agent-credentials/*:revoke", gate: {action: e.revoke-compromised-tenant-integration, mode: X}}
+  - {match: "POST /v1/machine/agent-credentials:verify", gate: {action: e.view-integration-directory-status, mode: R}}
+  - {match: "POST /v1/mandates/*:sign", gate: {action: d.create-scoped-delegation-request, mode: S}}
+  - {match: "POST /v1/mandates/*:countersign", gate: {action: d.approve-authority-delegation, mode: A}}
   - {match: "POST /v1/machine/tools", gate: {action: e.create-privileged-service-principal, mode: S}}
   - {match: "GET /v1/access-readiness/*", gate: {action: e.view-integration-directory-status, mode: R}}
   - {match: "POST /v1/access-readiness/agents", gate: {action: e.request-scoped-ai-agent-capability-grant, mode: S}}

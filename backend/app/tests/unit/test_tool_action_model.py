@@ -23,7 +23,7 @@ def code(fn: Any, *a: Any) -> str:
 def action(state: S = S.EXECUTED, **over: Any) -> dict[str, Any]:
     base = {
         "action_id": uuid.UUID(int=7), "tenant_id": uuid.UUID(int=1), "agent_chain": ["child", "root"], "chain_commitment": "sha256:" + "c" * 64, "tool_id": "erp.pay", "resource": "invoice:1",
-        "args_sha256": "sha256:" + "a" * 64, "decision_id": "dec_1", "mandate_id": uuid.UUID(int=3), "reservation_id": uuid.UUID(int=4), "state": state.value, "downstream_ref": "erp-77",
+        "args_sha256": "sha256:" + "a" * 64, "decision_id": "dec_1", "mandate_id": uuid.UUID(int=3), "mandate_hash": "sha256:" + "d" * 64, "reservation_id": uuid.UUID(int=4), "state": state.value, "downstream_ref": "erp-77",
     }  # fmt: skip
     return {**base, **over}
 
@@ -73,11 +73,11 @@ def test_a_receipt_names_identifiers_digests_and_states_and_nothing_personal() -
     assert p["typ"] == ta.RECEIPT_TYP and p["receipt_for"] == str(uuid.UUID(int=7)) and p["revision"] == 3 and p["agent_chain"] == ["child", "root"]
     assert p["arguments_sha256"] == "sha256:" + "a" * 64 and p["decision_id"] == "dec_1" and p["state"] == "EXECUTED" and p["limits"] == ta.LIMITS
     assert "does not prove the real-world effect" in p["limits"]
-    assert set(p) >= {"tenant_id", "chain_commitment", "tool_id", "resource", "mandate_id", "reservation_id", "reservation_state", "outcomes", "downstream_ref", "issued_at"}
+    assert set(p) >= {"tenant_id", "chain_commitment", "tool_id", "resource", "mandate_id", "mandate_hash", "reservation_id", "reservation_state", "outcomes", "downstream_ref", "issued_at"}
     assert ta.payload_digest(p) == ta.payload_digest(dict(reversed(list(p.items()))))  # the digest does not depend on key order
     assert ta.payload_digest(p).startswith("sha256:")
-    none = ta.receipt_payload(action(S.AUTHORIZED, mandate_id=None, reservation_id=None, downstream_ref=None), chain=["a"], reservation_state=None, revision=1, issued_at=NOW, issuer="i")
-    assert none["mandate_id"] is None and none["reservation_id"] is None and none["conclusion"] == "AUTHORIZED_NOT_YET_RUN"
+    none = ta.receipt_payload(action(S.AUTHORIZED, mandate_id=None, mandate_hash=None, reservation_id=None, downstream_ref=None), chain=["a"], reservation_state=None, revision=1, issued_at=NOW, issuer="i")
+    assert none["mandate_id"] is None and none["mandate_hash"] is None and none["reservation_id"] is None and none["conclusion"] == "AUTHORIZED_NOT_YET_RUN"
 
 
 def test_a_changed_receipt_is_noticed_from_its_value_its_action_and_its_revision() -> None:
