@@ -18,3 +18,17 @@ Written 25 Nov 2026. The document asks for one canonical register that extends t
 - **Real inputs for the manifest** (build digests, CI runs, provider contracts, partner E2E result, signatures): they come from pipelines and people. `register_build.py` and `deploy/release/` are the existing sources to wire in.
 - **The 19 DTV definitions, independent QA sign-off, DEC-01..10:** owner work.
 - **Stale detection is file-level.** It does not yet see a provider, model or dependency change, nor a build digest.
+
+## Document 02 (ZID-ENG-REL-002): `tools/scripts/release_cell.py`
+
+Built on the existing `release_gate.py` (artifact promotion) and `trace_workbench.py assess` (G0 to G4). Tests: `backend/app/tests/unit/test_release_cell.py` (12).
+
+| Package | What it does |
+|---|---|
+| REL-01 | `fingerprint`: one hash over build, schema, config hash, policy versions, providers, market, region, cohort and window. A missing dimension means no fingerprint, so no approval. `drift` compares a recorded fingerprint with the cell now. |
+| REL-02 | Evidence ledger: hash-chained, append-only; an artifact id cannot be re-recorded with other bytes; `ledger-verify` finds an edit, removal or reorder. Evidence counts only for its own cell. |
+| REL-05 | Sign-offs bind to the fingerprint (a change voids them). Three assessor roles and two functional roles are required; anyone who worked on the release cannot sign; one person cannot hold two roles. |
+| REL-13 | Claims interlock: the Trust Center monitoring report must be under 24 hours old, its release gate open and no unsupported live claim; a missing report blocks. |
+| REL-04, REL-12 | `release_problems` joins all of the above with the workbench gates; `issue` signs an Ed25519 token (fingerprint, ledger head, signers, expiry) only when nothing blocks; `verify` is what a deploy step runs and refuses a forged, expired, drifted, re-evidenced or other-market token. |
+
+Not done: the deploy pipeline does not call `verify` yet (add it to the promotion workflow), the release key is the company's to create, the monitoring report must be fetched with an operator credential and saved as JSON, no operator capability for the assessor roles exists (roles are named in the sign-off file), and the ten REL screens are not built.
