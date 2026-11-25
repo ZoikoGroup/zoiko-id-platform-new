@@ -2,6 +2,7 @@
 
 Runs with the cell's maintenance role (ZID_MAINTENANCE_DATABASE_URL: BYPASSRLS and DELETE on the
 transient tables only - the runtime role has neither). One pass:
+- removes partner request-log rows older than the retention period (verify.api_purge_request_log, never a newer row);
 - purges single-use material once it can no longer be replayed: authorization codes, PAR
   requests, DPoP nonces and jti, WebAuthn challenges, enrollment tickets, federated login
   transactions, SAML assertion ids, acknowledged outbound SETs past their retention;
@@ -27,6 +28,7 @@ REGISTRATION_RETENTION = timedelta(days=30)  # sign-up requests after they end
 REPLAY_GRACE = timedelta(hours=1)  # keep spent single-use rows a little past expiry
 SET_RETENTION = timedelta(days=30)
 UNCOLLECTED_CLAIMS = timedelta(hours=1)
+REQUEST_LOG_RETENTION_DAYS = 90  # the partner request log (CR-173); the database function refuses anything shorter. A default for the owners to confirm.
 
 PURGE: tuple[tuple[str, str], ...] = (
     # sign-up requests: kept 30 days after they end (owners, 2026-11-02); the account index is not purged
@@ -94,6 +96,9 @@ async def run_once(conn: AsyncConnection, now: datetime) -> dict[str, int]:
     for table, where in PURGE:
         result = await conn.execute(text(f"DELETE FROM {table} WHERE {where}"), params)
         counts[f"purged:{table}"] = result.rowcount
+    # the partner request log is append-only; its one way to lose rows is this function, and it never touches a row newer than the period
+    removed = (await conn.execute(text("SELECT verify.api_purge_request_log(:days)"), {"days": REQUEST_LOG_RETENTION_DAYS})).scalar_one()
+    counts["purged:verify.api_request_log"] = int(removed)
     for name, statement in SWEEP.items():
         result = await conn.execute(text(statement), params)
         counts[f"swept:{name}"] = result.rowcount

@@ -19,6 +19,10 @@ export default function Page() {
           <a className="text-brand-600 underline" href="/docs/verify-api/openapi.json" download="zoiko-verify-api.openapi.json">
             Download the OpenAPI description
           </a>
+          {" · "}
+          <a className="text-brand-600 underline" href="/docs/verify-api/trust">
+            Trust statements
+          </a>
         </p>
       </div>
       <DocsView sections={SECTIONS} />

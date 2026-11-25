@@ -123,3 +123,42 @@ def test_a_change_that_needs_a_second_person_is_not_in_force_until_someone_else_
             asyncio.run(edit())
     finally:
         w.close()
+
+
+def test_a_rollback_restores_an_earlier_scope_set_as_a_new_version_and_keeps_every_session_and_key(rt_url: str) -> None:
+    w = World(rt_url)
+    try:
+        h = w.server(scopes=["verifications:create", "verifications:read", "verifications:list", "products:read"])
+        app_id = who(w, h)["application_id"]
+        by = str(uuid.uuid4())
+        first = w.create(h, key="rollback-key-0001")
+        assert first.status_code == 201
+        sid = first.json()["session_id"]
+
+        run(rt_url, w.tenant, lambda c: service.change_scopes(c, w.tenant, app_id, by, ["verifications:read", "verifications:list", "products:read"], "pause creating"))
+        refused = w.create(h, key="rollback-key-0002")
+        assert refused.status_code in (400, 403)  # creating is paused
+
+        back = run(rt_url, w.tenant, lambda c: service.rollback_scopes(c, w.tenant, app_id, by, 0, "resume creating"))
+        assert back["version"] == 2 and back["kind"] == "ADD" and set(back["resulting_scopes"]) == {"verifications:create", "verifications:read", "verifications:list", "products:read"} and back["approved"] is True
+        assert "rollback to version 0: resume creating" in run(rt_url, w.tenant, lambda c: store.scope_changes(c, app_id))[0]["reason"]
+
+        again = w.create(h, key="rollback-key-0001")  # the same key before and after: the same session, not a second one
+        assert again.status_code == 200 and again.json()["session_id"] == sid
+        listed = w.http.get("/v1/verify-api/verification-sessions", headers=h).json()["items"]
+        assert [x["session_id"] for x in listed] == [sid]  # nothing was created or lost by pausing and resuming
+        assert w.create(h, key="rollback-key-0003").status_code == 201  # and new work flows again
+
+        async def bad(c: Any) -> None:
+            with pytest.raises(PartnerError) as e:
+                await service.rollback_scopes(c, w.tenant, app_id, by, 99, "no such version")
+            assert e.value.code == "NOT_FOUND"
+            with pytest.raises(PartnerError) as e2:
+                await service.rollback_scopes(c, w.tenant, app_id, by, 0, "already there")
+            assert e2.value.code == "VALIDATION_FAILED"  # rolling back to what it already has is not a change
+
+        run(rt_url, w.tenant, bad)
+        history = run(rt_url, w.tenant, lambda c: store.scope_changes(c, app_id))
+        assert [c["version"] for c in history] == [2, 1]  # history only grows
+    finally:
+        w.close()

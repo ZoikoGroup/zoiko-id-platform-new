@@ -699,3 +699,19 @@ async def approve_scope_change(conn: AsyncConnection, tenant_id: str, change_id:
         raise m.PartnerError("APPROVAL_STATE_INVALID", "You already approved this change.")
     await store.insert_scope_approval(conn, tenant_id, change_id, approver)
     return {"change_id": change_id, "approved": True, "approved_by": approver}
+
+
+async def rollback_scopes(conn: AsyncConnection, tenant_id: str, application_id: str, proposed_by: str, to_version: int, reason: str, now: datetime | None = None) -> dict[str, Any]:
+    """Go back to the scope set of an earlier version (0 is what the application had when it was created). It is a NEW version with the old set, so history is never rewritten, a rollback
+    that widens a production application still needs a second person, and no session or idempotency key is touched."""
+    a = await store.get_application(conn, application_id)
+    if a is None:
+        raise m.PartnerError("NOT_FOUND", "No such application.")
+    if to_version == 0:
+        target = list(a["scopes"])
+    else:
+        found = next((c for c in await store.scope_changes(conn, application_id) if c["version"] == to_version), None)
+        if found is None:
+            raise m.PartnerError("NOT_FOUND", "There is no such scope version.")
+        target = list(found["resulting_scopes"])
+    return await change_scopes(conn, tenant_id, application_id, proposed_by, target, f"rollback to version {to_version}: {reason}"[:300], now=now)

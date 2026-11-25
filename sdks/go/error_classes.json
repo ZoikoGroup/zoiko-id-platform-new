@@ -1,0 +1,180 @@
+{
+  "classes": [
+    "AUTH_INVALID",
+    "AUTH_SCOPE_DENIED",
+    "ENVIRONMENT_MISMATCH",
+    "FINAL_DECISION_NOT_COMMITTED",
+    "GO_LIVE_PRECONDITION_NOT_MET",
+    "IDEMPOTENCY_CONFLICT",
+    "NOT_FOUND",
+    "PROVIDER_OUTCOME_UNKNOWN",
+    "RATE_LIMITED",
+    "REGIONAL_POLICY_BLOCK",
+    "SESSION_STATE_INVALID",
+    "VALIDATION_FAILED",
+    "WORKFLOW_NOT_ELIGIBLE"
+  ],
+  "codes": {
+    "APPLICATION_NAME_TAKEN": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "APPLICATION_STATE_INVALID": {
+      "class": "SESSION_STATE_INVALID",
+      "retryable": false
+    },
+    "APPROVAL_REQUIRED": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "APPROVAL_SELF_DECISION": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "APPROVAL_STATE_INVALID": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "AUTH_INVALID": {
+      "class": "AUTH_INVALID",
+      "retryable": false
+    },
+    "AUTH_SCOPE_DENIED": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "CREDENTIAL_STATE_INVALID": {
+      "class": "SESSION_STATE_INVALID",
+      "retryable": false
+    },
+    "DECISION_NOT_AVAILABLE": {
+      "class": "FINAL_DECISION_NOT_COMMITTED",
+      "retryable": false
+    },
+    "ENVIRONMENT_MISMATCH": {
+      "class": "ENVIRONMENT_MISMATCH",
+      "retryable": false
+    },
+    "FINAL_DECISION_NOT_COMMITTED": {
+      "class": "FINAL_DECISION_NOT_COMMITTED",
+      "retryable": false
+    },
+    "GO_LIVE_ALREADY_APPROVED": {
+      "class": "SESSION_STATE_INVALID",
+      "retryable": false
+    },
+    "GO_LIVE_COMPANY_NOT_VERIFIED": {
+      "class": "GO_LIVE_PRECONDITION_NOT_MET",
+      "retryable": false
+    },
+    "GO_LIVE_NOT_READY": {
+      "class": "GO_LIVE_PRECONDITION_NOT_MET",
+      "retryable": false
+    },
+    "GO_LIVE_PRECONDITION_NOT_MET": {
+      "class": "GO_LIVE_PRECONDITION_NOT_MET",
+      "retryable": false
+    },
+    "GO_LIVE_SUITE_NOT_PASSED": {
+      "class": "GO_LIVE_PRECONDITION_NOT_MET",
+      "retryable": false
+    },
+    "IDEMPOTENCY_CONFLICT": {
+      "class": "IDEMPOTENCY_CONFLICT",
+      "retryable": false
+    },
+    "IDEMPOTENCY_KEY_REUSED": {
+      "class": "IDEMPOTENCY_CONFLICT",
+      "retryable": false
+    },
+    "INVALID_IDEMPOTENCY_REUSE": {
+      "class": "IDEMPOTENCY_CONFLICT",
+      "retryable": false
+    },
+    "INVALID_SCOPE": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "IP_NOT_ALLOWED": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "LAUNCH_INVALID": {
+      "class": "NOT_FOUND",
+      "retryable": false
+    },
+    "LIMIT_REACHED": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "MARKET_NOT_ENABLED": {
+      "class": "WORKFLOW_NOT_ELIGIBLE",
+      "retryable": false
+    },
+    "MTLS_NOT_CONFIGURED": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "NOTE_REQUIRED": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "NOT_FOUND": {
+      "class": "NOT_FOUND",
+      "retryable": false
+    },
+    "PRODUCTION_NOT_APPROVED": {
+      "class": "ENVIRONMENT_MISMATCH",
+      "retryable": false
+    },
+    "PRODUCT_NOT_ENTITLED": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "PROVIDER_OUTCOME_UNKNOWN": {
+      "class": "PROVIDER_OUTCOME_UNKNOWN",
+      "retryable": false
+    },
+    "RATE_LIMITED": {
+      "class": "RATE_LIMITED",
+      "retryable": true
+    },
+    "REGIONAL_POLICY_BLOCK": {
+      "class": "REGIONAL_POLICY_BLOCK",
+      "retryable": false
+    },
+    "RETURN_ORIGIN_NOT_REGISTERED": {
+      "class": "WORKFLOW_NOT_ELIGIBLE",
+      "retryable": false
+    },
+    "SANDBOX_REQUIRES_SYNTHETIC_DATA": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "SESSION_STATE_INVALID": {
+      "class": "SESSION_STATE_INVALID",
+      "retryable": false
+    },
+    "TENANT_SCOPE_DENIED": {
+      "class": "AUTH_SCOPE_DENIED",
+      "retryable": false
+    },
+    "VALIDATION_FAILED": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
+    "WORKFLOW_NOT_ELIGIBLE": {
+      "class": "WORKFLOW_NOT_ELIGIBLE",
+      "retryable": false
+    },
+    "WORKFLOW_NOT_ENTITLED": {
+      "class": "WORKFLOW_NOT_ELIGIBLE",
+      "retryable": false
+    },
+    "WORKFLOW_VERSION_UNAVAILABLE": {
+      "class": "WORKFLOW_NOT_ELIGIBLE",
+      "retryable": false
+    }
+  },
+  "version": "1"
+}

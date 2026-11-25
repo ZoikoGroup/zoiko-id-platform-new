@@ -46,7 +46,7 @@ CATALOG: tuple[ErrorClass, ...] = (
     ErrorClass("FINAL_DECISION_NOT_COMMITTED", 404, "Capture may be complete but no final decision has been committed yet.", "Keep showing the session as pending. Never treat it as verified.", False, ("DECISION_NOT_AVAILABLE",)),
     ErrorClass("SESSION_STATE_INVALID", 409, "The session is in a state that does not allow this action.", "Read the session and act on its real state.", False, ("SESSION_STATE_INVALID", "CREDENTIAL_STATE_INVALID", "APPLICATION_STATE_INVALID", "GO_LIVE_ALREADY_APPROVED")),
     ErrorClass("NOT_FOUND", 404, "There is no such object for this company.", "Check the identifier. A session or credential of another company is reported the same way.", False, ("NOT_FOUND", "LAUNCH_INVALID")),
-    ErrorClass("VALIDATION_FAILED", 422, "The request is malformed or breaks a rule.", "Fix the request using the message. Retrying unchanged will fail again.", False, ("VALIDATION_FAILED", "APPLICATION_NAME_TAKEN", "LIMIT_REACHED", "NOTE_REQUIRED", "MTLS_NOT_CONFIGURED", "APPROVAL_SELF_DECISION", "APPROVAL_STATE_INVALID")),
+    ErrorClass("VALIDATION_FAILED", 422, "The request is malformed or breaks a rule.", "Fix the request using the message. Retrying unchanged will fail again.", False, ("VALIDATION_FAILED", "SANDBOX_REQUIRES_SYNTHETIC_DATA", "APPLICATION_NAME_TAKEN", "LIMIT_REACHED", "NOTE_REQUIRED", "MTLS_NOT_CONFIGURED", "APPROVAL_SELF_DECISION", "APPROVAL_STATE_INVALID")),
 )
 
 _BY_INTERNAL = {i: c for c in CATALOG for i in c.internal_codes}

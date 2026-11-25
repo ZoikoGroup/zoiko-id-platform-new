@@ -104,3 +104,26 @@ def test_a_token_without_the_webhook_scope_cannot_confirm_and_an_unknown_applica
         run(rt_url, w.tenant, missing)
     finally:
         w.close()
+
+
+def test_the_cohort_counts_unfinished_installs_and_takes_the_median_of_finished_ones_only(rt_url: str, owner_url: str) -> None:
+    w = World(rt_url)
+    try:
+        h = w.server()
+        assert w.create(h).status_code == 201
+        before = run(rt_url, w.tenant, svc.cohort)
+        assert before["installs"] == 1 and before["complete"] == 0 and before["incomplete"] == 1 and before["median_seconds"] is None  # an unfinished install has no time, not zero
+
+        real = asyncio.run(deliver(owner_url, w.tenant))
+        assert w.http.post("/v1/verify-api/onboarding/webhook-confirmations", headers=h, json={"event_id": real}).status_code == 201
+        after = run(rt_url, w.tenant, svc.cohort)
+        assert after["installs"] == 1 and after["complete"] == 1 and after["incomplete"] == 0 and after["median_seconds"] >= 0
+
+        other = World(rt_url)  # another company's installs are not in this company's cohort
+        try:
+            other.server()
+            assert run(rt_url, w.tenant, svc.cohort)["installs"] == 1
+        finally:
+            other.close()
+    finally:
+        w.close()

@@ -19,7 +19,7 @@ Written 25 Nov 2026 for the Zoiko iD product owner. ZID-CP-WF10 v2.0 says to reu
 | WF-10.09 Webhooks | Signed deliveries, retries with backoff, replay, SSRF and DNS-rebinding defence | **Endpoint health** by named class (delivered, rejected, error, timed out, could not connect, blocked), with advice | DNS, TLS and refused connections are not told apart; no dead-letter view |
 | WF-10.10 Diagnostics | Usage facts, rate limit view | **Request log** (route template, status, error code, trace id; no body, header or person data), **request explorer**, and a **trace** of one session through requests, route decisions, decisions and deliveries | A request that failed authentication is not logged (no application is known); SLIs and billing-admin cost hiding are not built; the log is purged after 90 days by `verify.api_purge_request_log`, a function **nothing schedules yet** |
 | WF-10.11 MCP | WF-07 agent gateway enforcing mandate, tool registry and receipts | **RFC 9728 protected-resource metadata** for that gateway, and a **read-only developer documentation MCP server** with a registry that lists the tools deliberately off and why | No company-acting developer tool is offered, by design. The gateway's refused calls now carry the RFC 9728 `resource_metadata` hint, and a token for another audience or issuer is refused (tested) |
-| WF-10.12 Certification and go-live | Go-live gate, two-person approval, signed grant | A **scored suite run** kept with its digest, shown beside go-live as informational | The suite does not block go-live: whether it should is a decision for the owners. No runbook scoring. A **claims feed** (`GET /v1/verify-api/claims`) lists what may be said and what may not, built from evidence; a certification claim needs an active record in Zoiko iD's own name. No Trust Center page consumes it yet |
+| WF-10.12 Certification and go-live | Go-live gate, two-person approval, signed grant | A **scored suite run** kept with its digest, shown beside go-live as informational | The suite does not block go-live: whether it should is a decision for the owners. No runbook scoring. A **claims feed** (`GET /v1/verify-api/claims`) lists what may be said and what may not, built from evidence; a certification claim needs an active record in Zoiko iD's own name. A public page at `/docs/verify-api/trust` (relay `/docs/verify-api/claims`) shows it |
 
 ## Claims this platform must not make
 
@@ -36,10 +36,23 @@ Written 25 Nov 2026 for the Zoiko iD product owner. ZID-CP-WF10 v2.0 says to reu
 - **The console proxy** had no entry for the new diagnostics and scope-change routes: added and pinned in `bff-allowlist.test.ts`.
 - A token carried its own copy of scopes and nothing could change an application's scopes after creation; scope changes now narrow live tokens.
 
+## Finished in the last round
+
+- **Request-log purge is scheduled**: the maintenance job runs `verify.api_purge_request_log(90)` and reports the rows removed.
+- **Sandbox takes synthetic data only**: an email address, a long number or a passport-style line in a reference or metadata is refused with `SANDBOX_REQUIRES_SYNTHETIC_DATA`; nothing is stored.
+- **Provider cost is hidden from companies**: a routing decision shown to a company lists provider, rank and p95 latency only; vendor cost stays in the stored decision.
+- **Scope rollback**: `POST /v1/verify-api/applications/{id}/scope-changes:rollback` restores an earlier scope set as a new version (version 0 is the original); sessions and keys are untouched.
+- **Console cache is scoped to the signed-in identity**: changing company or person drops the previous one's cached screens (`lib/cache-scope.ts`).
+- **Log scan found a real leak**: the request log wrote the full path, including a launch link. Values shaped like `zvl_`, `zat_` and `zps_` tokens are now redacted centrally in `zid_telemetry.redaction`. The scan test keeps it from coming back.
+- **Cohort report**: `GET /v1/verify-api/onboarding/cohort` gives installs, finished, unfinished and the median seconds to the first verified webhook. Unfinished installs are counted, never averaged in. It covers one company; a cross-company cohort is a platform report and is not built.
+- **Error table** copies shipped to the Go, Java and .NET SDKs with a loader and a test in each, run in Docker (Go 1.22, Maven with Java 17, .NET 8): all pass. The revocation objective is set to 5 seconds in the local environment and recorded in `.env.example`; the go-live suite gate stays at shadow until one release of data exists.
+- **Trust Center page** for the claims feed (above).
+
+- **SDK release pipeline**: manual workflow (test, build, manifest, sign with the company key in an approval-gated environment, re-verify, publish to PyPI by trusted publishing, npm with provenance, NuGet). A test pins its safety. Building it found the TypeScript SDK never declared `jsdom`, so its widget test could not start; added with a lockfile.
+
 ## Left to do
 
-- Sign and publish an SDK: needs the company's signing key and registry account (the tool exists), then a compatibility matrix with executed evidence.
-- Ratify a numeric containment objective, and decide whether the sandbox suite must pass before a go-live request.
-- Schedule the request-log purge, confirm the 90-day period, and give the other SDKs the error table.
-- Collect time-to-first-webhook from real installs.
-- A WF-12 Trust Center page that reads the claims feed, and a rollback of the developer platform.
+- Sign and publish an SDK: the pipeline is built (`.github/workflows/sdk-release.yml`, `tools/scripts/sdk_release.py keygen`, `docs/runbooks/sdk-release.md`). What remains is the company's own setup: create the release key, commit its public half, open the registry accounts, add the secrets to the `sdk-release` environment. Java and Go are not automated (GPG key and namespace; module path).
+- Ratify the containment objective (`ZID_VERIFY_REVOCATION_OBJECTIVE_SECONDS`) and move the go-live suite gate from shadow to enforce (`ZID_VERIFY_GO_LIVE_SUITE_GATE`). Both are switches now.
+- The native bridge has no error table (it is not a Verify API client).
+- Rows 4-05, 6-01, 6-03, 6-04, 6-05 and 7-05 need things only the owners can supply; row 2-04 belongs to the residency work.

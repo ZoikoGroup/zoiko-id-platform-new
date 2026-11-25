@@ -297,12 +297,21 @@ async def resolve_and_record(conn: AsyncConnection, tenant_id: str, *, idempoten
     return decision_view(row, replayed=False)
 
 
+# What a company sees of a ranking is the order and the measured speed. The vendor-cost figure the order was computed from stays in the stored decision for the platform's own
+# reviewers and is never in a view a billing or support administrator of a company can read (ZID-CP-WF10 10.03, WF-09.08): a price a supplier charges Zoiko is not the company's to see.
+TENANT_RANK_FIELDS = ("provider_id", "p95_latency_ms", "rank")
+
+
+def tenant_ranking(ranked: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    return [{k: r[k] for k in TENANT_RANK_FIELDS if k in r} for r in ranked]
+
+
 def decision_view(row: Any, *, replayed: bool) -> dict[str, Any]:
     b = dict(row.body)
     return {
         "decision_id": str(row.decision_id), "session_id": row.session_id, "status": row.status, "selected": row.selected, "route_version": row.route_version,
         "algorithm_version": row.algorithm_version, "input_digest": row.input_digest, "snapshot_digest": row.snapshot_digest, "decision_digest": row.decision_digest,
-        "ranked": b.get("ranked", []), "rejected": b.get("rejected", []), "no_route_reasons": b.get("no_route_reasons", []), "notes": b.get("notes", []),
+        "ranked": tenant_ranking(b.get("ranked", [])), "rejected": b.get("rejected", []), "no_route_reasons": b.get("no_route_reasons", []), "notes": b.get("notes", []),
         "lineage": b.get("lineage"), "caveat": b.get("caveat"), "replayed": replayed, "created_at": row.created_at.isoformat(),
     }  # fmt: skip
 

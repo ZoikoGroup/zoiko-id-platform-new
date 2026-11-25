@@ -60,10 +60,25 @@ def test_the_log_loses_only_rows_older_than_the_period_and_only_through_the_purg
         assert await purge(90) >= 0 and await count(owner_url, [edge, new]) == 2
         # the permission is gone again afterwards: the setting does not leak
         with pytest.raises(Exception, match="append-only"):
-            await direct("DELETE FROM verify.api_request_log WHERE log_id = :i") if False else await direct_delete(owner_url, edge)
+            async with engine(owner_url) as eng, eng.begin() as c:
+                await c.execute(text("DELETE FROM verify.api_request_log WHERE log_id = :i"), {"i": edge})
 
-    async def direct_delete(url: str, row: uuid.UUID) -> None:
-        async with engine(url) as eng, eng.begin() as c:
-            await c.execute(text("DELETE FROM verify.api_request_log WHERE log_id = :i"), {"i": row})
+    asyncio.run(go())
+
+
+def test_the_scheduled_maintenance_job_runs_the_purge_and_reports_how_many_rows_it_removed(owner_url: str) -> None:
+    from datetime import UTC, datetime
+
+    from zid_platform.entrypoints import maintenance
+
+    tenant, app_id = uuid.uuid4(), uuid.uuid4()
+
+    async def go() -> None:
+        old = await put(owner_url, tenant, app_id, days_old=200)
+        new = await put(owner_url, tenant, app_id, days_old=1)
+        async with engine(owner_url) as eng, eng.begin() as c:
+            counts = await maintenance.run_once(c, datetime.now(UTC))
+        assert counts["purged:verify.api_request_log"] >= 1
+        assert await count(owner_url, [old]) == 0 and await count(owner_url, [new]) == 1  # the old row went on the schedule, the recent one stayed
 
     asyncio.run(go())

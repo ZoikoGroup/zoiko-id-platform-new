@@ -5352,7 +5352,7 @@ export type RouteDecisionView = {
   route_version: string;
   algorithm_version: string;
   decision_digest: string;
-  ranked: { provider_id: string; risk_adjusted_cost_minor: number; p95_latency_ms: number; rank: number }[];
+  ranked: { provider_id: string; p95_latency_ms: number; rank: number }[];
   rejected: { provider_id: string; gates: string[]; reasons: string[] }[];
   no_route_reasons: string[];
   notes: string[];

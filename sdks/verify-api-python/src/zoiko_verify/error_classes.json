@@ -147,6 +147,10 @@
       "class": "WORKFLOW_NOT_ELIGIBLE",
       "retryable": false
     },
+    "SANDBOX_REQUIRES_SYNTHETIC_DATA": {
+      "class": "VALIDATION_FAILED",
+      "retryable": false
+    },
     "SESSION_STATE_INVALID": {
       "class": "SESSION_STATE_INVALID",
       "retryable": false

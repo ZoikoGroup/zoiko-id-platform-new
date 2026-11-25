@@ -29,3 +29,13 @@ async def confirm_webhook(conn: AsyncConnection, tenant_id: str, application_id:
         problems = ob.confirmation_problems(True, True)
         raise PartnerError("VALIDATION_FAILED", "That event is already confirmed." if "ALREADY_CONFIRMED" in problems else "Refused.")
     return await checklist(conn, application_id)
+
+
+async def cohort(conn: AsyncConnection) -> dict[str, Any]:
+    """Time to the first verified webhook across this company's applications (the cohort). Installs that have not finished are counted and left out of the median. The company comes from the transaction."""
+    apps = await store.list_applications(conn)
+    durations: list[int | None] = []
+    for a in apps:
+        v = await checklist(conn, str(a["application_id"]))
+        durations.append(v["seconds_to_first_verified_webhook"])
+    return {**ob.cohort_median(durations), "measure": "seconds from the first credential to the first webhook your server confirmed it verified"}

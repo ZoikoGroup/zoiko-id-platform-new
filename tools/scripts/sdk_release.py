@@ -4,14 +4,20 @@
     sdk_release.py manifest <package-dir> --name N --version V [--out manifest.json]
     sdk_release.py sign     manifest.json --key private.pem [--out release.json]
     sdk_release.py verify   release.json --key public.pem <package-dir>
+    sdk_release.py keygen   --private private.pem --public public.pem
+    sdk_release.py version  <package-dir>
+
+`keygen` makes the company's release key pair ONCE, on a machine the company controls. The private half goes into the company's secret store (never into the repository, a chat or a ticket); the
+public half is committed as backend/config/developer/sdk-signing-public.pem so anyone can check a release. `version` prints the version a package declares, so a release job can refuse a tag that
+does not match the package.
 
 A release is a MANIFEST (every file of the package with its SHA-256 and size, the dependencies the package declares, and its name and version) and a SIGNATURE over the manifest's
 canonical bytes. Verifying recomputes the digests from the files on disk, so a changed, added or missing file, an altered manifest or a signature from another key is refused by name.
 
 The manifest is a software bill of materials in the plain sense (files and declared dependencies). It is not a vulnerability scan and not a build attestation.
 
-WHAT THIS DOES NOT DO. It does not hold a key and does not publish anything. The signing key must be a private key the company owns and keeps (an Ed25519 key in PEM form); the
-company's registry account does the publishing. Until both exist no SDK is signed or published, and the SDK register says so.
+WHAT THIS DOES NOT DO. It does not keep a key and does not publish anything. The signing key must be a private key the company owns and keeps (an Ed25519 key in PEM form); the
+company's registry account does the publishing (see .github/workflows/sdk-release.yml and docs/runbooks/sdk-release.md). Until both exist no SDK is signed or published, and the SDK register says so.
 """
 
 from __future__ import annotations
@@ -124,6 +130,43 @@ def verify(release: dict[str, Any], public_pem: bytes, root: Path) -> list[str]:
     return sorted(set(out))
 
 
+def generate_keypair(private_path: Path, public_path: Path) -> str:
+    """Make an Ed25519 release key pair. Refuses to overwrite either file: replacing a release key silently would orphan every earlier signature. Returns the key id."""
+    import os
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    for p in (private_path, public_path):
+        if p.exists():
+            raise FileExistsError(f"{p} already exists; remove it deliberately if you really mean to replace the release key")
+    key = ed25519.Ed25519PrivateKey.generate()
+    private = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    public = key.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    fd = os.open(private_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)  # owner-only where the system supports it
+    with os.fdopen(fd, "wb") as f:
+        f.write(private)
+    public_path.write_bytes(public)
+    return key_id_of_public(public)
+
+
+def declared_version(root: Path) -> str:
+    """The version a package declares in its own metadata (pyproject.toml, package.json or a .csproj)."""
+    import re
+
+    py = root / "pyproject.toml"
+    if py.is_file():
+        return str(tomllib.loads(py.read_text(encoding="utf-8"))["project"]["version"])
+    pk = root / "package.json"
+    if pk.is_file():
+        return str(json.loads(pk.read_text(encoding="utf-8"))["version"])
+    for cs in sorted(root.glob("*.csproj")):
+        m = re.search(r"<Version>([^<]+)</Version>", cs.read_text(encoding="utf-8"))
+        if m:
+            return m.group(1).strip()
+    raise ValueError("no pyproject.toml, package.json or .csproj with a version in " + str(root))
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -140,7 +183,19 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("release")
     v.add_argument("package")
     v.add_argument("--key", required=True, help="the matching public key in PEM form")
+    k = sub.add_parser("keygen")
+    k.add_argument("--private", required=True)
+    k.add_argument("--public", required=True)
+    ve = sub.add_parser("version")
+    ve.add_argument("package")
     a = ap.parse_args(argv)
+    if a.cmd == "keygen":
+        print("key id:", generate_keypair(Path(a.private), Path(a.public)))
+        print("Keep", a.private, "in the company secret store and delete this copy. Commit only", a.public)
+        return 0
+    if a.cmd == "version":
+        print(declared_version(Path(a.package)))
+        return 0
     if a.cmd == "manifest":
         Path(a.out).write_text(json.dumps(build_manifest(Path(a.package), a.name, a.version), indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print("wrote", a.out)

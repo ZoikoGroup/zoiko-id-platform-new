@@ -211,7 +211,7 @@ function DecisionView({ d }: { d: RouteDecisionView }) {
         <div>
           <p className="mb-1 text-sm font-medium">Candidates that passed every hard gate, best first</p>
           <ol className="list-decimal pl-5 text-sm">
-            {d.ranked.map((r) => <li key={r.provider_id}>{r.provider_id}: risk-adjusted cost {r.risk_adjusted_cost_minor}, p95 {r.p95_latency_ms} ms</li>)}
+            {d.ranked.map((r) => <li key={r.provider_id}>{r.provider_id}: rank {r.rank}, p95 {r.p95_latency_ms} ms</li>)}
           </ol>
         </div>
       ) : null}

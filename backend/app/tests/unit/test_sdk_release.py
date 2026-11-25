@@ -94,3 +94,53 @@ def test_the_command_line_round_trips_and_exits_non_zero_when_a_file_changed(pac
     assert rel.main(["verify", str(r), str(package), "--key", str(tmp_path / "p.pem")]) == 0 and "OK" in capsys.readouterr().out
     (package / "README.md").write_text("changed\n", encoding="utf-8")
     assert rel.main(["verify", str(r), str(package), "--key", str(tmp_path / "p.pem")]) == 1 and "FILE_CHANGED:README.md" in capsys.readouterr().out
+
+
+def test_keygen_makes_a_working_ed25519_pair_and_never_overwrites_a_release_key(tmp_path: Path, package: Path) -> None:
+    priv, pub = tmp_path / "k.pem", tmp_path / "k.pub.pem"
+    key_id = rel.generate_keypair(priv, pub)
+    assert key_id.startswith("sha-256:") and priv.read_bytes().startswith(b"-----BEGIN " + b"PRIVATE KEY-----") and pub.read_bytes().startswith(b"-----BEGIN PUBLIC KEY-----")
+    release = rel.sign(rel.build_manifest(package, "zoiko-x", "1.0.0"), priv.read_bytes())
+    assert release["key_id"] == key_id and rel.verify(release, pub.read_bytes(), package) == []  # what the new pair signs, the new public key verifies
+    with pytest.raises(FileExistsError):  # replacing a release key by accident would orphan every earlier signature
+        rel.generate_keypair(priv, tmp_path / "other.pub.pem")
+    with pytest.raises(FileExistsError):
+        rel.generate_keypair(tmp_path / "other.pem", pub)
+    assert not (tmp_path / "other.pem").exists()  # a refused run leaves nothing behind
+
+
+def test_the_declared_version_is_read_from_each_kind_of_package(tmp_path: Path) -> None:
+    py = tmp_path / "py"
+    py.mkdir()
+    (py / "pyproject.toml").write_text('[project]\nname = "x"\nversion = "2.3.4"\n', encoding="utf-8")
+    js = tmp_path / "js"
+    js.mkdir()
+    (js / "package.json").write_text('{"name": "x", "version": "1.2.3"}', encoding="utf-8")
+    net = tmp_path / "net"
+    net.mkdir()
+    (net / "X.csproj").write_text("<Project><PropertyGroup><Version>0.9.1</Version></PropertyGroup></Project>", encoding="utf-8")
+    assert (rel.declared_version(py), rel.declared_version(js), rel.declared_version(net)) == ("2.3.4", "1.2.3", "0.9.1")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(ValueError):
+        rel.declared_version(empty)
+
+
+def test_the_release_workflow_is_manual_signs_before_it_publishes_and_keeps_secrets_in_one_approved_environment() -> None:
+    import yaml
+
+    wf = yaml.safe_load((REPO / ".github" / "workflows" / "sdk-release.yml").read_text(encoding="utf-8"))
+    triggers = wf.get("on") or wf.get(True)
+    assert set(triggers) == {"workflow_dispatch"}  # no push, no pull request: a fork or a stray commit cannot start a release
+    jobs = wf["jobs"]
+    assert jobs["sign"]["needs"] == "build" and jobs["publish"]["needs"] == "sign"  # publishing needs a signature, signing needs a clean build
+    assert jobs["publish"]["if"] == "inputs.publish" and jobs["build"]["if"] == "vars.SDK_RELEASE_ENABLED == 'true'"
+    assert jobs["sign"]["environment"] == "sdk-release" and jobs["publish"]["environment"] == "sdk-release"  # the approval gate
+    text = (REPO / ".github" / "workflows" / "sdk-release.yml").read_text(encoding="utf-8")
+    assert "secrets." not in str(jobs["build"])  # the build job, which runs the package's own tests and scripts, never sees a key or a token
+    assert text.count("secrets.SDK_SIGNING_KEY") == 1 and "id-token: write" not in str(jobs["build"]) + str(jobs["sign"])
+    sign_steps = " ".join(str(s.get("run", "")) for s in jobs["sign"]["steps"])
+    assert "shred -u" in sign_steps and "sdk-signing-public.pem" in sign_steps  # the key file is removed and the result is checked with the public half
+    publish_steps = " ".join(str(s.get("run", "")) for s in jobs["publish"]["steps"])
+    assert publish_steps.index("sdk_release.py verify") < publish_steps.index("uv publish")  # the files are re-checked immediately before they leave
+    assert "--provenance" in publish_steps

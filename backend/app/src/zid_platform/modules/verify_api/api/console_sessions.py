@@ -2,6 +2,7 @@
 
 A signed-in administrator, behind the PDP, not the partner's server:
 POST /v1/verify-api/applications/{id}/try             run one call against a SANDBOX application (CR-173)       verify_api.application.manage
+GET  /v1/verify-api/onboarding/cohort                                   median time to first verified webhook, this company (CR-173)           verify_api.application.read
 GET  /v1/verify-api/applications/{id}/onboarding      the first-verification checklist and its time (CR-173)    verify_api.application.read
 GET  /v1/verify-api/applications/{id}/sessions        the application's sessions, newest first           verify_api.application.read
 POST /v1/verify-api/applications/{id}/test-sessions   make one sandbox session and get its launch link    verify_api.application.manage
@@ -110,6 +111,23 @@ async def propose_scope_change(application_id: uuid.UUID, body: ScopeChangeBody,
             raise _fail(e) from e
 
 
+class ScopeRollbackBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    to_version: int = Field(ge=0, le=100000)
+    reason: str = Field(min_length=3, max_length=200)
+
+
+@router.post("/v1/verify-api/applications/{application_id}/scope-changes:rollback", status_code=201)
+async def rollback_scope_change(application_id: uuid.UUID, body: ScopeRollbackBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Restore an earlier scope set as a new version. Sessions and idempotency keys are untouched (ZID-CP-WF10, WF-10.12)."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
+        try:
+            return await service.rollback_scopes(conn, caller.ctx.tenant_id or "", str(application_id), _me(caller), body.to_version, body.reason)
+        except PartnerError as e:
+            raise _fail(e) from e
+
+
 @router.post("/v1/verify-api/scope-changes/{change_id}:approve")
 async def approve_scope_change(change_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
     """A person other than the proposer approves widening a production application. The proposer is refused."""
@@ -196,6 +214,14 @@ async def session_trace(session_id: str, request: Request, caller: CallerDep) ->
             return await diagnostics_service.trace(conn, session_id)
         except PartnerError as e:
             raise _fail(e) from e
+
+
+@router.get("/v1/verify-api/onboarding/cohort")
+async def onboarding_cohort(request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Median time to the first verified webhook over this company's applications; unfinished installs are counted, not averaged in (ZID-CP-WF10, WF-10.01)."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=READ, resource=RESOURCE)
+        return await onboarding_service.cohort(conn)
 
 
 @router.get("/v1/verify-api/applications/{application_id}/onboarding")

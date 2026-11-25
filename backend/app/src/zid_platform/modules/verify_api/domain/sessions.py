@@ -172,6 +172,36 @@ def check_idempotency_key(key: str | None) -> str:
     return key
 
 
+_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[A-Za-z]{2,}")
+_LONG_NUMBER = re.compile(r"(?:\d[ .-]?){9,}")  # an identity, card, account or phone number
+_MRZ = re.compile(r"[A-Z0-9<]{25,}")  # a machine-readable line of a passport or ID card
+
+
+def synthetic_problems(clean: dict[str, Any]) -> list[str]:
+    """Why a SANDBOX request looks like real personal data. The sandbox is for synthetic people only: a test must never be the way a real person's details reach a vendor, a log or a screenshot.
+    These are patterns, not proof: they catch the common ways real data gets pasted in, and say which field."""
+    fields: dict[str, str] = {"customer_reference": str(clean.get("customer_reference", ""))}
+    fields.update({f"metadata.{k}": v for k, v in (clean.get("metadata") or {}).items()})
+    out: list[str] = []
+    for name, value in fields.items():
+        if _EMAIL.search(value):
+            out.append(f"{name}:LOOKS_LIKE_AN_EMAIL_ADDRESS")
+        if _LONG_NUMBER.search(value):
+            out.append(f"{name}:LOOKS_LIKE_AN_ID_OR_PHONE_NUMBER")
+        if _MRZ.search(value) and ("<<" in value or value.startswith("P<")):
+            out.append(f"{name}:LOOKS_LIKE_A_PASSPORT_MACHINE_READABLE_LINE")
+    return out
+
+
+def check_synthetic(clean: dict[str, Any]) -> None:
+    problems = synthetic_problems(clean)
+    if problems:
+        raise PartnerError(
+            "SANDBOX_REQUIRES_SYNTHETIC_DATA",
+            "The sandbox is for made-up people only. This looks like real personal data (" + "; ".join(problems) + "). Use an invented reference such as test-user-1.",
+        )
+
+
 def check_session_request(body: dict[str, Any]) -> dict[str, Any]:
     """The request, cleaned and checked. The partner's own reference is opaque to us: it is how the partner finds its customer again, and nothing in it is read as identity."""
     ref = body.get("customer_reference")

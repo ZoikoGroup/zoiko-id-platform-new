@@ -1293,6 +1293,29 @@
         "title": "ScopeChangeBody",
         "type": "object"
       },
+      "ScopeRollbackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_version": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "To Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "to_version",
+          "reason"
+        ],
+        "title": "ScopeRollbackBody",
+        "type": "object"
+      },
       "SessionBody": {
         "additionalProperties": false,
         "properties": {
@@ -1529,6 +1552,52 @@
           }
         },
         "title": "TestSessionBody",
+        "type": "object"
+      },
+      "TryItBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "operation": {
+            "enum": [
+              "whoami",
+              "products",
+              "workflows",
+              "list_sessions",
+              "create_session"
+            ],
+            "title": "Operation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "TryItBody",
         "type": "object"
       },
       "ValidationError": {
@@ -2514,6 +2583,62 @@
         ]
       }
     },
+    "/v1/verify-api/applications/{application_id}/scope-changes:rollback": {
+      "post": {
+        "description": "Restore an earlier scope set as a new version. Sessions and idempotency keys are untouched (ZID-CP-WF10, WF-10.12).",
+        "operationId": "rollback_scope_change_v1_verify_api_applications__application_id__scope_changes_rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeRollbackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback Scope Change V1 Verify Api Applications  Application Id  Scope Changes Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Scope Change",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/applications/{application_id}/sessions": {
       "get": {
         "operationId": "application_sessions_v1_verify_api_applications__application_id__sessions_get",
@@ -2706,6 +2831,62 @@
           }
         },
         "summary": "Test Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/try": {
+      "post": {
+        "description": "Run one partner call against a SANDBOX application and see the exact request and answer. A production application is refused: this can never reach production (ZID-CP-WF10, WF-10.05).",
+        "operationId": "try_it_v1_verify_api_applications__application_id__try_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TryItBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Try It V1 Verify Api Applications  Application Id  Try Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try It",
         "tags": [
           "verify-api"
         ]
@@ -2950,6 +3131,26 @@
           }
         },
         "summary": "Withdraw Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/claims": {
+      "get": {
+        "description": "What may be said publicly about the developer platform, built from the evidence the platform holds, and what may not be said and why (ZID-CP-WF10, WF-10.12). Public.",
+        "operationId": "public_claims_v1_verify_api_claims_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Public Claims",
         "tags": [
           "verify-api"
         ]
@@ -5749,6 +5950,30 @@
           }
         },
         "summary": "Token",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/onboarding/cohort": {
+      "get": {
+        "description": "Median time to the first verified webhook over this company's applications; unfinished installs are counted, not averaged in (ZID-CP-WF10, WF-10.01).",
+        "operationId": "onboarding_cohort_v1_verify_api_onboarding_cohort_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Onboarding Cohort V1 Verify Api Onboarding Cohort Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Onboarding Cohort",
         "tags": [
           "verify-api"
         ]

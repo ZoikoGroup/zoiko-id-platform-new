@@ -332,7 +332,7 @@ def test_a_breaking_release_needs_a_new_major_a_migration_note_and_a_support_win
 def test_an_edited_or_missing_snapshot_and_a_secret_looking_example_are_caught() -> None:
     r = rel("1.0", 1, "2026-11-25", digest=av.digest_of("original"))
     assert av.snapshot_problems(r, "original") == [] and av.snapshot_problems(r, "edited") == ["SNAPSHOT_CHANGED_AFTER_RELEASE:1.0"] and av.snapshot_problems(r, None) == ["SNAPSHOT_MISSING:1.0"]
-    assert av.secret_problems("-----BEGIN PRIVATE KEY-----") and av.secret_problems("example sk_live_abc") and av.secret_problems("nothing here") == []
+    assert av.secret_problems("-----BEGIN " + "PRIVATE KEY-----") and av.secret_problems("example sk_live_abc") and av.secret_problems("nothing here") == []
     assert reg.snapshot_text("../../etc/passwd") is None and reg.snapshot_text("backend/config/developer/sdk-releases.yaml") is None  # only the contracts folder is readable
 
 
@@ -475,7 +475,7 @@ def test_the_tampered_body_persona_is_scored_by_refusal() -> None:
 
 def test_every_sdk_ships_the_same_error_table_as_the_platform_catalog_and_nothing_is_left_out() -> None:
     expected = err.parity_json()
-    copies = ["contracts/openapi/partner/error-classes.json", "sdks/verify-api-python/src/zoiko_verify/error_classes.json", "sdks/typescript/src/error-classes.json"]
+    copies = ["contracts/openapi/partner/error-classes.json", "sdks/verify-api-python/src/zoiko_verify/error_classes.json", "sdks/typescript/src/error-classes.json", "sdks/go/error_classes.json", "sdks/java/src/main/resources/zoiko/error_classes.json", "sdks/dotnet/src/error_classes.json"]
     for rel_path in copies:
         assert (REPO / rel_path).read_text(encoding="utf-8") == expected, f"{rel_path} differs from the catalog: regenerate it from verify_api/domain/errors.py parity_json()"
     table = json.loads(expected)
@@ -530,3 +530,27 @@ def test_a_containment_objective_is_shown_as_met_or_not_met_against_what_was_mea
     assert ok["status"] == "MET" and "120 refusals" in ok["statement"]
     assert cp.objective(5.0, 5.0, 3)["status"] == "MET" and cp.objective(5.0, 10.0, 3)["status"] == "NOT_MET"
     assert "systems that cache" in cp.objective(5.0, 1.0, 1)["caveat"].lower() or "cache a token" in cp.objective(5.0, 1.0, 1)["caveat"]
+
+
+# ------------------------------------------------------------------------------------------------------------ sandbox synthetic data
+
+from zid_platform.modules.verify_api.domain import sessions as vs  # noqa: E402
+
+
+def probs(ref: str, **meta: str) -> list[str]:
+    return vs.synthetic_problems({"customer_reference": ref, "metadata": meta})
+
+
+def test_the_sandbox_refuses_what_looks_like_a_real_persons_details_and_accepts_invented_references() -> None:
+    for fine in ("test-user-1", "customer-48201", "c-1", "try-it", "sandbox-test", "A1B2-C3"):
+        assert probs(fine) == [], fine
+    assert probs("anna.smith@example.com") == ["customer_reference:LOOKS_LIKE_AN_EMAIL_ADDRESS"]
+    assert probs("ref-123456789") == ["customer_reference:LOOKS_LIKE_AN_ID_OR_PHONE_NUMBER"]
+    assert probs("+44 7700 900 123") == ["customer_reference:LOOKS_LIKE_AN_ID_OR_PHONE_NUMBER"]
+    assert probs("4111-1111-1111-1111") == ["customer_reference:LOOKS_LIKE_AN_ID_OR_PHONE_NUMBER"]
+    assert probs("P<GBRSMITH<<ANNA<<<<<<<<<<<<<<<<<<<<<<<<") == ["customer_reference:LOOKS_LIKE_A_PASSPORT_MACHINE_READABLE_LINE"]
+    assert probs("fine", note="call me on 07700900123") == ["metadata.note:LOOKS_LIKE_AN_ID_OR_PHONE_NUMBER"]  # metadata is checked too
+    assert probs("fine", contact="a@b.io") == ["metadata.contact:LOOKS_LIKE_AN_EMAIL_ADDRESS"]
+    with pytest.raises(PartnerError) as e:
+        vs.check_synthetic({"customer_reference": "x@y.zz"})
+    assert e.value.code == "SANDBOX_REQUIRES_SYNTHETIC_DATA" and "made-up people only" in e.value.detail

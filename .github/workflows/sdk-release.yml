@@ -1,0 +1,222 @@
+# SDK release pipeline (ZID-CP-WF10 v2.0, WF-10.06; CR-173; runbook: docs/runbooks/sdk-release.md).
+#
+# One SDK, one version, one run: test -> build -> manifest -> SIGN -> (optionally) publish. Nothing is published unless the person starting the run
+# turns `publish` on, the repository variable SDK_RELEASE_ENABLED is 'true', and a reviewer approves the `sdk-release` environment (which is also the only place
+# the signing key and the registry tokens exist). Triggers: manual only, so no fork or pull request can reach a key or a registry token.
+#
+# What a release is: the built package files (wheel, tarball, nupkg), a manifest of their SHA-256 digests, and an Ed25519 signature over that manifest made with the company
+# release key. The public key is committed at backend/config/developer/sdk-signing-public.pem; anyone can check a release with tools/scripts/sdk_release.py verify.
+#
+# NOT automated here, on purpose: Java (Maven Central needs a GPG key and a verified namespace) and Go (a module is published by a git tag; its module path must match the
+# repository). The runbook says what each needs. Actions are pinned by commit SHA.
+name: sdk-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      sdk:
+        description: "Which SDK to release"
+        required: true
+        type: choice
+        options: [verify-api-python, typescript-credentials, dotnet]
+      version:
+        description: "Version to release (must equal the version in the package itself)"
+        required: true
+      publish:
+        description: "Publish to the public registry after signing (leave off for a dry run)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-release-${{ inputs.sdk }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: test and build
+    if: vars.SDK_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      name: ${{ steps.meta.outputs.name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - id: meta
+        name: Resolve the package and refuse a version that does not match it
+        shell: bash
+        env:
+          SDK: ${{ inputs.sdk }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          case "$SDK" in
+            verify-api-python)      dir=sdks/verify-api-python; name=zoiko-verify ;;
+            typescript-credentials) dir=sdks/typescript;        name="@zoiko/credentials" ;;
+            dotnet)                 dir=sdks/dotnet/src;        name=Zoiko.Id ;;
+            *) echo "unknown sdk"; exit 1 ;;
+          esac
+          declared="$(python3 tools/scripts/sdk_release.py version "$dir")"
+          if [ "$declared" != "$VERSION" ]; then
+            echo "::error::the package declares version $declared but this run was started for $VERSION"; exit 1
+          fi
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a release before the company key exists
+        run: |
+          if [ ! -s backend/config/developer/sdk-signing-public.pem ]; then
+            echo "::error::backend/config/developer/sdk-signing-public.pem is missing, so create the release key first (see docs/runbooks/sdk-release.md)"
+            exit 1
+          fi
+
+      - name: Test and build (Python)
+        if: inputs.sdk == 'verify-api-python'
+        working-directory: sdks/verify-api-python
+        run: |
+          pip install --no-input uv==0.5.11
+          uv run --with pytest --with cryptography pytest -q
+          uv build --out-dir "$GITHUB_WORKSPACE/out"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: inputs.sdk == 'typescript-credentials'
+        with:
+          node-version: "22"
+
+      - name: Test and build (TypeScript)
+        if: inputs.sdk == 'typescript-credentials'
+        working-directory: sdks/typescript
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+          npm run typecheck
+          npm test
+          npm run build
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/out"
+
+      - name: Test and build (.NET)
+        if: inputs.sdk == 'dotnet'
+        working-directory: sdks/dotnet
+        run: |
+          dotnet test tests/Zoiko.Id.Tests.csproj --nologo
+          dotnet pack src/Zoiko.Id.csproj -c Release --nologo -o "$GITHUB_WORKSPACE/out"
+
+      - name: Install the signing tool's one dependency
+        run: pip install --no-input cryptography==44.0.0
+
+      - name: Manifest of exactly what will be published
+        run: python3 tools/scripts/sdk_release.py manifest out --name "${{ steps.meta.outputs.name }}" --version "${{ inputs.version }}" --out manifest.json
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: package-${{ inputs.sdk }}-${{ inputs.version }}
+          path: |
+            out/
+            manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  sign:
+    name: sign (needs approval)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: sdk-release
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: package-${{ inputs.sdk }}-${{ inputs.version }}
+
+      - run: pip install --no-input cryptography==44.0.0
+
+      - name: Sign the manifest with the company release key
+        env:
+          SDK_SIGNING_KEY: ${{ secrets.SDK_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SDK_SIGNING_KEY" || { echo "::error::the SDK_SIGNING_KEY secret is not set on the sdk-release environment"; exit 1; }
+          umask 077
+          key="$RUNNER_TEMP/sdk-signing.pem"
+          printf '%s\n' "$SDK_SIGNING_KEY" > "$key"
+          python3 tools/scripts/sdk_release.py sign manifest.json --key "$key" --out release.json
+          shred -u "$key" 2>/dev/null || rm -f "$key"
+
+      - name: Check the signature with the PUBLIC key, exactly as a user would
+        run: python3 tools/scripts/sdk_release.py verify release.json out --key backend/config/developer/sdk-signing-public.pem
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-${{ inputs.sdk }}-${{ inputs.version }}
+          path: |
+            out/
+            release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: publish
+    needs: sign
+    if: inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: sdk-release
+    permissions:
+      contents: read
+      id-token: write # PyPI trusted publishing and npm provenance use the short-lived GitHub identity; no long-lived PyPI secret exists
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-${{ inputs.sdk }}-${{ inputs.version }}
+
+      - run: pip install --no-input cryptography==44.0.0
+
+      - name: Verify again, immediately before publishing, that the files are the signed files
+        run: python3 tools/scripts/sdk_release.py verify release.json out --key backend/config/developer/sdk-signing-public.pem
+
+      - name: Publish to PyPI (trusted publishing)
+        if: inputs.sdk == 'verify-api-python'
+        run: |
+          pip install --no-input uv==0.5.11
+          uv publish --trusted-publishing always out/*
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: inputs.sdk == 'typescript-credentials'
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish to npm (with provenance)
+        if: inputs.sdk == 'typescript-credentials'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish out/*.tgz --access public --provenance
+
+      - name: Publish to NuGet
+        if: inputs.sdk == 'dotnet'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push "out/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: The signed release record
+        run: |
+          echo "Published ${{ inputs.sdk }} ${{ inputs.version }}." >> "$GITHUB_STEP_SUMMARY"
+          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: record the run URL and date in backend/config/developer/sdk-releases.yaml (published, last_test_run, provenance) in a reviewed change." >> "$GITHUB_STEP_SUMMARY"

@@ -150,6 +150,8 @@ def test_the_resolver_is_deterministic_idempotent_and_never_picks_a_provider_tha
         key = "key-" + uid()
         first = await svc.resolve_and_record(c, tenant, idempotency_key=key, body=request())
         assert first["status"] == "ROUTE_SELECTED" and first["selected"] == b and first["replayed"] is False
+        assert all(set(x) == {"provider_id", "p95_latency_ms", "rank"} for x in first["ranked"])  # the vendor cost the order came from is not in what a company sees (WF10 10-03)
+        assert "pricing" not in str(svc.capability_view(await store.latest_capability(c, a, "DOCUMENT_FACE"))) and "unit_cost" not in str(first)
         assert [x["provider_id"] for x in first["ranked"]] == [b, a] and any(x["provider_id"] == c_ and "PROCESSING_REGION_NOT_ALLOWED" in x["reasons"] for x in first["rejected"])
         again = await svc.resolve_and_record(c, tenant, idempotency_key=key, body=request())
         assert again["replayed"] is True and again["decision_id"] == first["decision_id"] and again["decision_digest"] == first["decision_digest"]

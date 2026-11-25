@@ -11,6 +11,7 @@ default the owners should confirm; 90 days is the shortest the function will acc
 
 from zid_platform.migrations import execute_script as _run
 
+CONTRACT_APPROVED = "CR-173"  # replaces the request log append-only trigger with one that also lets the guarded retention purge delete rows older than 90 days
 revision = "verify_api_0018"
 down_revision = "verify_api_0017"
 branch_labels = None
