@@ -1,0 +1,24 @@
+# Verify People: per-verification prices by plan, as shown on the Zoiko iD pricing page (Plans & Pricing, version 5.0).
+# status: PROPOSED. These are the numbers currently shown to buyers. They are NOT approved by Finance, are not in the commercial price book, and are not used to invoice anyone.
+# They are replaced as a whole when the owners decide: change the numbers and the version, never edit history elsewhere.
+# source: the pricing page image supplied by the product owner on 25 Nov 2026.
+#
+# charge: the amount per completed verification. minimum_monthly: a spend FLOOR (the month is charged the greater of the minimum and usage), as the page's calculator does.
+# A plan with `custom: true` has no published price and an estimate for it is refused, never guessed.
+version: "5.0-page"
+status: PROPOSED
+currency: USD
+unit: completed verification
+minimum_model: FLOOR
+plans:
+  essentials: {name: Essentials, charge: "0.95", minimum_monthly: "49"}
+  business: {name: Business, charge: "1.29", minimum_monthly: "149"}
+  advanced: {name: Advanced, charge: "1.79", minimum_monthly: "299"}
+  enterprise: {name: Enterprise, custom: true}
+# Optional services (human review, AML, extra data sources) are usage-based and carry their own charges; none is priced here.
+not_priced:
+  - human review (on demand)
+  - AML screening
+  - additional data sources
+  - business verification (KYB)
+  - identity and authority, credentials and evidence
