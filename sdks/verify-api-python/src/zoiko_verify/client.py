@@ -35,6 +35,18 @@ class VerifyError(Exception):
         super().__init__(f"{code}: {detail}" if detail else code)
         self.code, self.status, self.detail, self.retryable = code, status, detail, retryable
 
+    @property
+    def error_class(self) -> str | None:
+        """The documented class of this error (for example AUTH_SCOPE_DENIED or RATE_LIMITED), the same in every Zoiko SDK. None for a code the table does not know yet."""
+        entry = _table()["codes"].get(self.code)
+        return None if entry is None else str(entry["class"])
+
+
+def _table() -> dict[str, Any]:
+    import importlib.resources
+
+    return json.loads(importlib.resources.files("zoiko_verify").joinpath("error_classes.json").read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
 
 def _urllib_transport(
     method: str, url: str, headers: Mapping[str, str], data: bytes | None, timeout: float

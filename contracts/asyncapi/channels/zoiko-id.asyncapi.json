@@ -1745,6 +1745,25 @@
         }
       }
     },
+    "provider.domain": {
+      "address": "zid.{env}.{region}.provider.domain",
+      "messages": {
+        "provider_capability_changed": {
+          "$ref": "#/components/messages/provider_capability_changed"
+        },
+        "provider_data_flow_changed": {
+          "$ref": "#/components/messages/provider_data_flow_changed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
     "provider.priority": {
       "address": "zid.{env}.{region}.provider.priority",
       "messages": {
@@ -1886,6 +1905,59 @@
         },
         "restore_failed": {
           "$ref": "#/components/messages/restore_failed"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "route.domain": {
+      "address": "zid.{env}.{region}.route.domain",
+      "messages": {
+        "route_attempt_advanced": {
+          "$ref": "#/components/messages/route_attempt_advanced"
+        },
+        "route_attempt_cancelled": {
+          "$ref": "#/components/messages/route_attempt_cancelled"
+        },
+        "route_attempt_reserved": {
+          "$ref": "#/components/messages/route_attempt_reserved"
+        },
+        "route_attempt_unknown": {
+          "$ref": "#/components/messages/route_attempt_unknown"
+        },
+        "route_no_route": {
+          "$ref": "#/components/messages/route_no_route"
+        },
+        "route_release_live": {
+          "$ref": "#/components/messages/route_release_live"
+        },
+        "route_release_rolled_back": {
+          "$ref": "#/components/messages/route_release_rolled_back"
+        },
+        "route_selected": {
+          "$ref": "#/components/messages/route_selected"
+        }
+      },
+      "parameters": {
+        "env": {
+          "description": "deployment environment"
+        },
+        "region": {
+          "description": "home region of the publishing cell"
+        }
+      }
+    },
+    "route.priority": {
+      "address": "zid.{env}.{region}.route.priority",
+      "messages": {
+        "route_quarantined": {
+          "$ref": "#/components/messages/route_quarantined"
         }
       },
       "parameters": {
@@ -5633,6 +5705,28 @@
         "x-zid-source": "ZID-DEVSECOPS-001",
         "x-zid-status": "catalogued"
       },
+      "provider_capability_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provider.capability.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider capability for one method changed state (provider, method, version, new state, manifest digest).",
+        "title": "provider.capability.changed",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "provider_data_flow_changed": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.provider.data_flow.changed.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider data-flow graph changed (provider, version, graph digest, previous digest, number of steps added, new regions, routing effect).",
+        "title": "provider.data_flow.changed",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
       "provider_entitlement_revoked": {
         "contentType": "application/cloudevents+json",
         "name": "com.zoiko.id.provider.entitlement_revoked.v1",
@@ -5807,6 +5901,105 @@
         "summary": "A restore into an isolated recovery environment was blocked by a gate or aborted (operation id, step, code).",
         "title": "restore.failed",
         "x-zid-source": "ZID-RESILIENCE-001 \u00a716, \u00a720; CR-016",
+        "x-zid-status": "proposed"
+      },
+      "route_attempt_advanced": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.attempt.advanced.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider attempt moved to its next state (attempt id, decision id, provider, from, to, actor).",
+        "title": "route.attempt.advanced",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_attempt_cancelled": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.attempt.cancelled.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A reserved attempt was cancelled before anything was sent because a gate no longer passed (attempt id, decision id, provider, reason codes).",
+        "title": "route.attempt.cancelled",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_attempt_reserved": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.attempt.reserved.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider attempt was reserved after legality, contract and quota were checked again (attempt id, decision id, provider).",
+        "title": "route.attempt.reserved",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_attempt_unknown": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.attempt.unknown.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A dispatched provider attempt ended with an outcome nobody knows; it must be reconciled and never retried at another provider (attempt id, decision id, provider).",
+        "title": "route.attempt.unknown",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_no_route": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.no_route.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "No provider could be chosen for a verification session, with the machine reasons (decision id, session id, reason codes, digests); this is not an applicant failure.",
+        "title": "route.no_route",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_quarantined": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.quarantined.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A route release was rolled back as an emergency quarantine (release id).",
+        "title": "route.quarantined",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_release_live": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.release.live.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A route release went live (release id, dependency digest, risk).",
+        "title": "route.release.live",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_release_rolled_back": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.release.rolled_back.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A route release was rolled back; decisions already recorded are unchanged (release id).",
+        "title": "route.release.rolled_back",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
+        "x-zid-status": "proposed"
+      },
+      "route_selected": {
+        "contentType": "application/cloudevents+json",
+        "name": "com.zoiko.id.route.selected.v1",
+        "payload": {
+          "$ref": "#/components/schemas/CloudEvent"
+        },
+        "summary": "A provider was chosen for a verification session by the deterministic resolver (decision id, session id, the provider, the reasons the others were rejected as counts, the input, snapshot and decision digests, the algorithm and route versions); no applicant data.",
+        "title": "route.selected",
+        "x-zid-source": "ZID-CP-WF09 (routing evidence); CR-171, CR-172",
         "x-zid-status": "proposed"
       },
       "sbom_generated": {
@@ -7415,6 +7608,13 @@
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },
+    "publish_provider_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/provider.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
     "publish_provider_priority": {
       "action": "send",
       "channel": {
@@ -7468,6 +7668,20 @@
       "action": "send",
       "channel": {
         "$ref": "#/channels/restore.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_route_domain": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/route.domain"
+      },
+      "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
+    },
+    "publish_route_priority": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/route.priority"
       },
       "summary": "Outbox relay; Kafka key = aggregatetype:aggregateid"
     },

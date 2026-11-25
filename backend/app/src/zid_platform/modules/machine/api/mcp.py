@@ -30,6 +30,7 @@ from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.protected import catalog
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-tool-gateway"])
+metadata_router = APIRouter(tags=["agent-tool-gateway"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 PROTOCOL = "2026-07-28"
 SERVER = {"name": "zoiko-id-tool-gateway", "version": "1"}
@@ -151,3 +152,22 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
             "structuredContent": {"decision": "ALLOW", "grant": result.grant, "expires_at": result.expires_at.isoformat(), "decision_id": result.decision_id, "agent_chain": list(result.chain)},
         },
     )
+
+
+@metadata_router.get("/.well-known/oauth-protected-resource/v1/machine/mcp")
+async def protected_resource_metadata(request: Request) -> JSONResponse:
+    """OAuth 2.0 Protected Resource Metadata (RFC 9728) for the agent tool gateway: which resource this is, who issues the tokens it accepts, and how a token is presented. Public: it describes
+    the interface and holds no data. The token must be the agent's own workload token, issued for this platform's audience; a token for another resource or tenant is refused by the gateway."""
+    settings = getattr(request.app.state, "token_settings", None)
+    base = str(getattr(settings, "public_base_url", "") or str(request.base_url)).rstrip("/")
+    issuer = str(getattr(settings, "issuer", "")) if settings is not None else ""
+    doc: dict[str, Any] = {
+        "resource": f"{base}/v1/machine/mcp",
+        "authorization_servers": [issuer] if issuer else [],
+        "bearer_methods_supported": ["header"],
+        "resource_name": "Zoiko iD agent tool gateway",
+        "resource_documentation": f"{base}/docs/verify-api",
+        "mcp_protocol_version": PROTOCOL,
+        "notes": "Every tool call is decided at the gateway against the agent's authority chain, tool registry, mandate and policy. A token alone grants nothing; a listed tool grants nothing.",
+    }
+    return JSONResponse(doc, headers={"Cache-Control": "public, max-age=300"})

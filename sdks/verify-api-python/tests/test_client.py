@@ -214,3 +214,10 @@ def test_an_error_answer_becomes_an_error_with_the_apis_own_code_and_never_a_gue
     with pytest.raises(VerifyError) as e4:
         secret_client(bad).whoami()  # the token request itself failed
     assert e4.value.code == "AUTH_INVALID"
+
+
+def test_an_error_knows_its_documented_class_and_an_unknown_code_has_none() -> None:
+    assert VerifyError("TENANT_SCOPE_DENIED", 403).error_class == "AUTH_SCOPE_DENIED"
+    assert VerifyError("INVALID_IDEMPOTENCY_REUSE", 409).error_class == "IDEMPOTENCY_CONFLICT"
+    assert VerifyError("RATE_LIMITED", 429).error_class == "RATE_LIMITED"
+    assert VerifyError("SOMETHING_NEW", 400).error_class is None

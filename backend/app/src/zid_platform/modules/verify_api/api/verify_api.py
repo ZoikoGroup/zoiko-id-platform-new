@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 import uuid
 from datetime import timedelta
 from typing import Annotated, Any
@@ -27,6 +28,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from zid_context import current_context
 from zid_db import tenant_transaction
 from zid_errors import ZidError
 
@@ -355,6 +357,9 @@ async def token(request: Request) -> JSONResponse:
             "RATE_LIMITED",
             f"Too many failed attempts. Try again in {wait} seconds.",
             http_status=429,
+            retryable=True,
+            retry_after_ms=int(wait) * 1000,
+            headers={"Retry-After": str(int(wait))},
         )
     try:
         async with request_engine(request).begin() as conn, store.auth_scope(conn):
@@ -397,6 +402,9 @@ async def _token_by_certificate(
             "RATE_LIMITED",
             f"Too many failed attempts. Try again in {wait} seconds.",
             http_status=429,
+            retryable=True,
+            retry_after_ms=int(wait) * 1000,
+            headers={"Retry-After": str(int(wait))},
         )
     try:
         async with request_engine(request).begin() as conn, store.auth_scope(conn):
@@ -428,6 +436,9 @@ async def _token_by_assertion(request: Request, f: dict[str, str], assertion: st
             "RATE_LIMITED",
             f"Too many failed attempts. Try again in {wait} seconds.",
             http_status=429,
+            retryable=True,
+            retry_after_ms=int(wait) * 1000,
+            headers={"Retry-After": str(int(wait))},
         )
     try:
         async with request_engine(request).begin() as conn, store.auth_scope(conn):
@@ -461,10 +472,14 @@ async def verify_api_caller(request: Request) -> VerifyApiCaller:
         )
     try:
         async with request_engine(request).begin() as conn, store.auth_scope(conn):
-            return await service.authenticate(conn, value.strip(), caller_ip=_caller_ip(request))
+            who = await service.authenticate(conn, value.strip(), caller_ip=_caller_ip(request))
     except PartnerError as e:
         observe.AUTH.inc(method="bearer", result=observe.auth_result(e.code))
         raise _fail(e) from e
+    ctx = current_context()
+    # remembered for the request log, written after the response (CR-173): who called, and the trace id of this request
+    request.state.verify_api_log = (who, ctx.correlation_id if ctx else "cor_unknown", time.monotonic())
+    return who
 
 
 VerifyApiDep = Annotated[VerifyApiCaller, Depends(verify_api_caller)]

@@ -1004,6 +1004,31 @@ tables:
     module: verify_api
     tenant_scoped: false
     source: "ZID-EXT-IDV-001 section 12, WF-15, decision D12 (CR-161): operator-set, effective-dated price of a Verify API usage fact"
+  verify.api_webhook_confirmation:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF10 WF-10.01 (CR-173): a partner server confirms it received a delivered webhook and checked its signature; append-only"
+  verify.api_scope_change:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF10 WF-10.03 (CR-173): versioned application scope set; staged removal; a production addition needs a second person; append-only"
+  verify.api_scope_approval:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF10 WF-10.03 (CR-173): one approver of a scope change; append-only"
+  verify.api_request_log:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF10 WF-10.10 (CR-173): one row per partner API call: route template, status, error code, trace id; no body or person data; append-only"
+  verify.api_certification_run:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-CP-WF10 WF-10.12 (CR-173): a scored synthetic test run kept with its digest; not a go-live approval; append-only"
   verify.api_case:
     role: cell
     module: verify_api

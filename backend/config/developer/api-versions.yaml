@@ -1,0 +1,21 @@
+# The partner API contract catalog (ZID-CP-WF10 v2.0, WF-10.05; CR-173).
+#
+# Each release points at an immutable OpenAPI snapshot under contracts/openapi/partner/. A snapshot is never edited: a change is a NEW release with a new file, a changelog line
+# and, if it breaks existing callers, a new major version and a support window for the one before. The rules are in verify_api/domain/api_versions.py and a test enforces them,
+# including that the CURRENT release equals what the code publishes today, so a code change that is not recorded here fails.
+#
+# state: CURRENT (recommended), SUPPORTED (works, upgrade when you can), DEPRECATED (works until supported_until, then stops being supported), RETIRED.
+# breaking: true when callers must change. supported_until is required for DEPRECATED and is never earlier than 180 days after the deprecation was announced.
+releases:
+  - version: "1.0"
+    major: 1
+    released: "2026-11-25"
+    state: CURRENT
+    breaking: false
+    snapshot: contracts/openapi/partner/verify-api-1.0.json
+    digest: "sha-256:e41b63a23e611a4b5f5ac32587bb7ec5e940ed85ccc98e0c96a1c0f7f97240c3"
+    supported_until: null
+    announced: null
+    changelog:
+      - "First catalogued release: token exchange, whoami, workflows, products, verification sessions, decisions and webhooks as published today."
+    migration: null

@@ -520,6 +520,72 @@ events:
     source: ZID-EXT-IDV-001 epic E08; CR-152
     lane: domain
     source_status: "proposed"
+  route.selected:
+    cloudevents_type: com.zoiko.id.route.selected.v1
+    meaning: "A provider was chosen for a verification session by the deterministic resolver (decision id, session id, the provider, the reasons the others were rejected as counts, the input, snapshot and decision digests, the algorithm and route versions); no applicant data."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.no_route:
+    cloudevents_type: com.zoiko.id.route.no_route.v1
+    meaning: "No provider could be chosen for a verification session, with the machine reasons (decision id, session id, reason codes, digests); this is not an applicant failure."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.attempt.reserved:
+    cloudevents_type: com.zoiko.id.route.attempt.reserved.v1
+    meaning: "A provider attempt was reserved after legality, contract and quota were checked again (attempt id, decision id, provider)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.attempt.cancelled:
+    cloudevents_type: com.zoiko.id.route.attempt.cancelled.v1
+    meaning: "A reserved attempt was cancelled before anything was sent because a gate no longer passed (attempt id, decision id, provider, reason codes)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.attempt.advanced:
+    cloudevents_type: com.zoiko.id.route.attempt.advanced.v1
+    meaning: "A provider attempt moved to its next state (attempt id, decision id, provider, from, to, actor)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.attempt.unknown:
+    cloudevents_type: com.zoiko.id.route.attempt.unknown.v1
+    meaning: "A dispatched provider attempt ended with an outcome nobody knows; it must be reconciled and never retried at another provider (attempt id, decision id, provider)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.release.live:
+    cloudevents_type: com.zoiko.id.route.release.live.v1
+    meaning: "A route release went live (release id, dependency digest, risk)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.release.rolled_back:
+    cloudevents_type: com.zoiko.id.route.release.rolled_back.v1
+    meaning: "A route release was rolled back; decisions already recorded are unchanged (release id)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  route.quarantined:
+    cloudevents_type: com.zoiko.id.route.quarantined.v1
+    meaning: "A route release was rolled back as an emergency quarantine (release id)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  provider.capability.changed:
+    cloudevents_type: com.zoiko.id.provider.capability.changed.v1
+    meaning: "A provider capability for one method changed state (provider, method, version, new state, manifest digest)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
+  provider.data_flow.changed:
+    cloudevents_type: com.zoiko.id.provider.data_flow.changed.v1
+    meaning: "A provider data-flow graph changed (provider, version, graph digest, previous digest, number of steps added, new regions, routing effect)."
+    source: ZID-CP-WF09 (routing evidence); CR-171, CR-172
+    lane: domain
+    source_status: "proposed"
   verification.api.session_closed:
     cloudevents_type: com.zoiko.id.verification.api.session_closed.v1
     meaning: "A verification session started through a Verify API application ended without a decision: canceled or expired (session id, application id, customer reference, status, sandbox flag)."

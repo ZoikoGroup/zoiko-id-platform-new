@@ -74,3 +74,11 @@ def auth_result(code: str | None) -> str:
         "IP_NOT_ALLOWED": "ip_denied",
         "RATE_LIMITED": "rate_limited",
     }.get(code, "error")
+
+
+REVOCATION_TO_REFUSAL = REGISTRY.histogram(
+    "zid_verify_api_revocation_to_refusal_seconds",
+    "Seconds from a credential's revocation to each later refusal of one of its tokens (the measured containment time)",
+    (),
+    buckets=(0.05, 0.25, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 300.0, 900.0),
+)

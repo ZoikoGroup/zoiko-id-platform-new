@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
 from zid_platform.modules.verify_api.application import observe, service
+from zid_platform.modules.verify_api.application import certification_service
 from zid_platform.modules.verify_api.domain import go_live as g
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.infrastructure import go_live_store as db
@@ -98,6 +99,8 @@ async def status_view(conn: AsyncConnection, tenant_id: str) -> dict[str, Any]:
     grant = await db.active_grant(conn)
     return {
         "certification": await _checks(conn),
+        "adversarial_suite": await certification_service.suite_for_go_live(conn, tenant_id),
+        "suite_gate": suite_gate_mode(),  # off, shadow or enforce (CR-173)
         "company": await company_check(conn, tenant_id),
         "request": request_view(latest) if latest else None,
         "grant": grant_view(grant) if grant else None,
@@ -112,6 +115,15 @@ async def status_view(conn: AsyncConnection, tenant_id: str) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------------------------- the company
+
+
+def suite_gate_mode() -> str:
+    """Must the sandbox persona suite pass before a go-live request? off, shadow (the default: it is recorded when it WOULD have refused) or enforce. Read on each call so a deployment can change it
+    without a restart. The owners decide when to move it from shadow to enforce."""
+    import os
+
+    mode = os.environ.get("ZID_VERIFY_GO_LIVE_SUITE_GATE", "shadow").strip().lower()
+    return mode if mode in ("off", "shadow", "enforce") else "shadow"
 
 
 async def submit(
@@ -130,6 +142,13 @@ async def submit(
         raise m.PartnerError(
             "GO_LIVE_NOT_READY", f"Finish your sandbox testing first. Still needed: {unmet}."
         )
+    mode = suite_gate_mode()
+    if mode != "off":
+        suite = await certification_service.suite_for_go_live(conn, tenant_id, now)
+        if not suite["met"]:
+            if mode == "enforce":
+                raise m.PartnerError("GO_LIVE_SUITE_NOT_PASSED", "Run the sandbox test scenarios first. Your server has not passed every one recently: " + (suite.get("reason") or "; ".join(suite.get("reasons", [])).lower().replace("_", " ")) + ".")
+            observe.GO_LIVE.inc(event="suite_would_block")  # shadow: the request goes ahead and the platform counts what an enforced gate would have refused
     request_id = str(uuid.uuid4())
     try:
         await db.insert_request(

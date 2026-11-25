@@ -1,0 +1,110 @@
+# The SDK release register (ZID-CP-WF10 v2.0, WF-10.06; CR-173).
+#
+# One entry per package that lives in this repository. The register says what each package really is today. It is read on each call by GET /v1/verify-api/sdks,
+# and the rules in verify_api/domain/sdk_catalog.py refuse a GA state, a download button or a "supported" platform that the evidence below does not back.
+#
+# state: EXPERIMENTAL (in the repository, nobody should depend on it), BETA, GA, DEPRECATED.
+# published: true only once the package is on a public registry. last_test_run: the date of an executed test run with its evidence reference (a CI run URL or a
+# stored report id), never a hope. provenance: whether the release is signed and has a software bill of materials. compatibility: platforms the package is
+# claimed to work on, each needing the evidence reference of an executed run.
+#
+# Nothing here is a claim that any package works for a partner. Every package below is EXPERIMENTAL and unpublished.
+sdks:
+  - id: verify-api-python
+    name: zoiko-verify
+    language: python
+    audience: PARTNER_SERVER
+    purpose: "A partner's server creates and reads verification sessions and checks webhook signatures."
+    state: EXPERIMENTAL
+    version: "0.1.0"
+    published: false
+    repo_path: sdks/verify-api-python
+    tests_path: sdks/verify-api-python/tests
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: typescript-credentials
+    name: "@zoiko/credentials"
+    language: typescript
+    audience: PARTNER_SERVER
+    purpose: "Credential-trust checks, session helpers, and an offline evidence-bundle verifier."
+    state: EXPERIMENTAL
+    version: "0.1.0"
+    published: false
+    repo_path: sdks/typescript
+    tests_path: sdks/typescript/test
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: python-tool-server
+    name: zoiko-tool-server
+    language: python
+    audience: TOOL_SERVER
+    purpose: "A tool server checks an agent's action grant and reports what happened."
+    state: EXPERIMENTAL
+    version: "0.1.0"
+    published: false
+    repo_path: sdks/python
+    tests_path: sdks/python/tests
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: go
+    name: github.com/zoiko/zoiko-id-go
+    language: go
+    audience: PARTNER_SERVER
+    purpose: "Session and v2 client for Go servers."
+    state: EXPERIMENTAL
+    version: null
+    published: false
+    repo_path: sdks/go
+    tests_path: sdks/go
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: java
+    name: zoiko-id-sdk
+    language: java
+    audience: PARTNER_SERVER
+    purpose: "Client for Java servers."
+    state: EXPERIMENTAL
+    version: null
+    published: false
+    repo_path: sdks/java
+    tests_path: sdks/java/src
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: dotnet
+    name: Zoiko.Id
+    language: csharp
+    audience: PARTNER_SERVER
+    purpose: "Client for .NET servers."
+    state: EXPERIMENTAL
+    version: null
+    published: false
+    repo_path: sdks/dotnet
+    tests_path: sdks/dotnet/tests
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []
+  - id: native-bridge
+    name: zoiko-native-bridge
+    language: swift-kotlin
+    audience: CAPTURE
+    purpose: "Native entry points for the applicant capture flow on iOS and Android."
+    state: EXPERIMENTAL
+    version: null
+    published: false
+    repo_path: sdks/native-bridge
+    tests_path: sdks/native-bridge
+    last_test_run: null
+    last_test_evidence: null
+    provenance: {signed: false, sbom: false}
+    compatibility: []

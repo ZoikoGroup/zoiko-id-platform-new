@@ -318,3 +318,4 @@ export * from "./v2.js";
 export * from "./widget.js";
 export * from "./chip-relay.js";
 export { verifyBundle, canonicalize as canonicalizeEvidence, BUNDLE_FORMAT as EVIDENCE_BUNDLE_FORMAT, type Report as EvidenceReport, type Check as EvidenceCheck } from "./evidence-verify.js";
+export { errorClassOf, ERROR_CLASSES, type ErrorClassEntry } from "./error-classes.js";

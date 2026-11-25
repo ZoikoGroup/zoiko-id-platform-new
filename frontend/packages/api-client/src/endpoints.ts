@@ -413,6 +413,22 @@ export function createCellApi(t: Transport) {
     /** Applications and credentials a company's server uses to call the Verify API (CR-149). A secret is in exactly one answer: creating or rotating a credential. */
     verifyApi: {
       applications: () => get<M.Items<M.VerifyApiApplication>>("/v1/verify-api/applications"),
+      /** The five-step first-verification checklist and its time (ZID-CP-WF10, WF-10.01). */
+      onboarding: (id: string) => get<M.DevChecklist>(`/v1/verify-api/applications/${seg(id)}/onboarding`),
+      scopeChanges: (id: string) => get<M.DevScopeHistory>(`/v1/verify-api/applications/${seg(id)}/scope-changes`),
+      proposeScopeChange: (id: string, body: { scopes: string[]; reason: string; effective_at?: string | null }) => post<Record<string, unknown>>(`/v1/verify-api/applications/${seg(id)}/scope-changes`, body),
+      approveScopeChange: (changeId: string) => post<Record<string, unknown>>(`/v1/verify-api/scope-changes/${seg(changeId)}:approve`, {}),
+      endpointHealth: () => get<{ items: M.DevEndpointHealth[]; note: string }>("/v1/verify-api/diagnostics/endpoints"),
+      requestLog: (id: string, q: { status?: number; route?: string; before?: string; limit?: number } = {}) => get<M.DevRequestPage>(`/v1/verify-api/applications/${seg(id)}/requests`, q),
+      sessionTrace: (sessionId: string) => get<M.DevTrace>(`/v1/verify-api/sessions/${seg(sessionId)}/trace`),
+      certification: (id: string) => get<M.DevCertification>(`/v1/verify-api/applications/${seg(id)}/certification`),
+      errorCatalog: () => get<M.DevErrorCatalog>("/v1/verify-api/errors"),
+      /** Run one call against a SANDBOX application and see the exact request and answer (refused for production). */
+      tryIt: (id: string, body: { operation: string; body?: Record<string, unknown>; idempotency_key?: string }) => post<M.DevTryIt>(`/v1/verify-api/applications/${seg(id)}/try`, body),
+      claims: () => get<M.DevClaims>("/v1/verify-api/claims"),
+      sdkRegister: () => get<M.DevSdkRegister>("/v1/verify-api/sdks"),
+      personas: () => get<M.DevPersonaCatalog>("/v1/verify-api/fixtures"),
+      fixturePlan: (persona: string, seed: string) => get<M.DevFixturePlan>(`/v1/verify-api/fixtures/${seg(persona)}/plan`, { seed }),
       application: (id: string) => get<M.VerifyApiApplicationDetail>(`/v1/verify-api/applications/${seg(id)}`),
       createApplication: (body: M.VerifyApiApplicationIn) => post<M.VerifyApiApplication>("/v1/verify-api/applications", body),
       updateSettings: (id: string, body: M.VerifyApiSettingsIn) => t.request<M.VerifyApiApplicationDetail>("PUT", `/v1/verify-api/applications/${seg(id)}/settings`, { body }),

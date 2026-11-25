@@ -53,6 +53,26 @@
         "title": "ApplicationBody",
         "type": "object"
       },
+      "CertificationRunBody": {
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observations"
+        ],
+        "title": "CertificationRunBody",
+        "type": "object"
+      },
       "CredentialApprovalDecisionBody": {
         "additionalProperties": false,
         "properties": {
@@ -261,6 +281,99 @@
           }
         },
         "title": "FixtureBody",
+        "type": "object"
+      },
+      "FixtureObservationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_extra_field": {
+            "default": false,
+            "title": "Accepted Extra Field",
+            "type": "boolean"
+          },
+          "acted_on_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Acted On Event Ids",
+            "type": "array"
+          },
+          "acted_on_pending": {
+            "default": false,
+            "title": "Acted On Pending",
+            "type": "boolean"
+          },
+          "final_outcome_seen": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Outcome Seen"
+          },
+          "persona": {
+            "maxLength": 60,
+            "title": "Persona",
+            "type": "string"
+          },
+          "plan_digest": {
+            "maxLength": 100,
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "read_authoritative_state": {
+            "default": false,
+            "title": "Read Authoritative State",
+            "type": "boolean"
+          },
+          "refused_missing_field": {
+            "default": false,
+            "title": "Refused Missing Field",
+            "type": "boolean"
+          },
+          "seed": {
+            "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+            "title": "Seed",
+            "type": "string"
+          },
+          "signatures_refused": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Signatures Refused",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "persona",
+          "seed",
+          "plan_digest"
+        ],
+        "title": "FixtureObservationBody",
+        "type": "object"
+      },
+      "FixtureReportBody": {
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixtureObservationBody"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observations"
+        ],
+        "title": "FixtureReportBody",
         "type": "object"
       },
       "FraudApproveBody": {
@@ -1142,6 +1255,44 @@
         "title": "SandboxOutcomeBody",
         "type": "object"
       },
+      "ScopeChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scopes",
+          "reason"
+        ],
+        "title": "ScopeChangeBody",
+        "type": "object"
+      },
       "SessionBody": {
         "additionalProperties": false,
         "properties": {
@@ -1464,6 +1615,22 @@
         ],
         "title": "VerifyCaseBody",
         "type": "object"
+      },
+      "WebhookConfirmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Event Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "title": "WebhookConfirmBody",
+        "type": "object"
       }
     }
   },
@@ -1577,6 +1744,107 @@
           }
         },
         "summary": "Get Application",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/certification": {
+      "get": {
+        "operationId": "certification_status_v1_verify_api_applications__application_id__certification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Certification Status V1 Verify Api Applications  Application Id  Certification Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Certification Status",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/certification-runs": {
+      "post": {
+        "description": "Score a sandbox integration against every synthetic persona and keep the result with its digest. A test record: not a certification and not a go-live approval (ZID-CP-WF10, WF-10.12).",
+        "operationId": "record_certification_run_v1_verify_api_applications__application_id__certification_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificationRunBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Certification Run V1 Verify Api Applications  Application Id  Certification Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Certification Run",
         "tags": [
           "verify-api"
         ]
@@ -1988,6 +2256,259 @@
           }
         },
         "summary": "Logo Image",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/onboarding": {
+      "get": {
+        "description": "The first-verification checklist for one application: five steps, each with its evidence, and the time to the first verified webhook (ZID-CP-WF10, WF-10.01).",
+        "operationId": "application_onboarding_v1_verify_api_applications__application_id__onboarding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Application Onboarding V1 Verify Api Applications  Application Id  Onboarding Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Onboarding",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/requests": {
+      "get": {
+        "description": "What this application's server called, newest first, filtered by status or route. Redacted by construction: nothing but templates, codes and ids is kept (WF-10.10).",
+        "operationId": "request_explorer_v1_verify_api_applications__application_id__requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "route",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Route"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Explorer V1 Verify Api Applications  Application Id  Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Explorer",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/scope-changes": {
+      "get": {
+        "description": "Every version of what this application may do, newest first, with who proposed it, who approved it and when it takes or took effect (ZID-CP-WF10, WF-10.03).",
+        "operationId": "scope_change_history_v1_verify_api_applications__application_id__scope_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Scope Change History V1 Verify Api Applications  Application Id  Scope Changes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scope Change History",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "propose_scope_change_v1_verify_api_applications__application_id__scope_changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Scope Change V1 Verify Api Applications  Application Id  Scope Changes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Scope Change",
         "tags": [
           "verify-api"
         ]
@@ -2607,6 +3128,182 @@
           }
         },
         "summary": "Reject",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-policy": {
+      "get": {
+        "description": "What a partner can rely on about credential lifetime, rotation overlap and how fast a revocation applies (ZID-CP-WF10, WF-10.04). A design statement, not a service objective. Public.",
+        "operationId": "credential_policy_v1_verify_api_credential_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Credential Policy",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/diagnostics/endpoints": {
+      "get": {
+        "description": "Each webhook endpoint's health from its newest deliveries, with the main problem and what to do (ZID-CP-WF10, WF-10.09).",
+        "operationId": "endpoint_health_v1_verify_api_diagnostics_endpoints_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Endpoint Health V1 Verify Api Diagnostics Endpoints Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Endpoint Health",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/errors": {
+      "get": {
+        "description": "Every error class a partner's server can meet, with what to do about each (ZID-CP-WF10 section 07.2). Public, like the API reference.",
+        "operationId": "partner_errors_v1_verify_api_errors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Partner Errors",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures": {
+      "get": {
+        "description": "The sandbox persona catalog: fixed, versioned, synthetic scenarios including the awkward ones (ZID-CP-WF10, WF-10.08). Public.",
+        "operationId": "fixture_catalog_v1_verify_api_fixtures_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Fixture Catalog",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures/report": {
+      "post": {
+        "description": "Score what a partner's server did against the catalog. Stateless and public: nothing is stored. It is a test result, never a certification or a go-live approval.",
+        "operationId": "fixture_report_v1_verify_api_fixtures_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixtureReportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fixture Report",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures/{persona_id}/plan": {
+      "get": {
+        "description": "How the events of one persona are to be delivered to a partner's endpoint, and what a correct server must do. The same persona and seed always give the same plan. Public.",
+        "operationId": "fixture_plan_v1_verify_api_fixtures__persona_id__plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "persona_id",
+            "required": true,
+            "schema": {
+              "title": "Persona Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": "1",
+              "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+              "title": "Seed",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fixture Plan",
         "tags": [
           "verify-api"
         ]
@@ -4997,6 +5694,46 @@
         ]
       }
     },
+    "/v1/verify-api/mcp": {
+      "post": {
+        "description": "A read-only MCP server for the developer documentation: error lookup, API versions, the SDK register and the sandbox personas. It needs no sign-in because it returns only what the public pages show, and it offers no tool that acts for a company (ZID-CP-WF10, WF-10.11).",
+        "operationId": "developer_mcp_v1_verify_api_mcp_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Developer Mcp",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/mcp/registry": {
+      "get": {
+        "description": "The tools this MCP server offers, and the ones that are deliberately off with the reason. Public.",
+        "operationId": "developer_mcp_registry_v1_verify_api_mcp_registry_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Developer Mcp Registry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/oauth2/token": {
       "post": {
         "description": "Exchange a client id and secret for a short-lived bearer token. One answer for every failure, and a limit on wrong secrets for one client id.",
@@ -5012,6 +5749,50 @@
           }
         },
         "summary": "Token",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/onboarding/webhook-confirmations": {
+      "post": {
+        "description": "Your server says it received a delivered webhook and verified its signature, naming the event id. The last step of the first-verification checklist (ZID-CP-WF10, WF-10.01).",
+        "operationId": "confirm_webhook_v1_verify_api_onboarding_webhook_confirmations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Confirm Webhook V1 Verify Api Onboarding Webhook Confirmations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Webhook",
         "tags": [
           "verify-api"
         ]
@@ -6135,6 +6916,72 @@
         ]
       }
     },
+    "/v1/verify-api/scope-changes/{change_id}:approve": {
+      "post": {
+        "description": "A person other than the proposer approves widening a production application. The proposer is refused.",
+        "operationId": "approve_scope_change_v1_verify_api_scope_changes__change_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Change Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Scope Change V1 Verify Api Scope Changes  Change Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Scope Change",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sdks": {
+      "get": {
+        "description": "The SDK release register: what each package is, whether it is published, signed and tested, and the strongest button it has earned (ZID-CP-WF10, WF-10.06). Public.",
+        "operationId": "partner_sdks_v1_verify_api_sdks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Partner Sdks",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/sessions": {
       "get": {
         "operationId": "search_sessions_v1_verify_api_sessions_get",
@@ -6306,6 +7153,51 @@
           }
         },
         "summary": "Session Detail",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sessions/{session_id}/trace": {
+      "get": {
+        "description": "One verification followed through the request, the route decision, the decisions and the webhook deliveries, by canonical ids (WF-10.10).",
+        "operationId": "session_trace_v1_verify_api_sessions__session_id__trace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session Trace V1 Verify Api Sessions  Session Id  Trace Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Trace",
         "tags": [
           "verify-api"
         ]
@@ -6813,6 +7705,67 @@
           }
         },
         "summary": "Recheck Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/versions": {
+      "get": {
+        "description": "The partner API versions, their state, support dates, changelog and migration notes, each tied to an immutable schema snapshot (ZID-CP-WF10, WF-10.05). Public.",
+        "operationId": "api_versions_v1_verify_api_versions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Versions",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/versions/{version}/openapi.json": {
+      "get": {
+        "description": "The exact OpenAPI of one released version. It never changes after release: its digest is in the register.",
+        "operationId": "api_version_snapshot_v1_verify_api_versions__version__openapi_json_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Api Version Snapshot",
         "tags": [
           "verify-api"
         ]

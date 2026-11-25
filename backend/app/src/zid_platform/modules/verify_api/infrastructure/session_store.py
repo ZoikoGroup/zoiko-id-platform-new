@@ -362,3 +362,9 @@ async def rechecks_of(conn: AsyncConnection, session_id: str) -> list[dict[str, 
         )
     ).all()
     return [_row(r) for r in rows]
+
+
+async def get_session_by_id(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:
+    """One session of the tenant (RLS) by id, for the console trace: id and status only."""
+    row = (await conn.execute(text("SELECT session_id, status FROM verify.api_session WHERE session_id = :s"), {"s": session_id})).mappings().first()
+    return dict(row) if row else None

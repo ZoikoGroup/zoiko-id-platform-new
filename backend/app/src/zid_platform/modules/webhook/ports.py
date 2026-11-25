@@ -36,3 +36,49 @@ async def active_endpoint_count(conn: AsyncConnection) -> int:
     from zid_platform.modules.webhook.infrastructure.endpoint_store import list_endpoints
 
     return sum(1 for e in await list_endpoints(conn) if str(e["status"]) == "ACTIVE")
+
+
+async def delivered_event(conn: AsyncConnection, event_id: str) -> bool:
+    """Did the platform really deliver this event to one of the tenant's own endpoints? (RLS keeps it to the tenant.) A partner's confirmation must name one."""
+    import uuid
+
+    from sqlalchemy import text
+
+    try:
+        eid = uuid.UUID(event_id)
+    except ValueError:
+        return False
+    row = (await conn.execute(text("SELECT 1 FROM events.webhook_delivery WHERE event_id = :e AND status = 'DELIVERED' LIMIT 1"), {"e": eid})).first()
+    return row is not None
+
+
+async def recent_deliveries_by_endpoint(conn: AsyncConnection, per_endpoint: int = 20) -> list[dict[str, object]]:
+    """The newest deliveries of each of the tenant's endpoints (RLS keeps it to the tenant): status, the endpoint's HTTP answer, and the recorded error. No payload and no URL path."""
+    from sqlalchemy import text
+
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM (SELECT d.endpoint_id, e.status AS endpoint_status, split_part(split_part(e.url, '://', 2), '/', 1) AS host, d.status, d.last_status_code, d.last_error, d.attempts, d.created_at, "
+                "row_number() OVER (PARTITION BY d.endpoint_id ORDER BY d.created_at DESC) AS n FROM events.webhook_delivery d JOIN events.webhook_endpoint e USING (endpoint_id)) x WHERE n <= :k ORDER BY endpoint_id, created_at DESC"
+            ),
+            {"k": per_endpoint},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+async def deliveries_for_session(conn: AsyncConnection, session_id: str) -> list[dict[str, object]]:
+    """The tenant's webhook deliveries whose event is about this verification session (ids, type, status and times only)."""
+    from sqlalchemy import text
+
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT event_id, event_type, status, last_status_code, last_error, attempts, created_at, delivered_at, replay_of IS NOT NULL AS is_replay "
+                "FROM events.webhook_delivery WHERE payload -> 'data' ->> 'session_id' = :s ORDER BY created_at, delivery_id"
+            ),
+            {"s": session_id},
+        )
+    ).mappings().all()
+    return [dict(r) for r in rows]

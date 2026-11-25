@@ -148,6 +148,14 @@ const API_PATH_PREFIXES = [
   "/v1/verify-api/credential-approvals",
   "/v1/verify-api/go-live",
   "/v1/verify-api/review-cases",
+  "/v1/verify-api/diagnostics",
+  "/v1/verify-api/errors$",
+  "/v1/verify-api/sdks$",
+  "/v1/verify-api/fixtures",
+  "/v1/verify-api/versions",
+  "/v1/verify-api/claims$",
+  "/v1/verify-api/credential-policy$",
+  "/v1/verify-api/scope-changes",
 ];
 
 /** Browser-facing cell flows relayed on this origin (cell session cookie + Origin check). */

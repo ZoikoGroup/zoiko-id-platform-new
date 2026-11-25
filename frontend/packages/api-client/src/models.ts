@@ -5403,3 +5403,70 @@ export type RouteRelease = {
   approvals: { approver: string; role: string }[];
 };
 export type RouteReconciliation = { matched: number; held: { operation: string; reason: string }[]; attempts_without_vendor_line: string[]; adjusts_anything: false };
+
+// ---- WF10 developer platform (CR-173)
+export type DevChecklistStep = { step: string; title: string; done: boolean; at: Iso | null; evidence: string | null };
+export type DevChecklist = {
+  application_id: string;
+  environment: string;
+  steps: DevChecklistStep[];
+  complete: boolean;
+  ready: boolean;
+  next_step: string | null;
+  next_action: string | null;
+  seconds_to_first_verified_webhook: number | null;
+  note: string;
+};
+export type DevErrorClass = { code: string; http_status: number; meaning: string; caller_behavior: string; retryable: boolean; raised_today: boolean; internal_codes: string[] };
+export type DevErrorCatalog = { version: string; errors: DevErrorClass[]; note: string };
+export type DevSdk = {
+  id: string;
+  name: string;
+  language: string;
+  audience: string;
+  purpose: string;
+  state: "EXPERIMENTAL" | "BETA" | "GA" | "DEPRECATED";
+  version: string | null;
+  published: boolean;
+  last_test_run: string | null;
+  last_test_evidence: string | null;
+  signed: boolean;
+  sbom: boolean;
+  supported_platforms: string[];
+  problems: string[];
+  action: "DOWNLOAD" | "TRY_BETA" | "VIEW_SOURCE";
+};
+export type DevSdkRegister = { as_of: string; items: DevSdk[]; ga_count: number; statement: string; note: string };
+export type DevPersona = { id: string; title: string; fixture: string; events: string[]; final_outcome: string | null; fault: string; teaches: string };
+export type DevPersonaCatalog = { catalog_version: string; marker: string; personas: DevPersona[]; note: string };
+export type DevFixturePlan = {
+  persona: string;
+  seed: string;
+  plan_digest: string;
+  marker: string;
+  deliveries: { event_id: string; event_type: string; object_version: number; attempt: number; signature_age_s: number; body: string; respond_after_ms: number }[];
+  expectations: Record<string, unknown>;
+};
+
+export type DevScopeChange = { change_id: string; version: number; kind: "ADD" | "REMOVE" | "REPLACE"; scopes: string[]; needs_approval: boolean; proposed_by: string; approved_by: string[]; effective_at: Iso; pending: boolean; reason: string };
+export type DevScopeHistory = { application_id: string; environment: string; scopes_now: string[]; changes: DevScopeChange[] };
+export type DevEndpointHealth = {
+  endpoint_id: string;
+  host: string;
+  endpoint_status: string;
+  verdict: "HEALTHY" | "DEGRADED" | "FAILING" | "UNKNOWN";
+  counts: Record<string, number>;
+  sampled: number;
+  main_problem: string | null;
+  advice: string;
+  partner_confirmed_signature_events: number;
+  note: string;
+};
+export type DevRequestRow = { method: string; route: string; status: number; error_code: string | null; trace_id: string; session_id: string | null; duration_ms: number; occurred_at: Iso };
+export type DevRequestPage = { items: DevRequestRow[]; next_before: Iso | null; note: string };
+export type DevTrace = { session_id: string; found: boolean; status: string | null; steps: { at: Iso; kind: string; id: string; summary: string }[]; missing_links: string[]; note: string };
+export type DevSuiteStatus = { status: "NOT_RUN" | "PASSED" | "NOT_CURRENT"; met: boolean; reasons?: string[]; reason?: string; ran_at?: Iso; personas_passed?: number; personas_total?: number; report_digest?: string; statement?: string; approves_go_live: false };
+export type DevCertification = { application_id: string; suite: DevSuiteStatus; runs: { run_id: string; passed: boolean; personas_passed: number; personas_total: number; report_digest: string; ran_at: Iso }[]; catalog_version: string };
+
+export type DevTryIt = { request: { method: string; path: string; headers: Record<string, string>; body?: Record<string, unknown> }; status: number; response: Record<string, unknown>; sandbox: true; note: string };
+export type DevClaims = { as_of: string; claims: { id: string; statement: string; basis: string; evidence: string }[]; not_claimed: { claim: string; reason: string }[]; rule: string };

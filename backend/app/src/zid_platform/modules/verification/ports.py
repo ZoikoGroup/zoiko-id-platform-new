@@ -1,6 +1,7 @@
 """Public Protocol interface of the verification module. Other modules import ONLY this."""
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -328,3 +329,10 @@ async def verification_session_view(
         "outcome_code": s.outcome_code or "",
         "subject_principal_id": s.subject_principal_id,
     }
+
+
+async def route_decisions_for_session(conn: AsyncConnection, session_id: str) -> list[dict[str, Any]]:
+    """The tenant's provider route decisions for one verification session: id, status, whether a provider was chosen, and when (no candidates, no reasons: those stay in the routing console)."""
+    from zid_platform.modules.verification.infrastructure import routing_store
+
+    return [{"decision_id": str(r.decision_id), "status": r.status, "selected": r.selected, "created_at": r.created_at} for r in await routing_store.decisions_for_session(conn, session_id)]

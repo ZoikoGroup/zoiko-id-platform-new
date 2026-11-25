@@ -475,6 +475,7 @@ def create_app(
         from .modules.machine.api.agent_credentials import router as agent_credentials_router
         from .modules.machine.api.idp import router as idp_router
         from .modules.machine.api.mcp import router as mcp_router
+        from .modules.machine.api.mcp import metadata_router as mcp_metadata_router
         from .modules.machine.api.revocation import router as revocation_router
         from .modules.machine.api.tool_actions import router as tool_actions_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
@@ -715,6 +716,7 @@ def create_app(
             revocation_router,
             idp_router,
             mcp_router,
+            mcp_metadata_router,
             agent_credentials_router,
             screening_signals_router,
             screening_requests_router,
@@ -1038,6 +1040,38 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
 
             await country_opening_store.refresh(engine)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def mcp_resource_challenge(request: Request, call_next: Any) -> Any:
+        """RFC 9728: a refused call to the agent tool gateway points the client at the resource metadata, so an MCP client knows where to learn who issues the tokens it accepts."""
+        response = await call_next(request)
+        if response.status_code == 401 and request.url.path == "/v1/machine/mcp":
+            settings = getattr(request.app.state, "token_settings", None)
+            base = str(getattr(settings, "public_base_url", "") or str(request.base_url)).rstrip("/")
+            hint = f'resource_metadata="{base}/.well-known/oauth-protected-resource/v1/machine/mcp"'
+            current = response.headers.get("www-authenticate", "")
+            if "resource_metadata" not in current:
+                response.headers["www-authenticate"] = f"{current}, {hint}" if current else f"Bearer {hint}"
+        return response
+
+    @app.middleware("http")
+    async def verify_api_request_log(request: Request, call_next: Any) -> Any:
+        """One row for each authenticated call a partner's server made to the Verify API: the route template, status, error code and trace id, nothing from the body (CR-173)."""
+        response = await call_next(request)
+        seen = getattr(request.state, "verify_api_log", None)
+        engine = getattr(request.app.state, "engine", None)
+        if seen is not None and engine is not None:
+            import time
+
+            from .modules.verify_api.application import request_log
+
+            who, trace_id, started = seen
+            route = request.scope.get("route")
+            await request_log.record(
+                engine, who, method=request.method, template=getattr(route, "path", None), path=request.url.path, status=response.status_code, error_code=getattr(request.state, "error_code", None),
+                trace_id=trace_id, session_id=getattr(request.state, "log_session_id", None) or request.path_params.get("session_id"), duration_ms=int((time.monotonic() - started) * 1000),
+            )  # fmt: skip
+        return response
 
     @app.middleware("http")
     async def usage_meter(request: Request, call_next: Any) -> Any:

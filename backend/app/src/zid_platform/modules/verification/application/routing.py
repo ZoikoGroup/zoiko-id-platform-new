@@ -160,7 +160,7 @@ async def _witness(conn: AsyncConnection, tenant_id: str, *, event: str, aggrega
     await record_audit(
         conn, tenant_id,
         AuditFacts(event_type=event, actor_type="HUMAN" if actor else "SERVICE", action=event.split(".")[-1], target_type=target_type, target_ref=target_ref, outcome=audit_outcome, reason_code=outcome if outcome != audit_outcome else None, evidence_class=cls, occurred_at=now,
-                   actor_principal_id=actor, source_service="verification.routing", source_event_id=event_id, details=dict(details)),
+                   actor_principal_id=actor, source_service="verification-routing", source_event_id=event_id, details=dict(details)),
     )  # fmt: skip
 
 

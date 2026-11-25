@@ -44,3 +44,15 @@ describe("bundle verification agrees on every check", () => {
     expect(fixtures.bundles.length - ok).toBeGreaterThanOrEqual(12);
   });
 });
+
+import { errorClassOf, ERROR_CLASSES } from "../src/error-classes";
+
+describe("the error table every Zoiko SDK ships", () => {
+  it("maps an internal code to its documented class and says whether a retry can help", () => {
+    expect(errorClassOf("TENANT_SCOPE_DENIED")).toEqual({ class: "AUTH_SCOPE_DENIED", retryable: false });
+    expect(errorClassOf("INVALID_IDEMPOTENCY_REUSE")?.class).toBe("IDEMPOTENCY_CONFLICT");
+    expect(errorClassOf("RATE_LIMITED")).toEqual({ class: "RATE_LIMITED", retryable: true });
+    expect(errorClassOf("SOMETHING_NEW")).toBeUndefined();
+    expect(ERROR_CLASSES).toContain("PROVIDER_OUTCOME_UNKNOWN");
+  });
+});
