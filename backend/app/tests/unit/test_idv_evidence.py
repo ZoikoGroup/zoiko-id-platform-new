@@ -116,10 +116,7 @@ def test_every_replay_or_injection_finding_is_a_risk() -> None:
 
 def test_what_could_not_be_assessed_is_not_established_and_never_clean() -> None:
     assert cap(env(virtual_camera=None)).injection_risk is None
-    assert (
-        cap(env(device_attested=None)).injection_risk is False
-    )  # the platform offers none and policy does not require it
-    v = cap(env(device_attested=None), attestation_required=True)
+    v = cap(env(device_attested=None))  # integrity unavailable is never "safe" (WF-01 Q18)
     assert v.injection_risk is None and v.reasons == ("DEVICE_ATTESTATION_NOT_AVAILABLE",)
 
 

@@ -254,6 +254,36 @@ tables:
     module: metering
     tenant_scoped: true
     source: "ZID-DATA-001 §11.1"
+  metering.va_fact:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 §04 append-only analytics facts (pseudonymous ids and codes only)"
+  metering.va_watermark:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 §04, M16 per-source ingestion freshness"
+  metering.va_correction:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 07.11 correction journal (four-eyes)"
+  metering.va_snapshot:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 07.10 frozen query results for reruns and exports"
+  metering.va_export:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 07.10 export jobs with single-use download tokens"
+  metering.va_grant:
+    role: cell
+    module: verify_analytics
+    tenant_scoped: true
+    source: "ZID-CPS-WF-02 §09 analytics permission bundles"
   metering.correction:
     role: cell
     module: metering
@@ -1769,6 +1799,11 @@ tables:
     module: privacy
     tenant_scoped: true
     source: "PRI-004 §07 privacy-safe verification session (why capture may or may not happen; never an image, template or score); CR-072"
+  privacy.applicant_token:
+    role: cell
+    module: privacy
+    tenant_scoped: true
+    source: "ZID-CP-WF01 §08/S12 hosted applicant launch, access, resume and handoff tokens (hashes only)"
   privacy.dpia_package:
     role: cell
     module: privacy

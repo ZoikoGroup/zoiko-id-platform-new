@@ -37,6 +37,8 @@ rules:
   - {match: "GET /v1/roles/matrix", exempt: OWN_ACCOUNT, why: "the published catalogue, a navigation aid"}
   - {match: "GET /v1/tenant/me/permissions", exempt: OWN_ACCOUNT, why: "the caller's own projected rights"}
   - {match: "GET /v1/tenant/billing-access/me", exempt: OWN_ACCOUNT, why: "the caller's own billing keys"}
+  - {match: "GET /v1/verify-analytics/access/me", exempt: OWN_ACCOUNT, why: "the caller's own analytics keys (WF-02)"}
+  - {match: "* /v1/verify-analytics/*", exempt: NO_MATRIX_ACTION, why: "the Command Center is gated by the analytics permission bundles on every call (ZID-CPS-WF-02 section 09); cost and price by the billing permission layer; the owners decide whether to add matrix rows"}
   - {match: "POST /v1/tenant/members/me:accept", exempt: OWN_ACCOUNT, why: "accepting one's own invitation; the caller has no role yet"}
   - {match: "POST /v1/tenant/members/me:name", exempt: OWN_ACCOUNT, why: "a person sets their own display name"}
 

@@ -16,12 +16,14 @@ import secrets
 import uuid
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
-from zid_outbox import CloudEvent
+from zid_db import in_tenant
+from zid_outbox import CloudEvent, emit
 
 from zid_platform.modules.webhook.domain.webhooks import (
     DeliveryStatus,
@@ -166,6 +168,28 @@ def _retry_after(resp: httpx.Response | None) -> timedelta | None:
     return timedelta(seconds=int(value)) if value.isdigit() else None
 
 
+_OUTCOME_EVENT = {
+    DeliveryStatus.DELIVERED: "webhook.delivery.succeeded",
+    DeliveryStatus.RETRY_SCHEDULED: "webhook.delivery.failed",
+    DeliveryStatus.FAILED: "webhook.delivery.failed",
+    DeliveryStatus.EXHAUSTED: "webhook.delivery.exhausted",
+}
+
+
+async def _delivery_outcome(conn: AsyncConnection, r: Any, status: DeliveryStatus, attempt: int, code: int | None, now: datetime) -> None:
+    """What one attempt came to (ZID-EVENTS-001 webhook.delivery.*; WF-02 M12): delivered means the recipient answered 2xx, never just sent.
+    Ids, codes and the delay only: never the payload."""
+    name = _OUTCOME_EVENT.get(status)
+    if name is None:
+        return
+    async with in_tenant(conn, str(r.tenant_id)):
+        await emit(
+            conn, name=name, tenant_id=str(r.tenant_id), aggregate_type="webhook_delivery", aggregate_id=str(r.delivery_id), aggregate_version=attempt,
+            data={"delivery_id": str(r.delivery_id), "event_id": str(r.event_id), "event_type": r.event_type, "attempt": attempt, "status_code": code,
+                  "final": status is not DeliveryStatus.RETRY_SCHEDULED, "delay_ms": round((now - r.created_at).total_seconds() * 1000)},
+        )  # fmt: skip
+
+
 async def deliver_due(
     conn: AsyncConnection,
     *,
@@ -180,8 +204,8 @@ async def deliver_due(
     rows = (
         await conn.execute(
             text("""
-                SELECT d.delivery_id, d.event_id, d.payload, d.attempts, e.endpoint_id, e.url, e.signing_key_id,
-                       e.max_inflight
+                SELECT d.delivery_id, d.tenant_id, d.event_id, d.event_type, d.created_at, d.payload, d.attempts, e.endpoint_id, e.url,
+                       e.signing_key_id, e.max_inflight
                 FROM events.webhook_delivery d JOIN events.webhook_endpoint e USING (endpoint_id)
                 WHERE d.status IN ('QUEUED', 'RETRY_SCHEDULED') AND d.next_attempt_at <= :now AND e.status = 'ACTIVE'
                 ORDER BY d.next_attempt_at LIMIT :n FOR UPDATE OF d SKIP LOCKED
@@ -239,6 +263,7 @@ async def deliver_due(
                 "d": r.delivery_id,
             },
         )
+        await _delivery_outcome(conn, r, step.status, attempts, resp.status_code if resp else None, now)
         if step.disable_endpoint:
             await conn.execute(
                 text(

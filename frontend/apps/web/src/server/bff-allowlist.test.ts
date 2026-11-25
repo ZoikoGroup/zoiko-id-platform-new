@@ -44,6 +44,7 @@ describe("the proxy allowlist", () => {
     ["screening cases and their minimal status", "/v1/screening/cases"],
     ["screening owners roll-up", "/v1/screening/ownership/rollup"],
     ["identity proofing cases", "/v1/idv/"],
+    ["the Command Center's aggregates (WF-02)", "/v1/verify-analytics/"],
   ])("lets a screen reach %s", (_what, prefix) => {
     expect(block).toContain(`"${prefix}`);
   });

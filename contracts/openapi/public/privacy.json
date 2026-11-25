@@ -377,6 +377,184 @@
         "title": "ConsentBody",
         "type": "object"
       },
+      "DeclaredIn": {
+        "additionalProperties": false,
+        "description": "What the applicant types, compared once with the platform's own reading of the document on an automatic route, and never stored.",
+        "properties": {
+          "birth_date": {
+            "format": "date",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "document_number": {
+            "maxLength": 20,
+            "minLength": 3,
+            "title": "Document Number",
+            "type": "string"
+          },
+          "given_names": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Given Names",
+            "type": "string"
+          },
+          "surname": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Surname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "surname",
+          "given_names",
+          "document_number",
+          "birth_date"
+        ],
+        "title": "DeclaredIn",
+        "type": "object"
+      },
+      "DetailsIn": {
+        "additionalProperties": false,
+        "description": "The face-match route's optional details: typed by the person, compared once with the platform's own reading of the document, never stored.",
+        "properties": {
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          }
+        },
+        "title": "DetailsIn",
+        "type": "object"
+      },
+      "DocumentImageIn": {
+        "additionalProperties": false,
+        "properties": {
+          "attestation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__idv_cases__AttestationIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "channel": {
+            "default": "APP",
+            "enum": [
+              "APP",
+              "WEB"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "consent": {
+            "default": false,
+            "title": "Consent",
+            "type": "boolean"
+          },
+          "declared": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeclaredIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DetailsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image_base64": {
+            "maxLength": 11184826,
+            "minLength": 8,
+            "title": "Image Base64",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Nonce",
+            "type": "string"
+          },
+          "selfie_base64": {
+            "anyOf": [
+              {
+                "maxLength": 11184826,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selfie Base64"
+          },
+          "virtual_camera": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Virtual Camera"
+          }
+        },
+        "required": [
+          "nonce",
+          "captured_at",
+          "image_base64"
+        ],
+        "title": "DocumentImageIn",
+        "type": "object"
+      },
       "EntitlementIn": {
         "additionalProperties": false,
         "properties": {
@@ -586,6 +764,107 @@
           "review_at"
         ],
         "title": "HoldIn",
+        "type": "object"
+      },
+      "IntentIn": {
+        "additionalProperties": false,
+        "properties": {
+          "step": {
+            "pattern": "^(DOCUMENT|FACE|CHIP)$",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "IntentIn",
+        "type": "object"
+      },
+      "LaunchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "launch_token": {
+            "maxLength": 200,
+            "minLength": 40,
+            "title": "Launch Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "launch_token"
+        ],
+        "title": "LaunchIn",
+        "type": "object"
+      },
+      "MethodIn": {
+        "additionalProperties": false,
+        "properties": {
+          "camera": {
+            "default": true,
+            "title": "Camera",
+            "type": "boolean"
+          },
+          "method": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "nfc": {
+            "default": false,
+            "title": "Nfc",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "MethodIn",
+        "type": "object"
+      },
+      "NfcStateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "access": {
+            "enum": [
+              "UNSUPPORTED",
+              "USER_DECLINED",
+              "READ_FAILED"
+            ],
+            "title": "Access",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access"
+        ],
+        "title": "NfcStateIn",
+        "type": "object"
+      },
+      "NoticeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "biometric_consent": {
+            "default": false,
+            "title": "Biometric Consent",
+            "type": "boolean"
+          },
+          "consent": {
+            "default": false,
+            "title": "Consent",
+            "type": "boolean"
+          },
+          "language": {
+            "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+            "title": "Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language"
+        ],
+        "title": "NoticeIn",
         "type": "object"
       },
       "OnBehalfBody": {
@@ -2244,6 +2523,18 @@
             ],
             "title": "Jurisdiction Pack Id"
           },
+          "market": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{2}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market"
+          },
           "notice_version": {
             "anyOf": [
               {
@@ -2284,6 +2575,30 @@
               }
             ],
             "title": "Region"
+          },
+          "return_state": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return State"
+          },
+          "return_url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Url"
           },
           "subject_ref": {
             "anyOf": [
@@ -2738,6 +3053,133 @@
           "affirmative_action"
         ],
         "title": "ConsentIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__idv_cases__AttestationIn": {
+        "additionalProperties": false,
+        "description": "The platform's own device report for this capture: for iOS App Attest, `attestation` and `key_id` in base64. It is checked here; the client never states that it passed.",
+        "properties": {
+          "platform": {
+            "enum": [
+              "IOS_APP_ATTEST",
+              "ANDROID_PLAY_INTEGRITY"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "report": {
+            "additionalProperties": {
+              "maxLength": 65536,
+              "type": "string"
+            },
+            "maxProperties": 4,
+            "title": "Report",
+            "type": "object"
+          }
+        },
+        "required": [
+          "platform",
+          "report"
+        ],
+        "title": "AttestationIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__idv_cases__ChipIn": {
+        "additionalProperties": false,
+        "properties": {
+          "data_groups": {
+            "maxProperties": 16,
+            "minProperties": 1,
+            "patternProperties": {
+              "^([1-9]|1[0-6])$": {
+                "maxLength": 349541,
+                "minLength": 4,
+                "type": "string"
+              }
+            },
+            "title": "Data Groups",
+            "type": "object"
+          },
+          "face": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__idv_cases__FaceIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sod_base64": {
+            "maxLength": 87397,
+            "minLength": 8,
+            "title": "Sod Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sod_base64",
+          "data_groups"
+        ],
+        "title": "ChipIn",
+        "type": "object"
+      },
+      "zid_platform__modules__verification__api__idv_cases__FaceIn": {
+        "additionalProperties": false,
+        "description": "A live face image and a liveness capture, each base64, with the facts of the capture (a fresh nonce from this case). Used only when an engine is approved for the market and the chip's portrait came from a data group\nthe signed object covered; never kept.",
+        "properties": {
+          "attestation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__idv_cases__AttestationIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "liveness_base64": {
+            "maxLength": 11184826,
+            "minLength": 8,
+            "title": "Liveness Base64",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Nonce",
+            "type": "string"
+          },
+          "probe_base64": {
+            "maxLength": 2796218,
+            "minLength": 8,
+            "title": "Probe Base64",
+            "type": "string"
+          },
+          "virtual_camera": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Virtual Camera"
+          }
+        },
+        "required": [
+          "nonce",
+          "captured_at",
+          "probe_base64",
+          "liveness_base64"
+        ],
+        "title": "FaceIn",
         "type": "object"
       },
       "zid_platform__modules__verification__api__v2_providers__ReasonIn": {
@@ -7707,6 +8149,50 @@
         ]
       }
     },
+    "/v2/verification-sessions/launch": {
+      "post": {
+        "description": "Spend the one-use link (WF-01 Q02, Q37). A used, expired, revoked or forged link is refused; a suspended or closed organization starts nothing.",
+        "operationId": "launch_v2_verification_sessions_launch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaunchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Launch V2 Verification Sessions Launch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Launch",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
     "/v2/verification-sessions/{session_ref}/alternatives": {
       "get": {
         "operationId": "alternatives_v2_verification_sessions__session_ref__alternatives_get",
@@ -7748,6 +8234,66 @@
         "summary": "Alternatives",
         "tags": [
           "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/applicant-cancel": {
+      "post": {
+        "operationId": "applicant_cancel_v2_verification_sessions__session_ref__applicant_cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Applicant Cancel V2 Verification Sessions  Session Ref  Applicant Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Applicant Cancel",
+        "tags": [
+          "verification-applicant"
         ]
       }
     },
@@ -7893,6 +8439,77 @@
         ]
       }
     },
+    "/v2/verification-sessions/{session_ref}/capture-intents": {
+      "post": {
+        "description": "A one-time value bound to this session's case, its method and its market, valid for minutes; the capture must carry it (S05 capture integrity).",
+        "operationId": "capture_intent_v2_verification_sessions__session_ref__capture_intents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntentIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Capture Intent V2 Verification Sessions  Session Ref  Capture Intents Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Capture Intent",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
     "/v2/verification-sessions/{session_ref}/consent-records": {
       "post": {
         "operationId": "session_consent_v2_verification_sessions__session_ref__consent_records_post",
@@ -7947,6 +8564,464 @@
         ]
       }
     },
+    "/v2/verification-sessions/{session_ref}/decision": {
+      "get": {
+        "description": "The business's normalized result for its own session (tenant-scoped by row-level security; Q01). No image, document field or score.",
+        "operationId": "session_decision_v2_verification_sessions__session_ref__decision_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session Decision V2 Verification Sessions  Session Ref  Decision Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Decision",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/evidence/chip": {
+      "post": {
+        "operationId": "evidence_chip_v2_verification_sessions__session_ref__evidence_chip_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__verification__api__idv_cases__ChipIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence Chip V2 Verification Sessions  Session Ref  Evidence Chip Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence Chip",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/evidence/document-image": {
+      "post": {
+        "operationId": "evidence_document_v2_verification_sessions__session_ref__evidence_document_image_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentImageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence Document V2 Verification Sessions  Session Ref  Evidence Document Image Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence Document",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/evidence/nfc-state": {
+      "post": {
+        "operationId": "evidence_nfc_state_v2_verification_sessions__session_ref__evidence_nfc_state_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NfcStateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Evidence Nfc State V2 Verification Sessions  Session Ref  Evidence Nfc State Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence Nfc State",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/handoff": {
+      "post": {
+        "description": "A one-use link, valid for minutes, to continue on a phone (S06, S12; Q20). It carries no personal data; the phone spends it once for its own credential.",
+        "operationId": "handoff_v2_verification_sessions__session_ref__handoff_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Handoff V2 Verification Sessions  Session Ref  Handoff Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Handoff",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/method-select": {
+      "post": {
+        "description": "Only a method the server offers this person may be chosen; a tampered choice is refused (S02 Q05). Choosing it opens the proofing case, pinned to the\nmarket's rules, and records the notice and any face-comparison consent on it. Choosing the same method again changes nothing.",
+        "operationId": "method_select_v2_verification_sessions__session_ref__method_select_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MethodIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Method Select V2 Verification Sessions  Session Ref  Method Select Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Method Select",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/notices": {
+      "post": {
+        "description": "The person read the notice (its exact version and language are recorded before any evidence is collected, Q07).",
+        "operationId": "notices_v2_verification_sessions__session_ref__notices_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoticeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Notices V2 Verification Sessions  Session Ref  Notices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notices",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
     "/v2/verification-sessions/{session_ref}/notices/acknowledgments": {
       "post": {
         "operationId": "acknowledge_v2_verification_sessions__session_ref__notices_acknowledgments_post",
@@ -7996,6 +9071,192 @@
           }
         },
         "summary": "Acknowledge",
+        "tags": [
+          "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/public-context": {
+      "get": {
+        "description": "Who is asking and why, the notice, and the methods this person may use here: computed on the server for this market, its rules and this device.",
+        "operationId": "public_context_v2_verification_sessions__session_ref__public_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "nfc",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Nfc",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Camera",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Public Context V2 Verification Sessions  Session Ref  Public Context Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Context",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/public-status": {
+      "get": {
+        "operationId": "public_status_v2_verification_sessions__session_ref__public_status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Public Status V2 Verification Sessions  Session Ref  Public Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Status",
+        "tags": [
+          "verification-applicant"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/resume-token": {
+      "post": {
+        "description": "WF-01 S12: the business asks for a fresh one-use link for a person who left. Every earlier link and session credential stops working.",
+        "operationId": "resume_token_v2_verification_sessions__session_ref__resume_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Token V2 Verification Sessions  Session Ref  Resume Token Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Token",
         "tags": [
           "privacy-v2"
         ]
@@ -8096,6 +9357,67 @@
         "summary": "Subject Status",
         "tags": [
           "privacy-v2"
+        ]
+      }
+    },
+    "/v2/verification-sessions/{session_ref}/submit": {
+      "post": {
+        "description": "The one final submission (S08). It needs the notice acknowledged, capture still permitted and evidence on the case; a repeat returns the same state\nand records nothing again, so the business is told, and charged, once (Q33).",
+        "operationId": "submit_v2_verification_sessions__session_ref__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_ref",
+            "required": true,
+            "schema": {
+              "title": "Session Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Zoiko-Applicant-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Zoiko-Applicant-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit V2 Verification Sessions  Session Ref  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit",
+        "tags": [
+          "verification-applicant"
         ]
       }
     }

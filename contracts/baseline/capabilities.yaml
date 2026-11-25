@@ -102,7 +102,7 @@ capabilities:
     name: "Tenant/Cell Service (+ platform ops, §21.1)"
     owns: "Tenant config, routing, residency, plan limits, metering, operator access, onboarding"
     must_not_own: "Cross-cell PII replication (global role is tested in test_architecture.py)"
-    modules: [tenant, configuration, locator, discovery, onboarding, operator_access, resilience, operations, metering, commercial, communication, notification, search]
+    modules: [tenant, configuration, locator, discovery, onboarding, operator_access, resilience, operations, metering, verify_analytics, commercial, communication, notification, search]
     forbidden_schemas: [core, authz]
 
   integration-edge:

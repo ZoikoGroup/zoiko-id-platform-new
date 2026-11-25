@@ -43,6 +43,7 @@ PLANES: dict[str, tuple[str, ...]] = {
         "policy_authoring",
         "operator_access",
         "metering",
+        "verify_analytics",
         "commercial",
         "notification",
         "communication",

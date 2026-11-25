@@ -194,7 +194,7 @@ async def _require_open(conn: AsyncConnection, case_id: str) -> Case:
     return c
 
 
-def _biometrics(c: Case, rules: MarketRules) -> tuple[bool, tuple[str, ...]]:
+def biometrics(c: Case, rules: MarketRules) -> tuple[bool, tuple[str, ...]]:
     return ctl.biometrics_allowed(
         rules.basis, self_hosted=rules.self_hosted_engine, notice_shown_version=c.notice_shown,
         consent_at=c.consent_at, withdrawn_at=c.withdrawn_at,
@@ -206,10 +206,14 @@ async def _commit(
     attempts: dict[str, int] | None = None, extra_reasons: tuple[str, ...] = (), **cols: Any,
 ) -> Case:  # fmt: skip
     """Re-derive the decision from the signals, store it with the new signals, append the history row, and say so when the decision changed."""
-    allowed, why = _biometrics(c if not cols else replace(c, **cols), rules)
-    face_route = any(a.route_id == c.route and a.face_match for a in rules.policy.alternates)  # the owner-acknowledged face-match route carries its own consent (CR-129)
-    if not allowed and not face_route and (
-        signals.face is not FaceMatch.NOT_RUN or signals.liveness is not Liveness.NOT_RUN
+    allowed, why = biometrics(c if not cols else replace(c, **cols), rules)
+    face_route = any(
+        a.route_id == c.route and a.face_match for a in rules.policy.alternates
+    )  # the owner-acknowledged face-match route carries its own consent (CR-129)
+    if (
+        not allowed
+        and not face_route
+        and (signals.face is not FaceMatch.NOT_RUN or signals.liveness is not Liveness.NOT_RUN)
     ):
         signals = replace(
             signals, face=FaceMatch.NOT_RUN, liveness=Liveness.NOT_RUN, reference_source="NONE"
@@ -292,10 +296,19 @@ async def _commit(
         )  # fmt: skip
     latest = await get(conn, c.case_id)
     assert latest is not None
+    if result.decision is not c.decision:
+        from zid_platform.modules.verification.application import (
+            applicant_flow,  # a hosted session tells its business (WF-01 §09)
+        )
+
+        await applicant_flow.finalize_if_due(conn, str(tenant), latest, now, review_sla_hours=rules.review_sla_hours)
     return latest
 
 
 FACE_ALLOWANCE_WINDOW = timedelta(hours=24)
+CAPTURE_INTENT_TTL = timedelta(
+    minutes=10
+)  # the freshness window `capture_integrity` holds a capture to
 
 
 async def open_case(
@@ -324,7 +337,9 @@ async def open_case(
             )
         ).scalar_one()
         if int(used) >= rules.retry.max_capture_attempts:
-            raise CaseError("FACE_ATTEMPTS_USED_UP", "All the attempts allowed in 24 hours have been used.")
+            raise CaseError(
+                "FACE_ATTEMPTS_USED_UP", "All the attempts allowed in 24 hours have been used."
+            )
     signals = Signals(route=route)
     result = decide(signals, rules.policy)
     case_id = uuid.uuid4()
@@ -438,10 +453,22 @@ async def submit_document(
     declared_matches = None
     if declared is not None and current is not None and current.route != "CHIP":
         reliable = bool(printed) and checks.get("MRZ_CHECK_DIGITS") == "PASS"
-        declared_matches = ev.compare_declared(printed or {}, declared)[0] if reliable else "UNKNOWN"
+        declared_matches = (
+            ev.compare_declared(printed or {}, declared)[0] if reliable else "UNKNOWN"
+        )
     mrz = checks.get("MRZ_CHECK_DIGITS")
     mrz_ok = None if current is None or current.route == "CHIP" or mrz is None else mrz == "PASS"
-    return await submit_optical(conn, case_id, rules, checks, now=now, document_expired=expired, declared_matches=declared_matches, mrz_ok=mrz_ok, face=face)
+    return await submit_optical(
+        conn,
+        case_id,
+        rules,
+        checks,
+        now=now,
+        document_expired=expired,
+        declared_matches=declared_matches,
+        mrz_ok=mrz_ok,
+        face=face,
+    )
 
 
 async def chip_not_read(
@@ -517,7 +544,9 @@ async def submit_capture(
         # The same photograph sent again on the SAME case is a person retrying, not a replay; only one first seen on another case counts.
         first = (
             await conn.execute(
-                text("SELECT case_id FROM verify.idv_media_hash WHERE tenant_id = :t AND media_sha256 = :h"),
+                text(
+                    "SELECT case_id FROM verify.idv_media_hash WHERE tenant_id = :t AND media_sha256 = :h"
+                ),
                 {"t": tenant, "h": envelope.media_sha256},
             )
         ).scalar_one_or_none()
@@ -528,7 +557,6 @@ async def submit_capture(
         case_id=c.case_id,
         media_seen_before=seen,
         now=now,
-        attestation_required=rules.attestation_required,
     )
     risk = (
         True if (c.signals.injection_risk is True or v.injection_risk is True) else v.injection_risk
@@ -572,9 +600,19 @@ async def submit_optical(
         declared_matches_document=declared_matches or c.signals.declared_matches_document,
         mrz_check_digits_ok=mrz_ok if mrz_ok is not None else c.signals.mrz_check_digits_ok,
         face=face if face is not None else c.signals.face,
-        reference_source="OPTICAL" if face is not None else c.signals.reference_source,  # the document's own printed photograph, never an authenticated portrait
+        reference_source="OPTICAL"
+        if face is not None
+        else c.signals.reference_source,  # the document's own printed photograph, never an authenticated portrait
     )
-    return await _commit(conn, c, s, rules, trigger="optical", now=now, extra_reasons=("FACE_CONSENT_GIVEN",) if face is not None else ())
+    return await _commit(
+        conn,
+        c,
+        s,
+        rules,
+        trigger="optical",
+        now=now,
+        extra_reasons=("FACE_CONSENT_GIVEN",) if face is not None else (),
+    )
 
 
 async def record_notice_and_consent(
@@ -622,7 +660,7 @@ async def record_engine_result(
 ) -> Case:
     """A presentation-attack and face-match result from an approved engine. Refused unless the market's biometric controls are in force; the reference is the chip portrait only when the chip chained to a root we trust."""
     c = await _require_open(conn, case_id)
-    ok, why = _biometrics(c, rules)
+    ok, why = biometrics(c, rules)
     if not ok:
         raise CaseError("BIOMETRICS_OFF", ", ".join(why))
     if c.signals.reference_source == "NONE":
@@ -704,8 +742,8 @@ async def request_recapture(
             "CODE_INVALID", "Give one of the defined reasons for asking for a new photograph."
         )
     attempts = dict(c.attempts)
-    if attempts.get("capture", 0) > 0:
-        attempts["capture"] -= 1
+    if attempts.get("CAPTURE", 0) > 0:
+        attempts["CAPTURE"] -= 1
     signals = replace(
         c.signals, optical=Optical.NOT_STARTED, reviewers=(), document_expired=None
     )  # the new photograph is read afresh
@@ -779,7 +817,7 @@ async def apply_engine(
             "NO_REFERENCE_PORTRAIT",
             "The chip's portrait is not available from a signed data group.",
         )
-    ok, why = _biometrics(c, rules)
+    ok, why = biometrics(c, rules)
     if not ok:
         raise CaseError("BIOMETRICS_OFF", ", ".join(why))
     try:
@@ -795,6 +833,24 @@ async def apply_engine(
     lv, fm = ev.engine_signals(
         live, face, liveness_min=gate.liveness_threshold, face_min=gate.face_threshold
     )
-    return await record_engine_result(
+    out = await record_engine_result(
         conn, case_id, rules, liveness=Liveness(lv), face=FaceMatch(fm), now=now
     )
+    await evaluated(conn, out, "verification.idv.biometric_evaluated", {
+        "pad_result": lv, "match_result": fm, "model_version": f"{gate.engine_id}@{gate.engine_version}", "evaluation_id": gate.evaluation_id,
+    })  # fmt: skip
+    return out
+
+
+async def evaluated(conn: AsyncConnection, c: Case, name: str, data: dict[str, Any]) -> None:
+    """WF-01 §09: what a chip or biometric check concluded, as codes and versions only: never a template, a data group or a score."""
+    tenant = (
+        await conn.execute(
+            text("SELECT tenant_id FROM verify.idv_case WHERE case_id = :c"),
+            {"c": uuid.UUID(c.case_id)},
+        )
+    ).scalar_one()
+    await emit(
+        conn, name=name, tenant_id=str(tenant), aggregate_type="idv_case_check", aggregate_id=c.case_id, aggregate_version=c.version,
+        data={"case_id": c.case_id, "policy_version": c.policy_version, **data},
+    )  # fmt: skip

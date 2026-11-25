@@ -7,7 +7,6 @@
     POST /v1/idv/cases/{id}/nfc-state           the phone has no NFC, the person declined, or the read failed
     POST /v1/idv/cases/{id}/chip                what the chip returned, optionally with a live face and liveness capture; the platform judges the chip, and an approved engine judges the face
     POST /v1/idv/cases/{id}/document-image      a document photograph: the platform measures it, reads its printed lines and checks the capture's envelope and device report
-    POST /v1/idv/cases/{id}/optical             the printed-document checks' results
     POST /v1/idv/cases/{id}/consent             the notice shown and, where it is the basis, consent
     POST /v1/idv/cases/{id}/consent:withdraw    withdraw it
     POST /v1/idv/cases/{id}/reviews             a reviewer signs an alternative-route case          (verification.idv.review)
@@ -22,6 +21,7 @@ import base64
 import binascii
 import hashlib
 import logging
+import time
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, Any, Literal
@@ -31,8 +31,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 from zid_errors import ZidError
+from zid_outbox import emit
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
+from zid_platform.country_gate import enforce_regulated
 from zid_platform.modules.evidence.ports import (
     LedgerError,
     chip_photo,
@@ -44,7 +46,14 @@ from zid_platform.modules.evidence.ports import (
 from zid_platform.modules.verification.application import idv_case as svc
 from zid_platform.modules.verification.application import idv_claims, idv_media
 from zid_platform.modules.verification.application.idv_document import read_document
-from zid_platform.modules.verification.domain.idv_decision import ChipAuth, NfcAccess, assertions, face_signal
+from zid_platform.modules.verification.domain import document_details
+from zid_platform.modules.verification.domain.countries import Capability
+from zid_platform.modules.verification.domain.idv_decision import (
+    ChipAuth,
+    NfcAccess,
+    assertions,
+    face_signal,
+)
 from zid_platform.modules.verification.domain.idv_evidence import Envelope
 from zid_platform.modules.verification.domain.idv_policy import MarketRules, PolicyError
 from zid_platform.modules.verification.infrastructure import (
@@ -52,8 +61,10 @@ from zid_platform.modules.verification.infrastructure import (
     idv_policy_file,
     self_run_config,
 )
-from zid_platform.modules.verification.domain import document_details
-from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable, read_page_text
+from zid_platform.modules.verification.infrastructure.image_inspect import (
+    ImagingUnavailable,
+    read_page_text,
+)
 from zid_platform.modules.verification.infrastructure.image_inspect import (
     sanitize as sanitize_image,
 )
@@ -99,7 +110,10 @@ def _scope(caller: Caller, scope: str) -> None:
 
 def _global_rules(request: Request) -> MarketRules | None:
     """The built-in global policy, for a country with no policy of its own. Only with the owners' written acceptance configured; otherwise None, as before."""
-    if getattr(request.app.state, "idv_global_policy_ack", None) != idv_policy_file.GLOBAL_POLICY_ACK:
+    if (
+        getattr(request.app.state, "idv_global_policy_ack", None)
+        != idv_policy_file.GLOBAL_POLICY_ACK
+    ):
         return None
     source = getattr(request.app.state, "idv_global_policy", None)  # tests hand in their own
     return source() if callable(source) else idv_policy_file.load_global()
@@ -111,7 +125,9 @@ def _rules(request: Request, market: str) -> MarketRules:
         table = source() if callable(source) else idv_policy_file.load()
         rules = table.get(market.upper())
         if rules is None:
-            rules = _global_rules(request)  # a country's own policy always wins; the global one only fills the gap
+            rules = _global_rules(
+                request
+            )  # a country's own policy always wins; the global one only fills the gap
     except PolicyError as e:
         raise ZidError("IDV_POLICY_FILE_INVALID", str(e), http_status=503, retryable=True) from e
     if rules is None:
@@ -237,17 +253,11 @@ class DocumentImageIn(CaptureFacts):
     channel: Literal["APP", "WEB"] = "APP"
     declared: DeclaredIn | None = None
     # the face-match route (CR-129) only: a live photograph taken now, and the person's agreement to the comparison. Never kept.
-    selfie_base64: str | None = Field(default=None, min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16)
+    selfie_base64: str | None = Field(
+        default=None, min_length=8, max_length=(8 * 1024 * 1024 * 4) // 3 + 16
+    )
     consent: bool = False
     details: DetailsIn | None = None
-
-
-class OpticalIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    results: dict[
-        Annotated[str, Field(pattern=r"^[A-Z_]{2,40}$")], Literal["PASS", "FAIL", "INCONCLUSIVE"]
-    ] = Field(max_length=40)
-    typed_transcription: bool = False
 
 
 class ConsentIn(BaseModel):
@@ -260,6 +270,10 @@ class ConsentIn(BaseModel):
 async def open_case(body: OpenIn, request: Request, caller: CallerDep) -> dict[str, Any]:
     _scope(caller, "verification:execute")
     rules = _rules(request, body.market)
+    # WF-01 §04: no unsupported market path. The same country, pack, market-release, entitlement and kill-switch checks every regulated entry point applies, before a case exists
+    await enforce_regulated(
+        request, body.market.upper(), Capability.INDIVIDUAL_VERIFICATION, caller.ctx
+    )
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         try:
             c = await svc.open_case(
@@ -359,16 +373,16 @@ async def nfc_state(
     )
 
 
-def _envelope(facts: CaptureFacts, media: bytes) -> Envelope:
+async def _envelope(facts: CaptureFacts, media: bytes) -> Envelope:
     """The envelope the platform checks: the digest is computed here from the bytes, and the device report is verified here. Nothing the client says about either is believed."""
     digest = hashlib.sha256(media).hexdigest()
     attested = None
     if facts.attestation is not None:
-        attested = device_attestation.verify(
-            facts.attestation.platform,
-            dict(facts.attestation.report),
-            challenge=f"{facts.nonce}:{digest}".encode(),
-        )
+        challenge = f"{facts.nonce}:{digest}".encode()
+        if facts.attestation.platform == "ANDROID_PLAY_INTEGRITY":
+            attested = await device_attestation.verify_play_integrity(dict(facts.attestation.report), challenge=challenge)
+        else:
+            attested = device_attestation.verify(facts.attestation.platform, dict(facts.attestation.report), challenge=challenge)
     return Envelope(facts.nonce, digest, facts.captured_at, facts.virtual_camera, attested)
 
 
@@ -402,11 +416,20 @@ async def chip(
             conn, str(case_id), rules, status=verdict.status, reasons=verdict.reasons, document=doc,
             chip_auth=ChipAuth.NOT_TESTED, now=datetime.now(UTC),
         )  # fmt: skip
+        await svc.evaluated(conn, c, "verification.idv.nfc_trust_evaluated", {
+            "passive_auth": c.signals.passive_auth.value, "chip_auth": c.signals.chip_auth.value, "trust_list": effective.public(),
+        })  # fmt: skip
         if body.face is None:
+            return c
+        on, why = svc.biometrics(c, rules)
+        if (
+            not on
+        ):  # WF-01 Q24: biometrics off means no face capture is processed and no attempt is spent
+            notes.append("BIOMETRICS_OFF:" + ",".join(why))
             return c
         probe, media = _b64(body.face.probe_base64), _b64(body.face.liveness_base64)
         c = await svc.submit_capture(
-            conn, str(case_id), rules, _envelope(body.face, probe), now=datetime.now(UTC)
+            conn, str(case_id), rules, await _envelope(body.face, probe), now=datetime.now(UTC)
         )
         try:
             return await svc.apply_engine(
@@ -426,35 +449,101 @@ async def chip(
 FACE_ROUTE_ACK = "accept-no-liveness-no-evaluation"
 
 
-async def _face_against_document(request: Request, body: DocumentImageIn, selfie: bytes | None, document: bytes, threshold: float) -> tuple[Any, float | None, str | None]:
+async def _provider_checked(request: Request, caller: Caller, case_id: uuid.UUID, provider: str, outcome: str, started: float) -> None:
+    """WF-02 M11: one provider call, its outcome class and latency, in its own transaction so a failed call is on record although the request fails.
+    Codes and milliseconds only: never the image, the reading or a score."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await emit(
+            conn, name="verification.idv.provider_check_finished", tenant_id=str(caller.ctx.tenant_id or ""), aggregate_type="idv_provider_check",
+            aggregate_id=str(uuid.uuid4()), aggregate_version=1,
+            data={"case_id": str(case_id), "provider": provider, "outcome": outcome, "latency_ms": round((time.perf_counter() - started) * 1000)},
+        )  # fmt: skip
+
+
+async def _face_against_document(
+    request: Request,
+    body: DocumentImageIn,
+    selfie: bytes | None,
+    document: bytes,
+    threshold: float,
+    rules: MarketRules,
+    caller: Caller,
+    case_id: uuid.UUID,
+) -> tuple[Any, float | None, str | None]:
     """The face-match route's comparison (CR-129): the live photograph against the document's own photograph, in memory, for this one call. It needs the owner's acknowledgement, the person's
     agreement and a live photograph; the live photograph is scanned and re-encoded like the document, and neither image is kept. A face that cannot be found is a retake, never a failure."""
     from zid_platform.modules.verification.infrastructure import face_lab
 
     if getattr(request.app.state, "idv_face_route_ack", None) != FACE_ROUTE_ACK:
-        raise ZidError("FACE_ROUTE_NOT_ENABLED", "Verification with a face match is not enabled in this deployment.", http_status=403)
+        raise ZidError(
+            "FACE_ROUTE_NOT_ENABLED",
+            "Verification with a face match is not enabled in this deployment.",
+            http_status=403,
+        )
+    if not rules.basis.lawful_basis or not rules.basis.impact_assessment_ref:
+        # WF-01 S07: a biometric step only under the market's recorded lawful basis and impact assessment; refused before anything is compared or spent
+        raise ZidError(
+            "BIOMETRICS_OFF", "Face comparison is not authorized for this market.", http_status=409
+        )
     if not body.consent:
-        raise ZidError("FACE_CONSENT_REQUIRED", "Agree to the comparison of your photographs first.", http_status=422)
+        raise ZidError(
+            "FACE_CONSENT_REQUIRED",
+            "Agree to the comparison of your photographs first.",
+            http_status=422,
+        )
     if selfie is None:
-        raise ZidError("LIVE_PHOTO_REQUIRED", "A live photograph is needed with the document photograph.", http_status=422)
+        raise ZidError(
+            "LIVE_PHOTO_REQUIRED",
+            "A live photograph is needed with the document photograph.",
+            http_status=422,
+        )
     verdict = await scan_content(getattr(request.app.state, "evidence_scanner", None), selfie)
     if verdict.state == "INFECTED":
         raise ZidError("IMAGE_REFUSED", "That file could not be accepted.", http_status=422)
     if verdict.state != "CLEAN":
-        raise ZidError("SCAN_UNAVAILABLE", "The file could not be checked right now. Try again soon.", http_status=503, retryable=True)
+        raise ZidError(
+            "SCAN_UNAVAILABLE",
+            "The file could not be checked right now. Try again soon.",
+            http_status=503,
+            retryable=True,
+        )
     try:
-        clean_selfie = await sanitize_image(selfie, transport=getattr(request.app.state, "imaging_transport", None))
+        clean_selfie = await sanitize_image(
+            selfie, transport=getattr(request.app.state, "imaging_transport", None)
+        )
     except ImagingUnavailable as e:
-        raise ZidError(e.code, "The live photograph could not be inspected right now.", http_status=503, retryable=True) from e
+        raise ZidError(
+            e.code,
+            "The live photograph could not be inspected right now.",
+            http_status=503,
+            retryable=True,
+        ) from e
+    started = time.perf_counter()
     try:
         got = await face_lab.compare(clean_selfie, document)
     except face_lab.FaceLabError as e:
+        # a face that cannot be found answered correctly (not a technical failure); anything else is the service failing
+        await _provider_checked(request, caller, case_id, "face_lab", "OK" if e.http_status == 422 else "TECHNICAL_ERROR", started)
         if e.http_status == 422:
-            log.info("idv face comparison: no result (%s)", e.code)  # the sidecar's reason only: which photograph, no image
-            return face_signal(None, threshold), None, e.code  # no face, more than one face, unreadable: take it again
-        raise ZidError("FACE_ENGINE_UNAVAILABLE", "The face comparison is not available right now. Try again soon.", http_status=503, retryable=True) from e
+            log.info(
+                "idv face comparison: no result (%s)", e.code
+            )  # the sidecar's reason only: which photograph, no image
+            return (
+                face_signal(None, threshold),
+                None,
+                e.code,
+            )  # no face, more than one face, unreadable: take it again
+        raise ZidError(
+            "FACE_ENGINE_UNAVAILABLE",
+            "The face comparison is not available right now. Try again soon.",
+            http_status=503,
+            retryable=True,
+        ) from e
+    await _provider_checked(request, caller, case_id, "face_lab", "OK", started)
     cosine = float(got["cosine"])
-    log.info("idv face comparison: similarity %.3f, threshold %.3f", cosine, threshold)  # the number only, so a person can see whether the comparison works; no photograph, no name
+    log.info(
+        "idv face comparison: similarity %.3f, threshold %.3f", cosine, threshold
+    )  # the number only, so a person can see whether the comparison works; no photograph, no name
     return face_signal(cosine, threshold), cosine, None
 
 
@@ -477,44 +566,77 @@ async def document_image(
             http_status=503,
             retryable=True,
         )
+    started = time.perf_counter()
     try:
         transport = getattr(request.app.state, "imaging_transport", None)
         clean = await sanitize_image(image, transport=transport)
         reading = await read_document(clean, transport=transport)
     except ImagingUnavailable as e:
+        await _provider_checked(request, caller, case_id, "imaging", "TECHNICAL_ERROR", started)
         raise ZidError(
             e.code,
             "The document image could not be inspected right now.",
             http_status=503,
             retryable=True,
         ) from e
-    env = _envelope(body, image)
+    await _provider_checked(request, caller, case_id, "imaging", "OK", started)
+    env = await _envelope(body, image)
     now = datetime.now(UTC)
     tenant = str(caller.ctx.tenant_id or "")
 
-    shown: dict[str, Any] = {}  # the similarity and the threshold, shown to the person on this answer only: a number, so the comparison can be seen working
+    shown: dict[
+        str, Any
+    ] = {}  # the similarity and the threshold, shown to the person on this answer only: a number, so the comparison can be seen working
 
     async def work(conn: Any, rules: MarketRules) -> svc.Case:
         before = await svc.get(conn, str(case_id))
-        face_route = next((a for a in rules.policy.alternates if before is not None and a.route_id == before.route and a.face_match), None)
+        face_route = next(
+            (
+                a
+                for a in rules.policy.alternates
+                if before is not None and a.route_id == before.route and a.face_match
+            ),
+            None,
+        )
         face = None
         checks = dict(reading.checks)
         shown.clear()
         if face_route is not None:
             if body.details is not None:
                 try:
-                    text = await read_page_text(clean, transport=getattr(request.app.state, "imaging_transport", None))
+                    text = await read_page_text(
+                        clean, transport=getattr(request.app.state, "imaging_transport", None)
+                    )
                 except ImagingUnavailable:
                     text = ""  # nothing could be read: every typed detail is then "not read", held against nobody
-                found = document_details.compare(text, name=body.details.name, number=body.details.number, birth_date=body.details.birth_date)
+                found = document_details.compare(
+                    text,
+                    name=body.details.name,
+                    number=body.details.number,
+                    birth_date=body.details.birth_date,
+                )
                 wrong = document_details.contradicted(found)
                 if wrong:
                     # refused before anything is decided or spent: a typing slip is corrected and sent again on the same case
-                    raise ZidError("DETAILS_DO_NOT_MATCH_DOCUMENT", "These details are not on the document photograph: " + ", ".join(w.replace("_", " ") for w in wrong) + ". Correct them or leave them empty, then send again.", http_status=422)
+                    raise ZidError(
+                        "DETAILS_DO_NOT_MATCH_DOCUMENT",
+                        "These details are not on the document photograph: "
+                        + ", ".join(w.replace("_", " ") for w in wrong)
+                        + ". Correct them or leave them empty, then send again.",
+                        http_status=422,
+                    )
                 shown["details"] = found
-            face, cosine, problem = await _face_against_document(request, body, selfie, clean, face_route.face_threshold)
-            shown.update(face_similarity=None if cosine is None else round(cosine, 3), face_threshold=face_route.face_threshold, face_problem=problem)
-            checks = {k: v for k, v in checks.items() if not k.startswith("MRZ_")}  # this route reads no machine-readable lines: their absence is not a doubt about the picture
+            face, cosine, problem = await _face_against_document(
+                request, body, selfie, clean, face_route.face_threshold, rules, caller, case_id
+            )
+            shown.update(
+                face_similarity=None if cosine is None else round(cosine, 3),
+                face_threshold=face_route.face_threshold,
+                face_problem=problem,
+            )
+            checks = {
+                k: v for k, v in checks.items() if not k.startswith("MRZ_")
+            }  # this route reads no machine-readable lines: their absence is not a doubt about the picture
         automatic = before is not None and any(
             a.route_id == before.route and a.automatic for a in rules.policy.alternates
         )
@@ -539,7 +661,10 @@ async def document_image(
             now=now,
             web=body.channel == "WEB",
             declared=(
-                {**body.declared.model_dump(exclude={"birth_date"}), "birth_date": body.declared.birth_date.isoformat()}
+                {
+                    **body.declared.model_dump(exclude={"birth_date"}),
+                    "birth_date": body.declared.birth_date.isoformat(),
+                }
                 if body.declared
                 else None
             ),
@@ -561,16 +686,6 @@ async def document_image(
 
     result = await _mutate(request, caller, case_id, work)
     return {**result, **shown} if shown else result
-
-
-@router.post("/v1/idv/cases/{case_id}/optical")
-async def optical(
-    case_id: uuid.UUID, body: OpticalIn, request: Request, caller: CallerDep
-) -> dict[str, Any]:
-    return await _mutate(
-        request, caller, case_id,
-        lambda conn, rules: svc.submit_optical(conn, str(case_id), rules, dict(body.results), now=datetime.now(UTC), typed_transcription=body.typed_transcription),
-    )  # fmt: skip
 
 
 @router.post("/v1/idv/cases/{case_id}/consent")

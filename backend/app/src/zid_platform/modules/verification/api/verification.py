@@ -563,6 +563,7 @@ async def method_certification_board(request: Request, caller: CallerDep) -> dic
         ),
         optical_checks_produced=PRODUCED,
         apple_attestation_configured=device_attestation.configured() is not None,
+        android_attestation_configured=device_attestation.configured_play() is not None,
         imaging_configured=image_inspect.configured_url() is not None,
     )
     return {

@@ -12,11 +12,13 @@
 
 from __future__ import annotations
 
+from zid_platform.modules.privacy.application import applicant_session
 from zid_platform.modules.privacy.application.biometric_retention import (
     missing_biometric_retention,
     use_case_problems,
 )
 from zid_platform.modules.privacy.application.control import (
+    acknowledge_notice,
     capture_paused_breaches,
     release_gate,
     retry_failed_erasures,
@@ -49,6 +51,11 @@ from zid_platform.modules.privacy.application.service import (
     register_rectification_source,
     register_store,
 )
+from zid_platform.modules.privacy.application.sessions import cancel as cancel_session
+from zid_platform.modules.privacy.application.sessions import (
+    record_consent as record_session_consent,
+)
+from zid_platform.modules.privacy.application.sessions import status as session_status
 from zid_platform.modules.privacy.domain.model import PrivacyError, ProcessingDecision
 from zid_platform.modules.privacy.domain.outcome_routing import route as route_outcome
 
@@ -56,7 +63,10 @@ __all__ = [
     "PrivacyError",
     "ProcessingDecision",
     "Reconciliation",
+    "acknowledge_notice",
     "active_model_version",
+    "applicant_session",
+    "cancel_session",
     "capture_paused_breaches",
     "check_processing",
     "configure_enforcement",
@@ -71,6 +81,7 @@ __all__ = [
     "reauthorization_pass",
     "reconcile_after_restore",
     "record_release_attestation",
+    "record_session_consent",
     "register_decision_hook",
     "register_erasure_hook",
     "register_personal_data",
@@ -80,5 +91,6 @@ __all__ = [
     "release_gate",
     "retry_failed_erasures",
     "route_outcome",
+    "session_status",
     "use_case_problems",
 ]

@@ -10,3 +10,4 @@ export type * from "./models";
 export { ApiError, routeStepUp, type FieldIssue, type RouteStepUp } from "./runtime/errors";
 export { createTransport, newCorrelationId, seg, type RequestOptions, type Transport, type TransportConfig } from "./runtime/transport";
 export * from "./checks";
+export type * as VerifyAnalytics from "./verify-analytics";

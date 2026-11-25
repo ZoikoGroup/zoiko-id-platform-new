@@ -533,6 +533,14 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
             "verified": await refund_service.verify_open(conn, port, now),
         }
 
+    async def analytics_retention(conn: AsyncConnection, now: datetime) -> object:
+        """WF-02 section 09: Command Center facts are kept only for the retention period, never indefinitely."""
+        from datetime import timedelta
+
+        from zid_platform.modules.verify_analytics.ports import purge_expired
+
+        return {"purged": await purge_expired(conn, before=now - timedelta(days=settings.verify_analytics_retention_days))}
+
     return [
         ("evidence", evidence),
         ("key_events", key_events),
@@ -583,6 +591,7 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         ("credential_recheck", credential_recheck),
         ("fairness", fairness),
         ("evidence_purge", evidence_purge),
+        ("analytics_retention", analytics_retention),
         ("refunds", refunds),
     ]
 

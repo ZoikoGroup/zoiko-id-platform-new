@@ -13,8 +13,14 @@ from typing import Any
 import pytest
 from conftest import ctx  # noqa: F401
 from onboarding_fixture import onboard
-from test_idv_media_pg import READING, app_for, entry, photo, rows  # noqa: F401
-from test_idv_media_pg import fake_imaging  # noqa: F401  (autouse fixture)
+from test_idv_media_pg import (  # noqa: F401
+    READING,
+    app_for,
+    entry,
+    fake_imaging,
+    photo,
+    rows,
+)
 from zid_platform.modules.verification.api.idv_cases import FACE_ROUTE_ACK
 from zid_platform.modules.verification.infrastructure import face_lab
 
@@ -25,11 +31,25 @@ CLAIM = "SELECT grade FROM verify.idv_case_claim WHERE case_id = CAST(:c AS uuid
 def face_entry(threshold: float = 0.4) -> dict[str, Any]:
     return entry(
         result_valid_days=30,
-        alternates=[{"route_id": "WEB_FACE", "may_approve": True, "automatic": True, "face_match": True, "face_threshold": threshold}],
+        biometric={
+            "lawful_basis": "CONSENT",
+            "impact_assessment_ref": "DPIA-GB-FACE-1",
+        },  # WF-01 S07: a face comparison only under the market's recorded basis
+        alternates=[
+            {
+                "route_id": "WEB_FACE",
+                "may_approve": True,
+                "automatic": True,
+                "face_match": True,
+                "face_threshold": threshold,
+            }
+        ],
     )
 
 
-def similarity(monkeypatch: pytest.MonkeyPatch, cosine: float | None, *, down: bool = False) -> None:
+def similarity(
+    monkeypatch: pytest.MonkeyPatch, cosine: float | None, *, down: bool = False
+) -> None:
     """What the face service answers: a similarity, no face found, or nothing at all."""
 
     async def compare(probe: bytes, reference: bytes, **_: Any) -> dict[str, Any]:
@@ -42,17 +62,31 @@ def similarity(monkeypatch: pytest.MonkeyPatch, cosine: float | None, *, down: b
     monkeypatch.setattr(face_lab, "compare", compare)
 
 
-def run(api: Any, who: dict[str, str], *, selfie: bool = True, consent: bool = True) -> tuple[str, Any]:
-    case = api.post("/v1/idv/cases", headers=who, json={"market": "GB", "route": "WEB_FACE"}).json()["case_id"]
+def run(
+    api: Any, who: dict[str, str], *, selfie: bool = True, consent: bool = True
+) -> tuple[str, Any]:
+    case = api.post(
+        "/v1/idv/cases", headers=who, json={"market": "GB", "route": "WEB_FACE"}
+    ).json()["case_id"]
     nonce = api.post(f"/v1/idv/cases/{case}/nonce", headers=who).json()["nonce"]
-    body: dict[str, Any] = {"nonce": nonce, "image_base64": base64.b64encode(photo()).decode(), "captured_at": datetime.now(UTC).isoformat(), "channel": "WEB", "consent": consent}
+    body: dict[str, Any] = {
+        "nonce": nonce,
+        "image_base64": base64.b64encode(photo()).decode(),
+        "captured_at": datetime.now(UTC).isoformat(),
+        "channel": "WEB",
+        "consent": consent,
+    }
     if selfie:
         body["selfie_base64"] = base64.b64encode(photo()).decode()
     return case, api.post(f"/v1/idv/cases/{case}/document-image", headers=who, json=body)
 
 
-def test_a_match_is_verified_with_no_reviewer_nothing_kept_and_the_lowest_grade(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    similarity(monkeypatch, 0.405)  # the score a real Aadhaar card and a live photograph gave in the lab
+def test_a_match_is_verified_with_no_reviewer_nothing_kept_and_the_lowest_grade(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    similarity(
+        monkeypatch, 0.405
+    )  # the score a real Aadhaar card and a live photograph gave in the lab
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry(0.363)) as api:
@@ -62,17 +96,32 @@ def test_a_match_is_verified_with_no_reviewer_nothing_kept_and_the_lowest_grade(
         body = done.json()
         assert body["decision"] == "APPROVED", body
         assert "FACE_CONSENT_GIVEN" in body["reasons"]  # the agreement is on the record
-        assert body["face_similarity"] == 0.405 and body["face_threshold"] == 0.363  # the two numbers are shown, so the comparison can be seen working
-    assert rows(owner_url, CLAIM, c=case)[0][0] == "FACE_MATCH_NO_LIVENESS"  # and the claim says what was and was not done
-    assert rows(owner_url, "SELECT 1 FROM verify.idv_case_media WHERE case_id = CAST(:c AS uuid)", c=case) == []  # neither photograph is kept
+        assert (
+            body["face_similarity"] == 0.405 and body["face_threshold"] == 0.363
+        )  # the two numbers are shown, so the comparison can be seen working
+    assert (
+        rows(owner_url, CLAIM, c=case)[0][0] == "FACE_MATCH_NO_LIVENESS"
+    )  # and the claim says what was and was not done
+    assert (
+        rows(
+            owner_url,
+            "SELECT 1 FROM verify.idv_case_media WHERE case_id = CAST(:c AS uuid)",
+            c=case,
+        )
+        == []
+    )  # neither photograph is kept
 
 
-def test_a_document_with_no_machine_readable_lines_can_still_be_verified(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_document_with_no_machine_readable_lines_can_still_be_verified(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, 0.6)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     READING["printed"] = None  # an Aadhaar card has none
-    READING["checks"] = {k: v for k, v in READING["checks"].items() if not k.startswith("MRZ_")} | {"MRZ_READABLE": "INCONCLUSIVE"}
+    READING["checks"] = {k: v for k, v in READING["checks"].items() if not k.startswith("MRZ_")} | {
+        "MRZ_READABLE": "INCONCLUSIVE"
+    }
     with app_for(rt_url, o, face_entry()) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
         case, done = run(api, me)
@@ -80,51 +129,94 @@ def test_a_document_with_no_machine_readable_lines_can_still_be_verified(rt_url:
     assert rows(owner_url, CLAIM, c=case)[0][0] == "FACE_MATCH_NO_LIVENESS"
 
 
-def test_a_similarity_below_the_threshold_is_a_retake_never_an_accusation_and_leaves_no_claim(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_similarity_below_the_threshold_is_a_retake_never_an_accusation_and_leaves_no_claim(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, 0.2)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry(0.363)) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
         case, done = run(api, me)
-        assert done.json()["decision"] == "INDETERMINATE" and "FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO" in done.json()["reasons"]
+        assert (
+            done.json()["decision"] == "INDETERMINATE"
+            and "FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO" in done.json()["reasons"]
+        )
     assert rows(owner_url, CLAIM, c=case) == []
 
 
-def test_a_face_that_cannot_be_found_is_a_retake(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_face_that_cannot_be_found_is_a_retake(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, None)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry()) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
         _, done = run(api, me)
-        assert done.json()["decision"] == "INDETERMINATE" and "FACE_NOT_FOUND_OR_UNCLEAR" in done.json()["reasons"]
-        assert done.json()["face_problem"] == "NO_FACE_PROBE"  # the answer names which photograph had no face
+        assert (
+            done.json()["decision"] == "INDETERMINATE"
+            and "FACE_NOT_FOUND_OR_UNCLEAR" in done.json()["reasons"]
+        )
+        assert (
+            done.json()["face_problem"] == "NO_FACE_PROBE"
+        )  # the answer names which photograph had no face
 
 
-def test_without_the_owners_acknowledgement_the_route_refuses(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_the_owners_acknowledgement_the_route_refuses(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, 0.9)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry()) as api:  # the acknowledgement is not set
         case, refused = run(api, me)
-        assert refused.status_code == 403 and refused.json()["error"]["code"] == "FACE_ROUTE_NOT_ENABLED"
+        assert (
+            refused.status_code == 403
+            and refused.json()["error"]["code"] == "FACE_ROUTE_NOT_ENABLED"
+        )
     assert rows(owner_url, CLAIM, c=case) == []
 
 
-def test_it_needs_the_persons_agreement_and_a_live_photograph(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_the_markets_lawful_basis_and_impact_assessment_no_face_is_compared_or_attempt_spent(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    similarity(monkeypatch, 0.9)
+    o = onboard(rt_url)
+    me = o.bearer(o.owner, scope=SCOPE)
+    no_basis = {**face_entry(), "biometric": {}}
+    with app_for(rt_url, o, no_basis) as api:
+        api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
+        case, refused = run(api, me)
+        assert refused.status_code == 409 and refused.json()["error"]["code"] == "BIOMETRICS_OFF"
+        assert (
+            api.get(f"/v1/idv/cases/{case}", headers=me).json()["attempts"] == {}
+        )  # WF-01 Q24: nothing spent
+
+
+def test_it_needs_the_persons_agreement_and_a_live_photograph(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, 0.9)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry()) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
         _, no_consent = run(api, me, consent=False)
-        assert no_consent.status_code == 422 and no_consent.json()["error"]["code"] == "FACE_CONSENT_REQUIRED"
+        assert (
+            no_consent.status_code == 422
+            and no_consent.json()["error"]["code"] == "FACE_CONSENT_REQUIRED"
+        )
         _, no_photo = run(api, me, selfie=False)
-        assert no_photo.status_code == 422 and no_photo.json()["error"]["code"] == "LIVE_PHOTO_REQUIRED"
+        assert (
+            no_photo.status_code == 422
+            and no_photo.json()["error"]["code"] == "LIVE_PHOTO_REQUIRED"
+        )
 
 
-def test_an_unavailable_face_service_is_a_retryable_refusal_never_a_decision(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unavailable_face_service_is_a_retryable_refusal_never_a_decision(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     similarity(monkeypatch, 0.9, down=True)
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
@@ -134,36 +226,61 @@ def test_an_unavailable_face_service_is_a_retryable_refusal_never_a_decision(rt_
         assert down.status_code == 503 and down.json()["error"]["code"] == "FACE_ENGINE_UNAVAILABLE"
 
 
-def test_sending_the_same_photograph_again_on_the_same_case_is_a_retry_not_a_replay(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sending_the_same_photograph_again_on_the_same_case_is_a_retry_not_a_replay(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     o = onboard(rt_url)
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry(0.363)) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
-        case = api.post("/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"}).json()["case_id"]
+        case = api.post(
+            "/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"}
+        ).json()["case_id"]
 
         def send() -> Any:
             nonce = api.post(f"/v1/idv/cases/{case}/nonce", headers=me).json()["nonce"]
-            body = {"nonce": nonce, "image_base64": base64.b64encode(photo()).decode(), "selfie_base64": base64.b64encode(photo()).decode(), "captured_at": datetime.now(UTC).isoformat(), "channel": "WEB", "consent": True}
+            body = {
+                "nonce": nonce,
+                "image_base64": base64.b64encode(photo()).decode(),
+                "selfie_base64": base64.b64encode(photo()).decode(),
+                "captured_at": datetime.now(UTC).isoformat(),
+                "channel": "WEB",
+                "consent": True,
+            }
             return api.post(f"/v1/idv/cases/{case}/document-image", headers=me, json=body)
 
         similarity(monkeypatch, 0.2)
         assert send().json()["decision"] == "INDETERMINATE"
         similarity(monkeypatch, 0.6)
         again = send().json()  # the very same photographs
-        assert again["decision"] == "APPROVED" and "CAPTURE_INJECTION_RISK" not in again["reasons"], again
+        assert (
+            again["decision"] == "APPROVED" and "CAPTURE_INJECTION_RISK" not in again["reasons"]
+        ), again
 
 
 CARD = "Government of India\nANILKUMAR NAKULURI\nDOB: 14/03/1994\nMale\n7421 5530 9187\nMy Aadhaar, My Identity\nVID 9123 4567 8901 2345"
 
 
 def with_details(api: Any, who: dict[str, str], details: dict[str, Any]) -> Any:
-    case = api.post("/v1/idv/cases", headers=who, json={"market": "GB", "route": "WEB_FACE"}).json()["case_id"]
+    case = api.post(
+        "/v1/idv/cases", headers=who, json={"market": "GB", "route": "WEB_FACE"}
+    ).json()["case_id"]
     nonce = api.post(f"/v1/idv/cases/{case}/nonce", headers=who).json()["nonce"]
-    body = {"nonce": nonce, "image_base64": base64.b64encode(photo()).decode(), "selfie_base64": base64.b64encode(photo()).decode(), "captured_at": datetime.now(UTC).isoformat(), "channel": "WEB", "consent": True, "details": details}
+    body = {
+        "nonce": nonce,
+        "image_base64": base64.b64encode(photo()).decode(),
+        "selfie_base64": base64.b64encode(photo()).decode(),
+        "captured_at": datetime.now(UTC).isoformat(),
+        "channel": "WEB",
+        "consent": True,
+        "details": details,
+    }
     return api.post(f"/v1/idv/cases/{case}/document-image", headers=who, json=body)
 
 
-def test_typed_details_that_are_on_the_document_are_reported_and_a_contradiction_is_refused_before_anything_is_decided(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_typed_details_that_are_on_the_document_are_reported_and_a_contradiction_is_refused_before_anything_is_decided(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from zid_platform.modules.verification.api import idv_cases
 
     async def read_page_text(image: bytes, **_: Any) -> str:
@@ -175,14 +292,24 @@ def test_typed_details_that_are_on_the_document_are_reported_and_a_contradiction
     me = o.bearer(o.owner, scope=SCOPE)
     with app_for(rt_url, o, face_entry(0.363)) as api:
         api.app.state.idv_face_route_ack = FACE_ROUTE_ACK
-        good = with_details(api, me, {"name": "Anilkumar Nakuluri", "number": "7421 5530 9187", "birth_date": "1994-03-14"})
+        good = with_details(
+            api,
+            me,
+            {"name": "Anilkumar Nakuluri", "number": "7421 5530 9187", "birth_date": "1994-03-14"},
+        )
         assert good.status_code == 200 and good.json()["decision"] == "APPROVED", good.text
         assert good.json()["details"] == {"name": "MATCH", "number": "MATCH", "birth_date": "MATCH"}
         bad = with_details(api, me, {"name": "Someone Else"})
-        assert bad.status_code == 422 and bad.json()["error"]["code"] == "DETAILS_DO_NOT_MATCH_DOCUMENT" and "name" in bad.json()["error"]["message"]
+        assert (
+            bad.status_code == 422
+            and bad.json()["error"]["code"] == "DETAILS_DO_NOT_MATCH_DOCUMENT"
+            and "name" in bad.json()["error"]["message"]
+        )
 
 
-def test_a_new_case_does_not_reset_a_persons_attempts(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_new_case_does_not_reset_a_persons_attempts(
+    rt_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Attempts are one allowance across a person's face-match cases for 24 hours; otherwise starting again would give three fresh tries every time."""
     similarity(monkeypatch, 0.1)  # never matches
     o = onboard(rt_url)
@@ -192,10 +319,23 @@ def test_a_new_case_does_not_reset_a_persons_attempts(rt_url: str, monkeypatch: 
         for n in range(3):
             case = api.post("/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"})
             assert case.status_code == 201, (n, case.text)
-            nonce = api.post(f"/v1/idv/cases/{case.json()['case_id']}/nonce", headers=me).json()["nonce"]
-            body = {"nonce": nonce, "image_base64": base64.b64encode(photo()).decode(), "selfie_base64": base64.b64encode(photo()).decode(), "captured_at": datetime.now(UTC).isoformat(), "channel": "WEB", "consent": True}
-            sent = api.post(f"/v1/idv/cases/{case.json()['case_id']}/document-image", headers=me, json=body)
+            nonce = api.post(f"/v1/idv/cases/{case.json()['case_id']}/nonce", headers=me).json()[
+                "nonce"
+            ]
+            body = {
+                "nonce": nonce,
+                "image_base64": base64.b64encode(photo()).decode(),
+                "selfie_base64": base64.b64encode(photo()).decode(),
+                "captured_at": datetime.now(UTC).isoformat(),
+                "channel": "WEB",
+                "consent": True,
+            }
+            sent = api.post(
+                f"/v1/idv/cases/{case.json()['case_id']}/document-image", headers=me, json=body
+            )
             assert sent.json()["decision"] == "INDETERMINATE", sent.text
             api.post(f"/v1/idv/cases/{case.json()['case_id']}:abandon", headers=me)  # "start again"
         fourth = api.post("/v1/idv/cases", headers=me, json={"market": "GB", "route": "WEB_FACE"})
-        assert fourth.status_code == 429 and fourth.json()["error"]["code"] == "FACE_ATTEMPTS_USED_UP", fourth.text
+        assert (
+            fourth.status_code == 429 and fourth.json()["error"]["code"] == "FACE_ATTEMPTS_USED_UP"
+        ), fourth.text

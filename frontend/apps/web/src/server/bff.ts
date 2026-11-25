@@ -40,6 +40,8 @@ const API_PATH_PREFIXES = [
   "/v1/kyb/",
   // Identity proofing cases (WF03, CR-110). The cell decides each call by scope and action.
   "/v1/idv/",
+  // The Command Center (ZID-CPS-WF-02): aggregates under the analytics permission bundles, cost and price under billing access. The cell decides each call.
+  "/v1/verify-analytics/",
   // Screening requests for a tenant (WF06 S01 to S03, CR-113). The cell requires an OWNER or ADMIN and a signed market policy; the operator routes are not reachable from here.
   "/v1/screening/eligibility",
   "/v1/screening/cases",
