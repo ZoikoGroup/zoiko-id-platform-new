@@ -49,10 +49,11 @@ Written 25 Nov 2026 for the Zoiko iD product owner. ZID-CP-WF10 v2.0 says to reu
 - **Trust Center page** for the claims feed (above).
 
 - **SDK release pipeline**: manual workflow (test, build, manifest, sign with the company key in an approval-gated environment, re-verify, publish to PyPI by trusted publishing, npm with provenance, NuGet). A test pins its safety. Building it found the TypeScript SDK never declared `jsdom`, so its widget test could not start; added with a lockfile.
+- **Four more rows closed**: a browser bundle secret scan (`tools/scripts/bundle_secret_scan.py`, run in CI after the console build; it never prints a value and an empty scan fails), an axe accessibility test of the hosted capture page, a retried create after a lost response (same session, metered once), and widget tests that completion never says a verification is final.
 
 ## Left to do
 
 - Sign and publish an SDK: the pipeline is built (`.github/workflows/sdk-release.yml`, `tools/scripts/sdk_release.py keygen`, `docs/runbooks/sdk-release.md`). What remains is the company's own setup: create the release key, commit its public half, open the registry accounts, add the secrets to the `sdk-release` environment. Java and Go are not automated (GPG key and namespace; module path).
 - Ratify the containment objective (`ZID_VERIFY_REVOCATION_OBJECTIVE_SECONDS`) and move the go-live suite gate from shadow to enforce (`ZID_VERIFY_GO_LIVE_SUITE_GATE`). Both are switches now.
 - The native bridge has no error table (it is not a Verify API client).
-- Rows 4-05, 6-01, 6-03, 6-04, 6-05 and 7-05 need things only the owners can supply; row 2-04 belongs to the residency work.
+- Rows 6-01 and 6-03 need a published, generally available SDK and executed compatibility runs; row 2-04 belongs to the residency work.

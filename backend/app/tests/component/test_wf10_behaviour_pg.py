@@ -183,3 +183,33 @@ def test_the_sandbox_takes_no_real_looking_details_and_no_photograph_and_leaves_
         assert again["status"] in ("ready", "opened") and again["status"] != "submitted"  # no image moved the session along
     finally:
         w.close()
+
+
+def test_a_create_retried_after_a_lost_response_is_the_same_session_and_is_counted_once(rt_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Row 6-05: the partner's server lost the answer and retries with the same Idempotency-Key. It gets the same session back, no second session exists, and nothing new is metered."""
+    from zid_platform.modules.verify_api.application import sessions_service
+
+    metered: list[str] = []
+    real = sessions_service.usage.meter_session_started
+
+    async def counting(conn: Any, row: dict[str, Any]) -> bool:
+        metered.append(str(row["session_id"]))
+        return await real(conn, row)
+
+    monkeypatch.setattr(sessions_service.usage, "meter_session_started", counting)
+    w = World(rt_url)
+    try:
+        h = w.server()
+        first = w.create(h, key="lost-response-0001")
+        assert first.status_code == 201
+        sid = first.json()["session_id"]
+        for _ in range(3):  # the retry may itself be retried
+            again = w.create(h, key="lost-response-0001")
+            assert again.status_code == 200 and again.json()["session_id"] == sid  # same session, shown as a replay and not as a new creation
+        assert len(sessions_of(w, h)) == 1
+        assert metered == [sid]  # one start fact for the session, none for the retries
+        other = w.create(h, key="lost-response-0001", customer_reference="a-different-person")
+        assert other.status_code == 409 and code(other) == "INVALID_IDEMPOTENCY_REUSE"  # the same key with a different request is refused, never silently a second session
+        assert len(sessions_of(w, h)) == 1
+    finally:
+        w.close()
