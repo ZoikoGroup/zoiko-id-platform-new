@@ -5504,3 +5504,22 @@ export type TrustReport = { report_id: string; reference: string; severity: stri
 export type TrustSnapshot = { snapshot_id: string; service: string; region: string; window: string; state: string; percent: number | null; note: string; source_ref: string; validated: boolean };
 export type TrustDisclosure = { disclosure_id: string; kind: string; subject: string; market: string; revision: number; payload: Record<string, unknown>; effective_from: string; status: string; approved: boolean; author?: string };
 export type TrustRoomRequest = { request_id: string; evidence_id: string; organization: string; purpose: string; status: string; created_at: string; tenant_id: string; requester: string };
+
+// ------------------------------------------------------------------------------------------------------------------------------ fraud graph (CR-168)
+export type FraudLead = {
+  lead_id: string; rule_id: string; rule_version: string; risk_class: string; status: string; finding: string; seed_session: string; sessions: number; summary: string;
+  uncertain_facts: string[]; snapshot_hash: string; review_case_id: string | null; lead_version: number; created_at: string; expires_at: string | null; environment: string;
+  sla: unknown; snapshot_current?: boolean; strengths?: Record<string, number>;
+};
+export type FraudLeadDetail = FraudLead & { edges?: { edge_id: string; type: string; strength: string; status: string }[]; notes?: { kind: string; body: string; at?: string }[]; proposals?: FraudAction[] };
+export type FraudAction = {
+  action_id: string; lead_id: string; proposal_type: string; targets: string[]; basis_ref: string; impact_ref: string; impact: unknown; manifest_checksum: string; status: string;
+  maker: string; decided_by: string | null; decided_at: string | null; decision_note: string | null; expires_at: string | null; created_at: string; action_version: number; executes_changes: false;
+};
+export type FraudOverview = {
+  as_of: string;
+  leads: { raised: number; under_investigation: number; confirmed_findings: number; cleared: number; no_outcome_yet: number; by_risk: Record<string, number> };
+  links: { active: number; excluded: number; retracted: number };
+  coverage: { sessions: number; sessions_with_observation: number; sessions_without: number; note: string };
+  definitions: Record<string, string>;
+};

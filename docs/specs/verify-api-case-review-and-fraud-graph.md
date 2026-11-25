@@ -62,3 +62,7 @@ Written 25 Nov 2026 for the Zoiko iD product owner. Records what CR-167 (case re
 - Routes and database: `backend/app/tests/component/test_verify_api_fraud_pg.py` and `test_verify_api_fraud_governance_pg.py`
 - The QA register mapping (FG-T01-01 to FG-T12-05) is in `docs/traceability/acceptance-tests.csv`, with an honest status per row: IN_PROGRESS where a test exists, NOT_STARTED where nothing does.
 - Routes: `/v1/verify-api/fraud/...` and `/v1/verify-api/review-cases/...`; actions `verify_api.fraud.read|analyze|propose|approve` and `verify_api.review.read|work|approve`.
+
+## Fraud console (25 Nov 2026)
+
+The Developers page now has a Fraud signals section (`features/admin/developers/fraud.tsx`): overview with coverage that never reads missing data as safe, leads with triage, escalate, finding and notes, and action proposals with approve, reject and revoke (the maker is never offered approve). Proposing an action, the query builder, blocklist and graph picture have no screen yet; they remain API only. The cell still enforces the four duties.

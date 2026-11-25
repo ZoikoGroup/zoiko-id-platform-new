@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { AppSettings } from "./app-settings";
 import { CasesCard } from "./cases";
+import { FraudCard } from "./fraud";
 import { ReviewCard } from "./review";
 import { CredentialApprovals } from "./credential-approvals";
 import { assertionSnippet, KEY_CREDENTIAL_NOTE, parsePublicKey } from "./credential-options-logic";
@@ -89,6 +90,7 @@ export function VerifyApiSection() {
       </QueryView>
       <ResultsCard />
       <ReviewCard />
+      <FraudCard />
       <CasesCard />
       <UsageCard />
       {open ? <ApplicationDetail id={open} onClose={() => setOpen(null)} /> : null}

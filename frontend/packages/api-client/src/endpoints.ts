@@ -455,6 +455,17 @@ export function createCellApi(t: Transport) {
       goLive: () => get<M.VerifyApiGoLive>("/v1/verify-api/go-live"),
       askToGoLive: (body: M.VerifyApiGoLiveIn) => post<M.VerifyApiGoLiveRequest>("/v1/verify-api/go-live-requests", body),
       withdrawGoLive: (id: string) => post<M.VerifyApiGoLiveRequest>(`/v1/verify-api/go-live-requests/${seg(id)}:withdraw`),
+      /** The fraud graph (CR-168). A lead is a place to look, never a finding; actions are proposals that change nothing and need a second person. */
+      fraudOverview: () => get<M.FraudOverview>("/v1/verify-api/fraud/overview"),
+      fraudRefresh: () => post<{ [k: string]: number }>("/v1/verify-api/fraud/graph:refresh"),
+      fraudLeads: (q: { status?: string; finding?: string } = {}) => get<M.Items<M.FraudLead>>("/v1/verify-api/fraud/leads", q),
+      fraudLead: (id: string) => get<M.FraudLeadDetail>(`/v1/verify-api/fraud/leads/${seg(id)}`),
+      fraudTriage: (id: string, status: string, version: number, note?: string) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:triage`, { status, expected_version: version, note }),
+      fraudEscalate: (id: string, version: number) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:escalate`, { expected_version: version }),
+      fraudFinding: (id: string, finding: string, version: number, note?: string) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:finding`, { finding, expected_version: version, note }),
+      fraudNote: (id: string, body: string) => post<unknown>(`/v1/verify-api/fraud/leads/${seg(id)}/notes`, { kind: "NOTE", body }),
+      fraudActions: (leadId?: string) => get<M.Items<M.FraudAction>>("/v1/verify-api/fraud/actions", leadId ? { lead_id: leadId } : {}),
+      fraudActionDecide: (id: string, op: "approve" | "reject" | "revoke", body: { manifest_checksum?: string; note?: string }) => post<M.FraudAction>(`/v1/verify-api/fraud/actions/${seg(id)}:${op}`, op === "approve" ? body : { note: body.note ?? "" }),
       /** Case review and four-eyes control (CR-167). Every change names the case version the person read. */
       reviewCases: (q: { status?: string; queue?: string } = {}) => get<M.ReviewList>("/v1/verify-api/review-cases", q),
       reviewCase: (id: string) => get<M.ReviewCaseDetail>(`/v1/verify-api/review-cases/${seg(id)}`),
