@@ -216,4 +216,7 @@ def test_every_simulated_outcome_is_synthetic_and_matches_the_workflow() -> None
 def test_the_catalogue_lists_only_versions_a_session_can_pin() -> None:
     for wf in s.WORKFLOWS.values():
         assert s.CURRENT_VERSION in wf["versions"] and wf["methods"]
-    assert all("sandbox" in p["environments"] and "Sandbox only" in p["note"] for p in s.PRODUCTS)
+    assert all("sandbox" in p["environments"] for p in s.PRODUCTS)
+    # only the check the live product really has is offered in production, and nothing else claims to be live
+    assert {p["method"] for p in s.PRODUCTS if "production" in p["environments"]} == {"face_match"}
+    assert all("Sandbox only" in p["note"] for p in s.PRODUCTS if p["environments"] == ["sandbox"])

@@ -134,7 +134,6 @@ from zid_platform.modules.organization.infrastructure.registry_adapters import (
 from zid_platform.modules.organization.infrastructure.root_store import organization_exists
 
 __all__ = [
-    "certificate_read",
     "CompaniesHouse",
     "CompaniesHouseKyb",
     "CreditsafeKyb",
@@ -160,6 +159,7 @@ __all__ = [
     "Scanner",
     "SireneKyb",
     "adapter_for",
+    "certificate_read",
     "check_identifier",
     "check_proof",
     "default_adapters",

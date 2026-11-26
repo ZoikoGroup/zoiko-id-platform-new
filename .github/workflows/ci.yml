@@ -283,6 +283,14 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
         run: npm run build
 
+      # Nothing a browser downloads may carry a partner secret, token, launch link, private key or payment key (WF10 row 4-05). Findings name file, line and kind, never the value.
+      - name: Browser bundle holds no secret
+        run: |
+          set -euo pipefail
+          python3 ../tools/scripts/bundle_secret_scan.py apps/web/.next/static apps/web/public
+
+  # The Trust Center's public pages may carry only what the register approved (ZID-CP-WF12). Run against a deployed site by hand or from a schedule:
+  #   python tools/scripts/trust_claim_scan.py --base https://<cell> --page https://<site>/
   # What ships (no dev tooling) must have no high or critical advisory. Fix by upgrading the package, never by ignoring.
   frontend-audit:
     name: frontend-audit

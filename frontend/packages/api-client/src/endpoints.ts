@@ -220,6 +220,9 @@ export function createCellApi(t: Transport) {
       editDraft: (id: string, body: { policies: string; cases: M.PolicyTestCase[] }) =>
         t.request<M.PolicyReleaseView>("PUT", `/v1/policy-releases/${seg(id)}`, { body }),
       validate: (id: string) => post<M.PolicyValidation>(`/v1/policy-releases/${seg(id)}:validate`),
+      /** Many scenarios under the draft and the active release; kept as a signed analysis that never touches a receipt. */
+      compare: (id: string, scenarios: { principal: string; action: string; resource: string; context: Record<string, unknown> }[]) =>
+        post<M.WhatIfAnalysis>(`/v1/policy-releases/${seg(id)}:compare`, { scenarios }),
       simulate: (id: string, body: { principal: string; action: string; resource: string; context: Record<string, unknown> }) =>
         post<M.PolicySimulation>(`/v1/policy-releases/${seg(id)}:simulate`, body),
       review: (id: string) => post<M.PolicyReleaseView>(`/v1/policy-releases/${seg(id)}:review`),
@@ -409,15 +412,45 @@ export function createCellApi(t: Transport) {
     },
 
     /** Applications and credentials a company's server uses to call the Verify API (CR-149). A secret is in exactly one answer: creating or rotating a credential. */
+    /** The restricted evidence room (ZID-CP-WF12 WF-12.03): a signed-in member asks for a document; staff decide; the grant works only for the person who asked. */
+    trustRoom: {
+      catalogue: () => get<M.TrustRoomCatalogue>("/trust/v1/room/catalogue"),
+      mine: () => get<M.Items<M.TrustRoomMine>>("/trust/v1/evidence-requests"),
+      ask: (body: { evidence_id: string; organization: string; purpose: string; accept_terms: boolean }) => post<M.TrustRoomMine>("/trust/v1/evidence-requests", body),
+    },
     verifyApi: {
       applications: () => get<M.Items<M.VerifyApiApplication>>("/v1/verify-api/applications"),
+      /** The five-step first-verification checklist and its time (ZID-CP-WF10, WF-10.01). */
+      onboarding: (id: string) => get<M.DevChecklist>(`/v1/verify-api/applications/${seg(id)}/onboarding`),
+      scopeChanges: (id: string) => get<M.DevScopeHistory>(`/v1/verify-api/applications/${seg(id)}/scope-changes`),
+      proposeScopeChange: (id: string, body: { scopes: string[]; reason: string; effective_at?: string | null }) => post<Record<string, unknown>>(`/v1/verify-api/applications/${seg(id)}/scope-changes`, body),
+      approveScopeChange: (changeId: string) => post<Record<string, unknown>>(`/v1/verify-api/scope-changes/${seg(changeId)}:approve`, {}),
+      endpointHealth: () => get<{ items: M.DevEndpointHealth[]; note: string }>("/v1/verify-api/diagnostics/endpoints"),
+      requestLog: (id: string, q: { status?: number; route?: string; before?: string; limit?: number } = {}) => get<M.DevRequestPage>(`/v1/verify-api/applications/${seg(id)}/requests`, q),
+      sessionTrace: (sessionId: string) => get<M.DevTrace>(`/v1/verify-api/sessions/${seg(sessionId)}/trace`),
+      certification: (id: string) => get<M.DevCertification>(`/v1/verify-api/applications/${seg(id)}/certification`),
+      errorCatalog: () => get<M.DevErrorCatalog>("/v1/verify-api/errors"),
+      /** Run one call against a SANDBOX application and see the exact request and answer (refused for production). */
+      tryIt: (id: string, body: { operation: string; body?: Record<string, unknown>; idempotency_key?: string }) => post<M.DevTryIt>(`/v1/verify-api/applications/${seg(id)}/try`, body),
+      claims: () => get<M.DevClaims>("/v1/verify-api/claims"),
+      sdkRegister: () => get<M.DevSdkRegister>("/v1/verify-api/sdks"),
+      personas: () => get<M.DevPersonaCatalog>("/v1/verify-api/fixtures"),
+      fixturePlan: (persona: string, seed: string) => get<M.DevFixturePlan>(`/v1/verify-api/fixtures/${seg(persona)}/plan`, { seed }),
       application: (id: string) => get<M.VerifyApiApplicationDetail>(`/v1/verify-api/applications/${seg(id)}`),
       createApplication: (body: M.VerifyApiApplicationIn) => post<M.VerifyApiApplication>("/v1/verify-api/applications", body),
       updateSettings: (id: string, body: M.VerifyApiSettingsIn) => t.request<M.VerifyApiApplicationDetail>("PUT", `/v1/verify-api/applications/${seg(id)}/settings`, { body }),
       changeApplication: (id: string, change: "suspend" | "resume" | "retire") => post<M.VerifyApiApplicationDetail>(`/v1/verify-api/applications/${seg(id)}:${change}`),
-      issueCredential: (id: string) => post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials`),
-      rotateCredential: (id: string, credentialId: string, overlapHours?: number) =>
-        post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials/${seg(credentialId)}:rotate`, overlapHours ? { overlap_hours: overlapHours } : {}),
+      /** With a public key the credential is a private-key one and has no secret (CR-158). */
+      issueCredential: (id: string, publicJwk?: Record<string, string>, approvalId?: string) =>
+        post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials`, publicJwk || approvalId ? { ...(publicJwk ? { public_jwk: publicJwk } : {}), ...(approvalId ? { approval_id: approvalId } : {}) } : undefined),
+      rotateCredential: (id: string, credentialId: string, overlapHours?: number, publicJwk?: Record<string, string>, approvalId?: string) =>
+        post<M.VerifyApiIssued>(`/v1/verify-api/applications/${seg(id)}/credentials/${seg(credentialId)}:rotate`, { ...(overlapHours ? { overlap_hours: overlapHours } : {}), ...(publicJwk ? { public_jwk: publicJwk } : {}), ...(approvalId ? { approval_id: approvalId } : {}) }),
+      /** A production credential needs a second administrator's approval (CR-162). */
+      credentialApprovals: () => get<M.Items<M.VerifyApiApproval>>("/v1/verify-api/credential-approvals"),
+      requestApproval: (applicationId: string, body: M.VerifyApiApprovalIn) => post<M.VerifyApiApproval>(`/v1/verify-api/applications/${seg(applicationId)}/credential-approvals`, body),
+      approveApproval: (id: string, note?: string) => post<M.VerifyApiApproval>(`/v1/verify-api/credential-approvals/${seg(id)}:approve`, { note: note?.trim() || null }),
+      rejectApproval: (id: string, note: string) => post<M.VerifyApiApproval>(`/v1/verify-api/credential-approvals/${seg(id)}:reject`, { note: note.trim() }),
+      cancelApproval: (id: string) => post<M.VerifyApiApproval>(`/v1/verify-api/credential-approvals/${seg(id)}:cancel`),
       revokeCredential: (id: string, credentialId: string) => post<M.VerifyApiCredential>(`/v1/verify-api/applications/${seg(id)}/credentials/${seg(credentialId)}:revoke`),
       sessions: (id: string, query: { status?: string; cursor?: string } = {}) => get<M.VerifyApiSessionPage>(`/v1/verify-api/applications/${seg(id)}/sessions`, query),
       createTestSession: (id: string, body: M.VerifyApiTestSessionIn = {}) => post<M.VerifyApiSession>(`/v1/verify-api/applications/${seg(id)}/test-sessions`, body),
@@ -428,6 +461,32 @@ export function createCellApi(t: Transport) {
       goLive: () => get<M.VerifyApiGoLive>("/v1/verify-api/go-live"),
       askToGoLive: (body: M.VerifyApiGoLiveIn) => post<M.VerifyApiGoLiveRequest>("/v1/verify-api/go-live-requests", body),
       withdrawGoLive: (id: string) => post<M.VerifyApiGoLiveRequest>(`/v1/verify-api/go-live-requests/${seg(id)}:withdraw`),
+      /** The fraud graph (CR-168). A lead is a place to look, never a finding; actions are proposals that change nothing and need a second person. */
+      fraudOverview: () => get<M.FraudOverview>("/v1/verify-api/fraud/overview"),
+      fraudRefresh: () => post<{ [k: string]: number }>("/v1/verify-api/fraud/graph:refresh"),
+      fraudLeads: (q: { status?: string; finding?: string } = {}) => get<M.Items<M.FraudLead>>("/v1/verify-api/fraud/leads", q),
+      fraudLead: (id: string) => get<M.FraudLeadDetail>(`/v1/verify-api/fraud/leads/${seg(id)}`),
+      fraudTriage: (id: string, status: string, version: number, note?: string) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:triage`, { status, expected_version: version, note }),
+      fraudEscalate: (id: string, version: number) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:escalate`, { expected_version: version }),
+      fraudFinding: (id: string, finding: string, version: number, note?: string) => post<M.FraudLead>(`/v1/verify-api/fraud/leads/${seg(id)}:finding`, { finding, expected_version: version, note }),
+      fraudNote: (id: string, body: string) => post<unknown>(`/v1/verify-api/fraud/leads/${seg(id)}/notes`, { kind: "NOTE", body }),
+      fraudActions: (leadId?: string) => get<M.Items<M.FraudAction>>("/v1/verify-api/fraud/actions", leadId ? { lead_id: leadId } : {}),
+      fraudActionDecide: (id: string, op: "approve" | "reject" | "revoke", body: { manifest_checksum?: string; note?: string }) => post<M.FraudAction>(`/v1/verify-api/fraud/actions/${seg(id)}:${op}`, op === "approve" ? body : { note: body.note ?? "" }),
+      /** Case review and four-eyes control (CR-167). Every change names the case version the person read. */
+      reviewCases: (q: { status?: string; queue?: string } = {}) => get<M.ReviewList>("/v1/verify-api/review-cases", q),
+      reviewCase: (id: string) => get<M.ReviewCaseDetail>(`/v1/verify-api/review-cases/${seg(id)}`),
+      openReviewCase: (sessionId: string) => post<M.ReviewCaseDetail>("/v1/verify-api/review-cases", { session_id: sessionId }),
+      reviewAct: (id: string, op: "claim" | "release" | "heartbeat" | "findings" | "request-info" | "info-received" | "escalate" | "appeal", body: Record<string, unknown> = {}) =>
+        post<M.ReviewCaseDetail>(`/v1/verify-api/review-cases/${seg(id)}:${op}`, body),
+      reviewPropose: (id: string, body: M.ReviewProposeIn) => post<M.ReviewCaseDetail>(`/v1/verify-api/review-cases/${seg(id)}:propose`, body),
+      reviewSecond: (id: string, body: M.ReviewSecondIn) => post<M.ReviewCaseDetail>(`/v1/verify-api/review-cases/${seg(id)}:second-review`, body),
+      reviewReveal: (id: string, evidenceId: string, reason: string) => post<M.ReviewReveal>(`/v1/verify-api/review-cases/${seg(id)}/evidence/${seg(evidenceId)}:reveal`, { reason }),
+      reviewTrail: (id: string) => get<M.ReviewTrail>(`/v1/verify-api/review-cases/${seg(id)}/events`),
+      reviewAdviceFeedback: (id: string, adviceId: string, feedback: M.ReviewFeedback) => post<{ advice_id: string; feedback: string }>(`/v1/verify-api/review-cases/${seg(id)}/advice/${seg(adviceId)}:feedback`, { feedback }),
+      reviewAdvice: (id: string) => post<M.ReviewAdvice>(`/v1/verify-api/review-cases/${seg(id)}:agent-advice`),
+      cases: () => get<M.Items<M.VerifyApiCase>>("/v1/verify-api/cases"),
+      raiseCase: (body: M.VerifyApiCaseIn) => post<M.VerifyApiCase>("/v1/verify-api/cases", body),
+      withdrawCase: (id: string) => post<M.VerifyApiCase>(`/v1/verify-api/cases/${seg(id)}:withdraw`),
     },
     webhooks: {
       eventTypes: () => get<M.Items<M.WebhookEventType>>("/v1/webhooks/event-types"),
@@ -602,12 +661,48 @@ export function createCellApi(t: Transport) {
         t.request<{ sync_id: string; version: number }>("PUT", `/provisioning/directory-syncs/${seg(id)}/credential`, { body: { secret } }),
     },
 
+    routing: {
+      capabilities: () => get<M.Items<M.RoutingCapability>>("/v1/routing/capabilities"),
+      coverage: (method?: string) => get<M.RoutingCoverage>("/v1/routing/coverage", { method }),
+      claims: () => get<M.RoutingClaim>("/v1/routing/claims"),
+      decision: (id: string) => get<M.RouteDecisionView>(`/v1/routing/decisions/${seg(id)}`),
+      attempt: (id: string) => get<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}`),
+      dataFlow: (provider: string) => get<M.RouteDataFlow>(`/v1/routing/providers/${seg(provider)}/data-flow`),
+      recordDataFlow: (provider: string, hops: M.RouteHop[]) => post<M.RouteDataFlowResult>(`/v1/routing/providers/${seg(provider)}/data-flow`, { hops }),
+      advance: (id: string, body: { target: string; reason?: string; external_operation_id?: string }) => post<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}:advance`, body),
+      fail: (id: string, body: Record<string, boolean>) => post<M.RouteAttemptView>(`/v1/routing/attempts/${seg(id)}:fail`, body),
+      approveCapability: (provider: string, method: string, reason: string) => post<Record<string, unknown>>(`/v1/routing/capabilities/${seg(provider)}/${seg(method)}:approve`, { reason }),
+      suspendCapability: (provider: string, method: string, reason: string) => post<Record<string, unknown>>(`/v1/routing/capabilities/${seg(provider)}/${seg(method)}:suspend`, { reason }),
+      preflight: (scenarios: (M.RouteScenarioIn & { required?: boolean })[], proposed: Record<string, unknown>[] = []) => post<M.RoutePreflight>("/v1/routing/preflight", { scenarios, proposed }),
+      releases: () => get<M.Items<M.RouteRelease>>("/v1/routing/releases"),
+      createRelease: (body: { risk: "LOW" | "HIGH"; scope?: Record<string, string> }) => post<M.RouteRelease>("/v1/routing/releases", body),
+      approveRelease: (id: string, role: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:approve`, { role }),
+      publishRelease: (id: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:publish`, {}),
+      rollbackRelease: (id: string, reason: string) => post<M.RouteRelease>(`/v1/routing/releases/${seg(id)}:rollback`, { reason }),
+      reconcile: (lines: { provider_id: string; external_operation_id: string; amount_minor: number; currency: string }[]) => post<M.RouteReconciliation>("/v1/routing/reconcile", { lines }),
+    },
+
     evidence: {
       /** Several receipts in one signed package that expires; creating one needs a fresh strong sign-in. */
       bulkExports: (limit?: number) => get<M.Items<M.BulkExport>>("/v1/evidence/bulk-exports", { limit }),
       createBulkExport: (body: M.BulkExportIn) => post<Record<string, unknown>>("/v1/evidence/bulk-exports", body),
       bulkExport: (id: string) => get<Record<string, unknown>>(`/v1/evidence/bulk-exports/${seg(id)}`),
       keys: () => get<{ keys: Record<string, unknown>[] }>("/v1/evidence/keys"),
+      /** Who held which authority when a decision was made: written once, signed, never edited. */
+      authoritySnapshot: (decisionRef: string) => get<M.AuthoritySnapshot>(`/v1/evidence/authority-snapshots/${seg(decisionRef)}`),
+      exportRequests: () => get<M.Items<M.ExportRequest>>("/v1/evidence/export-requests"),
+      requestExport: (body: M.ExportRequestIn) => post<M.ExportRequest>("/v1/evidence/export-requests", body),
+      approveExport: (id: string, reason?: string) => post<M.ExportRequest>(`/v1/evidence/export-requests/${seg(id)}:approve`, { reason: reason ?? null }),
+      refuseExport: (id: string, reason: string) => post<M.ExportRequest>(`/v1/evidence/export-requests/${seg(id)}:refuse`, { reason }),
+      issueExport: (id: string) => post<Record<string, unknown>>(`/v1/evidence/export-requests/${seg(id)}:issue`, {}),
+      allocateStatusSlot: (purpose: string, subjectRef: string) => post<M.StatusSlot>(`/v1/evidence/status-lists/${seg(purpose)}/subjects`, { subject_ref: subjectRef }),
+      revokeStatus: (purpose: string, subjectRef: string, reason: string) =>
+        post<Record<string, unknown>>(`/v1/evidence/status-lists/${seg(purpose)}/subjects/${seg(subjectRef)}:revoke`, { reason }),
+      reinstateStatus: (purpose: string, subjectRef: string, reason: string) =>
+        post<Record<string, unknown>>(`/v1/evidence/status-lists/${seg(purpose)}/subjects/${seg(subjectRef)}:reinstate`, { reason }),
+      publishStatusList: (purpose: string) => post<M.StatusPublication>(`/v1/evidence/status-lists/${seg(purpose)}:publish`, {}),
+      /** The issuer's signed trust bundle (public). */
+      trustBundle: () => get<M.TrustBundleView>("/v1/trust/issuer"),
       receipts: (q: { action?: string; outcome?: string; evidence_class?: string; before?: string; limit?: number } = {}) =>
         get<M.Items<M.ReceiptSummary>>("/v1/evidence/receipts", q),
       receipt: (id: string) => get<M.ReceiptDetail>(`/v1/evidence/receipts/${seg(id)}`),
@@ -1104,6 +1199,24 @@ export function createCellApi(t: Transport) {
       revoke: (id: string, reason_code: string) =>
         post<{ agent_principal_id: string; sub_agents_suspended: number; bindings_revoked: number }>(`/v1/machine/agents/${seg(id)}:revoke`, { reason_code }),
       retire: (id: string) => post<M.AgentItem>(`/v1/machine/agents/${seg(id)}:retire`),
+      /** Agent controls (CR-169). Every stop is a dry run first; a stop is closed by someone other than its maker. */
+      stopPlan: (scope: M.StopScope, subject?: string) => post<M.StopPlan>("/v1/machine/revocations:plan", { scope, subject: subject || null }),
+      stop: (scope: M.StopScope, subject: string | undefined, reason: string) => post<M.StopEvent>("/v1/machine/revocations", { scope, subject: subject || null, reason }),
+      stops: (open = false) => get<M.Items<M.StopEvent>>("/v1/machine/revocations", { open: open ? "true" : undefined }),
+      closeStop: (id: string, note: string) => post<M.StopEvent>(`/v1/machine/revocations/${seg(id)}:close`, { note }),
+      toolActions: (state?: M.ToolActionState) => get<M.Items<M.ToolAction>>("/v1/machine/tool-actions", { state }),
+      toolAction: (id: string) => get<M.ToolAction>(`/v1/machine/tool-actions/${seg(id)}`),
+      toolActionReceipts: (id: string) => get<{ action_id: string; items: M.ToolActionReceipt[] }>(`/v1/machine/tool-actions/${seg(id)}/receipts`),
+      idpBindings: (agentId?: string) => get<M.Items<M.IdpBinding> & { profiles: { profile: string; label: string; certified: boolean; note: string | null }[] }>("/v1/machine/idp-bindings", { agent_id: agentId }),
+      createIdpBinding: (agentId: string, body: M.IdpBindingIn) => post<M.IdpBinding>(`/v1/machine/agents/${seg(agentId)}/idp-bindings`, body),
+      revokeIdpBinding: (id: string) => post<M.IdpBinding>(`/v1/machine/idp-bindings/${seg(id)}:revoke`),
+      agentCredentials: (agentId?: string) => get<M.Items<M.AgentCredentialItem>>("/v1/machine/agent-credentials", { agent_id: agentId }),
+      issueAgentCredential: (agentId: string, body: { public_key: Record<string, unknown>; audience?: string; ttl_hours?: number }) => post<M.AgentCredentialItem>(`/v1/machine/agents/${seg(agentId)}/credentials`, body),
+      revokeAgentCredential: (id: string) => post<M.AgentCredentialItem>(`/v1/machine/agent-credentials/${seg(id)}:revoke`),
+      verifyAgentCredential: (body: { credential: string; relying_party: string; presentation?: string; nonce?: string }) => post<M.CredentialVerdict>("/v1/machine/agent-credentials:verify", body),
+      riskSignals: () => get<M.RiskReport>("/v1/machine/risk-signals"),
+      mandateSigning: (mandateId: string) => get<M.MandateSigning>(`/v1/mandates/${seg(mandateId)}/canonical`),
+      signMandate: (mandateId: string, canonicalHash: string, role: "sign" | "countersign") => post<M.MandateSigning>(`/v1/mandates/${seg(mandateId)}:${role}`, { canonical_hash: canonicalHash }),
       blueprints: () => get<M.Items<M.BlueprintRelease>>("/v1/machine/blueprints"),
       createBlueprint: (body: M.BlueprintCreate) => post<{ blueprint_id: string; version: string; review_status: M.BlueprintReview }>("/v1/machine/blueprints", body),
       approveBlueprint: (id: string, version: string) =>
@@ -1306,6 +1419,20 @@ export function createOperatorApi(t: Transport) {
       goLiveApprove: (id: string, confirmed: M.VerifyApiAttestations, note?: string) =>
         post<M.VerifyApiGoLiveOperatorRequest>(`/operator/verify-api/go-live-requests/${seg(id)}:approve`, { ...confirmed, note: note?.trim() || null }),
       goLiveDecline: (id: string, note: string) => post<M.VerifyApiGoLiveOperatorRequest>(`/operator/verify-api/go-live-requests/${seg(id)}:decline`, { note: note.trim() }),
+      /** Verify API disputes, appeals and erasure requests (CR-159): open cases, oldest first. A different person resolves from the one who reviewed. */
+      /** The operator-set price of a verification's usage facts (CR-161): a different person approves what one proposes. */
+      verifyPrices: () => get<M.VerifyApiPriceList>("/operator/verify-api/prices"),
+      verifyPricePropose: (body: M.VerifyApiPriceIn) => post<M.VerifyApiPrice>("/operator/verify-api/prices", body),
+      verifyPriceApprove: (id: string, note?: string) => post<M.VerifyApiPrice>(`/operator/verify-api/prices/${seg(id)}:approve`, { note: note?.trim() || null }),
+      verifyPriceReject: (id: string, note: string) => post<M.VerifyApiPrice>(`/operator/verify-api/prices/${seg(id)}:reject`, { note: note.trim() }),
+      /** Regulatory holds on review cases (CR-167): the operator plane places one, and a DIFFERENT operator releases it. */
+      reviewCasesOpen: () => get<M.Items<M.ReviewCase & { tenant_id: string }>>("/operator/verify-api/review-cases"),
+      reviewHold: (id: string, reasonCode: string) => post<{ case_id: string; on_hold: boolean }>(`/operator/verify-api/review-cases/${seg(id)}:hold`, { reason_code: reasonCode.trim() }),
+      reviewReleaseHold: (id: string, note: string) => post<{ case_id: string; on_hold: boolean }>(`/operator/verify-api/review-cases/${seg(id)}:release-hold`, { note: note.trim() }),
+      verifyCases: () => get<M.Items<M.VerifyApiCaseOperator>>("/operator/verify-api/cases"),
+      verifyCaseReview: (id: string) => post<M.VerifyApiCaseOperator>(`/operator/verify-api/cases/${seg(id)}:review`, {}),
+      verifyCaseResolve: (id: string, note: string) => post<M.VerifyApiCaseOperator>(`/operator/verify-api/cases/${seg(id)}:resolve`, { note: note.trim() }),
+      verifyCaseReject: (id: string, note: string) => post<M.VerifyApiCaseOperator>(`/operator/verify-api/cases/${seg(id)}:reject`, { note: note.trim() }),
       revokeProductionGrant: (tenantId: string, note: string) =>
         post<M.VerifyApiGrant & { applications_stopped: number }>(`/operator/verify-api/grants/${seg(tenantId)}:revoke`, { note: note.trim() }),
       exceptions: () => get<M.Items<M.AssuranceException>>("/v1/commercial/exceptions"),
@@ -1436,6 +1563,42 @@ export function createOperatorApi(t: Transport) {
     },
 
     /** ZID-RCG-003 regulatory records (CR-067 to CR-085). Every write is one operator capability; the cell enforces who may do what. */
+    /** The Trust Center's claims register (ZID-CP-WF12; CR-174). A reviewer's role is the capability they hold, never a field they type. */
+    trustCenter: {
+      claims: (status?: string) => get<M.Items<M.TrustClaimRow>>(`/v1/trust-center/claims${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+      claim: (id: string, revision: number) => get<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}`),
+      draft: (body: M.TrustClaimInput) => post<M.TrustClaim>("/v1/trust-center/claims", body),
+      revise: (id: string, body: M.TrustClaimInput) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions`, body),
+      approve: (id: string, revision: number, role: M.TrustRole, evidenceDigests: string[]) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:approve`, { role, evidence_digests: evidenceDigests }),
+      refuse: (id: string, revision: number, role: M.TrustRole, reason: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:refuse`, { role, reason }),
+      publish: (id: string, revision: number, expectedHash: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}/revisions/${revision}:publish`, { expected_hash: expectedHash }),
+      rollback: (id: string) => post<M.TrustClaim>(`/v1/trust-center/claims/${seg(id)}:rollback`),
+      withdraw: (id: string, reason: string, revision?: number) => post<M.TrustWithdrawal>(`/v1/trust-center/claims/${seg(id)}:withdraw`, { reason, revision }),
+      withdrawals: (open = false) => get<M.Items<M.TrustWithdrawalRow>>(`/v1/trust-center/withdrawals${open ? "?open=true" : ""}`),
+      reviewWithdrawal: (id: string, note: string) => post<{ withdrawal_id: string }>(`/v1/trust-center/withdrawals/${seg(id)}:review`, { note }),
+      evidence: () => get<M.Items<M.TrustEvidence>>("/v1/trust-center/evidence"),
+      recordEvidence: (body: M.TrustEvidenceInput) => post<M.TrustEvidence>("/v1/trust-center/evidence", body),
+      confirmEvidence: (id: string) => post<M.TrustEvidence>(`/v1/trust-center/evidence/${seg(id)}:confirm`),
+      evidenceLifecycle: (id: string, lifecycle: string) => post<M.TrustEvidence & { claims_resting_on_it: { claim_id: string; revision: number }[] }>(`/v1/trust-center/evidence/${seg(id)}:lifecycle`, { lifecycle }),
+      monitoring: () => get<M.TrustMonitoring>("/v1/trust-center/monitoring"),
+      scan: (pages: { url: string; content: string }[]) => post<M.TrustScan>("/v1/trust-center/scans", { pages }),
+      reports: (open = true) => get<M.Items<M.TrustReport>>(`/v1/trust-center/reports${open ? "?open=true" : ""}`),
+      report: (id: string) => get<M.TrustReport & { summary: string; affected: string; contact: string | null; timeline: { seq: number; kind: string; note: string; at: string }[] }>(`/v1/trust-center/reports/${seg(id)}`),
+      triage: (id: string, body: { state?: string; severity?: string; note?: string }) => post<M.TrustReport>(`/v1/trust-center/reports/${seg(id)}:triage`, body),
+      snapshots: () => get<M.Items<M.TrustSnapshot>>("/v1/trust-center/availability/snapshots"),
+      recordSnapshot: (body: { service: string; region: string; window_label: string; numerator: number; denominator: number; exclusions: string; source_ref: string }) => post<M.TrustSnapshot>("/v1/trust-center/availability/snapshots", body),
+      validateSnapshot: (id: string) => post<M.TrustSnapshot>(`/v1/trust-center/availability/snapshots/${seg(id)}:validate`),
+      disclosures: () => get<M.Items<M.TrustDisclosure>>("/v1/trust-center/privacy/disclosures"),
+      approveDisclosure: (id: string) => post<M.TrustDisclosure>(`/v1/trust-center/privacy/disclosures/${seg(id)}:approve`),
+      regionCheck: (region: string) => get<{ region: string; may_claim_data_stays: boolean; blockers: string[] }>(`/v1/trust-center/privacy/region-check?region=${encodeURIComponent(region)}`),
+      roomRequests: (open = true) => get<M.Items<M.TrustRoomRequest>>(`/v1/trust-center/room/requests${open ? "?open=true" : ""}`),
+      decideRoom: (id: string, body: { approve: boolean; reason?: string; hours?: number; max_downloads?: number }) => post<{ status: string; access_token?: string }>(`/v1/trust-center/room/requests/${seg(id)}:decide`, body),
+      advisories: () => get<{ items: M.TrustAdvisory[] }>("/v1/trust-center/advisories"),
+      draftAdvisory: (body: { incident_ref: string; kind: string; title: string; body: string; reason: string }) => post<unknown>("/v1/trust-center/advisories", body),
+      approveAdvisory: (id: string, seq: number) => post<unknown>(`/v1/trust-center/advisories/${seg(id)}/versions/${seq}:approve`),
+      revokeRoom: (id: string) => post<{ revoked_at: string }>(`/v1/trust-center/room/requests/${seg(id)}:revoke`),
+    },
+
     regulatory: {
       readiness: () => get<M.RegulatoryReadiness>("/v1/regulatory/readiness"),
       /** The Face lab (CR-128): the lab engine's state and the approval gate's missing records. */

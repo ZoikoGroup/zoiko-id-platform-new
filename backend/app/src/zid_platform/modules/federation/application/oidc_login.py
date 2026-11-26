@@ -306,7 +306,9 @@ async def complete(
     sealed: str | None = None
     if c.client_auth == "client_secret_basic" and (c.client_secret_ref or "").startswith(CONNECTOR_REF):
         # CR-138: the secret the company entered in the console, sealed by the platform (write-only), not one in the operator's secret store
-        from zid_platform.modules.integration.ports import connector_secret  # at call time: integration imports federation
+        from zid_platform.modules.integration.ports import (
+            connector_secret,  # at call time: integration imports federation
+        )
 
         async with tenant_transaction(engine, ctx) as secret_conn:  # its own short transaction: the first one is closed before the provider is called
             sealed = await connector_secret(secret_conn, c.tenant_id, (c.client_secret_ref or "")[len(CONNECTOR_REF) :], now)

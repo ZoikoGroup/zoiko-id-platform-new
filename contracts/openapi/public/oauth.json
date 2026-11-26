@@ -122,6 +122,26 @@
         ]
       }
     },
+    "/.well-known/oauth-protected-resource/v1/machine/mcp": {
+      "get": {
+        "description": "OAuth 2.0 Protected Resource Metadata (RFC 9728) for the agent tool gateway: which resource this is, who issues the tokens it accepts, and how a token is presented. Public: it describes\nthe interface and holds no data. The token must be the agent's own workload token, issued for this platform's audience; a token for another resource or tenant is refused by the gateway.",
+        "operationId": "protected_resource_metadata__well_known_oauth_protected_resource_v1_machine_mcp_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Protected Resource Metadata",
+        "tags": [
+          "agent-tool-gateway"
+        ]
+      }
+    },
     "/.well-known/openid-configuration": {
       "get": {
         "operationId": "oidc_metadata__well_known_openid_configuration_get",
@@ -181,6 +201,25 @@
         "summary": "Our Entity Configuration",
         "tags": [
           "federation"
+        ]
+      }
+    },
+    "/.well-known/security.txt": {
+      "get": {
+        "operationId": "security_txt__well_known_security_txt_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Security Txt",
+        "tags": [
+          "trust-center-public"
         ]
       }
     },

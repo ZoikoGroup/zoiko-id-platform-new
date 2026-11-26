@@ -50,6 +50,7 @@ import {
   getPasskey,
   passkeyErrorMessage,
 } from "./webauthn";
+import { identityOf, isForeign, mustFlush } from "./cache-scope";
 
 export type Subject = {
   sub: string;
@@ -162,6 +163,17 @@ function RuntimeInner({
   csrfRef.current = sessionQuery.data?.authenticated
     ? sessionQuery.data.csrf
     : undefined;
+
+  // Whose data is in the cache (WF-10.02): when the signed-in identity is replaced by a different one without a page reload, the previous company's cached screens are dropped.
+  const identity = identityOf(sessionQuery.data);
+  const lastIdentity = useRef<string | null>(null);
+  useEffect(() => {
+    if (sessionQuery.data === undefined) return;
+    if (mustFlush(lastIdentity.current, identity)) {
+      queryClient.removeQueries({ predicate: (q) => isForeign(q.queryKey) });
+    }
+    lastIdentity.current = identity;
+  }, [identity, queryClient, sessionQuery.data]);
 
   // The cell's central step-up guard names the change to prove; the proof is made here and the same request is retried once (ZID-ENG-DEC-009).
   const routeProver = useRef<((need: RouteStepUp) => Promise<string | undefined>) | null>(null);

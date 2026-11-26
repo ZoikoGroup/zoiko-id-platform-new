@@ -1,0 +1,906 @@
+{
+  "components": {
+    "schemas": {
+      "FixtureBody": {
+        "additionalProperties": false,
+        "description": "Every field is optional here: a test suite should not need to invent a person to see an outcome.",
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "customer_reference": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Reference"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "purpose_code": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose Code"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "workflow_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Id"
+          }
+        },
+        "title": "FixtureBody",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "SandboxOutcomeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "outcome": {
+            "maxLength": 20,
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome"
+        ],
+        "title": "SandboxOutcomeBody",
+        "type": "object"
+      },
+      "SessionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "maxLength": 2,
+            "minLength": 2,
+            "title": "Country",
+            "type": "string"
+          },
+          "customer_reference": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Customer Reference",
+            "type": "string"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "purpose_code": {
+            "maxLength": 64,
+            "title": "Purpose Code",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "return_origin": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Return Origin"
+          },
+          "workflow_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Id"
+          },
+          "workflow_version": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Version"
+          }
+        },
+        "required": [
+          "customer_reference",
+          "country",
+          "purpose_code"
+        ],
+        "title": "SessionBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Verify your own customers from your own server. Exchange your client credentials for a short-lived bearer token, create a verification session with an Idempotency-Key, send your customer to the launch link, and read the minimized decision. Everything here runs in the sandbox until your company is approved to go live.",
+    "title": "Zoiko iD Verify API",
+    "version": "1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/verify-api/oauth2/token": {
+      "post": {
+        "description": "Exchange a client id and secret for a short-lived bearer token. One answer for every failure, and a limit on wrong secrets for one client id.",
+        "operationId": "token_v1_verify_api_oauth2_token_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Token",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/products": {
+      "get": {
+        "operationId": "products_v1_verify_api_products_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Products V1 Verify Api Products Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Products",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sandbox/fixtures/{outcome}/sessions": {
+      "post": {
+        "operationId": "fixture_session_v1_verify_api_sandbox_fixtures__outcome__sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "outcome",
+            "required": true,
+            "schema": {
+              "title": "Outcome",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixtureBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fixture Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sandbox/sessions/{session_id}:simulate": {
+      "post": {
+        "operationId": "simulate_session_v1_verify_api_sandbox_sessions__session_id__simulate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxOutcomeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Simulate Session V1 Verify Api Sandbox Sessions  Session Id  Simulate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Simulate Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions": {
+      "get": {
+        "operationId": "list_sessions_v1_verify_api_verification_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 24,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "customer_reference",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Customer Reference"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "created_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Sessions V1 Verify Api Verification Sessions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "create_session_v1_verify_api_verification_sessions_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions/{session_id}": {
+      "get": {
+        "operationId": "get_session_v1_verify_api_verification_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Session V1 Verify Api Verification Sessions  Session Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions/{session_id}/decision": {
+      "get": {
+        "operationId": "get_decision_v1_verify_api_verification_sessions__session_id__decision_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Decision V1 Verify Api Verification Sessions  Session Id  Decision Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Decision",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions/{session_id}/resume-token": {
+      "post": {
+        "operationId": "resume_token_v1_verify_api_verification_sessions__session_id__resume_token_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Token",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions/{session_id}:cancel": {
+      "post": {
+        "operationId": "cancel_session_v1_verify_api_verification_sessions__session_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Session V1 Verify Api Verification Sessions  Session Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/verification-sessions/{session_id}:recheck": {
+      "post": {
+        "operationId": "recheck_session_v1_verify_api_verification_sessions__session_id__recheck_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recheck Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/whoami": {
+      "get": {
+        "description": "What this token is: the application, its environment and scopes. A partner uses it to prove its credentials work. The company is named only by an opaque reference.",
+        "operationId": "whoami_v1_verify_api_whoami_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Whoami V1 Verify Api Whoami Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Whoami",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/workflows": {
+      "get": {
+        "operationId": "workflows_v1_verify_api_workflows_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Workflows V1 Verify Api Workflows Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Workflows",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    }
+  }
+}

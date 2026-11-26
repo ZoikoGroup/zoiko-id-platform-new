@@ -9,4 +9,7 @@
     <Description>The /v2 global trust API client (ZID-INT-002) and the verification session state machine.</Description>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="error_classes.json" LogicalName="Zoiko.Id.error_classes.json" />
+  </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 import type { VerifyApiUsage, VerifyApiUsageCounts } from "@zoiko/api-client";
 
-/** The plain-language side of the Usage card (CR-154). Counts only; nothing here prices anything. */
+/** The plain-language side of the Usage card (CR-154, CR-161). Counts, and an indicative cost the cell has already worked out: nothing here does any money arithmetic. */
 
 export const COUNT_LABELS: { key: keyof VerifyApiUsageCounts; label: string }[] = [
   { key: "sessions_started", label: "Started" },
@@ -37,3 +37,8 @@ export function reconciliationText(r: VerifyApiUsage["reconciliation"]): { ok: b
 }
 
 export const hasAny = (c: VerifyApiUsageCounts): boolean => Object.values(c).some((n) => n > 0);
+
+/** An amount of money for a person to read. The cell sends money as text; this only adds the currency, it never does arithmetic. */
+export const money = (amount: string, currency: string): string => `${currency} ${amount}`;
+
+export const costHeading = (c: { currency: string; complete: boolean }): string => `Indicative cost in ${c.currency}${c.complete ? "" : " (incomplete)"}`;

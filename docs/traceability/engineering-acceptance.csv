@@ -1,0 +1,31 @@
+test_id,source_spec,name,test_status,evidence_link,note
+ENG-AT-01,ZID-ENG-TRC-001,Cross-tenant access denied for case/evidence/metrics/export,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-02,ZID-ENG-TRC-001,No DTV unknown counted complete,IN_PROGRESS,backend/app/tests/unit/test_trace_workbench.py::test_nineteen_dtv_ids_stay_missing_source_and_none_is_countable_as_done,the 19 undefined DTV ids are held as MISSING_SOURCE in the workbench
+ENG-AT-03,ZID-ENG-TRC-001,Requirement to source to code to CI to gate trace reproducible,IN_PROGRESS,backend/app/tests/unit/test_trace_workbench.py::test_the_sheet_says_not_assessed_where_there_is_no_source_and_never_claims_more_than_a_passed_run,the sheet is generated from the CSVs; the CI-run and build-digest columns are NOT ASSESSED until pipelines supply them
+ENG-AT-04,ZID-ENG-TRC-001,Changed digest invalidates dependent test PASS,IN_PROGRESS,backend/app/tests/unit/test_trace_workbench.py::test_a_pass_on_a_file_that_changed_is_expired_and_cannot_close_a_gate,file-digest level; a build digest and a provider or model change are not yet inputs
+ENG-AT-05,ZID-ENG-TRC-001,Unrelated partner obtains sandbox credential and signed webhook,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-06,ZID-ENG-TRC-001,No premature final verified webhook,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-07,ZID-ENG-TRC-001,Duplicate API events cannot duplicate billing or decisions,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-08,ZID-ENG-TRC-001,Provider unknown outcome reconciled before retry,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-09,ZID-ENG-TRC-001,PAD lab missing means high-assurance route blocked,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-10,ZID-ENG-TRC-001,Untrusted CSCA chain yields indeterminate,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-11,ZID-ENG-TRC-001,Incomplete UBO/authority cannot confer signing privilege,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-12,ZID-ENG-TRC-001,Formatted phone is not phone possession,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-13,ZID-ENG-TRC-001,Geocoded address is not proof of residence,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-14,ZID-ENG-TRC-001,Unreachable sanctions list is not clear,IN_PROGRESS,backend/app/tests/component/test_attestation_pg.py::test_a_stale_snapshot_is_hold_so_an_unreachable_register_cannot_keep_a_certification_alive,certification registry; the sanctions-list case has its own stale-list test
+ENG-AT-15,ZID-ENG-TRC-001,Shared device/IP does not automatically prove fraud,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-16,ZID-ENG-TRC-001,Parallel agent actions cannot overspend shared budget,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-17,ZID-ENG-TRC-001,Revoked sponsor denies subsequent tool call,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-18,ZID-ENG-TRC-001,"Credential revocation blocks later use, not historical data",NOT_STARTED,,no existing test exercises this statement
+ENG-AT-19,ZID-ENG-TRC-001,Offline signature verification works across key rotation,IN_PROGRESS,backend/app/tests/component/test_evidence_pg.py::test_worker_seals_and_offline_verifier_accepts_the_export,offline verification exists; verification across a key rotation is not shown by this test
+ENG-AT-20,ZID-ENG-TRC-001,Disallowed regional data transfer blocks route publish,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-21,ZID-ENG-TRC-001,Policy replay generates no invoices or external notifications,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-22,ZID-ENG-TRC-001,Zoiko iD billing isolated from Zoiko Billing product,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-23,ZID-ENG-TRC-001,Evidence export contains no biometric or secret payload,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-24,ZID-ENG-TRC-001,Unsupported certification or case study cannot publish,IN_PROGRESS,backend/app/tests/component/test_trust_center_register_pg.py::test_a_claim_is_drafted_approved_by_two_roles_published_superseded_withdrawn_and_never_edited,"claims need evidence, two reviewers and a gate; a case study is the endorsement rule in the domain tests"
+ENG-AT-25,ZID-ENG-TRC-001,Status page and internal reliability use same telemetry,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-26,ZID-ENG-TRC-001,Implementer cannot self-approve independent QA,IN_PROGRESS,backend/app/tests/component/test_trust_center_register_pg.py::test_the_database_refuses_what_the_code_should_never_attempt,enforced for claim approval and publication; the workbench gate also refuses an implementer as signer
+ENG-AT-27,ZID-ENG-TRC-001,US pilot does not implicitly activate UK or other market,IN_PROGRESS,backend/app/tests/unit/test_trace_workbench.py::test_one_markets_approval_does_not_activate_another,release tuple assessment; no production release process consumes it yet
+ENG-AT-28,ZID-ENG-TRC-001,"Accessible keyboard, screen-reader and zoom review",NOT_STARTED,,no existing test exercises this statement
+ENG-AT-29,ZID-ENG-TRC-001,Disaster recovery preserves lawful tombstones and receipts,NOT_STARTED,,no existing test exercises this statement
+ENG-AT-30,ZID-ENG-TRC-001,Provider removal invalidates downstream routes and claims,NOT_STARTED,,no existing test exercises this statement

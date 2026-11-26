@@ -1,6 +1,6 @@
 """Typed settings. Environment variables use the ZID_ prefix; no secret defaults (DEC-F5)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import Field
@@ -211,6 +211,9 @@ class Settings(ServiceSettings):
     company_evidence_kms_key_id: str | None = (
         None  # ZID_COMPANY_EVIDENCE_KMS_KEY_ID: signs company-verification and screening evidence
     )
+    verify_go_live_kms_key_id: str | None = (
+        None  # ZID_VERIFY_GO_LIVE_KMS_KEY_ID: signs a Verify API production grant; unset in a deployed cell means no grant can be approved
+    )
     # ZID_WEBHOOK_RETIRING_KEYS (JSON): keys still published during a signing-key rotation, as
     # [{"jwk": {...public key with its kid...}, "retire_at": "2026-11-30T00:00:00+00:00"}]; at most 30 days of overlap
     webhook_retiring_keys: list[dict[str, Any]] = []  # noqa: RUF012 - pydantic copies defaults
@@ -269,6 +272,18 @@ class Settings(ServiceSettings):
     verify_analytics_min_group: int = Field(default=20, ge=2, le=1000)
     verify_analytics_stale_minutes: int = Field(default=15, ge=1, le=24 * 60)
     verify_analytics_retention_days: int = Field(default=400, ge=30, le=3650)
+    # ZID-CP-WF12 Trust Center (CR-174). /.well-known/security.txt is served only when a contact is configured and its expiry is still ahead: a file that says nothing true, or has lapsed,
+    # is worse than none. ZID_TRUST_SECURITY_CONTACT is a mailto: or https: URI; ZID_TRUST_SECURITY_EXPIRES is an ISO 8601 time with a zone; the policy and encryption values are https URLs.
+    trust_security_contact: str | None = None
+    trust_security_expires: datetime | None = None
+    trust_security_policy_url: str | None = None
+    trust_security_encryption_url: str | None = None
+    trust_security_acknowledgments_url: str | None = None
+    # a secret mixed into the hash of a reporter's network address so the stored value cannot be reversed or compared across deployments
+    # Owner decisions (DEC-01, DEC-11) the code cannot make: how long after an emergency withdrawal its review is due, and the version of the confidentiality terms Legal approved.
+    trust_withdrawal_review_hours: int = Field(default=72, ge=1, le=24 * 30)
+    trust_room_terms_version: str = "UNAPPROVED-DRAFT"
+    trust_report_salt: str = "change-me-in-deployment"
     # reviewed languages the hosted page may offer (BCP 47); a language is listed only once its legal notice and copy are reviewed, never machine-translated
     hosted_verify_languages: list[str] = Field(default_factory=lambda: ["en"])
     email_routes: dict[str, str] = Field(default_factory=dict)
@@ -303,6 +318,15 @@ class Settings(ServiceSettings):
     # ZID_MESH_PROXY_SECRET_FILE: a file holding the secret the workload listener adds to every request it forwards. With it set, a forwarded
     # client certificate is honored only from a trusted proxy that also presents it. A deployed environment with trusted proxies requires it.
     mesh_proxy_secret_file: str | None = None
+    # ZID_PARTNER_MTLS_PROXIES / ZID_PARTNER_MTLS_PROXY_SECRET_FILE (CR-165): the edge proxies whose forwarded CLIENT certificate is believed at the Verify API token endpoint, and the file holding
+    # the shared secret they prove themselves with (at least 32 characters). With either missing, client-certificate credentials cannot authenticate anyone and cannot be registered.
+    partner_mtls_proxies: tuple[str, ...] = ()
+    # ZID_REVIEW_AGENT_ENABLED (CR-167): the review adviser is OFF unless this is true AND an adviser is installed. It is advisory only and needs privacy and security approval and an independent evaluation first.
+    review_agent_enabled: bool = False
+    mandate_signing: str = "off"  # "enforce": a mandate cannot be activated until its exact terms are confirmed (CR-169)
+    partner_mtls_proxy_secret_file: str | None = None
+    partner_mtls_header: str = "x-forwarded-client-cert"  # ZID_PARTNER_MTLS_HEADER: URL-encoded PEM or base64 DER of the leaf certificate
+    partner_mtls_secret_header: str = "x-zoiko-edge-secret"  # ZID_PARTNER_MTLS_SECRET_HEADER
     # ZID_AGENT_BUILDS (CR-064): must a blueprint release run an approved build? auto = yes everywhere but local, test and dev;
     # enforce = always; off = never, which a deployed environment refuses at start-up.
     agent_builds: Literal["auto", "off", "enforce"] = "auto"

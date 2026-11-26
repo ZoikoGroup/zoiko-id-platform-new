@@ -1,0 +1,42 @@
+{
+  "url": "https://partner.example.com/zoikoid-webhooks",
+  "body": "{\"specversion\":\"1.0\",\"id\":\"evt_1\",\"type\":\"com.zoiko.id.verification.api.session_decided.v1\",\"data\":{\"outcome\":\"verified\"}}",
+  "created": 1800000000,
+  "cases": {
+    "ES256": {
+      "jwk": {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": "CuOcFscSW_ys4MbtBCFcOoZUwrNqx0p3KesX1qgNMRI",
+        "y": "k8RAsTFHd_fWsZd4Oen4xNns_-cKxqfL99u1IWFrUHE",
+        "kid": "zid-whk-es256",
+        "alg": "ES256",
+        "use": "sig"
+      },
+      "headers": {
+        "Content-Type": "application/cloudevents+json",
+        "Content-Digest": "sha-256=:tCpPz6/LQSAoWpVs9Ji6KfqWIu+iXghhr2wck4p7m7k=:",
+        "Signature-Input": "zid=(\"@method\" \"@authority\" \"@target-uri\" \"content-type\" \"content-digest\" \"x-zoiko-event-id\");created=1800000000;keyid=\"zid-whk-es256\"",
+        "Signature": "zid=:D8GBwzTuLkhHO2SbuvXIZG1aZGE377orc/z9BC5Sa4EuQWSS62Wdm5lKHsfAS65bnsiHEarX422hlCezLSCVdw==:",
+        "X-Zoiko-Event-ID": "evt_1",
+        "X-Zoiko-Delivery-ID": "dlv_1"
+      }
+    },
+    "EdDSA": {
+      "jwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "x": "fX33pEDsZc4iFV7Wj8AWwwkZampbvnLQzpFmsHP3ohA",
+        "kid": "zid-whk-ed"
+      },
+      "headers": {
+        "Content-Type": "application/cloudevents+json",
+        "Content-Digest": "sha-256=:tCpPz6/LQSAoWpVs9Ji6KfqWIu+iXghhr2wck4p7m7k=:",
+        "Signature-Input": "zid=(\"@method\" \"@authority\" \"@target-uri\" \"content-type\" \"content-digest\" \"x-zoiko-event-id\");created=1800000000;keyid=\"zid-whk-ed\"",
+        "Signature": "zid=:b6r6sB/3TAbUeo6K00YnCPsjuyFBw6bsi/6UH1ASJvsZCxgtxjjx8UqYmL3NTfvmbxnKPGBOtMMkY/ItAdJPBw==:",
+        "X-Zoiko-Event-ID": "evt_1",
+        "X-Zoiko-Delivery-ID": "dlv_2"
+      }
+    }
+  }
+}

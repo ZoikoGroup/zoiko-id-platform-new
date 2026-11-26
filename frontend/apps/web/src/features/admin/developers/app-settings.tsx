@@ -70,6 +70,15 @@ export function AppSettings({ app }: { app: VerifyApiApplication }) {
         onChange={(v) => set({ origins: v })}
         isDisabled={retired}
       />
+      <TextField
+        label="Networks your server may call from (optional)"
+        description="One IP address or network per line, for example 203.0.113.7 or 203.0.113.0/24. When you list any, requests from anywhere else are refused, even with a valid token. Leave empty for no restriction."
+        multiline
+        rows={3}
+        value={draft.ipAllowlist}
+        onChange={(v) => set({ ipAllowlist: v })}
+        isDisabled={retired}
+      />
       {problem ? <p className="text-xs text-ink-muted">{problem}</p> : null}
       <Button size="sm" isDisabled={retired || problem !== null || save.isPending} pending={save.isPending} onPress={() => save.mutate(undefined)}>
         Save settings

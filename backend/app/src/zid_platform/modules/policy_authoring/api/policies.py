@@ -6,6 +6,7 @@ POST /v1/policy-releases                       a DRAFT (policy.release.draft, R1
 PUT  /v1/policy-releases/{id}                  edit a DRAFT (its author)
 POST /v1/policy-releases/{id}:validate         §18.1 checks + privilege diff; clean -> REVIEW
 POST /v1/policy-releases/{id}:simulate         one request: candidate vs active (no change)
+POST /v1/policy-releases/{id}:compare          many scenarios: a signed what-if ANALYSIS of the draft against the active release (CR-170)
 POST /v1/policy-releases/{id}:review           an independent reviewer signs (never the author)
 POST /v1/policy-releases/{id}:publish          REVIEW -> ACTIVE (policy.release.publish, R2;
                                                two independent reviewers for an R3 release)
@@ -191,6 +192,24 @@ async def validate(release_id: uuid.UUID, request: Request, caller: CallerDep) -
         "problems": v.problems,
         "privilege_diff": {"newly_allowed": v.newly_allowed, "newly_denied": v.newly_denied},
     }
+
+
+class WhatIfBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    scenarios: list[SimulateIn] = Field(min_length=1, max_length=200)
+
+
+@router.post("/{release_id}:compare", status_code=201)
+async def compare(release_id: uuid.UUID, body: WhatIfBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """Run each scenario under the draft and under the active release, and keep the result as a signed ANALYSIS (never attached to a receipt)."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=READ, resource=f"policy_release:{release_id}")
+        try:
+            return await service.signed_what_if(
+                conn, str(release_id), [s.model_dump() for s in body.scenarios], catalog=catalog(), requested_by=_me(caller), now=datetime.now(UTC)
+            )
+        except PolicyError as e:
+            raise http(e) from e
 
 
 @router.post("/{release_id}:simulate")

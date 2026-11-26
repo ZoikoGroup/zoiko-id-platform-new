@@ -195,10 +195,7 @@ def test_a_session_is_created_with_a_launch_link_shown_once_and_the_person_finis
             and d["decision_version"] == 1
             and d["supersedes_decision_id"] is None
         )
-        assert d["checks"] == [
-            {"method": "document_authenticity", "result": "pass"},
-            {"method": "face_match", "result": "pass"},
-        ]
+        assert d["checks"] == [{"method": "face_match", "result": "pass"}]  # the one check the product has, in the sandbox as in production
         assert (
             d["evidence_receipt_id"] is None
             and d["assurance"]["level"] == "SANDBOX_SIMULATED"
@@ -674,9 +671,10 @@ def test_guessing_launch_links_is_limited_and_the_catalogue_is_readable(
             "wf_document_only",
         } and "customer_onboarding" in wf["purposes"]
         pr = w.http.get("/v1/verify-api/products", headers=h).json()["items"]
-        assert {p["method"] for p in pr} == {"document_authenticity", "face_match"} and all(
-            p["environments"] == ["sandbox"] for p in pr
-        )
+        assert {p["method"] for p in pr} == {"document_authenticity", "face_match"}
+        env = {p["method"]: p["environments"] for p in pr}
+        assert env["document_authenticity"] == ["sandbox"]  # no live document authenticity check
+        assert env["face_match"] == ["sandbox", "production"]  # the live face route serves it
     finally:
         w.close()
 

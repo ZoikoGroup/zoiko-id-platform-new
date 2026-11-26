@@ -9,6 +9,7 @@ import { HoldsSection } from "./holds";
 import { KeysSection, ResolveHandleSection } from "./keys-identity";
 import { ProvenanceSection } from "./provenance";
 import { ReceiptsSection } from "./receipts";
+import { AuthorityAtDecisionSection, ClaimsRegisterSection, ExportRequestsSection, ForensicSection, StatusListSection, TrustInspectorSection } from "./wf08-sections";
 
 export function EvidencePage() {
   return (
@@ -26,6 +27,12 @@ export function EvidencePage() {
           { id: "holds", label: "Legal holds", content: <HoldsSection /> },
           { id: "cases", label: "Cases", content: <CasesSection /> },
           { id: "provenance", label: "Provenance", content: <ProvenanceSection /> },
+          { id: "authority", label: "Authority at decision", content: <AuthorityAtDecisionSection /> },
+          { id: "forensic", label: "Forensic reconstruction", content: <ForensicSection /> },
+          { id: "export-requests", label: "Export tiers", content: <ExportRequestsSection /> },
+          { id: "status", label: "Status list", content: <StatusListSection /> },
+          { id: "trust", label: "Trust inspector", content: <TrustInspectorSection /> },
+          { id: "claims", label: "Claims register", content: <ClaimsRegisterSection /> },
           {
             id: "keys",
             label: "Keys & identity",

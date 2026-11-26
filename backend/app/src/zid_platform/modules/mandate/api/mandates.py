@@ -9,6 +9,9 @@
     POST /v1/mandate-reservations/{id}:commit    commit after the protected side effect
     POST /v1/mandate-reservations/{id}:release   release unused capacity
     GET  /v1/mandates/{id}/balance               committed/reserved/remaining (informational only)
+    GET  /v1/mandates/{id}/canonical             the exact terms in one fixed form, their hash, and who has confirmed that hash (CR-169)
+    POST /v1/mandates/{id}:sign                  the grantor confirms the hash with a fresh strong sign-in    (mandate.sign, R3)
+    POST /v1/mandates/{id}:countersign           an independent second person does, for a mandate that can spend (mandate.countersign, R3)
     POST /v1/mandates/{id}:activate|:pause|:revoke
                                                  the executor or creator may pause, the creator may revoke;
                                                  anything else is `mandate.manage` (owner, administrators; CR-039)
@@ -39,6 +42,9 @@ from zid_platform.api_auth import (
     request_engine,
 )
 from zid_platform.modules.commercial.ports import require_feature
+from zid_platform.modules.evidence.ports import sign_evidence, verify_evidence
+from zid_platform.modules.mandate.application import signing
+from zid_platform.modules.mandate.domain.canonical import SIGNATURE_TYP, Role
 from zid_platform.modules.mandate.application.service import (
     MandateRequest,
     activate_mandate,
@@ -458,6 +464,55 @@ async def balance(mandate_id: uuid.UUID, request: Request, caller: CallerDep) ->
     }
 
 
+class MandateSignBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    canonical_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")  # the hash the person read, never the terms themselves
+
+
+def _keyring(request: Request) -> Any:
+    settings = getattr(request.app.state, "token_settings", None)
+    if settings is None:
+        raise http_error("DEPENDENCY_UNAVAILABLE", "No token issuer is configured.")
+    return settings
+
+
+@router.get("/v1/mandates/{mandate_id}/canonical")
+async def canonical(mandate_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+    settings = _keyring(request)
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await _own_or_oversight(conn, caller, str(mandate_id), action="mandate.read")
+        try:
+            return await signing.view(conn, str(mandate_id), lambda token: verify_evidence(token, SIGNATURE_TYP))
+        except LedgerError as e:
+            raise _ledger(e) from e
+
+
+async def _confirm(request: Request, caller: Caller, mandate_id: uuid.UUID, body: MandateSignBody, role: Role) -> dict[str, Any]:
+    settings = _keyring(request)
+    action = "mandate.sign" if role is Role.GRANTOR else "mandate.countersign"
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        # the policy decision point refuses a stale or weak sign-in for this R3 act, and the confirmation names the exact hash
+        await protected_action(conn, caller, action=action, resource=f"mandate:{mandate_id}", change=f"{role.value} {body.canonical_hash}")
+        try:
+            return await signing.sign(
+                conn, caller.ctx.tenant_id or "", mandate_id=str(mandate_id), role=role, signer=caller.ctx.principal_id or "", presented_hash=body.canonical_hash,
+                assurance_level=caller.authn.level, auth_time=caller.session_auth_time, signer_fn=sign_evidence, issuer=settings.issuer,
+                verify=lambda token: verify_evidence(token, SIGNATURE_TYP),
+            )  # fmt: skip
+        except LedgerError as e:
+            raise _ledger(e) from e
+
+
+@router.post("/v1/mandates/{mandate_id}:sign")
+async def sign_mandate(mandate_id: uuid.UUID, body: MandateSignBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    return await _confirm(request, caller, mandate_id, body, Role.GRANTOR)
+
+
+@router.post("/v1/mandates/{mandate_id}:countersign")
+async def countersign_mandate(mandate_id: uuid.UUID, body: MandateSignBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    return await _confirm(request, caller, mandate_id, body, Role.APPROVER)
+
+
 async def _move(
     request: Request,
     caller: Caller,
@@ -491,6 +546,8 @@ async def _move(
             )
         try:
             if target is MandateStatus.ACTIVE:  # re-resolves the source grant first (MAND-06)
+                if getattr(request.app.state, "mandate_signing", "off") == "enforce":
+                    await signing.require_signed(conn, str(mandate_id))  # CR-169: the exact terms must have been confirmed by everyone they need
                 status = await activate_mandate(
                     conn,
                     tenant_id=caller.ctx.tenant_id or "",

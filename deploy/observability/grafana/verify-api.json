@@ -1,0 +1,58 @@
+{
+  "title": "Verify API (partner platform)",
+  "uid": "zid-verify-api",
+  "description": "PROPOSED operating view of the partner Verify API (ZID-EXT-IDV-001 epic E20, CR-160). Built only on the zid_verify_api_* counters, which carry the environment, the outcome and the kind of event and never a company, session or address. No threshold is set here: availability and latency targets are decision D13 and belong to the owners.",
+  "tags": ["zoiko-id", "verify-api", "proposed"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      { "name": "environment", "type": "custom", "label": "Environment", "query": "sandbox,production", "current": { "text": "production", "value": "production" }, "options": [] }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Sessions by event", "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "description": "Started, decided and closed sessions. Closed growing faster than started means sessions are expiring or being cancelled in bulk: look at the partner's integration first.",
+      "targets": [{ "refId": "A", "expr": "sum by (event) (rate(zid_verify_api_sessions_total{environment=\"$environment\"}[5m]))", "legendFormat": "{{event}}" }]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Final results by outcome", "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "description": "A rise in inconclusive points at a provider or capture problem, not fraud.",
+      "targets": [{ "refId": "A", "expr": "sum by (outcome) (rate(zid_verify_api_decisions_total{environment=\"$environment\"}[15m]))", "legendFormat": "{{outcome}}" }]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Authentication by method and result", "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "description": "Token requests (secret, private_key_jwt) and bearer checks. denied and ip_denied rising over a baseline means guessing or a leaked credential; error means a fault in the cell.",
+      "targets": [{ "refId": "A", "expr": "sum by (method, result) (rate(zid_verify_api_auth_total[5m]))", "legendFormat": "{{method}} {{result}}" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Inconclusive share of final results (1h)", "gridPos": { "x": 12, "y": 8, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(increase(zid_verify_api_decisions_total{environment=\"$environment\",outcome=\"inconclusive\"}[1h])) / clamp_min(sum(increase(zid_verify_api_decisions_total{environment=\"$environment\"}[1h])), 1)" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit" } }
+    },
+    {
+      "id": 5, "type": "stat", "title": "Denied or blocked authentications (1h)", "gridPos": { "x": 18, "y": 8, "w": 6, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum(increase(zid_verify_api_auth_total{result=~\"denied|ip_denied|rate_limited\"}[1h]))" }]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Disputes, appeals and erasure requests", "gridPos": { "x": 12, "y": 12, "w": 12, "h": 4 },
+      "targets": [{ "refId": "A", "expr": "sum by (kind, event) (increase(zid_verify_api_cases_total[1h]))", "legendFormat": "{{kind}} {{event}}" }]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Production gate, credential approvals and prices", "gridPos": { "x": 0, "y": 16, "w": 24, "h": 6 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (event) (increase(zid_verify_api_go_live_total[1d]))", "legendFormat": "go-live {{event}}" },
+        { "refId": "B", "expr": "sum by (event) (increase(zid_verify_api_approvals_total[1d]))", "legendFormat": "credential approval {{event}}" },
+        { "refId": "C", "expr": "sum by (event) (increase(zid_verify_api_prices_total[1d]))", "legendFormat": "price {{event}}" }
+      ]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Metric label cardinality overflow", "gridPos": { "x": 0, "y": 22, "w": 24, "h": 5 },
+      "description": "Any growth means a label is being fed an unbounded value. These metrics only take fixed words: find and fix the caller.",
+      "targets": [{ "refId": "A", "expr": "sum by (metric) (increase(zid_telemetry_cardinality_overflow_total[1h]))", "legendFormat": "{{metric}}" }]
+    }
+  ]
+}

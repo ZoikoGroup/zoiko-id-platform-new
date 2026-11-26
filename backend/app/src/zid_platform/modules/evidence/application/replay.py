@@ -19,6 +19,7 @@ import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -39,6 +40,7 @@ from zid_platform.modules.evidence.application import ledger
 from zid_platform.modules.evidence.application.receipts import material_commitment, record_audit
 from zid_platform.modules.evidence.application.runtime import EvidenceRuntime, current_runtime
 from zid_platform.modules.evidence.application.vault import actor_handle, read_object
+from zid_platform.modules.evidence.domain import verification_axes
 from zid_platform.modules.evidence.domain.export_events import EXPORT_REFUSED
 from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
 from zid_platform.modules.evidence.domain.receipts import (
@@ -114,6 +116,10 @@ class ReceiptVerification:
             "ledgered": self.ledgered,
             "sealed": self.sealed,
             "checks": self.checks,
+            # CR-170 (ZID-CP-WF08 08.1): the same evidence as separate axes, with no overall success. `ok` above is only the integrity checks.
+            "axes": verification_axes.axes(
+                checks=self.checks, receipt_hash_valid=self.hash_ok, ledgered=self.ledgered, sealed=self.sealed, keys_source="trusted", now=datetime.now(UTC)
+            ),
         }
 
 

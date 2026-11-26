@@ -7,6 +7,11 @@ import { Check, Copy, KeyRound, Plus, RefreshCw, ShieldOff } from "lucide-react"
 import { useState } from "react";
 
 import { AppSettings } from "./app-settings";
+import { CasesCard } from "./cases";
+import { FraudCard } from "./fraud";
+import { ReviewCard } from "./review";
+import { CredentialApprovals } from "./credential-approvals";
+import { assertionSnippet, KEY_CREDENTIAL_NOTE, parsePublicKey } from "./credential-options-logic";
 import { GoLive } from "./go-live";
 import { TestLab } from "./test-lab";
 import { ResultsCard } from "./results";
@@ -84,6 +89,9 @@ export function VerifyApiSection() {
         )}
       </QueryView>
       <ResultsCard />
+      <ReviewCard />
+      <FraudCard />
+      <CasesCard />
       <UsageCard />
       {open ? <ApplicationDetail id={open} onClose={() => setOpen(null)} /> : null}
       {creating ? <CreateApplicationDialog environment={creating} onClose={() => setCreating(null)} onCreated={(a) => setOpen(a.application_id)} /> : null}
@@ -170,6 +178,7 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
   const detail = useCellQuery([...KEY, "application", id], (api) => api.verifyApi.application(id));
   const [issued, setIssued] = useState<VerifyApiIssued | null>(null);
   const [rotating, setRotating] = useState<VerifyApiCredential | null>(null);
+  const [keying, setKeying] = useState(false);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: KEY });
   };
@@ -181,7 +190,18 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
       {(a) => {
         const columns: Column<VerifyApiCredential>[] = [
           { key: "c", header: "Client ID", pinned: true, render: (c) => <CopyId value={c.client_id} short={false} label="client ID" /> },
-          { key: "k", header: "Secret", render: (c) => <span className="font-mono text-xs text-ink-muted">zps_…{c.secret_hint}</span> },
+          {
+            key: "k",
+            header: "Signs in with",
+            render: (c) =>
+              c.auth_method === "PRIVATE_KEY_JWT" ? (
+                <span className="text-xs text-ink-muted">
+                  Private key <span className="font-mono">{c.key_id}</span>
+                </span>
+              ) : (
+                <span className="font-mono text-xs text-ink-muted">Secret zps_…{c.secret_hint}</span>
+              ),
+          },
           { key: "s", header: "State", render: (c) => <Badge tone={credentialState(c).tone}>{credentialState(c).label}</Badge> },
           { key: "u", header: "Last used", render: (c) => when(c.last_used_at) },
           { key: "x", header: "Valid until", render: (c) => when(c.expires_at) },
@@ -192,9 +212,11 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
             render: (c) =>
               c.status === "ACTIVE" ? (
                 <span className="flex justify-end gap-2">
-                  <Button size="xs" variant="secondary" icon={<RefreshCw aria-hidden className="size-3.5" />} onPress={() => setRotating(c)}>
-                    Rotate
-                  </Button>
+                  {a.environment === "SANDBOX" ? (
+                    <Button size="xs" variant="secondary" icon={<RefreshCw aria-hidden className="size-3.5" />} onPress={() => setRotating(c)}>
+                      Rotate
+                    </Button>
+                  ) : null}
                   <Button size="xs" variant="secondary" icon={<ShieldOff aria-hidden className="size-3.5" />} isDisabled={revoke.isPending} onPress={() => revoke.mutate(c.credential_id)}>
                     Revoke
                   </Button>
@@ -206,7 +228,9 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
               ) : null,
           },
         ];
-        const first = a.credentials.find((c) => c.status === "ACTIVE")?.client_id ?? "<your client id>";
+        const firstActive = a.credentials.find((c) => c.status === "ACTIVE");
+        const first = firstActive?.client_id ?? "<your client id>";
+        const byKey = firstActive?.auth_method === "PRIVATE_KEY_JWT";
         return (
           <Card
             title={a.name}
@@ -239,14 +263,26 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
               <section aria-label="Credentials" className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-ink">Credentials</h3>
-                  <Button size="sm" icon={<Plus aria-hidden className="size-4" />} isDisabled={!canIssue(a.status) || issue.isPending} pending={issue.isPending} onPress={() => issue.mutate(undefined)}>
-                    Create credential
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {a.environment === "SANDBOX" ? (
+                      <>
+                        <Button size="sm" icon={<Plus aria-hidden className="size-4" />} isDisabled={!canIssue(a.status) || issue.isPending} pending={issue.isPending} onPress={() => issue.mutate(undefined)}>
+                          Create credential
+                        </Button>
+                        <Button size="sm" variant="secondary" icon={<KeyRound aria-hidden className="size-4" />} isDisabled={!canIssue(a.status)} onPress={() => setKeying(true)}>
+                          Create key credential
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-ink-muted">Production credentials need approval: see below.</span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-ink-muted">
                   A credential is a client ID and a secret. The secret is shown once, when you create it, and we keep only a fingerprint of it. To change a secret, rotate it: the new one works at once and the
                   old one keeps working for a short, chosen time so you can deploy without downtime.
                 </p>
+                <p className="text-xs text-ink-muted">{KEY_CREDENTIAL_NOTE}</p>
                 <DataTable<VerifyApiCredential>
                   caption="Credentials"
                   columns={columns}
@@ -275,6 +311,16 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
                 {a.redirect_origins.length ? <p className="pt-1 text-xs text-ink-muted">Customers return to: {a.redirect_origins.join(", ")}</p> : <p className="pt-1 text-xs text-ink-muted">No return addresses are set.</p>}
               </section>
 
+              {a.environment === "PRODUCTION" ? (
+                <CredentialApprovals
+                  app={a}
+                  onIssued={(r) => {
+                    setIssued(r);
+                    refresh();
+                  }}
+                />
+              ) : null}
+
               <AppSettings key={a.updated_at} app={a} />
 
               <TestLab applicationId={id} active={a.status === "ACTIVE"} />
@@ -282,11 +328,22 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
               <section aria-label="First call" className="space-y-2">
                 <h3 className="text-sm font-semibold text-ink">Try it from your server</h3>
                 <p className="text-xs text-ink-muted">Use your Zoiko iD API address in place of YOUR-API-ADDRESS. Replace the placeholders with your own values. Never put the secret in a web page or a mobile app.</p>
-                <pre className="overflow-x-auto rounded-lg border border-border bg-surface-sunken p-3 text-xs">{tokenSnippet(BASE, first)}</pre>
+                <pre className="overflow-x-auto rounded-lg border border-border bg-surface-sunken p-3 text-xs">{byKey ? assertionSnippet(BASE, first) : tokenSnippet(BASE, first)}</pre>
                 <pre className="overflow-x-auto rounded-lg border border-border bg-surface-sunken p-3 text-xs">{whoamiSnippet(BASE)}</pre>
               </section>
             </div>
             {issued ? <SecretDialog issued={issued} title="Your new credential" onDone={() => setIssued(null)} /> : null}
+            {keying ? (
+              <KeyDialog
+                applicationId={id}
+                onClose={() => setKeying(false)}
+                onIssued={(r) => {
+                  setKeying(false);
+                  setIssued(r);
+                  refresh();
+                }}
+              />
+            ) : null}
             {rotating ? (
               <RotateDialog
                 credential={rotating}
@@ -308,9 +365,12 @@ function ApplicationDetail({ id, onClose }: { id: string; onClose: () => void })
 
 function RotateDialog({ credential, applicationId, onClose, onRotated }: { credential: VerifyApiCredential; applicationId: string; onClose: () => void; onRotated: (r: VerifyApiIssued) => void }) {
   const [hours, setHours] = useState("24");
+  const [keyText, setKeyText] = useState("");
+  const byKey = credential.auth_method === "PRIVATE_KEY_JWT";
+  const key = parsePublicKey(keyText);
   const n = Number(hours);
-  const valid = /^\d{1,3}$/.test(hours) && n >= 1 && n <= 168;
-  const rotate = useCellMutation((api) => api.verifyApi.rotateCredential(applicationId, credential.credential_id, n), { onSuccess: onRotated });
+  const valid = /^\d{1,3}$/.test(hours) && n >= 1 && n <= 168 && (!byKey || key.jwk !== null);
+  const rotate = useCellMutation((api) => api.verifyApi.rotateCredential(applicationId, credential.credential_id, n, byKey ? (key.jwk ?? undefined) : undefined), { onSuccess: onRotated });
   return (
     <Dialog
       isOpen
@@ -337,6 +397,18 @@ function RotateDialog({ credential, applicationId, onClose, onRotated }: { crede
           description="Between 1 and 168 hours (7 days). 24 is a good start."
           errorMessage={valid ? undefined : "Enter a whole number of hours from 1 to 168."}
         />
+        {byKey ? (
+          <TextField
+            label="The new public key"
+            value={keyText}
+            onChange={setKeyText}
+            multiline
+            rows={5}
+            placeholder={'{"kty":"OKP","crv":"Ed25519","x":"..."}'}
+            description="Paste the public half of your new key as a JSON Web Key. Never paste a private key."
+            errorMessage={key.problem ?? undefined}
+          />
+        ) : null}
         <p className="text-xs text-ink-muted">Current credential: {credential.client_id}</p>
         {rotate.error ? <ApiErrorView error={rotate.error} title="The credential was not rotated" /> : null}
       </div>
@@ -346,13 +418,14 @@ function RotateDialog({ credential, applicationId, onClose, onRotated }: { crede
 
 /** The one place a secret appears. It cannot be closed until the person confirms they copied it, because there is no way to see it again. */
 function SecretDialog({ issued, title, onDone }: { issued: VerifyApiIssued; title: string; onDone: () => void }) {
-  const [confirmed, setConfirmed] = useState(false);
+  const secret = issued.client_secret;
+  const [confirmed, setConfirmed] = useState(secret === undefined);
   return (
     <Dialog
       isOpen
       onOpenChange={(o) => !o && confirmed && onDone()}
       title={title}
-      description="Copy the client ID and the secret into your server's configuration."
+      description={secret === undefined ? "Copy the client ID into your server's configuration. It signs in with its own private key." : "Copy the client ID and the secret into your server's configuration."}
       footer={
         <Button isDisabled={!confirmed} onPress={onDone}>
           Done
@@ -360,15 +433,24 @@ function SecretDialog({ issued, title, onDone }: { issued: VerifyApiIssued; titl
       }
     >
       <div className="space-y-4">
-        <Banner tone="warn" title="Shown only once">
-          {SECRET_WARNING}
-          {issued.old_credential_valid_until ? ` The credential you rotated keeps working until ${new Date(issued.old_credential_valid_until).toLocaleString("en-GB")}.` : ""}
-        </Banner>
+        {secret !== undefined ? (
+          <Banner tone="warn" title="Shown only once">
+            {SECRET_WARNING}
+            {issued.old_credential_valid_until ? ` The credential you rotated keeps working until ${new Date(issued.old_credential_valid_until).toLocaleString("en-GB")}.` : ""}
+          </Banner>
+        ) : (
+          <Banner tone="info" title="No secret to keep">
+            {KEY_CREDENTIAL_NOTE}
+            {issued.old_credential_valid_until ? ` The credential you rotated keeps working until ${new Date(issued.old_credential_valid_until).toLocaleString("en-GB")}.` : ""}
+          </Banner>
+        )}
         <CopyField label="Client ID" value={issued.client_id} />
-        <CopyField label="Secret" value={issued.client_secret} />
-        <Checkbox isSelected={confirmed} onChange={setConfirmed}>
-          I have copied the secret and stored it safely.
-        </Checkbox>
+        {secret !== undefined ? <CopyField label="Secret" value={secret} /> : issued.key_id ? <CopyField label="Public key ID" value={issued.key_id} /> : null}
+        {secret !== undefined ? (
+          <Checkbox isSelected={confirmed} onChange={setConfirmed}>
+            I have copied the secret and stored it safely.
+          </Checkbox>
+        ) : null}
       </div>
     </Dialog>
   );
@@ -396,5 +478,47 @@ function CopyField({ label, value }: { label: string; value: string }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/** A credential that holds only a PUBLIC key: the server signs a short assertion with its own private key, so there is no secret to leak. A key with private material is refused here, before it is sent. */
+function KeyDialog({ applicationId, onClose, onIssued }: { applicationId: string; onClose: () => void; onIssued: (r: VerifyApiIssued) => void }) {
+  const [text, setText] = useState("");
+  const key = parsePublicKey(text);
+  const create = useCellMutation((api) => api.verifyApi.issueCredential(applicationId, key.jwk ?? undefined), { onSuccess: onIssued });
+  return (
+    <Dialog
+      isOpen
+      onOpenChange={(o) => !o && !create.isPending && onClose()}
+      title="Create a key credential"
+      description="Register the public half of a key your server holds. We never see the private half."
+      footer={
+        <>
+          <Button variant="secondary" isDisabled={create.isPending} onPress={onClose}>
+            Cancel
+          </Button>
+          <Button pending={create.isPending} isDisabled={key.jwk === null} onPress={() => create.mutate(undefined)}>
+            Create credential
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Banner tone="info" title="How it works">
+          {KEY_CREDENTIAL_NOTE}
+        </Banner>
+        <TextField
+          label="Public key (JSON Web Key)"
+          value={text}
+          onChange={setText}
+          multiline
+          rows={6}
+          placeholder={'{"kty":"OKP","crv":"Ed25519","x":"..."}'}
+          description="An EC P-256 (ES256) or Ed25519 (EdDSA) public key. Never paste a private key: it is refused."
+          errorMessage={key.problem ?? undefined}
+        />
+        {create.error ? <ApiErrorView error={create.error} title="The credential was not created" /> : null}
+      </div>
+    </Dialog>
   );
 }

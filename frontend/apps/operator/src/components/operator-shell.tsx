@@ -78,6 +78,13 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Trust Center",
+    items: [
+      { id: "trust-claims", label: "Public claims", href: "/trust-center/claims", icon: Megaphone },
+      { id: "trust-ops", label: "Trust operations", href: "/trust-center/operations", icon: ListChecks },
+    ],
+  },
+  {
     label: "Commercial",
     items: [{ id: "commercial", label: "Commercial", href: "/commercial", icon: Receipt }],
   },

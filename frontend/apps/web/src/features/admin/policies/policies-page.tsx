@@ -232,6 +232,18 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
       ),
     { onSuccess: setSim },
   );
+  const keep = useCellMutation(
+    (api) =>
+      api.policies.compare(id, [
+        JSON.parse(simReq) as {
+          principal: string;
+          action: string;
+          resource: string;
+          context: Record<string, unknown>;
+        },
+      ]),
+    { success: "Comparison signed and kept" },
+  );
   const review = useCellMutation((api) => api.policies.review(id), {
     invalidate: refresh,
     success: "Review recorded",
@@ -378,6 +390,20 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
                 >
                   Simulate
                 </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  pending={keep.isPending}
+                  onPress={() => keep.mutate(undefined)}
+                >
+                  Keep as a signed comparison
+                </Button>
+                {keep.data ? (
+                  <p className="text-sm text-ink-muted">
+                    Kept as analysis {keep.data.analysis_id.slice(0, 8)}: {keep.data.claims.summary.counts.NEWLY_ALLOWED ?? 0} newly allowed, {keep.data.claims.summary.counts.NEWLY_DENIED ?? 0} newly denied, {keep.data.claims.summary.counts.UNCHANGED ?? 0} unchanged. It describes what would change and never alters a decision receipt.
+                  </p>
+                ) : null}
+                {keep.error ? <ApiErrorView error={keep.error} /> : null}
                 {simulate.error ? (
                   <ApiErrorView error={simulate.error} />
                 ) : null}

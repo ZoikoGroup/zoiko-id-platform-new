@@ -16,8 +16,9 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from zid_platform.modules.verify_api.domain.live import LIVE_METHOD
 from zid_platform.modules.verify_api.domain.model import PartnerError
-from zid_platform.modules.verify_api.domain.sessions import PRODUCTS, PURPOSES
+from zid_platform.modules.verify_api.domain.sessions import PURPOSES
 
 TERMS_VERSION = "2026-11"
 DPA_VERSION = "2026-11"
@@ -27,7 +28,9 @@ VOLUME_BANDS = {
     "10k_100k": "10,000 to 100,000 a month",
     "gt_100k": "More than 100,000 a month",
 }
-METHODS = tuple(p["method"] for p in PRODUCTS)
+METHODS = (
+    LIVE_METHOD,
+)  # the sandbox offers more; production can be approved only for the check the live product actually has
 PURPOSE_CHOICES = tuple(PURPOSES)
 MAX_MARKETS = 20
 COUNTRY = re.compile(r"^[A-Z]{2}$")
@@ -195,9 +198,10 @@ def manifest(
     reviewer_id: str,
     approver_id: str,
     approved_at: datetime,
+    company_check: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Exactly what was approved, in one record. The environment is production; the engine that serves it is a separate, later gate."""
-    return {
+    """Exactly what was approved, in one record. The environment is production; the engine that serves it is a separate, later gate. `company_check` is the company claim the platform itself read at approval (not a person's say-so)."""
+    out = {
         "kind": "verify_api.production_grant",
         "version": 1,
         "tenant_id": tenant_id,
@@ -214,6 +218,18 @@ def manifest(
         "approved_by": approver_id,
         "approved_at": approved_at.isoformat(),
     }
+    if (
+        company_check is not None
+    ):  # absent for a record made before the automatic check existed, so its digest is unchanged
+        out["company_check"] = dict(sorted(company_check.items()))
+    return out
+
+
+def company_fact(claim: tuple[str, datetime] | None) -> dict[str, Any]:
+    """What the company's own verification shows, from the claim the organization module holds: a registry match, or nothing. Documents alone are not a match."""
+    if claim is None:
+        return {"verified": False, "claim": None, "assessed_at": None}
+    return {"verified": True, "claim": claim[0], "assessed_at": claim[1].isoformat()}
 
 
 def digest(record: dict[str, Any]) -> bytes:

@@ -22,6 +22,7 @@ import {
   Rocket,
   Scale,
   ScanFace,
+  Route,
   ScrollText,
   ServerCog,
   Settings,
@@ -79,6 +80,7 @@ const NAV: NavGroup[] = [
       { id: "command-center", label: "Command Center", href: "/verify-api/command-center", icon: Gauge },
       { id: "idv-cases", label: "Verification cases", href: "/admin/idv-cases", icon: ScanFace },
       { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
+      { id: "trust-room", label: "Security documents", href: "/trust-room", icon: ShieldCheck },
     ],
   },
   {
@@ -107,6 +109,7 @@ const NAV: NavGroup[] = [
       { id: "signals", label: "Security signals", href: "/admin/signals", icon: RadioTower },
       { id: "provisioning", label: "Provisioning", href: "/admin/provisioning", icon: Users },
       { id: "evidence", label: "Evidence & audit", href: "/admin/evidence", icon: ScrollText },
+      { id: "routing", label: "Coverage & routing", href: "/admin/routing", icon: Route },
       { id: "operator-access", label: "Operator access", href: "/admin/operator-access", icon: UserLock },
       { id: "residency", label: "Residency", href: "/admin/residency", icon: Globe2 },
       { id: "agents", label: "Agents & tools", href: "/admin/agents", icon: Bot },

@@ -20,7 +20,7 @@ const lines = (...l: string[]): string => l.join("\n");
 
 /** Every operation a partner's server calls, with the scope it needs. The test compares this to the published contract in both directions. */
 export const OPERATIONS: { method: "GET" | "POST"; path: string; scope: string; summary: string }[] = [
-  { method: "POST", path: "/v1/verify-api/oauth2/token", scope: "(none)", summary: "Exchange your client ID and secret for a 15-minute bearer token." },
+  { method: "POST", path: "/v1/verify-api/oauth2/token", scope: "(none)", summary: "Exchange your client ID and secret, or a signed assertion from your private key, for a 15-minute bearer token." },
   { method: "GET", path: "/v1/verify-api/whoami", scope: "(any token)", summary: "Show what a token is: application, environment, scopes, expiry." },
   { method: "GET", path: "/v1/verify-api/workflows", scope: "workflows:read", summary: "List the workflows and which ones this application may start." },
   { method: "GET", path: "/v1/verify-api/products", scope: "products:read", summary: "List the checks and where they are available." },
@@ -39,8 +39,10 @@ export const OPERATIONS: { method: "GET" | "POST"; path: string; scope: string; 
 export const ERRORS: { code: string; status: number; meaning: string; action: string }[] = [
   { code: "AUTH_INVALID", status: 401, meaning: "The credentials or token are not valid. It is the only answer for a wrong client ID, a wrong secret, an expired or revoked token or a suspended application.", action: "Request a new token. If it keeps failing, check the credential in the console." },
   { code: "TENANT_SCOPE_DENIED", status: 403, meaning: "The token does not carry the scope this call needs.", action: "Give the application the scope in the console, then request a new token." },
+  { code: "IP_NOT_ALLOWED", status: 403, meaning: "The application has a list of allowed networks and this call came from outside it. It applies to the token request and to every call made with a token.", action: "Call from a listed network, or change the list in the application's settings." },
   { code: "ENVIRONMENT_MISMATCH", status: 403, meaning: "The session belongs to the other environment (sandbox or production).", action: "Use a token from the environment that made the session." },
-  { code: "PRODUCT_NOT_ENTITLED", status: 403, meaning: "This application cannot start live verifications yet.", action: "Use the sandbox, or finish going live." },
+  { code: "PRODUCT_NOT_ENTITLED", status: 403, meaning: "This application cannot start this live verification: production is not open for your company, or your approval does not include the check or workflow you asked for (live verification offers the document and selfie workflow with the face match check).", action: "Use the sandbox, or ask for the missing approval." },
+  { code: "MARKET_NOT_ENABLED", status: 403, meaning: "Live verification is not available for that country yet: your production approval does not name it, or Zoiko iD has not enabled it. Nothing was created and no customer was asked for anything.", action: "Use a country named in your approval, or ask for it to be added." },
   { code: "WORKFLOW_NOT_ENTITLED", status: 403, meaning: "This application is not allowed to start that workflow.", action: "Choose an allowed workflow (see GET /v1/verify-api/workflows) or change the application's settings." },
   { code: "NOT_FOUND", status: 404, meaning: "No such session for this application. Another application's session also answers this.", action: "Check the session ID and the application." },
   { code: "DECISION_NOT_AVAILABLE", status: 404, meaning: "There is no decision yet: the customer has not finished, or the session ended without one.", action: "Wait for the webhook, or read the session status first." },
@@ -200,8 +202,27 @@ export const SECTIONS: Section[] = [
       { kind: "p", text: "Send the token as Authorization: Bearer <token>. A token carries the scopes your application holds (or a subset you ask for with the scope field of the token request), belongs to one environment, and ends after 15 minutes, or at once if its credential is revoked or its application is suspended." },
       { kind: "list", items: [
         "Rotate a credential without downtime: the new secret works at once and the old one keeps working for the overlap you choose (1 hour to 7 days).",
+        "Prefer a private key to a secret: a key credential holds only your public key, so we keep nothing that could leak. Your server signs a short assertion (ES256 or EdDSA) with iss and sub set to the client ID, aud set to the token endpoint address, exp within 5 minutes and a new jti each time. Send it as client_assertion with client_assertion_type urn:ietf:params:oauth:client-assertion-type:jwt-bearer. Each assertion works once.",
+        "Limit where calls may come from: list the IP addresses or networks your server uses in the application's settings. Calls from anywhere else are refused (IP_NOT_ALLOWED), even with a valid token.",
         "Wrong credentials always get the same answer (AUTH_INVALID), so nothing says which part was wrong. Repeated failures for one client ID are limited.",
         "Responses that carry a token or a link are sent with Cache-Control: no-store.",
+      ] },
+    ],
+  },
+  {
+    id: "sdks",
+    title: "Client libraries",
+    blocks: [
+      { kind: "p", text: "Two small client libraries wrap the calls in this guide: sign in with a secret or a private key, start a verification, read the minimized decision, and check a signed webhook. Both are for your server only, never for a web page or a mobile app." },
+      { kind: "table", head: ["Language", "Where", "What it covers"], rows: [
+        ["Python 3.11+", "sdks/verify-api-python (package zoiko-verify)", "Token (secret or private key, renewed for you), sessions, decisions, rechecks, sandbox helpers, webhook verification."],
+        ["TypeScript / Node 20+", "sdks/typescript, module verify", "The same calls and webhook verification, with no runtime dependencies."],
+      ] },
+      { kind: "note", tone: "info", title: "Not yet on a package registry", text: "These libraries are in the Zoiko iD repository and are not published to PyPI or npm yet. Until they are, vendor the folder or ask your Zoiko iD contact for a build. Everything they do you can also do with the plain calls in this guide." },
+      { kind: "list", items: [
+        "Both check webhook deliveries against the published signing keys, refuse anything unsigned, stale, altered or signed by a retired key, and return the event id.",
+        "Both require your own Idempotency-Key on every call that creates something, and never make one up for you.",
+        "A private-key client signs a new single-use assertion for each token request; a secret client sends its secret only to the token endpoint.",
       ] },
     ],
   },
@@ -237,7 +258,7 @@ export const SECTIONS: Section[] = [
         "  \"status\": \"completed\",",
         "  \"outcome\": \"verified\",",
         "  \"assurance\": { \"scheme\": \"zoikoid-proofing\", \"level\": \"SANDBOX_SIMULATED\" },",
-        "  \"checks\": [ { \"method\": \"document_authenticity\", \"result\": \"pass\" }, { \"method\": \"face_match\", \"result\": \"pass\" } ],",
+        "  \"checks\": [ { \"method\": \"face_match\", \"result\": \"pass\" } ],",
         "  \"reason_codes\": [],",
         "  \"evidence_receipt_id\": null,",
         "  \"policy_version\": \"pol_sandbox_simulated\",",
@@ -327,7 +348,13 @@ export const SECTIONS: Section[] = [
     title: "Going live",
     blocks: [
       { kind: "p", text: "In the console, Developers, Go live, shows what is left. You need a test verification that passed, one that failed, and a working webhook endpoint. Then you ask, accept the terms and data-processing terms, and our team reviews your company and the countries and checks you want. After approval you can create production applications." },
-      { kind: "note", tone: "info", title: "Production verifications", text: "Approval says what your company is allowed to do. Live verifications themselves are switched on separately when the live service is connected; until then production requests answer PRODUCT_NOT_ENTITLED." },
+      { kind: "note", tone: "info", title: "What a live verification is", text: "A customer photographs an identity document and takes a live photograph of their face, and Zoiko iD compares the two. It runs no liveness test and does not check that the document is genuine, so a verified result carries the assurance level FACE_MATCH_NO_LIVENESS and lists one check: face_match. A face that does not match is a retake and, after the allowed tries, inconclusive. It is never reported as not verified, because the check cannot tell a different person from a poor photograph. Neither photograph is kept." },
+      { kind: "note", tone: "warn", title: "Live verification is enabled country by country", text: "Your approval names the countries and the check (face_match). Zoiko iD must also have enabled each country. If it has not, creating a session answers MARKET_NOT_ENABLED and nothing is created. The document-only workflow is sandbox only and is refused in production with PRODUCT_NOT_ENTITLED. The sandbox can still return outcomes live never will (not_verified and a review), so handle them; they are marked sandbox." },
+      { kind: "list", items: [
+        "Your customer's page tells them who is asking, what is photographed, who processes it and that nothing is kept. They must agree before anything is photographed, and can stop at any time.",
+        "Sending someone to the page is your job: launch_url comes back once from create. Their result comes to you by webhook and by the decision call. They are told only that the checking is done.",
+        "Treat a verified result as evidence for your own decision about the customer, never as the decision, and never as proof that the person is present or the document is real.",
+      ] },
     ],
   },
 ];

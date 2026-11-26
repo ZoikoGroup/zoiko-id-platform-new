@@ -28,7 +28,8 @@ from test_idv_media_pg import (
 )
 from zid_db import tenant_transaction
 from zid_platform.modules.verification import ports as verification_ports
-from zid_platform.modules.verification.api import idv_cases
+from zid_platform.modules.verification.api import idv_cases  # noqa: F401
+from zid_platform.modules.verification.application import capture_checks
 from zid_platform.modules.verification.infrastructure import privacy_adapter as pa
 from zid_platform.modules.verification.infrastructure.image_inspect import ImagingUnavailable
 
@@ -147,7 +148,7 @@ def test_if_the_photo_service_cannot_clean_the_image_nothing_is_kept_or_read(
     async def down(image: bytes, **_: Any) -> bytes:
         raise ImagingUnavailable("IMAGING_NOT_CONFIGURED")
 
-    monkeypatch.setattr(idv_cases, "sanitize_image", down)
+    monkeypatch.setattr(capture_checks, "sanitize_image", down)
     with app_for(rt_url, o, entry(media_retention_days=7)) as api:
         case = new_case(api, who)
         out = upload(api, who["applicant"], case, photo())

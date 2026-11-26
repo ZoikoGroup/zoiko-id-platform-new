@@ -1,5 +1,6 @@
 import type { VerifyApiApplication, VerifyApiSettingsIn } from "@zoiko/api-client";
 
+import { allowlistProblem, parseAllowlist } from "./credential-options-logic";
 import { firstOriginProblem, parseOrigins } from "./verify-api-logic";
 
 /** The plain-language side of an application's workflow and hosted-page settings (CR-156). The cell checks everything again. */
@@ -27,6 +28,7 @@ export type SettingsDraft = {
   supportUrl: string;
   locale: string;
   origins: string;
+  ipAllowlist: string; // one per line; empty = no restriction
 };
 
 /** The form as the application stands. An empty allowed list means every workflow, so every box starts ticked. */
@@ -39,6 +41,7 @@ export function toDraft(a: VerifyApiApplication): SettingsDraft {
     supportUrl: a.branding.support_url ?? "",
     locale: a.branding.locale ?? "",
     origins: a.redirect_origins.join("\n"),
+    ipAllowlist: a.ip_allowlist.join("\n"),
   };
 }
 
@@ -58,7 +61,7 @@ export function draftProblem(d: SettingsDraft): string | null {
     }
   }
   if (d.locale.trim() && !/^[a-z]{2}(-[A-Z]{2})?$/.test(d.locale.trim())) return "The language is like en or en-GB.";
-  return firstOriginProblem(parseOrigins(d.origins));
+  return allowlistProblem(parseAllowlist(d.ipAllowlist)) ?? firstOriginProblem(parseOrigins(d.origins));
 }
 
 /** The request. Every workflow ticked is sent as an empty list ("every approved workflow"), so a workflow added later is allowed too. */
@@ -74,5 +77,6 @@ export function toSettings(d: SettingsDraft): VerifyApiSettingsIn {
     allowed_workflows: all ? [] : [...d.workflows].sort(),
     default_workflow_id: d.defaultWorkflow,
     branding,
+    ip_allowlist: parseAllowlist(d.ipAllowlist),
   };
 }

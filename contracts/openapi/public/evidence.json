@@ -46,6 +46,44 @@
         "title": "AnnotateBody",
         "type": "object"
       },
+      "AuthoritySnapshotBody": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_at": {
+            "format": "date-time",
+            "title": "Decision At",
+            "type": "string"
+          },
+          "decision_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Decision Ref",
+            "type": "string"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeBody"
+            },
+            "maxItems": 200,
+            "title": "Edges",
+            "type": "array"
+          },
+          "subject_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Subject Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_ref",
+          "subject_ref",
+          "decision_at",
+          "edges"
+        ],
+        "title": "AuthoritySnapshotBody",
+        "type": "object"
+      },
       "BulkBody": {
         "additionalProperties": false,
         "properties": {
@@ -166,6 +204,169 @@
           "purpose"
         ],
         "title": "CaseItemBody",
+        "type": "object"
+      },
+      "ChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ChangeBody",
+        "type": "object"
+      },
+      "EdgeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "edge_id": {
+            "maxLength": 128,
+            "title": "Edge Id",
+            "type": "string"
+          },
+          "edge_type": {
+            "maxLength": 32,
+            "title": "Edge Type",
+            "type": "string"
+          },
+          "effective_from": {
+            "format": "date-time",
+            "title": "Effective From",
+            "type": "string"
+          },
+          "effective_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Until"
+          },
+          "evidence_digest": {
+            "maxLength": 140,
+            "title": "Evidence Digest",
+            "type": "string"
+          },
+          "issuer": {
+            "maxLength": 128,
+            "title": "Issuer",
+            "type": "string"
+          },
+          "obtained_at": {
+            "format": "date-time",
+            "title": "Obtained At",
+            "type": "string"
+          },
+          "state": {
+            "maxLength": 32,
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 128,
+            "title": "Subject",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "edge_type",
+          "edge_id",
+          "version",
+          "subject",
+          "state",
+          "issuer",
+          "obtained_at",
+          "effective_from",
+          "evidence_digest"
+        ],
+        "title": "EdgeBody",
+        "type": "object"
+      },
+      "ExportRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "legal_basis": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Basis"
+          },
+          "purpose": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "receipt_id": {
+            "format": "uuid",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecipientBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recipient_country": {
+            "anyOf": [
+              {
+                "maxLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Country"
+          },
+          "retention_days": {
+            "default": 30,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "tier": {
+            "enum": [
+              "PUBLIC_MINIMAL",
+              "CUSTOMER_EVIDENCE",
+              "AUDITOR_DOSSIER"
+            ],
+            "title": "Tier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "tier"
+        ],
+        "title": "ExportRequestBody",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -329,6 +530,35 @@
         "title": "PackageBody",
         "type": "object"
       },
+      "RecipientBody": {
+        "additionalProperties": false,
+        "properties": {
+          "contact": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Contact",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 32,
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "contact"
+        ],
+        "title": "RecipientBody",
+        "type": "object"
+      },
       "StageIn": {
         "additionalProperties": false,
         "properties": {
@@ -385,6 +615,22 @@
           "source_uri"
         ],
         "title": "StageIn",
+        "type": "object"
+      },
+      "SubjectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "subject_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Subject Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_ref"
+        ],
+        "title": "SubjectBody",
         "type": "object"
       },
       "UatBaselineIn": {
@@ -1619,6 +1865,25 @@
         ],
         "title": "RollbackIn",
         "type": "object"
+      },
+      "zid_platform__modules__evidence__api__wf08__DecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "DecisionBody",
+        "type": "object"
       }
     }
   },
@@ -1852,6 +2117,95 @@
           }
         },
         "summary": "Export Audit Events",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/authority-snapshots": {
+      "post": {
+        "operationId": "record_snapshot_v1_evidence_authority_snapshots_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthoritySnapshotBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Snapshot V1 Evidence Authority Snapshots Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Snapshot",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/authority-snapshots/{decision_ref}": {
+      "get": {
+        "operationId": "read_snapshot_v1_evidence_authority_snapshots__decision_ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "decision_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Decision Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Snapshot V1 Evidence Authority Snapshots  Decision Ref  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Snapshot",
         "tags": [
           "evidence"
         ]
@@ -2224,6 +2578,225 @@
           }
         },
         "summary": "Close Case",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/export-requests": {
+      "get": {
+        "operationId": "list_requests_v1_evidence_export_requests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Requests V1 Evidence Export Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Requests",
+        "tags": [
+          "evidence"
+        ]
+      },
+      "post": {
+        "operationId": "request_export_v1_evidence_export_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Export V1 Evidence Export Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Export",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/export-requests/{request_id}:approve": {
+      "post": {
+        "operationId": "approve_v1_evidence_export_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__wf08__DecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Evidence Export Requests  Request Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/export-requests/{request_id}:issue": {
+      "post": {
+        "operationId": "issue_v1_evidence_export_requests__request_id__issue_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue V1 Evidence Export Requests  Request Id  Issue Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/export-requests/{request_id}:refuse": {
+      "post": {
+        "operationId": "refuse_v1_evidence_export_requests__request_id__refuse_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/zid_platform__modules__evidence__api__wf08__DecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refuse V1 Evidence Export Requests  Request Id  Refuse Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refuse",
         "tags": [
           "evidence"
         ]
@@ -2940,6 +3513,236 @@
           }
         },
         "summary": "Verify",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/status-lists/{purpose}/subjects": {
+      "post": {
+        "operationId": "allocate_v1_evidence_status_lists__purpose__subjects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "pattern": "^(revocation|suspension)$",
+              "title": "Purpose",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubjectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Allocate V1 Evidence Status Lists  Purpose  Subjects Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Allocate",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/status-lists/{purpose}/subjects/{subject_ref}:reinstate": {
+      "post": {
+        "operationId": "reinstate_v1_evidence_status_lists__purpose__subjects__subject_ref__reinstate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "pattern": "^(revocation|suspension)$",
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "title": "Subject Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reinstate V1 Evidence Status Lists  Purpose  Subjects  Subject Ref  Reinstate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reinstate",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/status-lists/{purpose}/subjects/{subject_ref}:revoke": {
+      "post": {
+        "operationId": "revoke_v1_evidence_status_lists__purpose__subjects__subject_ref__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "pattern": "^(revocation|suspension)$",
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "subject_ref",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "title": "Subject Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke V1 Evidence Status Lists  Purpose  Subjects  Subject Ref  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "evidence"
+        ]
+      }
+    },
+    "/v1/evidence/status-lists/{purpose}:publish": {
+      "post": {
+        "operationId": "publish_v1_evidence_status_lists__purpose__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "pattern": "^(revocation|suspension)$",
+              "title": "Purpose",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish V1 Evidence Status Lists  Purpose  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish",
         "tags": [
           "evidence"
         ]

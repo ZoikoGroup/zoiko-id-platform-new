@@ -53,6 +53,140 @@
         "title": "ApplicationBody",
         "type": "object"
       },
+      "CertificationRunBody": {
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observations"
+        ],
+        "title": "CertificationRunBody",
+        "type": "object"
+      },
+      "CredentialApprovalDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "CredentialApprovalDecisionBody",
+        "type": "object"
+      },
+      "CredentialApprovalRequestBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "maxLength": 8,
+            "title": "Action",
+            "type": "string"
+          },
+          "certificate_pem": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Pem"
+          },
+          "credential_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Id"
+          },
+          "public_jwk": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Jwk"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "CredentialApprovalRequestBody",
+        "type": "object"
+      },
+      "CredentialIssueBody": {
+        "additionalProperties": false,
+        "description": "With a public key the credential is a private-key one: the company's server signs an assertion and no secret exists. Without a body it is a secret credential.",
+        "properties": {
+          "approval_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Id"
+          },
+          "certificate_pem": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Pem"
+          },
+          "public_jwk": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Jwk"
+          }
+        },
+        "title": "CredentialIssueBody",
+        "type": "object"
+      },
       "FixtureBody": {
         "additionalProperties": false,
         "description": "Every field is optional here: a test suite should not need to invent a person to see an outcome.",
@@ -149,6 +283,491 @@
         "title": "FixtureBody",
         "type": "object"
       },
+      "FixtureObservationBody": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_extra_field": {
+            "default": false,
+            "title": "Accepted Extra Field",
+            "type": "boolean"
+          },
+          "acted_on_event_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Acted On Event Ids",
+            "type": "array"
+          },
+          "acted_on_pending": {
+            "default": false,
+            "title": "Acted On Pending",
+            "type": "boolean"
+          },
+          "final_outcome_seen": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Outcome Seen"
+          },
+          "persona": {
+            "maxLength": 60,
+            "title": "Persona",
+            "type": "string"
+          },
+          "plan_digest": {
+            "maxLength": 100,
+            "title": "Plan Digest",
+            "type": "string"
+          },
+          "read_authoritative_state": {
+            "default": false,
+            "title": "Read Authoritative State",
+            "type": "boolean"
+          },
+          "refused_missing_field": {
+            "default": false,
+            "title": "Refused Missing Field",
+            "type": "boolean"
+          },
+          "seed": {
+            "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+            "title": "Seed",
+            "type": "string"
+          },
+          "signatures_refused": {
+            "default": 0,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Signatures Refused",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "persona",
+          "seed",
+          "plan_digest"
+        ],
+        "title": "FixtureObservationBody",
+        "type": "object"
+      },
+      "FixtureReportBody": {
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/FixtureObservationBody"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Observations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "observations"
+        ],
+        "title": "FixtureReportBody",
+        "type": "object"
+      },
+      "FraudApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_checksum": {
+            "maxLength": 100,
+            "title": "Manifest Checksum",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "manifest_checksum"
+        ],
+        "title": "FraudApproveBody",
+        "type": "object"
+      },
+      "FraudChallengeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "maxLength": 8,
+            "title": "Action",
+            "type": "string"
+          },
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "reason"
+        ],
+        "title": "FraudChallengeBody",
+        "type": "object"
+      },
+      "FraudCheckBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_reference": {
+            "maxLength": 128,
+            "title": "Customer Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_reference"
+        ],
+        "title": "FraudCheckBody",
+        "type": "object"
+      },
+      "FraudEntryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "basis_ref": {
+            "maxLength": 200,
+            "title": "Basis Ref",
+            "type": "string"
+          },
+          "lead_id": {
+            "maxLength": 40,
+            "title": "Lead Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "maxLength": 40,
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lead_id",
+          "reason_code",
+          "basis_ref"
+        ],
+        "title": "FraudEntryBody",
+        "type": "object"
+      },
+      "FraudEntryNoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "FraudEntryNoteBody",
+        "type": "object"
+      },
+      "FraudEntryResolveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "uphold": {
+            "title": "Uphold",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "note",
+          "uphold"
+        ],
+        "title": "FraudEntryResolveBody",
+        "type": "object"
+      },
+      "FraudFindingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "finding": {
+            "maxLength": 16,
+            "title": "Finding",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "finding"
+        ],
+        "title": "FraudFindingBody",
+        "type": "object"
+      },
+      "FraudNoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 1000,
+            "title": "Body",
+            "type": "string"
+          },
+          "edge_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edge Id"
+          },
+          "kind": {
+            "maxLength": 12,
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          }
+        },
+        "required": [
+          "kind",
+          "body"
+        ],
+        "title": "FraudNoteBody",
+        "type": "object"
+      },
+      "FraudNoteOnlyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "FraudNoteOnlyBody",
+        "type": "object"
+      },
+      "FraudProposeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "basis_ref": {
+            "maxLength": 200,
+            "title": "Basis Ref",
+            "type": "string"
+          },
+          "expected_lead_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Lead Version"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "impact_assessment_ref": {
+            "maxLength": 200,
+            "title": "Impact Assessment Ref",
+            "type": "string"
+          },
+          "lead_id": {
+            "maxLength": 40,
+            "title": "Lead Id",
+            "type": "string"
+          },
+          "proposal_type": {
+            "maxLength": 24,
+            "title": "Proposal Type",
+            "type": "string"
+          },
+          "target_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 60,
+            "title": "Target Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lead_id",
+          "proposal_type",
+          "target_ids",
+          "basis_ref",
+          "impact_assessment_ref",
+          "expires_at"
+        ],
+        "title": "FraudProposeBody",
+        "type": "object"
+      },
+      "FraudQueryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 40,
+            "title": "Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "maxProperties": 20,
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "FraudQueryBody",
+        "type": "object"
+      },
+      "FraudTriageBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "status": {
+            "maxLength": 16,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "FraudTriageBody",
+        "type": "object"
+      },
+      "FraudVersionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Version"
+          }
+        },
+        "title": "FraudVersionBody",
+        "type": "object"
+      },
       "GoLiveBody": {
         "additionalProperties": false,
         "properties": {
@@ -231,9 +850,367 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HostedCaptureBody": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "maxLength": 40,
+            "title": "Captured At",
+            "type": "string"
+          },
+          "image_base64": {
+            "maxLength": 8388624,
+            "minLength": 8,
+            "title": "Image Base64",
+            "type": "string"
+          },
+          "nonce": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Nonce",
+            "type": "string"
+          },
+          "selfie_base64": {
+            "maxLength": 8388624,
+            "minLength": 8,
+            "title": "Selfie Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nonce",
+          "captured_at",
+          "image_base64",
+          "selfie_base64"
+        ],
+        "title": "HostedCaptureBody",
+        "type": "object"
+      },
+      "HostedConsentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "consented": {
+            "title": "Consented",
+            "type": "boolean"
+          },
+          "notice_version": {
+            "maxLength": 80,
+            "title": "Notice Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consented",
+          "notice_version"
+        ],
+        "title": "HostedConsentBody",
+        "type": "object"
+      },
+      "LogoUploadBody": {
+        "additionalProperties": false,
+        "properties": {
+          "image_base64": {
+            "maxLength": 2796218,
+            "minLength": 8,
+            "title": "Image Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image_base64"
+        ],
+        "title": "LogoUploadBody",
+        "type": "object"
+      },
+      "ReviewFeedbackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "feedback": {
+            "maxLength": 12,
+            "title": "Feedback",
+            "type": "string"
+          }
+        },
+        "required": [
+          "feedback"
+        ],
+        "title": "ReviewFeedbackBody",
+        "type": "object"
+      },
+      "ReviewFindingsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          },
+          "findings": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 8,
+            "title": "Findings",
+            "type": "object"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "findings"
+        ],
+        "title": "ReviewFindingsBody",
+        "type": "object"
+      },
+      "ReviewInfoBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          },
+          "template": {
+            "maxLength": 40,
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "template"
+        ],
+        "title": "ReviewInfoBody",
+        "type": "object"
+      },
+      "ReviewNoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ReviewNoteBody",
+        "type": "object"
+      },
+      "ReviewOpenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "maxLength": 64,
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "title": "ReviewOpenBody",
+        "type": "object"
+      },
+      "ReviewProposeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_manifest_hash": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Manifest Hash"
+          },
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          },
+          "proposed_outcome": {
+            "maxLength": 24,
+            "title": "Proposed Outcome",
+            "type": "string"
+          },
+          "reason_code": {
+            "maxLength": 40,
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposed_outcome",
+          "reason_code"
+        ],
+        "title": "ReviewProposeBody",
+        "type": "object"
+      },
+      "ReviewRevealBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ReviewRevealBody",
+        "type": "object"
+      },
+      "ReviewSecondBody": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge_answers": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "maxProperties": 8,
+            "title": "Challenge Answers",
+            "type": "object"
+          },
+          "decision": {
+            "maxLength": 10,
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewSecondBody",
+        "type": "object"
+      },
+      "ReviewVersionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_case_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Case Version"
+          }
+        },
+        "title": "ReviewVersionBody",
+        "type": "object"
+      },
       "RotateBody": {
         "additionalProperties": false,
         "properties": {
+          "approval_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Id"
+          },
+          "certificate_pem": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Pem"
+          },
           "overlap_hours": {
             "anyOf": [
               {
@@ -246,6 +1223,18 @@
               }
             ],
             "title": "Overlap Hours"
+          },
+          "public_jwk": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Jwk"
           }
         },
         "title": "RotateBody",
@@ -264,6 +1253,67 @@
           "outcome"
         ],
         "title": "SandboxOutcomeBody",
+        "type": "object"
+      },
+      "ScopeChangeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective At"
+          },
+          "reason": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Scopes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scopes",
+          "reason"
+        ],
+        "title": "ScopeChangeBody",
+        "type": "object"
+      },
+      "ScopeRollbackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 200,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_version": {
+            "maximum": 100000.0,
+            "minimum": 0.0,
+            "title": "To Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "to_version",
+          "reason"
+        ],
+        "title": "ScopeRollbackBody",
         "type": "object"
       },
       "SessionBody": {
@@ -412,6 +1462,21 @@
             ],
             "title": "Default Workflow Id"
           },
+          "ip_allowlist": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Allowlist"
+          },
           "redirect_origins": {
             "anyOf": [
               {
@@ -489,6 +1554,52 @@
         "title": "TestSessionBody",
         "type": "object"
       },
+      "TryItBody": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "operation": {
+            "enum": [
+              "whoami",
+              "products",
+              "workflows",
+              "list_sessions",
+              "create_session"
+            ],
+            "title": "Operation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "TryItBody",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -527,6 +1638,67 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyCaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_reference": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Reference"
+          },
+          "kind": {
+            "maxLength": 12,
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1200,
+            "title": "Reason",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "kind",
+          "reason"
+        ],
+        "title": "VerifyCaseBody",
+        "type": "object"
+      },
+      "WebhookConfirmBody": {
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "maxLength": 64,
+            "minLength": 8,
+            "title": "Event Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "title": "WebhookConfirmBody",
         "type": "object"
       }
     }
@@ -646,6 +1818,162 @@
         ]
       }
     },
+    "/v1/verify-api/applications/{application_id}/certification": {
+      "get": {
+        "operationId": "certification_status_v1_verify_api_applications__application_id__certification_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Certification Status V1 Verify Api Applications  Application Id  Certification Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Certification Status",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/certification-runs": {
+      "post": {
+        "description": "Score a sandbox integration against every synthetic persona and keep the result with its digest. A test record: not a certification and not a go-live approval (ZID-CP-WF10, WF-10.12).",
+        "operationId": "record_certification_run_v1_verify_api_applications__application_id__certification_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificationRunBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Record Certification Run V1 Verify Api Applications  Application Id  Certification Runs Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Certification Run",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/credential-approvals": {
+      "post": {
+        "operationId": "request_approval_v1_verify_api_applications__application_id__credential_approvals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialApprovalRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Approval V1 Verify Api Applications  Application Id  Credential Approvals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Approval",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/applications/{application_id}/credentials": {
       "post": {
         "operationId": "issue_credential_v1_verify_api_applications__application_id__credentials_post",
@@ -661,6 +1989,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CredentialIssueBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "content": {
@@ -798,6 +2143,497 @@
           }
         },
         "summary": "Rotate Credential",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/logo": {
+      "delete": {
+        "operationId": "logo_remove_v1_verify_api_applications__application_id__logo_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Logo Remove V1 Verify Api Applications  Application Id  Logo Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logo Remove",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "get": {
+        "operationId": "logo_status_v1_verify_api_applications__application_id__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Logo Status V1 Verify Api Applications  Application Id  Logo Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logo Status",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "put": {
+        "operationId": "logo_upload_v1_verify_api_applications__application_id__logo_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogoUploadBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Logo Upload V1 Verify Api Applications  Application Id  Logo Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logo Upload",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/logo/image": {
+      "get": {
+        "operationId": "logo_image_v1_verify_api_applications__application_id__logo_image_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Logo Image",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/onboarding": {
+      "get": {
+        "description": "The first-verification checklist for one application: five steps, each with its evidence, and the time to the first verified webhook (ZID-CP-WF10, WF-10.01).",
+        "operationId": "application_onboarding_v1_verify_api_applications__application_id__onboarding_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Application Onboarding V1 Verify Api Applications  Application Id  Onboarding Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Application Onboarding",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/requests": {
+      "get": {
+        "description": "What this application's server called, newest first, filtered by status or route. Redacted by construction: nothing but templates, codes and ids is kept (WF-10.10).",
+        "operationId": "request_explorer_v1_verify_api_applications__application_id__requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "route",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Route"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Explorer V1 Verify Api Applications  Application Id  Requests Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Explorer",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/scope-changes": {
+      "get": {
+        "description": "Every version of what this application may do, newest first, with who proposed it, who approved it and when it takes or took effect (ZID-CP-WF10, WF-10.03).",
+        "operationId": "scope_change_history_v1_verify_api_applications__application_id__scope_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Scope Change History V1 Verify Api Applications  Application Id  Scope Changes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scope Change History",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "propose_scope_change_v1_verify_api_applications__application_id__scope_changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeChangeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Scope Change V1 Verify Api Applications  Application Id  Scope Changes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Scope Change",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/applications/{application_id}/scope-changes:rollback": {
+      "post": {
+        "description": "Restore an earlier scope set as a new version. Sessions and idempotency keys are untouched (ZID-CP-WF10, WF-10.12).",
+        "operationId": "rollback_scope_change_v1_verify_api_applications__application_id__scope_changes_rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScopeRollbackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback Scope Change V1 Verify Api Applications  Application Id  Scope Changes Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Scope Change",
         "tags": [
           "verify-api"
         ]
@@ -1000,6 +2836,62 @@
         ]
       }
     },
+    "/v1/verify-api/applications/{application_id}/try": {
+      "post": {
+        "description": "Run one partner call against a SANDBOX application and see the exact request and answer. A production application is refused: this can never reach production (ZID-CP-WF10, WF-10.05).",
+        "operationId": "try_it_v1_verify_api_applications__application_id__try_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TryItBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Try It V1 Verify Api Applications  Application Id  Try Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try It",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/applications/{application_id}:resume": {
       "post": {
         "operationId": "change_application_v1_verify_api_applications__application_id__resume_post",
@@ -1130,6 +3022,2452 @@
           }
         },
         "summary": "Change Application",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/cases": {
+      "get": {
+        "operationId": "list_cases_v1_verify_api_cases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Cases V1 Verify Api Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Cases",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "raise_case_v1_verify_api_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyCaseBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Raise Case V1 Verify Api Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raise Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/cases/{case_id}:withdraw": {
+      "post": {
+        "operationId": "withdraw_case_v1_verify_api_cases__case_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Withdraw Case V1 Verify Api Cases  Case Id  Withdraw Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/claims": {
+      "get": {
+        "description": "What may be said publicly about the developer platform, built from the evidence the platform holds, and what may not be said and why (ZID-CP-WF10, WF-10.12). Public.",
+        "operationId": "public_claims_v1_verify_api_claims_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Public Claims",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-approvals": {
+      "get": {
+        "operationId": "list_approvals_v1_verify_api_credential_approvals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Approvals V1 Verify Api Credential Approvals Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Approvals",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-approvals/{approval_id}:approve": {
+      "post": {
+        "operationId": "approve_v1_verify_api_credential_approvals__approval_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialApprovalDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Verify Api Credential Approvals  Approval Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-approvals/{approval_id}:cancel": {
+      "post": {
+        "operationId": "cancel_v1_verify_api_credential_approvals__approval_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel V1 Verify Api Credential Approvals  Approval Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-approvals/{approval_id}:reject": {
+      "post": {
+        "operationId": "reject_v1_verify_api_credential_approvals__approval_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialApprovalDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject V1 Verify Api Credential Approvals  Approval Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/credential-policy": {
+      "get": {
+        "description": "What a partner can rely on about credential lifetime, rotation overlap and how fast a revocation applies (ZID-CP-WF10, WF-10.04). A design statement, not a service objective. Public.",
+        "operationId": "credential_policy_v1_verify_api_credential_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Credential Policy",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/diagnostics/endpoints": {
+      "get": {
+        "description": "Each webhook endpoint's health from its newest deliveries, with the main problem and what to do (ZID-CP-WF10, WF-10.09).",
+        "operationId": "endpoint_health_v1_verify_api_diagnostics_endpoints_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Endpoint Health V1 Verify Api Diagnostics Endpoints Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Endpoint Health",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/errors": {
+      "get": {
+        "description": "Every error class a partner's server can meet, with what to do about each (ZID-CP-WF10 section 07.2). Public, like the API reference.",
+        "operationId": "partner_errors_v1_verify_api_errors_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Partner Errors",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures": {
+      "get": {
+        "description": "The sandbox persona catalog: fixed, versioned, synthetic scenarios including the awkward ones (ZID-CP-WF10, WF-10.08). Public.",
+        "operationId": "fixture_catalog_v1_verify_api_fixtures_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Fixture Catalog",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures/report": {
+      "post": {
+        "description": "Score what a partner's server did against the catalog. Stateless and public: nothing is stored. It is a test result, never a certification or a go-live approval.",
+        "operationId": "fixture_report_v1_verify_api_fixtures_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FixtureReportBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fixture Report",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fixtures/{persona_id}/plan": {
+      "get": {
+        "description": "How the events of one persona are to be delivered to a partner's endpoint, and what a correct server must do. The same persona and seed always give the same plan. Public.",
+        "operationId": "fixture_plan_v1_verify_api_fixtures__persona_id__plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "persona_id",
+            "required": true,
+            "schema": {
+              "title": "Persona Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": false,
+            "schema": {
+              "default": "1",
+              "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+              "title": "Seed",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fixture Plan",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions": {
+      "get": {
+        "operationId": "actions_v1_verify_api_fraud_actions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lead_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lead Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Actions V1 Verify Api Fraud Actions Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Actions",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions/{action_id}": {
+      "get": {
+        "operationId": "action_v1_verify_api_fraud_actions__action_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Action V1 Verify Api Fraud Actions  Action Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Action",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions/{action_id}:approve": {
+      "post": {
+        "operationId": "approve_v1_verify_api_fraud_actions__action_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudApproveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve V1 Verify Api Fraud Actions  Action Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions/{action_id}:reject": {
+      "post": {
+        "operationId": "reject_v1_verify_api_fraud_actions__action_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject V1 Verify Api Fraud Actions  Action Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions/{action_id}:revoke": {
+      "post": {
+        "operationId": "revoke_v1_verify_api_fraud_actions__action_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action_id",
+            "required": true,
+            "schema": {
+              "title": "Action Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke V1 Verify Api Fraud Actions  Action Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/actions:propose": {
+      "post": {
+        "operationId": "propose_v1_verify_api_fraud_actions_propose_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudProposeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose V1 Verify Api Fraud Actions Propose Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/analytics": {
+      "get": {
+        "operationId": "analytics_v1_verify_api_fraud_analytics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Analytics V1 Verify Api Fraud Analytics Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Analytics",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/audit/{scope}": {
+      "get": {
+        "operationId": "audit_v1_verify_api_fraud_audit__scope__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Audit V1 Verify Api Fraud Audit  Scope  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Audit",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist": {
+      "get": {
+        "operationId": "blocklist_v1_verify_api_fraud_blocklist_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Blocklist V1 Verify Api Fraud Blocklist Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Blocklist",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "propose_entry_v1_verify_api_fraud_blocklist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudEntryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Entry V1 Verify Api Fraud Blocklist Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist/{entry_id}:approve": {
+      "post": {
+        "operationId": "approve_entry_v1_verify_api_fraud_blocklist__entry_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Entry V1 Verify Api Fraud Blocklist  Entry Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist/{entry_id}:challenge": {
+      "post": {
+        "operationId": "challenge_entry_v1_verify_api_fraud_blocklist__entry_id__challenge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudEntryNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Challenge Entry V1 Verify Api Fraud Blocklist  Entry Id  Challenge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Challenge Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist/{entry_id}:reject": {
+      "post": {
+        "operationId": "reject_entry_v1_verify_api_fraud_blocklist__entry_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Entry V1 Verify Api Fraud Blocklist  Entry Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist/{entry_id}:remove": {
+      "post": {
+        "operationId": "remove_entry_v1_verify_api_fraud_blocklist__entry_id__remove_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudEntryNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Remove Entry V1 Verify Api Fraud Blocklist  Entry Id  Remove Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist/{entry_id}:resolve": {
+      "post": {
+        "operationId": "resolve_entry_v1_verify_api_fraud_blocklist__entry_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudEntryResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Entry V1 Verify Api Fraud Blocklist  Entry Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Entry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/blocklist:check": {
+      "post": {
+        "operationId": "check_reference_v1_verify_api_fraud_blocklist_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudCheckBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Check Reference V1 Verify Api Fraud Blocklist Check Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Reference",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/edges/{edge_id}": {
+      "get": {
+        "operationId": "edge_v1_verify_api_fraud_edges__edge_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "edge_id",
+            "required": true,
+            "schema": {
+              "title": "Edge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Edge V1 Verify Api Fraud Edges  Edge Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edge",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/edges/{edge_id}:challenge": {
+      "post": {
+        "operationId": "challenge_v1_verify_api_fraud_edges__edge_id__challenge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "edge_id",
+            "required": true,
+            "schema": {
+              "title": "Edge Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudChallengeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Challenge V1 Verify Api Fraud Edges  Edge Id  Challenge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Challenge",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/graph:refresh": {
+      "post": {
+        "operationId": "refresh_v1_verify_api_fraud_graph_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Refresh V1 Verify Api Fraud Graph Refresh Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/graphs/{seed}": {
+      "get": {
+        "operationId": "graph_v1_verify_api_fraud_graphs__seed__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seed",
+            "required": true,
+            "schema": {
+              "title": "Seed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 0,
+              "title": "Depth",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Graph V1 Verify Api Fraud Graphs  Seed  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Graph",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/graphs/{seed}/as-of": {
+      "get": {
+        "operationId": "graph_as_of_v1_verify_api_fraud_graphs__seed__as_of_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seed",
+            "required": true,
+            "schema": {
+              "title": "Seed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "at",
+            "required": true,
+            "schema": {
+              "format": "date-time",
+              "title": "At",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 0,
+              "title": "Depth",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Graph As Of V1 Verify Api Fraud Graphs  Seed  As Of Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Graph As Of",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/graphs/{seed}/export": {
+      "get": {
+        "description": "A masked file of the picture, for a stated purpose and reason. Never cached, and the company is told when to delete it.",
+        "operationId": "export_graph_v1_verify_api_fraud_graphs__seed__export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "seed",
+            "required": true,
+            "schema": {
+              "title": "Seed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "maxLength": 4,
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "maxLength": 30,
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": true,
+            "schema": {
+              "maxLength": 1000,
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "depth",
+            "required": false,
+            "schema": {
+              "default": 2,
+              "maximum": 10,
+              "minimum": 0,
+              "title": "Depth",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Graph",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads": {
+      "get": {
+        "operationId": "leads_v1_verify_api_fraud_leads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "finding",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finding"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Leads V1 Verify Api Fraud Leads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Leads",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}": {
+      "get": {
+        "operationId": "lead_v1_verify_api_fraud_leads__lead_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lead V1 Verify Api Fraud Leads  Lead Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lead",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}/notes": {
+      "post": {
+        "operationId": "note_v1_verify_api_fraud_leads__lead_id__notes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Note V1 Verify Api Fraud Leads  Lead Id  Notes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Note",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}/timeline": {
+      "get": {
+        "operationId": "lead_timeline_v1_verify_api_fraud_leads__lead_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lead Timeline V1 Verify Api Fraud Leads  Lead Id  Timeline Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lead Timeline",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}:escalate": {
+      "post": {
+        "operationId": "escalate_v1_verify_api_fraud_leads__lead_id__escalate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudVersionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Escalate V1 Verify Api Fraud Leads  Lead Id  Escalate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Escalate",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}:finding": {
+      "post": {
+        "operationId": "finding_v1_verify_api_fraud_leads__lead_id__finding_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudFindingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Finding V1 Verify Api Fraud Leads  Lead Id  Finding Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finding",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/leads/{lead_id}:triage": {
+      "post": {
+        "operationId": "triage_v1_verify_api_fraud_leads__lead_id__triage_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lead_id",
+            "required": true,
+            "schema": {
+              "title": "Lead Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudTriageBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Triage V1 Verify Api Fraud Leads  Lead Id  Triage Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Triage",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/metrics": {
+      "get": {
+        "operationId": "metrics_v1_verify_api_fraud_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Metrics V1 Verify Api Fraud Metrics Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Metrics",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/overview": {
+      "get": {
+        "operationId": "overview_v1_verify_api_fraud_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Overview V1 Verify Api Fraud Overview Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Overview",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/quality": {
+      "get": {
+        "operationId": "quality_v1_verify_api_fraud_quality_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Quality V1 Verify Api Fraud Quality Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Quality",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries": {
+      "get": {
+        "operationId": "queries_v1_verify_api_fraud_queries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Queries V1 Verify Api Fraud Queries Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queries",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "create_query_v1_verify_api_fraud_queries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudQueryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Query V1 Verify Api Fraud Queries Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries/{query_id}:approve": {
+      "post": {
+        "operationId": "approve_query_v1_verify_api_fraud_queries__query_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Query V1 Verify Api Fraud Queries  Query Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries/{query_id}:reject": {
+      "post": {
+        "operationId": "reject_query_v1_verify_api_fraud_queries__query_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Query V1 Verify Api Fraud Queries  Query Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries/{query_id}:replay": {
+      "post": {
+        "operationId": "replay_query_v1_verify_api_fraud_queries__query_id__replay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Replay Query V1 Verify Api Fraud Queries  Query Id  Replay Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries/{query_id}:retire": {
+      "post": {
+        "operationId": "retire_query_v1_verify_api_fraud_queries__query_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FraudNoteOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Query V1 Verify Api Fraud Queries  Query Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/queries/{query_id}:submit": {
+      "post": {
+        "operationId": "submit_query_v1_verify_api_fraud_queries__query_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "query_id",
+            "required": true,
+            "schema": {
+              "title": "Query Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Query V1 Verify Api Fraud Queries  Query Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Query",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/fraud/sources": {
+      "get": {
+        "operationId": "sources_v1_verify_api_fraud_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sources V1 Verify Api Fraud Sources Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sources",
         "tags": [
           "verify-api"
         ]
@@ -1286,6 +5624,187 @@
         ]
       }
     },
+    "/v1/verify-api/hosted/{token}/capture": {
+      "post": {
+        "operationId": "hosted_capture_v1_verify_api_hosted__token__capture_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostedCaptureBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hosted Capture",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/hosted/{token}/consent": {
+      "post": {
+        "operationId": "hosted_consent_v1_verify_api_hosted__token__consent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostedConsentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hosted Consent",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/hosted/{token}/logo": {
+      "get": {
+        "description": "No sign-in: the link is the grant. One 404 for everything (a wrong link, no logo, a logo not yet approved), so the page just shows the name.",
+        "operationId": "hosted_logo_v1_verify_api_hosted__token__logo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hosted Logo",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/hosted/{token}/nonce": {
+      "post": {
+        "operationId": "hosted_nonce_v1_verify_api_hosted__token__nonce_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hosted Nonce",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/hosted/{token}:open": {
       "post": {
         "operationId": "hosted_open_v1_verify_api_hosted__token__open_post",
@@ -1376,6 +5895,46 @@
         ]
       }
     },
+    "/v1/verify-api/mcp": {
+      "post": {
+        "description": "A read-only MCP server for the developer documentation: error lookup, API versions, the SDK register and the sandbox personas. It needs no sign-in because it returns only what the public pages show, and it offers no tool that acts for a company (ZID-CP-WF10, WF-10.11).",
+        "operationId": "developer_mcp_v1_verify_api_mcp_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Developer Mcp",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/mcp/registry": {
+      "get": {
+        "description": "The tools this MCP server offers, and the ones that are deliberately off with the reason. Public.",
+        "operationId": "developer_mcp_registry_v1_verify_api_mcp_registry_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Developer Mcp Registry",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/oauth2/token": {
       "post": {
         "description": "Exchange a client id and secret for a short-lived bearer token. One answer for every failure, and a limit on wrong secrets for one client id.",
@@ -1391,6 +5950,74 @@
           }
         },
         "summary": "Token",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/onboarding/cohort": {
+      "get": {
+        "description": "Median time to the first verified webhook over this company's applications; unfinished installs are counted, not averaged in (ZID-CP-WF10, WF-10.01).",
+        "operationId": "onboarding_cohort_v1_verify_api_onboarding_cohort_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Onboarding Cohort V1 Verify Api Onboarding Cohort Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Onboarding Cohort",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/onboarding/webhook-confirmations": {
+      "post": {
+        "description": "Your server says it received a delivered webhook and verified its signature, naming the event id. The last step of the first-verification checklist (ZID-CP-WF10, WF-10.01).",
+        "operationId": "confirm_webhook_v1_verify_api_onboarding_webhook_confirmations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Confirm Webhook V1 Verify Api Onboarding Webhook Confirmations Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Webhook",
         "tags": [
           "verify-api"
         ]
@@ -1416,6 +6043,73 @@
         ]
       }
     },
+    "/v1/verify-api/pricing/people": {
+      "get": {
+        "description": "The Verify People prices as shown on the pricing page, and an estimate for a plan and a monthly volume. Proposed prices, not an invoice. Public.",
+        "operationId": "people_pricing_v1_verify_api_pricing_people_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "plan",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z]{3,20}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plan"
+            }
+          },
+          {
+            "in": "query",
+            "name": "verifications",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1000000000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Verifications"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "People Pricing",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/v1/verify-api/products": {
       "get": {
         "operationId": "products_v1_verify_api_products_get",
@@ -1434,6 +6128,961 @@
           }
         },
         "summary": "Products",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases": {
+      "get": {
+        "operationId": "list_cases_v1_verify_api_review_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 30,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "queue",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 12,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Queue"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Cases V1 Verify Api Review Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Cases",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "open_case_v1_verify_api_review_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewOpenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Case V1 Verify Api Review Cases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}": {
+      "get": {
+        "operationId": "get_case_v1_verify_api_review_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Case V1 Verify Api Review Cases  Case Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}/advice": {
+      "get": {
+        "operationId": "advice_v1_verify_api_review_cases__case_id__advice_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advice V1 Verify Api Review Cases  Case Id  Advice Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advice",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}/advice/{advice_id}:feedback": {
+      "post": {
+        "operationId": "advice_feedback_v1_verify_api_review_cases__case_id__advice__advice_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "advice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Advice Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFeedbackBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Advice Feedback V1 Verify Api Review Cases  Case Id  Advice  Advice Id  Feedback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advice Feedback",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}/events": {
+      "get": {
+        "operationId": "events_v1_verify_api_review_cases__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Events V1 Verify Api Review Cases  Case Id  Events Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}/evidence/{evidence_id}:reveal": {
+      "post": {
+        "operationId": "reveal_v1_verify_api_review_cases__case_id__evidence__evidence_id__reveal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evidence_id",
+            "required": true,
+            "schema": {
+              "title": "Evidence Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRevealBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reveal V1 Verify Api Review Cases  Case Id  Evidence  Evidence Id  Reveal Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reveal",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:agent-advice": {
+      "post": {
+        "operationId": "agent_advice_v1_verify_api_review_cases__case_id__agent_advice_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Agent Advice V1 Verify Api Review Cases  Case Id  Agent Advice Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent Advice",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:appeal": {
+      "post": {
+        "operationId": "appeal_v1_verify_api_review_cases__case_id__appeal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Appeal V1 Verify Api Review Cases  Case Id  Appeal Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Appeal",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:claim": {
+      "post": {
+        "operationId": "claim_v1_verify_api_review_cases__case_id__claim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewVersionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Claim V1 Verify Api Review Cases  Case Id  Claim Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Claim",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:escalate": {
+      "post": {
+        "operationId": "escalate_v1_verify_api_review_cases__case_id__escalate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Escalate V1 Verify Api Review Cases  Case Id  Escalate Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Escalate",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:findings": {
+      "post": {
+        "operationId": "findings_v1_verify_api_review_cases__case_id__findings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFindingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Findings V1 Verify Api Review Cases  Case Id  Findings Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Findings",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:heartbeat": {
+      "post": {
+        "operationId": "heartbeat_v1_verify_api_review_cases__case_id__heartbeat_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Heartbeat V1 Verify Api Review Cases  Case Id  Heartbeat Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Heartbeat",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:info-received": {
+      "post": {
+        "operationId": "info_received_v1_verify_api_review_cases__case_id__info_received_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewVersionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Info Received V1 Verify Api Review Cases  Case Id  Info Received Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Info Received",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:propose": {
+      "post": {
+        "operationId": "propose_v1_verify_api_review_cases__case_id__propose_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewProposeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose V1 Verify Api Review Cases  Case Id  Propose Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:release": {
+      "post": {
+        "operationId": "release_v1_verify_api_review_cases__case_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release V1 Verify Api Review Cases  Case Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:request-info": {
+      "post": {
+        "operationId": "request_info_v1_verify_api_review_cases__case_id__request_info_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInfoBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Info V1 Verify Api Review Cases  Case Id  Request Info Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Info",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/review-cases/{case_id}:second-review": {
+      "post": {
+        "operationId": "second_review_v1_verify_api_review_cases__case_id__second_review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewSecondBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Second Review V1 Verify Api Review Cases  Case Id  Second Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Second Review",
         "tags": [
           "verify-api"
         ]
@@ -1554,6 +7203,72 @@
           }
         },
         "summary": "Simulate Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/scope-changes/{change_id}:approve": {
+      "post": {
+        "description": "A person other than the proposer approves widening a production application. The proposer is refused.",
+        "operationId": "approve_scope_change_v1_verify_api_scope_changes__change_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Change Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Scope Change V1 Verify Api Scope Changes  Change Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Scope Change",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sdks": {
+      "get": {
+        "description": "The SDK release register: what each package is, whether it is published, signed and tested, and the strongest button it has earned (ZID-CP-WF10, WF-10.06). Public.",
+        "operationId": "partner_sdks_v1_verify_api_sdks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Partner Sdks",
         "tags": [
           "verify-api"
         ]
@@ -1730,6 +7445,51 @@
           }
         },
         "summary": "Session Detail",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sessions/{session_id}/trace": {
+      "get": {
+        "description": "One verification followed through the request, the route decision, the decisions and the webhook deliveries, by canonical ids (WF-10.10).",
+        "operationId": "session_trace_v1_verify_api_sessions__session_id__trace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session Trace V1 Verify Api Sessions  Session Id  Trace Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Trace",
         "tags": [
           "verify-api"
         ]
@@ -2237,6 +7997,67 @@
           }
         },
         "summary": "Recheck Session",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/versions": {
+      "get": {
+        "description": "The partner API versions, their state, support dates, changelog and migration notes, each tied to an immutable schema snapshot (ZID-CP-WF10, WF-10.05). Public.",
+        "operationId": "api_versions_v1_verify_api_versions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Api Versions",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/versions/{version}/openapi.json": {
+      "get": {
+        "description": "The exact OpenAPI of one released version. It never changes after release: its digest is in the register.",
+        "operationId": "api_version_snapshot_v1_verify_api_versions__version__openapi_json_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Api Version Snapshot",
         "tags": [
           "verify-api"
         ]

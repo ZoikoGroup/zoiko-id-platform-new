@@ -13,7 +13,10 @@ import { MarketView } from "./market-views";
 import { PlanOffersView } from "./plan-offers";
 import { PlansAndPrices } from "./plans-prices";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
+import { ReviewHoldsView } from "./review-holds";
+import { VerifyCasesView } from "./verify-cases";
 import { VerifyGoLiveView } from "./verify-go-live";
+import { VerifyPricesView } from "./verify-prices";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
@@ -87,6 +90,9 @@ export function CommercialPage() {
             ),
           },
           { id: "verify-go-live", label: "Verify API go-live", content: <VerifyGoLiveView /> },
+          { id: "verify-cases", label: "Verify API cases", content: <VerifyCasesView /> },
+          { id: "review-holds", label: "Review holds", content: <ReviewHoldsView /> },
+          { id: "verify-prices", label: "Verify API prices", content: <VerifyPricesView /> },
           { id: "market", label: "Market release", content: <MarketView /> },
           { id: "sales", label: GROUP_LABEL.sales, content: <Actions group="sales" /> },
           { id: "billing", label: GROUP_LABEL.billing, content: <Actions group="billing" /> },

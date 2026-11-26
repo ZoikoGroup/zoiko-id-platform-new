@@ -116,6 +116,15 @@ def create_app(
     ).rstrip("/")
     app.state.hosted_verify_languages = list(settings.hosted_verify_languages)
     # WF-02 Command Center policy (D-01): smallest group a figure may describe, freshness limit; the cell a customer's incidents are filtered by
+    app.state.trust_security_contact = settings.trust_security_contact
+    app.state.trust_security_expires = settings.trust_security_expires
+    app.state.trust_security_policy_url = settings.trust_security_policy_url
+    app.state.trust_security_encryption_url = settings.trust_security_encryption_url
+    app.state.trust_security_acknowledgments_url = settings.trust_security_acknowledgments_url
+    app.state.trust_report_salt = settings.trust_report_salt
+    app.state.trust_withdrawal_review_hours = settings.trust_withdrawal_review_hours
+    app.state.trust_room_terms_version = settings.trust_room_terms_version
+    app.state.trust_report_tenant = settings.operator_tenant_id
     app.state.verify_analytics_min_group = settings.verify_analytics_min_group
     app.state.verify_analytics_stale_minutes = settings.verify_analytics_stale_minutes
     app.state.cell_id = settings.cell_id
@@ -230,6 +239,17 @@ def create_app(
             return None
         return await _person_claim(conn, subject_ref, now)
 
+    from .modules.verification.ports import partner_capture as _partner_capture
+    from .modules.verify_api.application import live_service as _verify_live
+    from .modules.verify_api.ports import go_live_service as _verify_go_live
+
+    _verify_live.configure(
+        lambda: _partner_capture.services_from_state(app.state)
+    )  # a production session is made only where the owners have published the face route and acknowledged its limits
+
+    _verify_go_live.configure_company_source(
+        _company_claim
+    )  # production for a Verify API partner needs the company's own registry-matched claim; the verify_api module imports no organization code
     configure_screening_sources(
         _screening_admin, _screening_claim
     )  # screening asks who may request it and which identity claim a subject rests on; it imports neither the tenant, verification nor organization module
@@ -292,6 +312,17 @@ def create_app(
     from .crypto_runtime import company_evidence_signer
 
     app.state.company_evidence_sign = company_evidence_signer(settings)
+    from .crypto_runtime import verify_go_live_signer
+
+    app.state.verify_go_live_sign = verify_go_live_signer(settings)
+    app.state.review_agent_enabled = settings.review_agent_enabled
+    app.state.mandate_signing = settings.mandate_signing if settings.mandate_signing in ("off", "enforce") else "off"
+    app.state.review_adviser = None  # no model is installed here; a deployment that has an approved one sets it
+    from .modules.verify_api.application import edge_cert as _edge_cert
+
+    app.state.partner_mtls = _edge_cert.config_from_settings(
+        settings
+    )  # client-certificate sign-in works only with trusted edge proxies AND their shared secret; otherwise it is off
     app.state.domain_checks = None  # DNS TXT / HTTPS well-known (real network; tests inject)
     app.state.secret_broker = _secret_broker(settings)
     app.state.token_settings = None
@@ -456,18 +487,27 @@ def create_app(
         from .modules.decision.api.authzen import router as authzen_router
         from .modules.decision.api.insights import router as insights_router
         from .modules.evidence.api.evidence import router as evidence_router
+        from .modules.evidence.api.public_proof import router as evidence_public_proof_router
         from .modules.evidence.api.v2 import router as evidence_v2_router
         from .modules.evidence.api.v2_documents import router as evidence_v2_documents_router
         from .modules.evidence.api.v2_extract import router as evidence_v2_extract_router
         from .modules.evidence.api.v2_holds import router as privacy_holds_v2_router
         from .modules.evidence.api.v2_trust_store import router as evidence_v2_trust_store_router
         from .modules.evidence.api.v2_uploads import router as evidence_v2_uploads_router
+        from .modules.evidence.api.wf08 import public_router as evidence_status_public_router
+        from .modules.evidence.api.wf08 import router as evidence_wf08_router
         from .modules.federation.api.federation import router as federation_router
         from .modules.integration.api.integration import router as integration_router
+        from .modules.machine.api.agent_credentials import router as agent_credentials_router
         from .modules.machine.api.agents import router as agents_router
         from .modules.machine.api.api_agents import router as api_agents_router
         from .modules.machine.api.daara import router as agent_daara_router
         from .modules.machine.api.governance import router as agent_governance_router
+        from .modules.machine.api.idp import router as idp_router
+        from .modules.machine.api.mcp import metadata_router as mcp_metadata_router
+        from .modules.machine.api.mcp import router as mcp_router
+        from .modules.machine.api.revocation import router as revocation_router
+        from .modules.machine.api.tool_actions import router as tool_actions_router
         from .modules.machine.api.tool_calls import router as tool_calls_router
         from .modules.machine.api.workloads import router as workloads_router
         from .modules.mandate.api.mandates import router as mandates_router
@@ -561,6 +601,9 @@ def create_app(
         from .modules.tenant.api.org_units import router as org_units_router
         from .modules.tenant.api.residency import router as residency_router
         from .modules.tenant.api.tenants import router as tenants_router
+        from .modules.trust_center.api.public import router as trust_center_public_router
+        from .modules.trust_center.api.register import router as trust_center_router
+        from .modules.trust_center.api.room import router as trust_center_room_router
         from .modules.verification.api.address_checks import router as address_checks_router
         from .modules.verification.api.applicant import hosted_gate
         from .modules.verification.api.applicant import router as applicant_router
@@ -577,6 +620,7 @@ def create_app(
         from .modules.verification.api.device_checks import router as device_checks_router
         from .modules.verification.api.idv_cases import router as idv_cases_router
         from .modules.verification.api.offerings import router as offerings_router
+        from .modules.verification.api.routing import router as verification_routing_router
         from .modules.verification.api.tiers import router as verification_tiers_router
         from .modules.verification.api.v2_age import router as v2_age_router
         from .modules.verification.api.v2_alternatives import router as v2_alternatives_router
@@ -587,9 +631,14 @@ def create_app(
         from .modules.verification.api.v2_workflows import router as v2_workflows_router
         from .modules.verification.api.verification import router as verification_router
         from .modules.verify_analytics.api.analytics import router as verify_analytics_router
+        from .modules.verify_api.api.approvals import router as verify_api_approvals_router
+        from .modules.verify_api.api.cases import router as verify_api_cases_router
         from .modules.verify_api.api.console_sessions import router as verify_api_console_router
+        from .modules.verify_api.api.fraud import router as verify_api_fraud_router
         from .modules.verify_api.api.go_live import router as verify_api_go_live_router
+        from .modules.verify_api.api.logos import router as verify_api_logos_router
         from .modules.verify_api.api.results import router as verify_api_results_router
+        from .modules.verify_api.api.review import router as verify_api_review_router
         from .modules.verify_api.api.sessions import router as verify_api_sessions_router
         from .modules.verify_api.api.usage import router as verify_api_usage_router
         from .modules.verify_api.api.verify_api import router as verify_api_router
@@ -626,6 +675,9 @@ def create_app(
             credential_v2_identity_router,
             evidence_v2_extract_router,
             principals_router,
+            evidence_public_proof_router,
+            evidence_status_public_router,
+            evidence_wf08_router,
             evidence_router,
             evidence_v2_router,
             evidence_v2_documents_router,
@@ -659,6 +711,9 @@ def create_app(
             idv_cases_router,
             applicant_router,
             verify_analytics_router,
+            trust_center_router,
+            trust_center_public_router,
+            trust_center_room_router,
             biometric_methods_router,
             check_methods_router,
             check_cases_router,
@@ -670,6 +725,7 @@ def create_app(
             kyb_company_router,
             v2_alternatives_router,
             v2_providers_router,
+            verification_routing_router,
             privacy_v2_router,
             privacy_rights_v2_router,
             privacy_policy_v2_router,
@@ -697,6 +753,12 @@ def create_app(
             agent_daara_router,
             access_readiness_router,
             tool_calls_router,
+            tool_actions_router,
+            revocation_router,
+            idp_router,
+            mcp_router,
+            mcp_metadata_router,
+            agent_credentials_router,
             screening_signals_router,
             screening_requests_router,
             screening_provider_events_router,
@@ -710,6 +772,11 @@ def create_app(
             verify_api_go_live_router,
             verify_api_usage_router,
             verify_api_results_router,
+            verify_api_cases_router,
+            verify_api_review_router,
+            verify_api_fraud_router,
+            verify_api_logos_router,
+            verify_api_approvals_router,
             verify_api_admin_router,
             verify_api_sessions_router,
             commercial_admin_router,
@@ -1018,6 +1085,38 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
 
             await country_opening_store.refresh(engine)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def mcp_resource_challenge(request: Request, call_next: Any) -> Any:
+        """RFC 9728: a refused call to the agent tool gateway points the client at the resource metadata, so an MCP client knows where to learn who issues the tokens it accepts."""
+        response = await call_next(request)
+        if response.status_code == 401 and request.url.path == "/v1/machine/mcp":
+            settings = getattr(request.app.state, "token_settings", None)
+            base = str(getattr(settings, "public_base_url", "") or str(request.base_url)).rstrip("/")
+            hint = f'resource_metadata="{base}/.well-known/oauth-protected-resource/v1/machine/mcp"'
+            current = response.headers.get("www-authenticate", "")
+            if "resource_metadata" not in current:
+                response.headers["www-authenticate"] = f"{current}, {hint}" if current else f"Bearer {hint}"
+        return response
+
+    @app.middleware("http")
+    async def verify_api_request_log(request: Request, call_next: Any) -> Any:
+        """One row for each authenticated call a partner's server made to the Verify API: the route template, status, error code and trace id, nothing from the body (CR-173)."""
+        response = await call_next(request)
+        seen = getattr(request.state, "verify_api_log", None)
+        engine = getattr(request.app.state, "engine", None)
+        if seen is not None and engine is not None:
+            import time
+
+            from .modules.verify_api.application import request_log
+
+            who, trace_id, started = seen
+            route = request.scope.get("route")
+            await request_log.record(
+                engine, who, method=request.method, template=getattr(route, "path", None), path=request.url.path, status=response.status_code, error_code=getattr(request.state, "error_code", None),
+                trace_id=trace_id, session_id=getattr(request.state, "log_session_id", None) or request.path_params.get("session_id"), duration_ms=int((time.monotonic() - started) * 1000),
+            )  # fmt: skip
+        return response
 
     @app.middleware("http")
     async def usage_meter(request: Request, call_next: Any) -> Any:

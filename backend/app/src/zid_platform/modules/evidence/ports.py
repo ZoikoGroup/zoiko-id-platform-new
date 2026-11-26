@@ -14,6 +14,7 @@ Worker: `worker_pass` (sequence, checkpoint, anchor, retention sweep).
 from __future__ import annotations
 
 from zid_platform.modules.evidence.application import review_photo
+from zid_platform.modules.evidence.application.wf08_services import record_authority_snapshot
 from zid_platform.modules.evidence.application import trust as trust_model
 from zid_platform.modules.evidence.application.active_auth import (
     verify as verify_active_authentication,
@@ -64,6 +65,8 @@ from zid_platform.modules.evidence.application.runtime import (
     EvidenceRuntime,
     configure_runtime,
     current_runtime,
+    sign_evidence,
+    verify_evidence,
     runtime_from_settings,
 )
 from zid_platform.modules.evidence.application.scanner import scan as scan_content
@@ -136,6 +139,9 @@ __all__ = [
     "commitment",
     "configure_runtime",
     "current_runtime",
+    "record_authority_snapshot",
+    "sign_evidence",
+    "verify_evidence",
     "effective_csca",
     "erase_subject",
     "erase_subject_ref",

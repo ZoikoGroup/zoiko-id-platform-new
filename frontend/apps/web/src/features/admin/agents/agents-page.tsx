@@ -89,9 +89,14 @@ export function AgentsPage() {
         title="Agents & tools"
         description="AI agents, the blueprints they are built from, and the tools they may use. An agent is an identity with accountable people behind it, not a user account."
         actions={
-          <Link className={buttonClass("secondary", "md")} href="/admin/agents/governance">
-            Governance &amp; monitoring
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link className={buttonClass("secondary", "md")} href="/admin/agents/controls">
+              Agent controls
+            </Link>
+            <Link className={buttonClass("secondary", "md")} href="/admin/agents/governance">
+              Governance &amp; monitoring
+            </Link>
+          </div>
         }
       />
       <div className="space-y-4">

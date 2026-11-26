@@ -588,13 +588,30 @@ export type ReceiptSummary = {
 export type ReceiptAnnotation = { annotation_id: string; kind: string; body: Record<string, unknown>; record_hash: string; created_at: Iso };
 export type ReceiptDetail = ReceiptSummary & { receipt: Record<string, unknown>; annotations: ReceiptAnnotation[] };
 export type VerificationCheck = { name: string; ok: boolean; detail: string };
+/** The verification result as separate axes, with no overall success (ZID-CP-WF08 section 08.1, CR-170). */
+export type VerificationAxes = {
+  signature_integrity: "VALID" | "INVALID" | "INDETERMINATE";
+  issuer_trust: "TRUSTED" | "UNTRUSTED" | "UNKNOWN";
+  proof_completeness: "COMPLETE" | "PARTIAL" | "MISSING";
+  time_proof: "VERIFIED_TIMESTAMP" | "UNVERIFIED_TIMESTAMP" | "NONE" | "INVALID";
+  status_at_decision: string;
+  status_now: string;
+  status_freshness: "CURRENT" | "STALE" | "UNKNOWN";
+  real_world_claim_verification: "NOT_ASSESSED";
+  execution_status: string;
+  reasons: string[];
+  caveat: string;
+  success: null;
+};
 export type ReceiptVerification = {
   receipt_id: string;
+  /** Only the integrity checks passed. It is not an overall verdict: read `axes`. */
   ok: boolean;
   receipt_hash_valid: boolean;
   ledgered: boolean;
   sealed: boolean;
   checks: VerificationCheck[];
+  axes?: VerificationAxes;
 };
 export type ReplayResultValue =
   | "VERIFIED_MATCH"
@@ -4942,17 +4959,22 @@ export type VerifyApiApplication = {
   allowed_workflows: string[];
   default_workflow_id: string | null;
   branding: VerifyApiBranding;
+  /** Networks the application's server may call from; empty means no restriction (CR-158). */
+  ip_allowlist: string[];
   created_at: Iso;
   updated_at: Iso;
 };
 /** Hosted-page settings: only these four, from an approved set. */
 export type VerifyApiBranding = { display_name?: string; theme?: string; support_url?: string; locale?: string };
-export type VerifyApiSettingsIn = { redirect_origins?: string[]; allowed_workflows?: string[]; default_workflow_id?: string; branding?: VerifyApiBranding };
+export type VerifyApiSettingsIn = { redirect_origins?: string[]; allowed_workflows?: string[]; default_workflow_id?: string; branding?: VerifyApiBranding; ip_allowlist?: string[] };
 /** What a person may see of a credential: the public client id and the last four characters of the secret, never the secret. */
 export type VerifyApiCredential = {
   credential_id: string;
   client_id: string;
-  secret_hint: string;
+  /** The last four characters of a secret credential's secret; null for a key credential, which has no secret. */
+  secret_hint: string | null;
+  auth_method: "SECRET" | "PRIVATE_KEY_JWT";
+  key_id: string | null;
   status: "ACTIVE" | "ROTATING" | "REVOKED" | "EXPIRED";
   created_at: Iso;
   expires_at: Iso;
@@ -5022,16 +5044,20 @@ export type VerifyApiGoLiveOperatorRequest = VerifyApiGoLiveRequest & { tenant_i
 export type VerifyApiAttestations = { company_verified: boolean; terms_signed: boolean; privacy_reviewed: boolean; billing_ready: boolean; provider_approved: boolean };
 export type VerifyApiUsageCounts = { sessions_started: number; verified: number; not_verified: number; inconclusive: number; review_required: number; canceled: number; expired: number };
 export type VerifyApiUsageRow = VerifyApiUsageCounts & { application_id: string; application_name: string; environment: "sandbox" | "production" };
+/** An indicative cost in one currency: each priced usage fact with the price used, and whether every fact with usage was priced. Money is text, never a float; this is not an invoice. */
+export type VerifyApiCostLine = { meter: string; label: string; units: number; unit_rate: string; amount: string; price_from: string };
+export type VerifyApiCost = { currency: string; lines: VerifyApiCostLine[]; total: string; complete: boolean };
 export type VerifyApiUsage = {
   month: string;
-  billing: { state: string; note: string };
+  billing: { state: string; note: string; cost: VerifyApiCost[] };
   totals: { sandbox: VerifyApiUsageCounts; production: VerifyApiUsageCounts };
   items: VerifyApiUsageRow[];
   reconciliation: { sessions_started: { sessions: number; ledger: number }; checks_completed: { sessions: number; ledger: number }; reconciled: boolean };
 };
-export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
+export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; signed: boolean; signature: string | null; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
 export type VerifyApiGoLive = {
   certification: VerifyApiGoLiveCheck[];
+  company: { verified: boolean; claim: string | null; assessed_at: string | null };
   request: VerifyApiGoLiveRequest | null;
   grant: VerifyApiGrant | null;
   terms_version: string;
@@ -5050,4 +5076,453 @@ export type VerifyApiGoLiveIn = {
   accept_dpa: boolean;
 };
 /** The one answer that carries a secret. It is shown once and never again. */
-export type VerifyApiIssued = { credential_id: string; client_id: string; client_secret: string; secret_hint: string; expires_at: Iso; replaces?: string; old_credential_valid_until?: Iso };
+/** A secret credential carries its secret here, once. A private-key credential has none: it carries the id of the public key instead. */
+export type VerifyApiIssued = { credential_id: string; client_id: string; auth_method: "SECRET" | "PRIVATE_KEY_JWT"; client_secret?: string; secret_hint?: string; key_id?: string; expires_at: Iso; replaces?: string; old_credential_valid_until?: Iso };
+/** A dispute, an appeal or an erasure request (CR-159). Never carries the customer reference. */
+export type VerifyApiCase = {
+  case_id: string;
+  kind: "DISPUTE" | "APPEAL" | "ERASURE";
+  status: "OPEN" | "IN_REVIEW" | "RESOLVED" | "REJECTED" | "WITHDRAWN";
+  session_id: string | null;
+  reason: string;
+  note: string | null;
+  sessions_erased: number | null;
+  created_at: Iso;
+  decided_at: Iso | null;
+};
+/** The operator's view of a case: which company, and who took it into review. Never the customer reference. */
+export type VerifyApiCaseOperator = VerifyApiCase & { tenant_id: string; reviewer_id: string | null };
+/** A second administrator's approval for a production credential (CR-162). The person who asked cannot decide it; it is spent once, within 24 hours, on exactly what it names. */
+export type VerifyApiApproval = { approval_id: string; application_id: string; action: "ISSUE" | "ROTATE"; credential_id: string | null; with_key: boolean; status: "PENDING" | "APPROVED" | "CONSUMED" | "CANCELED" | "REJECTED" | "EXPIRED"; requested_by: string; decided_by: string | null; note: string | null; created_at: Iso; expires_at: Iso; decided_at: Iso | null };
+export type VerifyApiApprovalIn = { action: "ISSUE" | "ROTATE"; credential_id?: string; public_jwk?: Record<string, string> };
+/** A review case (ZID-CP-WF04, CR-167). `case_version` is what a change must name; `lease` is who holds it now. */
+export type ReviewCaseState = "QUEUED" | "CLAIMED" | "INVESTIGATING" | "AWAITING_APPLICANT" | "ESCALATED" | "SPECIALIST_REVIEW" | "AWAITING_SECOND_REVIEW" | "RETURNED" | "APPROVED_FINAL";
+export type ReviewCase = {
+  case_id: string;
+  session_id: string;
+  case_type: "REVIEW" | "APPEAL";
+  parent_case_id: string | null;
+  status: ReviewCaseState;
+  case_version: number;
+  queue: "STANDARD" | "SPECIALIST";
+  four_eyes_required: boolean;
+  required_checks: string[];
+  findings: Record<string, "pass" | "fail" | "inconclusive">;
+  policy_version: string;
+  final_outcome: string | null;
+  created_at: Iso;
+  sla_due_at: Iso;
+  overdue: boolean;
+  lease: { reviewer: string; expires_at: Iso } | null;
+  on_hold: boolean;
+};
+export type ReviewEvidence = { evidence_id: string; kind: string; label: string; classification: "STANDARD" | "SENSITIVE" | "RESTRICTED"; content_hash: string; summary: Record<string, unknown> | null };
+export type ReviewCaseDetail = ReviewCase & {
+  evidence: ReviewEvidence[];
+  proposal: { proposal_id: string; outcome: string; reason_code: string; reviewer: string; created_at: Iso } | null;
+  appeal_case_id: string | null;
+  /** A proposal must name exactly this: it changes when the evidence does. */
+  evidence_manifest_hash: string;
+  /** The second reviewer's checklist, every point of which must be confirmed to approve. */
+  challenges: string[];
+  /** The only requests a reviewer may send the applicant, with their plain wording. */
+  info_templates: Record<string, string>;
+  /** The signed-in person asking, so the screen can tell what is theirs. */
+  viewer: string;
+};
+export type ReviewList = Items<ReviewCase> & { viewer: string };
+export type ReviewReveal = { evidence_id: string; label: string; detail: Record<string, unknown>; visible_until: Iso };
+export type ReviewEvent = { seq: number; type: string; actor: string; reason: string | null; data: Record<string, unknown>; digest: string; at: Iso };
+export type ReviewTrail = { case_id: string; chain_intact: boolean; problems: string[]; events: ReviewEvent[] };
+export type ReviewFeedback = "helpful" | "incorrect" | "ignored";
+export type ReviewAdvice = { advice_id: string; status: "ADVICE" | "ABSTAINED" | "REJECTED" | "FAILED"; advice?: { summary?: string; suggested_outcome?: string | null; citations?: string[] }; abstain_reason?: string | null; flags?: string[]; advisory_only?: boolean };
+export type ReviewProposeIn = { expected_case_version: number; proposed_outcome: string; reason_code: string; evidence_manifest_hash: string };
+export type ReviewSecondIn = { expected_case_version: number; decision: "approve" | "return" | "escalate"; challenge_answers: Record<string, boolean>; note?: string };
+/** Agent controls (ZID-CP-WF07, CR-169): stops, what became of an authorized call, outside provider bindings, credentials, mandate signing and risk signals. */
+export type StopScope = "AGENT" | "SPONSOR" | "BLUEPRINT" | "ISSUER" | "TENANT";
+export type EnforcementReport = { acknowledged: { point: string; how: string }[]; pending: unknown[]; failed: unknown[]; unsupported: { point: string; reason: string }[]; enforced_everywhere: boolean; epoch: number };
+export type StopPlan = {
+  dry_run: true;
+  scope: StopScope;
+  subject: string | null;
+  would_stop: { agents: string[]; agent_count: number; live_mandates: string[]; live_mandate_count: number; grants_not_yet_spent: number };
+  would_not_change: { actions_already_running_or_unknown: number; note: string };
+  enforcement: EnforcementReport;
+  as_of: Iso;
+};
+export type StopEvent = {
+  event_id: string;
+  epoch: number;
+  scope: StopScope;
+  subject: string | null;
+  reason: string;
+  actor: string;
+  targets: { agent_ids: string[]; agent_count: number; mandates_paused: number; bindings_revoked?: number };
+  enforcement: EnforcementReport;
+  effective_at: Iso;
+  state: "OPEN" | "CLOSED";
+  closed_by: string | null;
+  closed_at: Iso | null;
+  close_note: string | null;
+};
+export type ToolActionState = "AUTHORIZED" | "DISPATCHED" | "EXECUTED" | "FAILED" | "UNKNOWN" | "COMPENSATED";
+export type ToolActionReceipt = { receipt_id: string; revision: number; state: ToolActionState; digest: string; signature_valid?: boolean; issued_at: Iso; payload: { conclusion: string; outcomes: Record<string, boolean>; limits: string } };
+export type ToolAction = {
+  action_id: string;
+  agent_id: string;
+  tool_id: string;
+  resource: string;
+  state: ToolActionState;
+  conclusion: string;
+  revision: number;
+  reservation_id: string | null;
+  mandate_id: string | null;
+  updated_at: Iso;
+  latest_receipt?: ToolActionReceipt | null;
+};
+export type IdpBinding = {
+  binding_id: string;
+  agent_id: string;
+  profile: string;
+  profile_label: string;
+  certified: boolean;
+  issuer: string;
+  subject: string;
+  audience: string;
+  environment: string;
+  key_ids: string[];
+  state: "ACTIVE" | "STALE" | "EXPIRED" | "REVOKED";
+  last_ok_at: Iso | null;
+  last_failure: string | null;
+  external_claims: Record<string, string>;
+  note: string | null;
+  is_authority: false;
+};
+export type IdpBindingIn = { profile: string; issuer: string; subject: string; audience: string; keys: Record<string, unknown>[]; environment?: string };
+export type AgentCredentialItem = { credential_id: string; agent_id: string; key_thumbprint: string; audience: string | null; mandate_id: string | null; evidence_class: string; status: "ACTIVE" | "REVOKED"; issued_at: Iso; expires_at: Iso; authority_evaluated: false; credential?: string };
+export type CredentialVerdict = {
+  verdict: "NOT_VALID" | "VALID_BUT_POSSESSION_NOT_SHOWN" | "IDENTITY_VERIFIED_AUTHORITY_NOT_EVALUATED";
+  indicators: { identity_verified: boolean; credential_valid: boolean; key_possession: boolean | null; authority_evaluated: false; may_spend: null; limits: string };
+  reason_codes: string[];
+  as_of: Iso;
+};
+export type RiskSignal = { kind: string; severity: "attention" | "info"; subject: string; since: Iso | null; text: string; is_a_finding: false };
+export type RiskReport = { as_of: Iso; signals: RiskSignal[]; counts: { total: number; attention: number; by_kind: Record<string, number> }; cannot_see: string[]; score: null; note: string };
+export type MandateSigning = {
+  mandate_id: string;
+  canonical_hash: string;
+  canonical_terms: Record<string, unknown>;
+  signing: { required: string[]; have: string[]; missing: string[]; complete: boolean; stale: string[] };
+  signatures: { role: string; signer: string; canonical_hash: string; current: boolean; signature_valid?: boolean; signed_at: Iso }[];
+  note: string;
+};
+export type PreflightAnswer = { decision: "ALLOW" | "DENY" | "APPROVAL_REQUIRED" | "UNAVAILABLE"; reason_codes: string[]; canonical_request_hash: string; capacity: { available: boolean; reason: string | null } | null; simulated: true; limits: string };
+/** An operator-set price of a verification usage fact, from the first day of a month (CR-161). */
+export type VerifyApiPrice = { price_id: string; meter: string; label: string; currency: string; unit_rate: string; effective_from: string; status: "PROPOSED" | "APPROVED" | "REJECTED"; proposed_by: string; decided_by: string | null; note: string | null; created_at: Iso; decided_at: Iso | null };
+export type VerifyApiPriceList = { items: VerifyApiPrice[]; meters: { id: string; label: string }[]; currencies: string[] };
+export type VerifyApiPriceIn = { meter: string; currency: string; unit_rate: string; effective_from: string };
+export type VerifyApiCaseIn = { kind: "DISPUTE" | "APPEAL" | "ERASURE"; reason: string; session_id?: string; customer_reference?: string };
+
+// ---- WF08 evidence services (CR-170): authority history, status lists, disclosure-tier exports, signed what-if
+export type AuthorityEdge = {
+  edge_type: string;
+  edge_id: string;
+  version: number;
+  subject: string;
+  state: string;
+  issuer: string;
+  obtained_at: Iso | null;
+  effective_from: Iso | null;
+  effective_until: Iso | null;
+  evidence_digest: string | null;
+};
+export type AuthoritySnapshot = {
+  snapshot_id: string;
+  decision_ref: string;
+  subject_ref: string;
+  decision_at: Iso;
+  verdict: "COMPLETE" | "INDETERMINATE";
+  reasons: string[];
+  snapshot_digest: string;
+  signer_kid: string;
+  integrity: "VALID" | "INVALID";
+  integrity_problems: string[];
+  body: { edges: AuthorityEdge[]; caveat: string };
+};
+export type ExportTier = "PUBLIC_MINIMAL" | "CUSTOMER_EVIDENCE" | "AUDITOR_DOSSIER";
+export type ExportRequestIn = {
+  receipt_id: string;
+  tier: ExportTier;
+  recipient?: { name: string; kind: string; contact: string } | null;
+  purpose?: string;
+  legal_basis?: string | null;
+  retention_days?: number;
+  recipient_country?: string | null;
+};
+export type ExportRequest = {
+  request_id: string;
+  receipt_id: string;
+  tier: ExportTier;
+  recipient: { name?: string; kind?: string };
+  purpose: string;
+  legal_basis: string | null;
+  retention_days: number;
+  recipient_country: string | null;
+  cross_border: boolean;
+  needs_second_person: boolean;
+  state: "REQUESTED" | "APPROVED" | "REFUSED" | "ISSUED";
+  requested_by: string;
+  requested_at: Iso;
+  decided_by: string | null;
+  decision_reason: string | null;
+  issued_at: Iso | null;
+  expires_at: Iso | null;
+  package_digest: string | null;
+};
+export type StatusSlot = { list_id: string; position: number; purpose: string; size_bits: number };
+export type StatusPublication = { list_id: string; version: number; issued_at: Iso; expires_at: Iso; jws: string };
+export type TrustBundleView = {
+  bundle: {
+    schema: string;
+    issuer: string;
+    environment: string;
+    version: number;
+    issued_at: Iso;
+    expires_at: Iso;
+    keys: { kid: string; state: "ACTIVE" | "RETIRED" | "COMPROMISED"; compromised_from?: Iso | null }[];
+    pq_hybrid: string;
+    limits: string;
+  };
+  typ: string;
+};
+export type WhatIfAnalysis = {
+  analysis_id: string;
+  signature: string;
+  claims: {
+    analysis: true;
+    affects_receipts: false;
+    statement: string;
+    summary: { scenarios: number; counts: Record<string, number>; widens_access: boolean; narrows_access: boolean; changes: { index: number; kind: string }[] };
+  };
+};
+
+// ---- WF09 global coverage and provider routing (CR-171)
+export type RoutingCapability = {
+  provider_id: string;
+  method: string;
+  version: number;
+  state: "DRAFT" | "UNDER_REVIEW" | "APPROVED" | "SUSPENDED" | "EXPIRED" | "RETIRED";
+  manifest_digest: string;
+  product: string | null;
+  countries: string[] | null;
+  channels: string[] | null;
+  regions: string[] | null;
+  assurance: number | null;
+  qualified_until: Iso | null;
+  contract_until: Iso | null;
+  legal_determination_ref: string | null;
+  proposed_by: string;
+  approved_by: string | null;
+  reason: string | null;
+  observed: { valid_outcome_rate_bp?: number; p95_latency_ms?: number; measured?: boolean } | null;
+  health: string;
+};
+export type RoutingCoverage = { as_of: Iso; method: string | null; unknown_cells: number; tiers: Record<string, { countries: number; specimens: number }> };
+export type RoutingClaim = { as_of: Iso; countries: number; specimens: number; basis: string; caveat: string };
+export type RouteScenarioIn = {
+  workflow_id: string;
+  workflow_version: string;
+  product: string;
+  purpose: string;
+  issuer_country: string;
+  residence_country?: string | null;
+  method: string;
+  assurance_floor?: number;
+  channel: "web" | "ios" | "android";
+  sdk_version?: string | null;
+  allowed_regions: string[];
+  chip_required?: boolean;
+  currency?: string | null;
+};
+export type RouteDecisionView = {
+  decision_id: string;
+  session_id: string;
+  status: "ROUTE_SELECTED" | "NO_ROUTE";
+  selected: string | null;
+  route_version: string;
+  algorithm_version: string;
+  decision_digest: string;
+  ranked: { provider_id: string; p95_latency_ms: number; rank: number }[];
+  rejected: { provider_id: string; gates: string[]; reasons: string[] }[];
+  no_route_reasons: string[];
+  notes: string[];
+  lineage: { previous_decision: string; failed_provider: string; failed_attempt: string } | null;
+  caveat: string | null;
+  replayed: boolean;
+  created_at: Iso;
+  attempts?: { attempt_id: string; provider_id: string; state: string }[];
+  evidence?: { event_type: string; outcome: string; evidence_class: string; occurred_at: Iso }[];
+};
+export type RouteAttemptView = {
+  attempt_id: string;
+  decision_id: string;
+  session_id: string;
+  provider_id: string;
+  state: string;
+  terminal: boolean;
+  may_ask_another_provider: boolean;
+  may_retry_same_provider: boolean;
+  external_operation_id: string | null;
+  history: { seq: number; from: string | null; to: string; actor: string; reason: string | null; at: Iso }[];
+  status_note: string;
+  failure_class?: string;
+  applicant: { code: string; title: string; body: string; next: string; keeps_evidence: boolean; counts_against_applicant: boolean };
+};
+export type RouteHop = { kind: string; party: string; region: string; data_class: string };
+export type RouteDataFlow = { provider_id: string; version: number; graph_digest: string; hops: RouteHop[]; recorded_by: string; recorded_at: Iso };
+export type RouteDataFlowResult = { provider_id: string; version: number; graph_digest: string; changed: boolean; drift?: { added: string[]; removed: string[]; new_regions: string[] }; routing_effect?: string };
+export type RoutePreflight = {
+  rows: { scenario: Record<string, string>; before: string | null; after: string | null; change: string; required: boolean; after_no_route_reasons: string[] }[];
+  cohorts: Record<string, Record<string, number>>;
+  blocking: number;
+  passes: boolean;
+  stored: false;
+  provider_calls: 0;
+  note: string;
+};
+export type RouteRelease = {
+  release_id: string;
+  version: number;
+  state: "DRAFT" | "PREFLIGHT_PASSED" | "APPROVED" | "LIVE" | "ROLLED_BACK";
+  maker: string;
+  risk: "LOW" | "HIGH";
+  dependency_digest: string;
+  scope: Record<string, string>;
+  required_approvers: string[];
+  recorded_at: Iso;
+  approvals: { approver: string; role: string }[];
+};
+export type RouteReconciliation = { matched: number; held: { operation: string; reason: string }[]; attempts_without_vendor_line: string[]; adjusts_anything: false };
+
+// ---- WF10 developer platform (CR-173)
+export type DevChecklistStep = { step: string; title: string; done: boolean; at: Iso | null; evidence: string | null };
+export type DevChecklist = {
+  application_id: string;
+  environment: string;
+  steps: DevChecklistStep[];
+  complete: boolean;
+  ready: boolean;
+  next_step: string | null;
+  next_action: string | null;
+  seconds_to_first_verified_webhook: number | null;
+  note: string;
+};
+export type DevErrorClass = { code: string; http_status: number; meaning: string; caller_behavior: string; retryable: boolean; raised_today: boolean; internal_codes: string[] };
+export type DevErrorCatalog = { version: string; errors: DevErrorClass[]; note: string };
+export type DevSdk = {
+  id: string;
+  name: string;
+  language: string;
+  audience: string;
+  purpose: string;
+  state: "EXPERIMENTAL" | "BETA" | "GA" | "DEPRECATED";
+  version: string | null;
+  published: boolean;
+  last_test_run: string | null;
+  last_test_evidence: string | null;
+  signed: boolean;
+  sbom: boolean;
+  supported_platforms: string[];
+  problems: string[];
+  action: "DOWNLOAD" | "TRY_BETA" | "VIEW_SOURCE";
+};
+export type DevSdkRegister = { as_of: string; items: DevSdk[]; ga_count: number; statement: string; note: string };
+export type DevPersona = { id: string; title: string; fixture: string; events: string[]; final_outcome: string | null; fault: string; teaches: string };
+export type DevPersonaCatalog = { catalog_version: string; marker: string; personas: DevPersona[]; note: string };
+export type DevFixturePlan = {
+  persona: string;
+  seed: string;
+  plan_digest: string;
+  marker: string;
+  deliveries: { event_id: string; event_type: string; object_version: number; attempt: number; signature_age_s: number; body: string; respond_after_ms: number }[];
+  expectations: Record<string, unknown>;
+};
+
+export type DevScopeChange = { change_id: string; version: number; kind: "ADD" | "REMOVE" | "REPLACE"; scopes: string[]; needs_approval: boolean; proposed_by: string; approved_by: string[]; effective_at: Iso; pending: boolean; reason: string };
+export type DevScopeHistory = { application_id: string; environment: string; scopes_now: string[]; changes: DevScopeChange[] };
+export type DevEndpointHealth = {
+  endpoint_id: string;
+  host: string;
+  endpoint_status: string;
+  verdict: "HEALTHY" | "DEGRADED" | "FAILING" | "UNKNOWN";
+  counts: Record<string, number>;
+  sampled: number;
+  main_problem: string | null;
+  advice: string;
+  partner_confirmed_signature_events: number;
+  note: string;
+};
+export type DevRequestRow = { method: string; route: string; status: number; error_code: string | null; trace_id: string; session_id: string | null; duration_ms: number; occurred_at: Iso };
+export type DevRequestPage = { items: DevRequestRow[]; next_before: Iso | null; note: string };
+export type DevTrace = { session_id: string; found: boolean; status: string | null; steps: { at: Iso; kind: string; id: string; summary: string }[]; missing_links: string[]; note: string };
+export type DevSuiteStatus = { status: "NOT_RUN" | "PASSED" | "NOT_CURRENT"; met: boolean; reasons?: string[]; reason?: string; ran_at?: Iso; personas_passed?: number; personas_total?: number; report_digest?: string; statement?: string; approves_go_live: false };
+export type DevCertification = { application_id: string; suite: DevSuiteStatus; runs: { run_id: string; passed: boolean; personas_passed: number; personas_total: number; report_digest: string; ran_at: Iso }[]; catalog_version: string };
+
+export type DevTryIt = { request: { method: string; path: string; headers: Record<string, string>; body?: Record<string, unknown> }; status: number; response: Record<string, unknown>; sandbox: true; note: string };
+export type DevClaims = { as_of: string; claims: { id: string; statement: string; basis: string; evidence: string }[]; not_claimed: { claim: string; reason: string }[]; rule: string };
+
+// ------------------------------------------------------------------------------------------------------------------------------ Trust Center (ZID-CP-WF12; CR-174)
+export type TrustRole = "product" | "legal" | "security" | "privacy" | "sre" | "finance" | "marketing";
+export type TrustClaimRow = { claim_id: string; revision: number; exact_text: string; locale: string; claim_type: string; status: string; valid_until: string | null; channels: string[]; created_at: string };
+export type TrustClaim = {
+  claim_id: string; revision: number; exact_text: string; locale: string; claim_type: string; effective_class: string; scope: { entity_id: string; service: string; markets: string[]; environment: string };
+  channels: string[]; evidence_digests: string[]; valid_until: string | null; author: string; content_hash: string; status: string;
+  approvals: { approver: string; role: string; refused: boolean; reason: string; decided_at: string; this_version: boolean }[];
+  still_needed: string[]; blockers: { code: string; detail: string }[]; ready_to_publish: boolean;
+  history: { revision: number; content_hash: string; status: string; created_at: string; published_at: string | null; withdrawn_at: string | null; was_published: boolean }[];
+  manifest_digest?: string; rolled_back_from?: number;
+};
+export type TrustClaimInput = {
+  exact_text: string; locale: string; claim_type: string; entity_id: string; service: string; markets: string[]; environment?: "production" | "sandbox"; channels: string[]; evidence_digests: string[]; valid_until?: string | null;
+};
+export type TrustWithdrawal = { withdrawal_id: string; claim_id: string; revision: number; channels: string[]; review_due: string; purge_required: boolean };
+export type TrustWithdrawalRow = { withdrawal_id: string; claim_id: string; revision: number; actor: string; reason: string; at: string; review_due: string; reviewed_by: string | null; reviewed_at: string | null };
+export type TrustEvidence = {
+  evidence_id: string; digest: string; evidence_type: string; scheme: string; issuer: string; assessor: string; legal_entity: string; products: string[]; regions: string[]; exclusions: string[];
+  period_start: string; period_end: string; holder: string; lifecycle: string; issuer_confirmed: boolean; restricted: boolean;
+};
+export type TrustEvidenceInput = {
+  digest: string; evidence_type: string; scheme: string; issuer: string; assessor?: string; legal_entity: string; products: string[]; regions: string[]; exclusions?: string[];
+  period_start: string; period_end: string; holder: string; restricted?: boolean;
+};
+export type TrustMonitoring = {
+  as_of: string; counts: Record<string, number>; unsupported_live_claims: number; median_hours_published_to_withdrawn: number | null;
+  expiring: { claim_id: string; revision: number; reason: string; days_left: number | null }[]; release_gate: { open: boolean; reasons: string[] };
+};
+export type TrustScan = { pages: number; claim_like_statements: number; findings: { url: string; sentence: string; code: string; detail: string }[]; clean: boolean };
+export type TrustReport = { report_id: string; reference: string; severity: string; state: string; received_at: string; ack_due: string; acknowledged_at: string | null; assignee: string | null };
+export type TrustSnapshot = { snapshot_id: string; service: string; region: string; window: string; state: string; percent: number | null; note: string; source_ref: string; validated: boolean };
+export type TrustDisclosure = { disclosure_id: string; kind: string; subject: string; market: string; revision: number; payload: Record<string, unknown>; effective_from: string; status: string; approved: boolean; author?: string };
+export type TrustRoomRequest = { request_id: string; evidence_id: string; organization: string; purpose: string; status: string; created_at: string; tenant_id: string; requester: string };
+
+// ------------------------------------------------------------------------------------------------------------------------------ fraud graph (CR-168)
+export type FraudLead = {
+  lead_id: string; rule_id: string; rule_version: string; risk_class: string; status: string; finding: string; seed_session: string; sessions: number; summary: string;
+  uncertain_facts: string[]; snapshot_hash: string; review_case_id: string | null; lead_version: number; created_at: string; expires_at: string | null; environment: string;
+  sla: unknown; snapshot_current?: boolean; strengths?: Record<string, number>;
+};
+export type FraudLeadDetail = FraudLead & { edges?: { edge_id: string; type: string; strength: string; status: string }[]; notes?: { kind: string; body: string; at?: string }[]; proposals?: FraudAction[] };
+export type FraudAction = {
+  action_id: string; lead_id: string; proposal_type: string; targets: string[]; basis_ref: string; impact_ref: string; impact: unknown; manifest_checksum: string; status: string;
+  maker: string; decided_by: string | null; decided_at: string | null; decision_note: string | null; expires_at: string | null; created_at: string; action_version: number; executes_changes: false;
+};
+export type FraudOverview = {
+  as_of: string;
+  leads: { raised: number; under_investigation: number; confirmed_findings: number; cleared: number; no_outcome_yet: number; by_risk: Record<string, number> };
+  links: { active: number; excluded: number; retracted: number };
+  coverage: { sessions: number; sessions_with_observation: number; sessions_without: number; note: string };
+  definitions: Record<string, string>;
+};
+export type TrustRoomCatalogue = { items: { evidence_id: string; scheme: string; kind: string; legal_entity: string; products: string[]; period_end: string; state: string }[]; terms_version: string };
+export type TrustRoomMine = { request_id: string; evidence_id: string; organization: string; purpose: string; status: string; created_at: string; decision_reason: string; grant_expires_at: string | null; downloads_left: number | null; revoked: boolean };
+export type TrustAdvisory = { advisory_id: string; incident_ref: string; versions: { seq: number; kind: string; title: string; body: string; published: boolean; created_at: string }[] };

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -20,7 +21,9 @@ from onboarding_fixture import ISS, Onboarded, onboard
 from sqlalchemy import text
 from test_commercial_pg import settings
 from test_webhooks_pg import Receiver, public_dns
+from zid_crypto import KeyRing, LocalSigner
 from zid_db import tenant_transaction
+from zid_platform.crypto_runtime import VERIFY_GO_LIVE_TYP
 from zid_platform.main import create_app
 from zid_platform.modules.verify_api.application import go_live_service as svc
 from zid_platform.modules.verify_api.application import service
@@ -33,7 +36,7 @@ ORIGIN = "https://console.example.com"
 ACTIONS = ("verify_api.application.manage", "verify_api.application.read")
 GOOD = {
     "markets": ["GB", "US"],
-    "methods": ["document_authenticity", "face_match"],
+    "methods": ["face_match"],
     "purpose_code": "customer_onboarding",
     "volume_band": "1k_10k",
     "use_case": "Verify new customers of our savings app.",
@@ -43,6 +46,18 @@ GOOD = {
     "accept_dpa": True,
 }
 ALL = {k: True for k in g.ATTESTATIONS}
+VERIFIED_AT = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
+COMPANY = {"verified": True}  # a test turns it off to see the refusal
+RING = KeyRing(LocalSigner("test-verify-go-live"))
+
+
+def SIGN(body: dict[str, Any]) -> str:
+    return RING.sign(body, typ=VERIFY_GO_LIVE_TYP)
+
+
+async def company_source(conn: Any, tenant_id: str) -> tuple[str, datetime] | None:
+    """Stands in for the organization module's company claim (the real one is covered by the KYB tests)."""
+    return ("COMPANY_REGISTRY_MATCHED", VERIFIED_AT) if COMPANY["verified"] else None
 
 
 def uid() -> str:
@@ -86,6 +101,10 @@ class Company:
             base_url=ISS,
         )
         self.http.__enter__()
+        COMPANY["verified"] = True
+        svc.configure_company_source(
+            company_source
+        )  # after create_app, which wires the real reader
         self.h = self.o.bearer(self.o.owner)
 
     def close(self) -> None:
@@ -282,7 +301,7 @@ def test_an_operator_reviews_a_different_operator_approves_and_production_opens_
 ) -> None:
     co = Company(rt_url)
     try:
-        co.ready()
+        sandbox_server = co.ready()
         req = co.http.post("/v1/verify-api/go-live-requests", headers=co.h, json=GOOD).json()
         rid, op1, op2 = req["request_id"], uid(), uid()
         # production cannot be created yet
@@ -305,20 +324,28 @@ def test_an_operator_reviews_a_different_operator_approves_and_production_opens_
             # approval is not possible without a review, by the reviewer, or with an unconfirmed item
             async with operator_tx(rt_url) as c:
                 with pytest.raises(m.PartnerError) as e:
-                    await svc.approve(c, rid, op1, ALL, None)
+                    await svc.approve(c, rid, op1, ALL, None, sign=SIGN)
                 assert e.value.code == "GO_LIVE_STATE_INVALID"
             async with operator_tx(rt_url) as c:
                 assert (await svc.start_review(c, rid, op1))["status"] == "IN_REVIEW"
             async with operator_tx(rt_url) as c:
                 with pytest.raises(m.PartnerError) as e:
-                    await svc.approve(c, rid, op1, ALL, None)
+                    await svc.approve(c, rid, op1, ALL, None, sign=SIGN)
                 assert e.value.code == "GO_LIVE_SELF_APPROVAL"
             async with operator_tx(rt_url) as c:
                 with pytest.raises(m.PartnerError) as e:
-                    await svc.approve(c, rid, op2, {**ALL, "billing_ready": False}, None)
+                    await svc.approve(c, rid, op2, {**ALL, "billing_ready": False}, None, sign=SIGN)
                 assert e.value.code == "ATTESTATION_MISSING"
+            async with operator_tx(
+                rt_url
+            ) as c:  # no signing key: nothing is approved, and the request stays in review
+                with pytest.raises(m.PartnerError) as e:
+                    await svc.approve(c, rid, op2, ALL, None)
+                assert e.value.code == "GO_LIVE_SIGNING_UNAVAILABLE"
             async with operator_tx(rt_url) as c:
-                done = await svc.approve(c, rid, op2, ALL, "Checked against the signed order form.")
+                done = await svc.approve(
+                    c, rid, op2, ALL, "Checked against the signed order form.", sign=SIGN
+                )
                 assert done["status"] == "APPROVED"
 
         asyncio.run(operate())
@@ -354,6 +381,19 @@ def test_an_operator_reviews_a_different_operator_approves_and_production_opens_
         assert all(manifest["confirmed"].values()) and all(
             manifest["sandbox_certification"].values()
         )
+        # the record names the company claim the platform itself read, not only a person's confirmation
+        assert manifest["company_check"] == {
+            "claim": "COMPANY_REGISTRY_MATCHED",
+            "assessed_at": VERIFIED_AT.isoformat(),
+        }
+        assert st["company"]["verified"] is True
+        # the grant is signed: the token verifies, names this grant, and carries exactly the stored record and digest
+        assert st["grant"]["signed"] is True
+        _header, claims = RING.verify(st["grant"]["signature"], typ=VERIFY_GO_LIVE_TYP)
+        assert claims["grant_id"] == st["grant"]["grant_id"]
+        assert claims["manifest_digest"] == st["grant"]["manifest_digest"]
+        assert g.digest(claims["manifest"]).hex() == claims["manifest_digest"]
+        assert claims["manifest"]["approved_by"] == op2
 
         # now a production application can be created, and it can sign in; serving live verifications is a later gate
         live = co.http.post(
@@ -362,9 +402,47 @@ def test_an_operator_reviews_a_different_operator_approves_and_production_opens_
             json={"name": "Live app", "environment": "PRODUCTION"},
         )
         assert live.status_code == 201 and live.json()["environment"] == "PRODUCTION", live.text
+        live_id = live.json()["application_id"]
+        # a production credential needs a second administrator's approval: without one it is refused (CR-162)
+        bare = co.http.post(f"/v1/verify-api/applications/{live_id}/credentials", headers=co.h)
+        assert bare.status_code == 403 and code(bare) == "APPROVAL_REQUIRED"
+        asked = co.http.post(
+            f"/v1/verify-api/applications/{live_id}/credential-approvals",
+            headers=co.h,
+            json={"action": "ISSUE"},
+        )
+        assert asked.status_code == 201, asked.text
+        # the person who asked cannot approve it; another administrator does (stood in for by a different principal)
+        assert (
+            code(
+                co.http.post(
+                    f"/v1/verify-api/credential-approvals/{asked.json()['approval_id']}:approve",
+                    headers=co.h,
+                    json={},
+                )
+            )
+            == "APPROVAL_SELF_DECISION"
+        )
+
+        async def second_admin_approves() -> None:
+            async with co.tx() as c:
+                from zid_platform.modules.verify_api.application import approvals_service
+
+                await approvals_service.approve(c, asked.json()["approval_id"], uid(), "Reviewed.")
+
+        asyncio.run(second_admin_approves())
         cred = co.http.post(
-            f"/v1/verify-api/applications/{live.json()['application_id']}/credentials", headers=co.h
+            f"/v1/verify-api/applications/{live_id}/credentials",
+            headers=co.h,
+            json={"approval_id": asked.json()["approval_id"]},
         ).json()
+        # spent once: the same approval cannot make a second credential
+        again = co.http.post(
+            f"/v1/verify-api/applications/{live_id}/credentials",
+            headers=co.h,
+            json={"approval_id": asked.json()["approval_id"]},
+        )
+        assert again.status_code == 403 and code(again) == "APPROVAL_REQUIRED"
         tok = co.http.post(
             "/v1/verify-api/oauth2/token",
             json={"client_id": cred["client_id"], "client_secret": cred["client_secret"]},
@@ -375,11 +453,28 @@ def test_an_operator_reviews_a_different_operator_approves_and_production_opens_
             co.http.get("/v1/verify-api/whoami", headers=bearer).json()["environment"]
             == "production"
         )
+        # Q06: a production token never reaches a sandbox session (the application's own sessions only), and a sandbox token never reaches production
+        made = co.http.post(
+            "/v1/verify-api/sandbox/fixtures/approved/sessions",
+            headers={**sandbox_server, "Idempotency-Key": uid()},
+            json={},
+        ).json()["session"]["session_id"]
+        across = co.http.get(f"/v1/verify-api/verification-sessions/{made}", headers=bearer)
+        assert across.status_code == 404 and code(across) == "NOT_FOUND"
+        assert (
+            co.http.post(
+                f"/v1/verify-api/sandbox/sessions/{made}:simulate",
+                headers=bearer,
+                json={"outcome": "approved"},
+            ).status_code
+            == 404
+        )
         refused = co.http.post(
             "/v1/verify-api/verification-sessions", headers={**bearer, "Idempotency-Key": uid()},
             json={"customer_reference": "c-1", "country": "US", "purpose_code": "customer_onboarding"},
         )  # fmt: skip
-        assert refused.status_code == 403 and code(refused) == "PRODUCT_NOT_ENTITLED"
+        # the company's grant names the country and the check, but the owners have published no policy and acknowledged nothing, so the live check cannot be served: refused before anything is created
+        assert refused.status_code == 403 and code(refused) == "MARKET_NOT_ENABLED"
         # a second request while a grant stands is refused
         assert (
             code(co.http.post("/v1/verify-api/go-live-requests", headers=co.h, json=GOOD))
@@ -508,12 +603,58 @@ def test_a_request_whose_sandbox_checks_lapse_before_approval_is_not_approved(
                 )
             async with operator_tx(rt_url) as c:
                 with pytest.raises(m.PartnerError) as e:
-                    await svc.approve(c, rid, op2, ALL, None)
+                    await svc.approve(c, rid, op2, ALL, None, sign=SIGN)
                 assert e.value.code == "GO_LIVE_NOT_READY"
 
         asyncio.run(run())
         assert co.http.get("/v1/verify-api/go-live", headers=co.h).json()["grant"] is None
     finally:
+        co.close()
+
+
+def test_a_company_without_a_registry_verified_check_is_not_approved_whatever_the_operators_confirm(
+    rt_url: str, owner_url: str
+) -> None:
+    co = Company(rt_url)
+    try:
+        co.ready()
+        COMPANY["verified"] = False
+        st = co.http.get("/v1/verify-api/go-live", headers=co.h).json()
+        assert st["company"] == {"verified": False, "claim": None, "assessed_at": None}
+        rid = co.http.post("/v1/verify-api/go-live-requests", headers=co.h, json=GOOD).json()[
+            "request_id"
+        ]
+        op1, op2 = uid(), uid()
+
+        async def run() -> None:
+            async with operator_tx(rt_url) as c:
+                await svc.start_review(c, rid, op1)
+            async with operator_tx(rt_url) as c:
+                with pytest.raises(m.PartnerError) as e:
+                    await svc.approve(c, rid, op2, ALL, None, sign=SIGN)  # every confirmation given
+                assert e.value.code == "GO_LIVE_COMPANY_NOT_VERIFIED"
+            # with no reader wired at all it fails closed too
+            COMPANY["verified"] = True
+            svc.configure_company_source(None)
+            async with operator_tx(rt_url) as c:
+                with pytest.raises(m.PartnerError) as e2:
+                    await svc.approve(c, rid, op2, ALL, None, sign=SIGN)
+                assert e2.value.code == "GO_LIVE_COMPANY_NOT_VERIFIED"
+            # once the company is verified the same request can be approved
+            svc.configure_company_source(company_source)
+            async with operator_tx(rt_url) as c:
+                assert (await svc.approve(c, rid, op2, ALL, None, sign=SIGN))[
+                    "status"
+                ] == "APPROVED"
+
+        asyncio.run(run())
+        assert (
+            co.http.get("/v1/verify-api/go-live", headers=co.h).json()["grant"]["status"]
+            == "ACTIVE"
+        )
+    finally:
+        COMPANY["verified"] = True
+        svc.configure_company_source(company_source)
         co.close()
 
 

@@ -147,6 +147,25 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WhatIfBody": {
+        "additionalProperties": false,
+        "properties": {
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/SimulateIn"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "scenarios"
+        ],
+        "title": "WhatIfBody",
+        "type": "object"
+      },
       "zid_platform__modules__policy_authoring__api__policies__CaseIn": {
         "additionalProperties": false,
         "properties": {
@@ -359,6 +378,62 @@
           }
         },
         "summary": "Edit",
+        "tags": [
+          "policy"
+        ]
+      }
+    },
+    "/v1/policy-releases/{release_id}:compare": {
+      "post": {
+        "description": "Run each scenario under the draft and under the active release, and keep the result as a signed ANALYSIS (never attached to a receipt).",
+        "operationId": "compare_v1_policy_releases__release_id__compare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatIfBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Compare V1 Policy Releases  Release Id  Compare Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compare",
         "tags": [
           "policy"
         ]

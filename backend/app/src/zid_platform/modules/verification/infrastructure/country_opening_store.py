@@ -121,5 +121,5 @@ async def refresh(engine: Any, *, force: bool = False) -> None:
     try:
         async with engine.connect() as conn:
             country_registry.set_openings(await newest(conn))
-    except Exception:  # noqa: BLE001
+    except Exception:
         logging.getLogger("zid.country_opening").warning("country openings could not be read", exc_info=True)

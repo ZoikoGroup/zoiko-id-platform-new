@@ -40,10 +40,10 @@ from zid_platform.modules.authority.ports import (
 from zid_platform.modules.onboarding.domain.gates import (
     OWNER_ONLY_ACTIONS,
     TENANT_ADMIN_ACTIONS,
-    owner_actions,
     Gate,
     GateStatus,
     OnboardingError,
+    owner_actions,
 )
 from zid_platform.modules.organization.ports import (
     EstablishedRoot,

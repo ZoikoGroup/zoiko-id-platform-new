@@ -72,48 +72,6 @@
         "title": "ActivateNowIn",
         "type": "object"
       },
-      "AdvanceBody": {
-        "additionalProperties": false,
-        "properties": {
-          "evidence_ref": {
-            "anyOf": [
-              {
-                "maxLength": 256,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Evidence Ref"
-          },
-          "probes": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "boolean"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Probes"
-          },
-          "step": {
-            "pattern": "^[A-Z_]{2,40}$",
-            "title": "Step",
-            "type": "string"
-          }
-        },
-        "required": [
-          "step"
-        ],
-        "title": "AdvanceBody",
-        "type": "object"
-      },
       "BreakGlassBody": {
         "additionalProperties": false,
         "properties": {
@@ -907,6 +865,98 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VerifyHoldBody": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "title": "VerifyHoldBody",
+        "type": "object"
+      },
+      "VerifyLogoDecisionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Digest",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "digest"
+        ],
+        "title": "VerifyLogoDecisionBody",
+        "type": "object"
+      },
+      "VerifyPriceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "maxLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "effective_from": {
+            "maxLength": 10,
+            "title": "Effective From",
+            "type": "string"
+          },
+          "meter": {
+            "maxLength": 40,
+            "title": "Meter",
+            "type": "string"
+          },
+          "unit_rate": {
+            "maxLength": 24,
+            "title": "Unit Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "meter",
+          "currency",
+          "unit_rate",
+          "effective_from"
+        ],
+        "title": "VerifyPriceBody",
+        "type": "object"
+      },
       "WatchIn": {
         "additionalProperties": false,
         "properties": {
@@ -1326,6 +1376,48 @@
           }
         },
         "title": "ApproveBody",
+        "type": "object"
+      },
+      "zid_platform__modules__resilience__api__platform__AdvanceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ref": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Ref"
+          },
+          "probes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "boolean"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probes"
+          },
+          "step": {
+            "pattern": "^[A-Z_]{2,40}$",
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step"
+        ],
+        "title": "AdvanceBody",
         "type": "object"
       },
       "zid_platform__modules__resilience__api__platform__ReasonBody": {
@@ -1940,6 +2032,184 @@
         ]
       }
     },
+    "/operator/verify-api/cases": {
+      "get": {
+        "operationId": "open_cases_operator_verify_api_cases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Cases Operator Verify Api Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Cases",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/cases/{case_id}:reject": {
+      "post": {
+        "operationId": "reject_case_operator_verify_api_cases__case_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Case Operator Verify Api Cases  Case Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/cases/{case_id}:resolve": {
+      "post": {
+        "operationId": "resolve_case_operator_verify_api_cases__case_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Case Operator Verify Api Cases  Case Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/cases/{case_id}:review": {
+      "post": {
+        "operationId": "review_case_operator_verify_api_cases__case_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Review Case Operator Verify Api Cases  Case Id  Review Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
     "/operator/verify-api/go-live-requests": {
       "get": {
         "operationId": "open_go_live_requests_operator_verify_api_go_live_requests_get",
@@ -2168,6 +2438,447 @@
           }
         },
         "summary": "Revoke Grant",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/logos": {
+      "get": {
+        "operationId": "pending_logos_operator_verify_api_logos_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pending Logos Operator Verify Api Logos Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Pending Logos",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/logos/{application_id}:approve": {
+      "post": {
+        "operationId": "decide_logo_operator_verify_api_logos__application_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLogoDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Logo Operator Verify Api Logos  Application Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Logo",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/logos/{application_id}:reject": {
+      "post": {
+        "operationId": "decide_logo_operator_verify_api_logos__application_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyLogoDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Decide Logo Operator Verify Api Logos  Application Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Logo",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/prices": {
+      "get": {
+        "operationId": "list_prices_operator_verify_api_prices_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Prices Operator Verify Api Prices Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Prices",
+        "tags": [
+          "verify-api"
+        ]
+      },
+      "post": {
+        "operationId": "propose_price_operator_verify_api_prices_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyPriceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Propose Price Operator Verify Api Prices Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Propose Price",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/prices/{price_id}:approve": {
+      "post": {
+        "operationId": "approve_price_operator_verify_api_prices__price_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Approve Price Operator Verify Api Prices  Price Id  Approve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Price",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/prices/{price_id}:reject": {
+      "post": {
+        "operationId": "reject_price_operator_verify_api_prices__price_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "price_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Price Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reject Price Operator Verify Api Prices  Price Id  Reject Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Price",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/review-cases": {
+      "get": {
+        "description": "Every company's open review cases, soonest due first, with whether a regulatory hold is in force. Case content and evidence are not here.",
+        "operationId": "open_review_cases_operator_verify_api_review_cases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Review Cases Operator Verify Api Review Cases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Open Review Cases",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/review-cases/{case_id}:hold": {
+      "post": {
+        "description": "Place a regulatory hold: every change and finality stops on the case, and no company reviewer can lift it.",
+        "operationId": "hold_review_case_operator_verify_api_review_cases__case_id__hold_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyHoldBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Hold Review Case Operator Verify Api Review Cases  Case Id  Hold Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hold Review Case",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/operator/verify-api/review-cases/{case_id}:release-hold": {
+      "post": {
+        "description": "A DIFFERENT operator from the one who placed the hold releases it, with a reason.",
+        "operationId": "release_review_hold_operator_verify_api_review_cases__case_id__release_hold_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyHoldBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Review Hold Operator Verify Api Review Cases  Case Id  Release Hold Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Review Hold",
         "tags": [
           "verify-api"
         ]
@@ -3493,7 +4204,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdvanceBody"
+                "$ref": "#/components/schemas/zid_platform__modules__resilience__api__platform__AdvanceBody"
               }
             }
           },

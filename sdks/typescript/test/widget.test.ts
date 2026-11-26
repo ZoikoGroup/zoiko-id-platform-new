@@ -156,3 +156,51 @@ describe("browser widget (ZID-INT-002 section 05, session.mount)", () => {
     expect(w.container.querySelector("section")).toBeNull();
   });
 });
+
+describe("what the widget promises about resuming and about finishing (ZID-CP-WF10 v2.0 rows 6-05 and 7-05)", () => {
+  it("after a dropped connection the person retries in the same session: no second session, and the opening events are not repeated", async () => {
+    let calls = 0;
+    const w = setup({
+      capture: async (f) => {
+        calls += 1;
+        if (calls === 1) throw new Error("network down");
+        w.captured.push(f.name);
+        return { intact: true };
+      },
+      awaitSource: async () => "CONFIRMED",
+    });
+    w.click("agree");
+    w.choose();
+    w.click("send");
+    for (let i = 0; i < 4; i++) await w.tick();
+    expect(w.handle.state()).toBe("COLLECTING"); // the failed send decided nothing and left the person where they were
+    w.click("send");
+    for (let i = 0; i < 6; i++) await w.tick();
+    expect(calls).toBe(2);
+    expect(w.handle.state()).toBe("COMPLETE");
+    expect(w.events.filter((e) => e === "session.created")).toHaveLength(1); // one session for the whole attempt
+    expect(w.events.filter((e) => e === "capture.started")).toHaveLength(1);
+    expect(w.events.filter((e) => e === "document.submitted")).toHaveLength(1); // only the send that arrived counts
+  });
+
+  it("completing the widget never says the verification is final: the only closing event is session.completed, and no event or payload carries a decision", async () => {
+    const seen: unknown[][] = [];
+    document.body.innerHTML = "";
+    const container = document.createElement("div");
+    document.body.append(container);
+    mount(container, {
+      host: { capture: async () => ({ intact: true }), awaitSource: async () => "CONFIRMED" },
+      consentText: "We will read this document to check it with its issuer.",
+      onEvent: (...args: unknown[]) => seen.push(args),
+    });
+    (container.querySelector('[data-zid="agree"]') as HTMLButtonElement).click();
+    const input = container.querySelector("input[type=file]") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [new File(["x"], "a.pdf")], configurable: true });
+    (container.querySelector('[data-zid="send"]') as HTMLButtonElement).click();
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0));
+    const names = seen.map((a) => String(a[0]));
+    expect(names[names.length - 1]).toBe("session.completed");
+    expect(names.filter((n) => /final|decid|approv|verified|result|pass/i.test(n))).toEqual([]); // no event name claims an outcome
+    expect(seen.every((a) => a.length === 2 && typeof a[0] === "string" && typeof a[1] === "string")).toBe(true); // an event and a session state; no decision, score or reason rides along
+  });
+});

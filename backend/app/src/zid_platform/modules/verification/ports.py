@@ -1,6 +1,7 @@
 """Public Protocol interface of the verification module. Other modules import ONLY this."""
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -12,6 +13,7 @@ from zid_platform.modules.verification.application import (
     check_methods,
     coverage,
     market_releases,
+    partner_capture,
     policy_packs,
     register_refresh,
     regulated_claims,
@@ -23,6 +25,7 @@ from zid_platform.modules.verification.application.applicant_flow import (
 )
 from zid_platform.modules.verification.application.applicant_flow import idv_coverage
 from zid_platform.modules.verification.application.baseline import seed_representative_proofing
+from zid_platform.modules.verification.application.capture_checks import CaptureError
 from zid_platform.modules.verification.application.entitlements import EntitlementNotFound
 from zid_platform.modules.verification.application.entitlements import (
     change_status as change_entitlement_status,
@@ -30,6 +33,7 @@ from zid_platform.modules.verification.application.entitlements import (
 from zid_platform.modules.verification.application.identity_signal_feed import (
     feed_pass as identity_feed_pass,
 )
+from zid_platform.modules.verification.application.idv_case import CaseError
 from zid_platform.modules.verification.application.policy_review import reevaluate_pending
 from zid_platform.modules.verification.application.reverification import (
     sweep as reverification_sweep,
@@ -154,6 +158,8 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
     product_line_registry,
 )
 
+PartnerServices = partner_capture.Services  # what a partner's customer's capture needs from the running cell (CR-164)
+
 __all__ = [
     "APPROVER_ROLES",
     "GATE_MODES",
@@ -162,6 +168,8 @@ __all__ = [
     "SANDBOX_ENVIRONMENTS",
     "Availability",
     "Capability",
+    "CaptureError",
+    "CaseError",
     "CertClaim",
     "CertRegistry",
     "CertificationError",
@@ -181,6 +189,7 @@ __all__ = [
     "PackKey",
     "PackRegistry",
     "PackStatus",
+    "PartnerServices",
     "PolicyPack",
     "PolicyPackError",
     "ProductLine",
@@ -235,6 +244,7 @@ __all__ = [
     "pack_hash",
     "pack_needed",
     "pack_registry",
+    "partner_capture",
     "person_assurance_current",
     "policy_packs",
     "privacy_overlay_model",
@@ -325,3 +335,10 @@ async def verification_session_view(
         "outcome_code": s.outcome_code or "",
         "subject_principal_id": s.subject_principal_id,
     }
+
+
+async def route_decisions_for_session(conn: AsyncConnection, session_id: str) -> list[dict[str, Any]]:
+    """The tenant's provider route decisions for one verification session: id, status, whether a provider was chosen, and when (no candidates, no reasons: those stay in the routing console)."""
+    from zid_platform.modules.verification.infrastructure import routing_store
+
+    return [{"decision_id": str(r.decision_id), "status": r.status, "selected": r.selected, "created_at": r.created_at} for r in await routing_store.decisions_for_session(conn, session_id)]

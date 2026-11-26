@@ -15,6 +15,7 @@ _SESSION = (
     "session_id, tenant_id, application_id, environment, customer_reference, workflow_id, workflow_version, country, region, purpose_code, locale, return_origin, "
     "metadata, status, launch_expires_at, created_at, opened_at, completed_at, expires_at, recheck_of"
 )
+_SESSION_S = ", ".join("s." + c.strip() for c in _SESSION.split(","))  # the same columns, qualified for a join
 _DECISION = "decision_id, session_id, decision_version, supersedes_decision_id, outcome, checks, reason_codes, sandbox, policy_version, region, completed_at"
 
 
@@ -165,7 +166,7 @@ async def session_by_launch(conn: AsyncConnection, token_hash: bytes) -> dict[st
     row = (
         await conn.execute(
             text(
-                f"SELECT {', '.join('s.' + c.strip() for c in _SESSION.split(','))}, a.name AS application_name, a.status AS application_status, a.branding AS branding, a.redirect_origins AS application_origins "
+                f"SELECT {_SESSION_S}, a.name AS application_name, a.status AS application_status, a.branding AS branding, a.redirect_origins AS application_origins, EXISTS (SELECT 1 FROM verify.api_logo l WHERE l.application_id = a.application_id AND l.status <> 'REMOVED' AND (l.status = 'APPROVED' OR (a.environment = 'SANDBOX' AND l.status <> 'REJECTED'))) AS has_logo "
                 "FROM verify.api_session s JOIN verify.api_application a USING (application_id) WHERE s.launch_token_hash = :h"
             ),
             {"h": token_hash},
@@ -361,3 +362,9 @@ async def rechecks_of(conn: AsyncConnection, session_id: str) -> list[dict[str, 
         )
     ).all()
     return [_row(r) for r in rows]
+
+
+async def get_session_by_id(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:
+    """One session of the tenant (RLS) by id, for the console trace: id and status only."""
+    row = (await conn.execute(text("SELECT session_id, status FROM verify.api_session WHERE session_id = :s"), {"s": session_id})).mappings().first()
+    return dict(row) if row else None
