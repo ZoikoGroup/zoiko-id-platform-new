@@ -30,3 +30,16 @@ BEGIN
         GRANT DELETE ON global_directory.routing_alias TO zid_runtime;
     END IF;
 END $$;
+
+-- Retention sweeps run by the worker only (never the API's runtime role): each table gets exactly the DELETE its sweep uses.
+-- Without these the worker steps identity_signal_feed, signal_housekeeping and analytics_retention fail with "permission denied".
+DO $$
+DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['metering.va_fact', 'verify.screening_velocity_event', 'verify.identity_observation']
+    LOOP
+        IF to_regclass(t) IS NOT NULL THEN
+            EXECUTE format('GRANT DELETE ON %s TO zid_worker', t);
+        END IF;
+    END LOOP;
+END $$;
