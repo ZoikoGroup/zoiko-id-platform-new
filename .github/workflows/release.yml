@@ -8,13 +8,15 @@
 # Triggers: push to main and manual promotion only. Never pull_request / pull_request_target, so fork and
 # untrusted PRs cannot reach signing or deploy credentials. Actions are pinned by commit SHA.
 # Deployment is handled by the deploy team, not by development. The automatic image builds on a push to main stay OFF until the deploy team sets
-# the repository variable RELEASE_ENABLED to 'true' (Settings > Secrets and variables > Actions > Variables). Production promotion (the
+# the repository variable RELEASE_ENABLED to 'true' (Settings > Secrets and variables > Actions > Variables); the push trigger is in place and waits for it. Production promotion (the
 # workflow_dispatch job below) is unchanged: it is manual, needs the owners' GO and verifies the digest it is given.
 name: release
 
 on:
-  # MANUAL ONLY while nothing is deployed: a push to main no longer starts a release. The automatic `push` trigger can be restored together with
-  # the RELEASE_ENABLED variable below when the deploy team is ready.
+  # A push to main starts the three image builds, but only while the repository variable RELEASE_ENABLED is 'true' (each build job below checks it),
+  # so merging to main builds nothing until the deploy team sets it. Promotion to production is the manual workflow_dispatch below.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       image_digest:

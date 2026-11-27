@@ -87,7 +87,7 @@ class Settings(ServiceSettings):
     evidence_tsa_trust_file: str | None = None
     # ZID_EVIDENCE_TSA_REVOCATION: off | if_available (a revoked TSA certificate fails; a missing CRL is noted) | required (a missing CRL fails too)
     evidence_tsa_revocation: Literal["off", "if_available", "required"] = "if_available"
-    # ZID_UPLOAD_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class;
+    # ZID_EVIDENCE_RETENTION_DAYS (JSON {"E1": 400, ...}): the DPO's retention per evidence class (not ZID_UPLOAD_RETENTION_DAYS, a plain number of days for uploads);
     # unset classes are kept (the ledger entry is never purged, only the record body)
     evidence_retention_days: dict[str, int] = {}  # noqa: RUF012 - pydantic copies defaults
     # ZID_TENANT_KEK_IDS (JSON tenant -> KMS key id/ARN): DEDICATED_TENANT_KEY / BYOK / HYOK
