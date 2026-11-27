@@ -69,6 +69,18 @@ PUBLIC_PATHS: dict[str, str] = {
     "/public/trust/v1/advisories": "published incident advisories, every version kept (WF-12)",
     "/public/trust/v1/privacy": "subprocessors, retention and transfer statements for one market, from approved records only (WF-12)",
     "/public/status/v1/availability": "measured availability that a second person validated; 'not yet reported' when there is none (WF-12)",
+    # the Verify API developer contract: "Anyone (no sign-in): the contract a developer integrates against" (modules/verify_api/api/sessions.py, CR-157, CR-173).
+    # Static reference data and one read-only documentation tool; nothing here reads or writes a company's data.
+    "/v1/verify-api/openapi.json": "the partner-server operations as OpenAPI: a public API reference",
+    "/v1/verify-api/errors": "the error classes a partner's server can meet and what to do about each",
+    "/v1/verify-api/credential-policy": "what a partner can rely on about credential lifetime, rotation and revocation: a design statement",
+    "/v1/verify-api/versions": "the API versions, their support dates and changelog",
+    "/v1/verify-api/sdks": "the SDK release register and the button each package has earned",
+    "/v1/verify-api/fixtures": "the sandbox persona catalogue: made-up people only",
+    "/v1/verify-api/claims": "what may be said publicly about the product, built from evidence, and what may not",
+    "/v1/verify-api/pricing/people": "the Verify People prices as shown on the public pricing page, proposed, with an estimate for a plan and volume",
+    "/v1/verify-api/mcp": "a read-only MCP server for the developer documentation (error lookup, versions, SDK register, personas): rate-limited, size-limited, no tenant data",
+    "/v1/verify-api/mcp/registry": "the tools that MCP server offers and the ones deliberately off",
     "/v1/privacy/jurisdiction-packs": "jurisdiction pack names and deployability: public transparency data",
     # REQUIREMENT: never routed at the edge. The production edge config must answer 404 for /internal/*
     # (deploy/gcp/Caddyfile); Prometheus scrapes it over the private network only.
@@ -91,6 +103,11 @@ PUBLIC_PREFIXES = (
 
 # Answering 503 is the correct, honest response when a dependency is not configured in this environment.
 UNCONFIGURED_OK = frozenset({"/health/ready", "/.well-known/webauthn"})
+
+
+def _once(findings: list[str]) -> list[str]:
+    """Each route once, with the status it answered, however many attempts reached it: a long list must not hide the routes after the first few."""
+    return sorted({f.split(" headers=")[0] for f in findings})
 
 
 def is_public(path: str) -> bool:
@@ -162,9 +179,9 @@ def test_every_route_refuses_unauthenticated_and_forged_callers(rt_url: str) -> 
                 protected += 1
 
     assert protected > 150, f"only {protected} protected operations were exercised"
-    assert not crashed, "routes that crash on hostile input:\n" + "\n".join(crashed[:30])
+    assert not crashed, "routes that crash on hostile input:\n" + "\n".join(_once(crashed))
     assert not succeeded, (
         "routes that answered without valid credentials but are not on the public list "
         "(decide: protect it, or add it to PUBLIC_PATHS with a reason):\n"
-        + "\n".join(succeeded[:40])
+        + "\n".join(_once(succeeded))
     )
