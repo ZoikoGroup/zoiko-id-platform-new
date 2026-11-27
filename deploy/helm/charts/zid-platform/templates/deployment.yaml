@@ -28,6 +28,8 @@ spec:
               value: {{ .Values.role | quote }}
             - name: ZID_ENVIRONMENT
               value: {{ .Values.environment | quote }}
+            - name: ZID_CELL_ID
+              value: {{ required "cellId is required: name this cell's real region, for example uk-1, eu-1 or us-1" .Values.cellId | quote }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:

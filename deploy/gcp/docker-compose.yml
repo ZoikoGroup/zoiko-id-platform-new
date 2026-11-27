@@ -12,7 +12,7 @@ x-backend: &backend
   env_file: [.env]
   environment: &backend-env
     ZID_ENVIRONMENT: production
-    ZID_CELL_ID: ${ZID_CELL_ID}
+    ZID_CELL_ID: ${ZID_CELL_ID:?set ZID_CELL_ID to this cell's real region (uk-1, eu-1 or us-1) in .env; the development cell local-1 is refused}
     ZID_REGION: ${ZID_REGION}
     ZID_ACTION_CATALOG: /app/contracts/action-catalog/actions.yaml
     ZID_KEY_PROVIDER: gcp-kms
