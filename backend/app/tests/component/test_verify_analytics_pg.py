@@ -127,11 +127,22 @@ def test_small_groups_are_withheld(rt_url: str) -> None:
         )  # Q36: one session is never shown
 
 
+def make_admin_member(rt_url: str, tenant: str, principal: str) -> None:
+    """An active company Admin: analytics access goes to an active member only, and the Owner's grant is refused for anyone else."""
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await give_tenant_role(c, tenant, principal, role="ADMIN")
+
+    asyncio.run(go())
+
+
 def test_an_administrator_without_a_grant_is_refused_until_the_owner_gives_one_and_tenants_never_mix(
     rt_url: str,
 ) -> None:
     o = onboard(rt_url)
     other = onboard(rt_url)
+    make_admin_member(rt_url, o.tenant, o.second)
     load(rt_url, other.tenant, journey(other.tenant, f"vs_{uuid.uuid4()}", approved=True))
     with api_for(rt_url, o, verify_analytics_min_group=1) as api:
         admin = o.bearer(o.second)

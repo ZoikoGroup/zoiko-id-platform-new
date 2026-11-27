@@ -349,7 +349,7 @@ def test_the_applicants_identity_check_completes_only_from_their_own_valid_ident
     """WF-13B-03 'Your identity': read from the verification service for the person who made the claim. A registry match, a declaration, someone
     else's check or an expired one completes nothing, and on its own it never makes the company VERIFIED."""
     w = world
-    w.http.app.state.kyb_adapters = {"companies-house": Register()}
+    w.http.app.state.kyb_adapters = {}  # no source answers, so the company check stays open: this test is about the identity check alone
     claim = w.http.post(
         "/v1/org-claims", headers={**w.h(w.o.owner), **key("identity")}, json=CLAIM
     ).json()["claim_id"]
@@ -375,5 +375,7 @@ def test_the_applicants_identity_check_completes_only_from_their_own_valid_ident
     done = status()
     assert done["checks"]["person_assurance"] == "COMPLETED"
     assert (
-        "authority" not in done["checks"] and done["outcome"] == "PROVISIONAL"
+        set(done["checks"]) == {"company", "person_assurance"}
+        and done["checks"]["company"] != "COMPLETED"
+        and done["outcome"] == "PROVISIONAL"
     )  # identity alone verifies no company

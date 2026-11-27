@@ -62,6 +62,13 @@ PUBLIC_PATHS: dict[str, str] = {
     "/v1/tenant/discovery": "signed discovery",
     "/": "service banner (minimal outside local/test)",
     "/v1/evidence/keys": "public keys anyone verifying a receipt needs",
+    "/v1/trust/issuer": "the signed bundle of public keys a verifier pins, with its version and expiry: public keys only, rate-limited, no tenant data (WF-08)",
+    # the public Trust Center (ZID-CP-WF12): read-only projections of what the staff register approved, on trust.<domain>; nothing here writes anything
+    "/public/trust/v1/claims": "approved, current Trust Center statements with their evidence summary (WF-12)",
+    "/public/trust/v1/certifications": "what was assessed, by whom, for which entity, product and period (WF-12)",
+    "/public/trust/v1/advisories": "published incident advisories, every version kept (WF-12)",
+    "/public/trust/v1/privacy": "subprocessors, retention and transfer statements for one market, from approved records only (WF-12)",
+    "/public/status/v1/availability": "measured availability that a second person validated; 'not yet reported' when there is none (WF-12)",
     "/v1/privacy/jurisdiction-packs": "jurisdiction pack names and deployability: public transparency data",
     # REQUIREMENT: never routed at the edge. The production edge config must answer 404 for /internal/*
     # (deploy/gcp/Caddyfile); Prometheus scrapes it over the private network only.

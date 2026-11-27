@@ -232,8 +232,11 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
         r = api.post(f"/v1/org-claims/{claim_id}/screening", headers=owner, json=screening)
         assert r.status_code == 201, r.text
         shown = r.json()
-        assert shown["checks"]["risk"] == "HELD" and shown["checks"]["authority"] == "PENDING"
-        assert shown["outcome"] == "IN_REVIEW"
+        # CR-134: a claim is decided by two checks, the company and the applicant's own identity. What was declared is screened and shown as
+        # information, and decides nothing, so a held screening neither adds a check nor holds the claim.
+        assert set(shown["checks"]) == {"company", "person_assurance"}
+        assert shown["screening"]["status"] == "REVIEW_REQUIRED"
+        assert shown["outcome"] == "PROVISIONAL"
         assert (
             "Badege" not in r.text and "UN_SC" not in r.text and "ALERT" not in r.text
         )  # nothing from a list reaches the applicant
@@ -307,8 +310,8 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
         )
         done = api.get(f"/v1/org-claims/{claim_id}/status", headers=owner).json()
         assert (
-            done["checks"]["risk"] == "COMPLETED" and done["outcome"] == "PROVISIONAL"
-        )  # authority and identity still pending
+            done["screening"]["status"] == "VERIFIED" and done["outcome"] == "PROVISIONAL"
+        )  # the screening is settled, but the applicant's own identity check is still pending
 
 
 def case_of(rt_url: str, tenant: str, claim_id: str) -> str:
