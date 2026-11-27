@@ -1,7 +1,8 @@
-# CI is run by hand (workflow_dispatch) only; see the `on:` block. The checks themselves are unchanged.
+# CI runs by itself, and only by itself, whenever code is merged into `main` or `dev` from any branch (a push to either branch); see the
+# `on:` block. The checks themselves are unchanged.
 #
 # One CI pipeline for the whole repository: backend, frontend, images, security and the nightly advisory audit, all in
-# this file. Every pull request runs every check (main only changes through a pull request, so there is no second run on the merge; the nightly run covers main); the `checks` job at the end is green only when all
+# this file. Every merge to main or dev runs every check; the `checks` job at the end is green only when all
 # of them are, and it is the one check the branch ruleset needs for the code. (`secret-scan` and `devsecops-controls` stay
 # named jobs because the ruleset and the policy tests name them.)
 #
@@ -14,16 +15,19 @@
 name: ci
 
 on:
-  # MANUAL ONLY. Nothing starts this pipeline by itself: not a push, not a pull request, not the nightly schedule. Run it from the Actions tab
-  # (Run workflow) when you want it. To make it automatic again, restore `pull_request: {branches: [main]}` and the `schedule:` entry below.
-  workflow_dispatch:
+  # AUTOMATIC ONLY: whenever code is merged into `main` or `dev`, from any branch, the merge is a push to that branch and runs every check.
+  # There is no manual button, a pull request alone does not start it, and neither does the nightly schedule (the nightly advisory jobs below
+  # stay off until a `schedule:` entry is added).
+  push:
+    branches: [main, dev]
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  # Every merge to main or dev keeps its own result: two merges in a row must not cancel the first one's checks.
+  cancel-in-progress: false
 
 env:
   UV_VERSION: "0.13.0"
