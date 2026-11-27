@@ -1,7 +1,8 @@
-# CI is run by hand (workflow_dispatch) only; see the `on:` block. The checks themselves are unchanged.
+# CI runs by itself when code is merged to `main` or `dev` (a push to either branch), and by hand (workflow_dispatch) on any branch; see the
+# `on:` block. The checks themselves are unchanged.
 #
 # One CI pipeline for the whole repository: backend, frontend, images, security and the nightly advisory audit, all in
-# this file. Every pull request runs every check (main only changes through a pull request, so there is no second run on the merge; the nightly run covers main); the `checks` job at the end is green only when all
+# this file. Every merge to main or dev runs every check; the `checks` job at the end is green only when all
 # of them are, and it is the one check the branch ruleset needs for the code. (`secret-scan` and `devsecops-controls` stay
 # named jobs because the ruleset and the policy tests name them.)
 #
@@ -14,8 +15,11 @@
 name: ci
 
 on:
-  # MANUAL ONLY. Nothing starts this pipeline by itself: not a push, not a pull request, not the nightly schedule. Run it from the Actions tab
-  # (Run workflow) when you want it. To make it automatic again, restore `pull_request: {branches: [main]}` and the `schedule:` entry below.
+  # AUTOMATIC when code is merged: a push to `main` or `dev` (a merged pull request is a push to its base branch) runs every check.
+  # A pull request alone does not start it, and neither does the nightly schedule (the nightly advisory jobs below stay off until a `schedule:`
+  # entry is added). The Actions tab's "Run workflow" button still starts it by hand on any branch.
+  push:
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -23,7 +27,9 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  # A newer run replaces an older one on the same branch only for a manual run. Every merge to main or dev keeps its own result: two merges in a
+  # row must not cancel the first one's checks.
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   UV_VERSION: "0.13.0"
