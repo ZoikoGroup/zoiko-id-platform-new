@@ -45,7 +45,7 @@ def build_sender(settings: Any) -> EmailSender | None:
         for name, value in (
             ("ZID_SMTP_HOST", settings.smtp_host),
             ("ZID_SMTP_USERNAME", settings.smtp_username),
-            ("ZID_SMTP_PASSWORD_FILE", settings.smtp_password_file),
+            ("ZID_SMTP_PASSWORD_FILE or ZID_SMTP_PASSWORD", settings.smtp_password_file or getattr(settings, "smtp_password", None)),
             ("ZID_EMAIL_FROM", settings.email_from),
         )
         if not value
@@ -64,6 +64,7 @@ def build_sender(settings: Any) -> EmailSender | None:
             port=settings.smtp_port,
             username=settings.smtp_username,
             password_file=settings.smtp_password_file,
+            password=getattr(settings, "smtp_password", None),
             from_name=name or "Zoiko iD",
             from_address=address,
             reply_to=settings.email_reply_to,
