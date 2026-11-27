@@ -114,7 +114,7 @@ def decrypt(key: bytes, data: bytes) -> bytes:
 
 def _des(key8: bytes, data: bytes, *, encrypt_it: bool) -> bytes:
     """Single DES (as 3DES with one key three times): what the retail MAC is built from."""
-    cipher = Cipher(TripleDES(key8 * 3), modes.ECB())
+    cipher = Cipher(TripleDES(key8 * 3), modes.ECB())  # nosec B305 - the retail MAC of ICAO 9303 BAC is defined over single DES blocks; the standard fixes the primitive
     op = cipher.encryptor() if encrypt_it else cipher.decryptor()
     return op.update(data) + op.finalize()
 
@@ -132,7 +132,7 @@ def mac(key: bytes, message: bytes) -> bytes:
 
 def derive(seed: bytes, counter: int) -> bytes:
     """The key derivation function of Doc 9303 part 11, 9.7.1: SHA-1 of the seed and a four-byte counter, first sixteen bytes, parity adjusted."""
-    return adjust_parity(hashlib.sha1(seed + counter.to_bytes(4, "big")).digest()[:16])
+    return adjust_parity(hashlib.sha1(seed + counter.to_bytes(4, "big")).digest()[:16])  # nosec B324 - ICAO 9303 key derivation is defined with SHA-1; it derives a session key, it is not a signature or a password hash
 
 
 def mrz_information(document_number: str, birth_date: str, expiry_date: str) -> bytes:
@@ -148,7 +148,7 @@ def mrz_information(document_number: str, birth_date: str, expiry_date: str) -> 
 
 
 def bac_keys(info: bytes) -> tuple[bytes, bytes]:
-    seed = hashlib.sha1(info).digest()[:16]
+    seed = hashlib.sha1(info).digest()[:16]  # nosec B324 - ICAO 9303 BAC key seed is defined with SHA-1 over the MRZ information
     return derive(seed, 1), derive(seed, 2)
 
 
@@ -283,7 +283,7 @@ def unpad16(data: bytes) -> bytes:
 
 
 def _aes_ecb(key: bytes, block: bytes) -> bytes:
-    enc = Cipher(algorithms.AES(key), modes.ECB()).encryptor()
+    enc = Cipher(algorithms.AES(key), modes.ECB()).encryptor()  # nosec B305 - a one-block AES step, never a message: the chip protocol defines it so (ICAO 9303 PACE)
     return enc.update(block) + enc.finalize()
 
 

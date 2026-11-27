@@ -80,12 +80,7 @@ countries:
     contact: "support@zoikogroup.com"
     capabilities:
       DISCOVERY: {status: ENABLED, effective_from: "2026-10-28"}
-      # LOCAL DEVELOPMENT ONLY: sandbox counts in local/test, never when deployed. Do not commit or deploy.
-      REGISTRATION: {status: SANDBOX, provider: simulator}
-      INDIVIDUAL_VERIFICATION: {status: SANDBOX, provider: simulator}
-      BUSINESS_VERIFICATION: {status: SANDBOX, provider: simulator}
-      CREDENTIAL_ISSUANCE: {status: SANDBOX, provider: simulator}
-      ENTERPRISE_USE: {status: SANDBOX, provider: simulator}
+      # India has no sandbox rows here: a development opening is made from the operator Country openings screen and is never committed (CR-127).
   AU:
     name: "Australia"
     wave: 2

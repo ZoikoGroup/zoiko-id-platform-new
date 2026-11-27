@@ -1334,50 +1334,6 @@
         "title": "ApproveIn",
         "type": "object"
       },
-      "zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody": {
-        "additionalProperties": false,
-        "properties": {
-          "billing_ready": {
-            "default": false,
-            "title": "Billing Ready",
-            "type": "boolean"
-          },
-          "company_verified": {
-            "default": false,
-            "title": "Company Verified",
-            "type": "boolean"
-          },
-          "note": {
-            "anyOf": [
-              {
-                "maxLength": 1000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Note"
-          },
-          "privacy_reviewed": {
-            "default": false,
-            "title": "Privacy Reviewed",
-            "type": "boolean"
-          },
-          "provider_approved": {
-            "default": false,
-            "title": "Provider Approved",
-            "type": "boolean"
-          },
-          "terms_signed": {
-            "default": false,
-            "title": "Terms Signed",
-            "type": "boolean"
-          }
-        },
-        "title": "ApproveBody",
-        "type": "object"
-      },
       "zid_platform__modules__resilience__api__platform__AdvanceBody": {
         "additionalProperties": false,
         "properties": {
@@ -1434,6 +1390,50 @@
           "reason"
         ],
         "title": "ReasonBody",
+        "type": "object"
+      },
+      "zid_platform__modules__verify_api__api__operator_admin__ApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_ready": {
+            "default": false,
+            "title": "Billing Ready",
+            "type": "boolean"
+          },
+          "company_verified": {
+            "default": false,
+            "title": "Company Verified",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "privacy_reviewed": {
+            "default": false,
+            "title": "Privacy Reviewed",
+            "type": "boolean"
+          },
+          "provider_approved": {
+            "default": false,
+            "title": "Provider Approved",
+            "type": "boolean"
+          },
+          "terms_signed": {
+            "default": false,
+            "title": "Terms Signed",
+            "type": "boolean"
+          }
+        },
+        "title": "ApproveBody",
         "type": "object"
       }
     }
@@ -2252,7 +2252,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody"
+                "$ref": "#/components/schemas/zid_platform__modules__verify_api__api__operator_admin__ApproveBody"
               }
             }
           },

@@ -21,7 +21,9 @@ RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("verify-api-client-secret", re.compile(r"(?<![A-Za-z0-9])zps_[A-Za-z0-9_-]{16,}")),
     ("verify-api-access-token", re.compile(r"(?<![A-Za-z0-9])zat_[A-Za-z0-9_-]{16,}")),
     ("verify-api-launch-link", re.compile(r"(?<![A-Za-z0-9])zvl_[A-Za-z0-9_-]{16,}")),
-    ("private-key-block", re.compile(r"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----")),
+    # A header is a finding unless a template placeholder follows it at once: that is code that frames a key pair the person generates in their own browser
+    # (the key body is made at run time), not a key. A header followed by anything else, a real key body included, is still a finding.
+    ("private-key-block", re.compile(r"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----(?!(?:\\n|\r?\n)\$\{)")),
     ("payment-secret-key", re.compile(r"(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}")),
     ("webhook-signing-secret", re.compile(r"(?<![A-Za-z0-9])whsec_[A-Za-z0-9+/=]{16,}")),
     ("cloud-access-key", re.compile(r"(?<![A-Za-z0-9])AKIA[0-9A-Z]{16}(?![A-Za-z0-9])")),
@@ -31,13 +33,12 @@ MAX_BYTES = 20_000_000  # a single file larger than this is not a browser bundle
 
 
 def scan_text(text: str) -> list[tuple[int, str]]:
-    """Every (line number, rule name) found. Values are deliberately not returned."""
-    out: list[tuple[int, str]] = []
-    for number, line in enumerate(text.splitlines(), start=1):
-        for name, pattern in RULES:
-            if pattern.search(line):
-                out.append((number, name))
-    return out
+    """Every (line number, rule name) found. Values are deliberately not returned. The whole text is searched, not line by line, so a rule can look at what follows a line's end."""
+    found: dict[tuple[int, int], str] = {}
+    for rank, (name, pattern) in enumerate(RULES):
+        for m in pattern.finditer(text):
+            found.setdefault((text.count("\n", 0, m.start()) + 1, rank), name)
+    return [(number, name) for (number, _rank), name in sorted(found.items())]
 
 
 def scan_dir(root: Path) -> tuple[int, list[str]]:

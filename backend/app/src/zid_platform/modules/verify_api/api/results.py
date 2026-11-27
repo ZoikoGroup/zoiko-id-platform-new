@@ -119,9 +119,11 @@ async def session_media(session_id: str, request: Request, caller: CallerDep) ->
 async def open_session_media(
     session_id: str, media_id: str, body: MediaOpenBody, request: Request, caller: CallerDep
 ) -> JSONResponse:
-    """One photograph, after the person says why. The reason, who and when are recorded before the image is returned, and the answer is never cached."""
+    """One photograph, after the person says why. A customer's photograph is raw evidence, so this is the protected `evidence.object.read` act (R3, E3), not an ordinary read. The reason, who and when are recorded before the image is returned, and the answer is never cached."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        await protected_action(conn, caller, action=READ, resource=RESOURCE)
+        await protected_action(
+            conn, caller, action="evidence.object.read", resource=f"verify_api_session:{session_id}"
+        )
         try:
             if await db.get_session_any(conn, session_id) is None:
                 raise PartnerError("NOT_FOUND", "No such session.")

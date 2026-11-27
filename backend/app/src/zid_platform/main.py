@@ -631,7 +631,6 @@ def create_app(
         from .modules.operator_access.api.screening_watches import (
             router as screening_watches_router,
         )
-        from .modules.operator_access.api.verify_api_admin import router as verify_api_admin_router
         from .modules.organization.api.kyb_company import router as kyb_company_router
         from .modules.organization.api.ownership import router as v2_ownership_router
         from .modules.policy_authoring.api.policies import router as policy_router
@@ -698,6 +697,7 @@ def create_app(
         from .modules.verify_api.api.fraud import router as verify_api_fraud_router
         from .modules.verify_api.api.go_live import router as verify_api_go_live_router
         from .modules.verify_api.api.logos import router as verify_api_logos_router
+        from .modules.verify_api.api.operator_admin import router as verify_api_admin_router
         from .modules.verify_api.api.results import router as verify_api_results_router
         from .modules.verify_api.api.review import router as verify_api_review_router
         from .modules.verify_api.api.sessions import router as verify_api_sessions_router

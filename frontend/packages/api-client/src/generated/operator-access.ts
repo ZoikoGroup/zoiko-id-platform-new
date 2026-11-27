@@ -2176,8 +2176,24 @@ export interface components {
             /** Acknowledged */
             acknowledged?: string[];
         };
+        /** AdvanceBody */
+        zid_platform__modules__resilience__api__platform__AdvanceBody: {
+            /** Evidence Ref */
+            evidence_ref?: string | null;
+            /** Probes */
+            probes?: {
+                [key: string]: boolean;
+            } | null;
+            /** Step */
+            step: string;
+        };
+        /** ReasonBody */
+        zid_platform__modules__resilience__api__platform__ReasonBody: {
+            /** Reason */
+            reason: string;
+        };
         /** ApproveBody */
-        zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody: {
+        zid_platform__modules__verify_api__api__operator_admin__ApproveBody: {
             /**
              * Billing Ready
              * @default false
@@ -2205,22 +2221,6 @@ export interface components {
              * @default false
              */
             terms_signed: boolean;
-        };
-        /** AdvanceBody */
-        zid_platform__modules__resilience__api__platform__AdvanceBody: {
-            /** Evidence Ref */
-            evidence_ref?: string | null;
-            /** Probes */
-            probes?: {
-                [key: string]: boolean;
-            } | null;
-            /** Step */
-            step: string;
-        };
-        /** ReasonBody */
-        zid_platform__modules__resilience__api__platform__ReasonBody: {
-            /** Reason */
-            reason: string;
         };
     };
     responses: never;
@@ -2797,7 +2797,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__verify_api_admin__ApproveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__verify_api__api__operator_admin__ApproveBody"];
             };
         };
         responses: {

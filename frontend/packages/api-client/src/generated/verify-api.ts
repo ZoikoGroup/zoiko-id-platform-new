@@ -2032,7 +2032,7 @@ export interface paths {
         put?: never;
         /**
          * Open Session Media
-         * @description One photograph, after the person says why. The reason, who and when are recorded before the image is returned, and the answer is never cached.
+         * @description One photograph, after the person says why. A customer's photograph is raw evidence, so this is the protected `evidence.object.read` act (R3, E3), not an ordinary read. The reason, who and when are recorded before the image is returned, and the answer is never cached.
          */
         post: operations["open_session_media_v1_verify_api_sessions__session_id__media__media_id__open_post"];
         delete?: never;

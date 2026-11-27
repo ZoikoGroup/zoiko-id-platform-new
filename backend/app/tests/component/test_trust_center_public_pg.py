@@ -6,10 +6,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from conftest import CELL, engine
+import pytest
+from conftest import CELL, engine, fresh_database
 from fastapi.testclient import TestClient
 from operator_fixture import AUD, ISS, Operators, activate_grant, operators
 from sqlalchemy import text
@@ -32,6 +34,13 @@ NAMES = (
     "approver",
     "triager",
 )
+
+
+@pytest.fixture
+def own_database() -> Iterator[str]:
+    """A database of this test's own: the monitoring figures count claims across the whole database, so claims other tests published must not be counted."""
+    with fresh_database() as (_owner, runtime):
+        yield runtime
 
 
 def uid() -> str:
@@ -465,8 +474,9 @@ def test_an_advisory_is_public_only_after_a_second_person_approves_and_a_correct
 
 
 def test_monitoring_closes_the_release_gate_when_a_live_claim_loses_its_support_and_the_scan_finds_drift(
-    rt_url: str,
+    own_database: str,
 ) -> None:
+    rt_url = own_database
     o, who = _people(rt_url)
     digest = hashlib.sha256(b"monitor-soc2").hexdigest()
     sentence = "An independent SOC 2 report is available on request"
