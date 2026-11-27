@@ -8,9 +8,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
-from onboarding_fixture import AUD, ISS, onboard
+from onboarding_fixture import AUD, ISS, onboard, use_register_first_routing
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.organization.domain.kyb import (
@@ -99,6 +100,11 @@ async def load_lists(url: str) -> None:
             await screening_service.ingest_list(
                 c, lid, files, fetched_at=NOW, source_ref="t", now=NOW
             )
+
+
+@pytest.fixture(autouse=True)
+def _register_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_register_first_routing(monkeypatch)
 
 
 def error(r: Any) -> str:
@@ -226,8 +232,11 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
         r = api.post(f"/v1/org-claims/{claim_id}/screening", headers=owner, json=screening)
         assert r.status_code == 201, r.text
         shown = r.json()
-        assert shown["checks"]["risk"] == "HELD" and shown["checks"]["authority"] == "PENDING"
-        assert shown["outcome"] == "IN_REVIEW"
+        # CR-134: a claim is decided by two checks, the company and the applicant's own identity. What was declared is screened and shown as
+        # information, and decides nothing, so a held screening neither adds a check nor holds the claim.
+        assert set(shown["checks"]) == {"company", "person_assurance"}
+        assert shown["screening"]["status"] == "REVIEW_REQUIRED"
+        assert shown["outcome"] == "PROVISIONAL"
         assert (
             "Badege" not in r.text and "UN_SC" not in r.text and "ALERT" not in r.text
         )  # nothing from a list reaches the applicant
@@ -301,8 +310,8 @@ def test_a_claim_is_decided_by_the_server_screened_and_reviewed_without_leaking_
         )
         done = api.get(f"/v1/org-claims/{claim_id}/status", headers=owner).json()
         assert (
-            done["checks"]["risk"] == "COMPLETED" and done["outcome"] == "PROVISIONAL"
-        )  # authority and identity still pending
+            done["screening"]["status"] == "VERIFIED" and done["outcome"] == "PROVISIONAL"
+        )  # the screening is settled, but the applicant's own identity check is still pending
 
 
 def case_of(rt_url: str, tenant: str, claim_id: str) -> str:

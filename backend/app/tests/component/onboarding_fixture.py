@@ -226,3 +226,28 @@ def give_role(rt_url: str, o: Onboarded, principal: str, role: str) -> None:
             )  # fmt: skip
 
     asyncio.run(run())
+
+
+def register_first_routing() -> Any:
+    """The shipped kyb routing, with the United Kingdom's national register back in front of GLEIF.
+
+    The shipped file is GLEIF-only everywhere (an owner decision of 19 Nov 2026, for local testing), so a company with no LEI is UNAVAILABLE. A test that
+    drives a register adapter named `companies-house` puts that route back, as the unit tests do, so it exercises the register and not the LEI fallback.
+    """
+    import yaml
+    from zid_platform.modules.organization.infrastructure import kyb_config
+
+    doc = yaml.safe_load((kyb_config.CONFIG / kyb_config.FILE).read_text(encoding="utf-8")) or {}
+    route = doc["routes"]["GB"]
+    route["first_pass"] = ["companies-house"]
+    route["lei_as_primary"] = False
+    return kyb_config.parse(doc)
+
+
+def use_register_first_routing(monkeypatch: Any) -> None:
+    """Make every caller of the kyb routing see `register_first_routing()` for this test."""
+    from zid_platform.modules.onboarding.api import org_claims, v2_organizations
+    from zid_platform.modules.organization import ports
+
+    for module in (org_claims, v2_organizations, ports):
+        monkeypatch.setattr(module, "kyb_routing", register_first_routing)

@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
-from onboarding_fixture import AUD, ISS, onboard
+from onboarding_fixture import AUD, ISS, onboard, use_register_first_routing
 from test_org_claims_api_pg import Register
 from zid_platform.main import create_app
 from zid_platform.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def _register_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_register_first_routing(monkeypatch)
+
 
 BODY = {"country": "GB", "registration_number": "00123456", "legal_name": "Acme Widgets Limited"}
 

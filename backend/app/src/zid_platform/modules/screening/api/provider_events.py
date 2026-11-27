@@ -115,6 +115,10 @@ async def event(ref: str, request: Request) -> JSONResponse:
         return JSONResponse(
             {"error": "PROVIDER_NOT_RECOGNISED"}, status_code=401
         )  # not a route we serve: nothing is recorded
+    if not provider or len(provider) > 64:
+        return JSONResponse(
+            {"error": "PROVIDER_NOT_RECOGNISED"}, status_code=401
+        )  # no provider named, or a name no provider has: not a route we serve, and the table cannot hold it, so nothing is recorded
     body = await request.body()
     event_id = request.headers.get("x-zoiko-event-id", "")
 

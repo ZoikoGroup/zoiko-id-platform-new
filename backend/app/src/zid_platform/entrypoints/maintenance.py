@@ -70,7 +70,7 @@ SWEEP: dict[str, str] = {
         "('COMPLETED', 'DENIED', 'EXPIRED') AND expires_at <= :now"
     ),
     "cred.presentation_record": (
-        "UPDATE cred.presentation_record SET status = 'EXPIRED', completed_at = :now "
+        "UPDATE cred.presentation_record SET status = 'EXPIRED', completed_at = :now, response_key = NULL "
         "WHERE status = 'REQUESTED' AND expires_at <= :now"
     ),
     "platform.registration_intent": (

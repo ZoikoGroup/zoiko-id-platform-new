@@ -8,6 +8,7 @@ image:
 role: cell
 replicas: 2
 environment: ""          # required: dev | int-qa | sec | perf | preprod | prod | recovery
+cellId: ""               # required: this cell's real region, for example uk-1, eu-1 or us-1 (a name in backend/config/cells/cells.yaml). The development cell local-1 is refused.
 
 serviceAccount:
   name: zid-platform

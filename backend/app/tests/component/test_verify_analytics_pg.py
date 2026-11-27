@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from admin_fixture import give_tenant_role
 from conftest import ctx, engine
 from onboarding_fixture import onboard
 from test_v2_privacy_pg import api_for, runtime  # noqa: F401  (runtime is autouse)
@@ -126,11 +127,22 @@ def test_small_groups_are_withheld(rt_url: str) -> None:
         )  # Q36: one session is never shown
 
 
+def make_admin_member(rt_url: str, tenant: str, principal: str) -> None:
+    """An active company Admin: analytics access goes to an active member only, and the Owner's grant is refused for anyone else."""
+
+    async def go() -> None:
+        async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
+            await give_tenant_role(c, tenant, principal, role="ADMIN")
+
+    asyncio.run(go())
+
+
 def test_an_administrator_without_a_grant_is_refused_until_the_owner_gives_one_and_tenants_never_mix(
     rt_url: str,
 ) -> None:
     o = onboard(rt_url)
     other = onboard(rt_url)
+    make_admin_member(rt_url, o.tenant, o.second)
     load(rt_url, other.tenant, journey(other.tenant, f"vs_{uuid.uuid4()}", approved=True))
     with api_for(rt_url, o, verify_analytics_min_group=1) as api:
         admin = o.bearer(o.second)
@@ -202,11 +214,18 @@ def test_an_export_downloads_once_and_a_correction_needs_a_second_person(rt_url:
         assert (
             api.post(f"{P}/corrections/{cid}:approve", headers=owner).status_code == 403
         )  # the same person cannot approve
-        api.post(
+
+        async def make_member() -> None:  # analytics access goes to an active member only
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
+                await give_tenant_role(c, o.tenant, o.second, role="MEMBER")
+
+        asyncio.run(make_member())
+        given = api.post(
             f"{P}/grants",
             headers=owner,
             json={"grantee_principal_id": o.second, "bundle": "DATA_STEWARD"},
         )
+        assert given.status_code in (200, 201), given.text
         assert (
             api.post(f"{P}/corrections/{cid}:approve", headers=o.bearer(o.second)).status_code
             == 200

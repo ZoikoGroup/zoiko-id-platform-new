@@ -67,7 +67,9 @@ ASK = {
 
 
 def test_a_person_asks_and_sees_only_their_own_requests(rt_url: str) -> None:
-    o = onboard(rt_url)
+    o = onboard(
+        rt_url, extra_resources=["authority_grant:*"]
+    )  # the route needs authority.grant.read on authority grants
     asha = _person(rt_url, o, None)
     ravi = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
@@ -83,7 +85,9 @@ def test_a_person_asks_and_sees_only_their_own_requests(rt_url: str) -> None:
 
 
 def test_a_member_cannot_read_the_companys_list_or_answer_a_request(rt_url: str) -> None:
-    o = onboard(rt_url)
+    o = onboard(
+        rt_url, extra_resources=["authority_grant:*"]
+    )  # the route needs authority.grant.read on authority grants
     asha = _person(rt_url, o, None)
     ravi = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
@@ -106,7 +110,9 @@ def test_a_member_cannot_read_the_companys_list_or_answer_a_request(rt_url: str)
 
 
 def test_an_administrator_answers_and_the_person_sees_the_answer(rt_url: str) -> None:
-    o = onboard(rt_url)
+    o = onboard(
+        rt_url, extra_resources=["authority_grant:*"]
+    )  # the route needs authority.grant.read on authority grants
     asha = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
         rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()[
@@ -132,7 +138,9 @@ def test_an_administrator_answers_and_the_person_sees_the_answer(rt_url: str) ->
 
 
 def test_nobody_answers_their_own_request(rt_url: str) -> None:
-    o = onboard(rt_url)
+    o = onboard(
+        rt_url, extra_resources=["authority_grant:*"]
+    )  # the route needs authority.grant.read on authority grants
     with _client(rt_url, o) as api:
         rid = api.post("/v1/access-requests", json=ASK, headers=o.bearer(o.owner, scope="")).json()[
             "request_id"
@@ -146,7 +154,9 @@ def test_nobody_answers_their_own_request(rt_url: str) -> None:
 def test_withdrawing_is_only_for_the_person_who_asked_and_the_number_waiting_is_capped(
     rt_url: str,
 ) -> None:
-    o = onboard(rt_url)
+    o = onboard(
+        rt_url, extra_resources=["authority_grant:*"]
+    )  # the route needs authority.grant.read on authority grants
     asha = _person(rt_url, o, None)
     ravi = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
