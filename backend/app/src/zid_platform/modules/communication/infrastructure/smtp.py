@@ -63,16 +63,19 @@ class SmtpConfig:
         host: str,
         port: int,
         username: str,
-        password_file: str,
+        password_file: str | None = None,
+        password: str | None = None,
         from_name: str,
         from_address: str,
         reply_to: str | None = None,
         timeout_s: float = 20.0,
         insecure_local: bool = False,
     ) -> SmtpConfig:
-        password = Path(password_file).read_text(encoding="utf-8").strip()
+        if password_file:
+            password = Path(password_file).read_text(encoding="utf-8").strip()
+        password = (password or "").strip()
         if not password:
-            raise RuntimeError("the SMTP password file is empty")
+            raise RuntimeError("the SMTP password is empty")
         if parseaddr(from_address)[1] != from_address or "@" not in from_address:
             raise RuntimeError("the sender address is not a plain address")
         return cls(
