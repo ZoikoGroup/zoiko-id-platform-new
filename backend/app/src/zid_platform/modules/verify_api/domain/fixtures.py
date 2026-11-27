@@ -22,15 +22,27 @@ from dataclasses import dataclass
 from typing import Any
 
 CATALOG_VERSION = "1"
-SIGNATURE_TOLERANCE_S = 300  # a signature older than this must be refused by the partner (the documented window)
+SIGNATURE_TOLERANCE_S = (
+    300  # a signature older than this must be refused by the partner (the documented window)
+)
 
-FAULTS = ("NONE", "DUPLICATE", "OUT_OF_ORDER", "STALE_SIGNATURE", "TAMPERED_BODY", "SCHEMA_MISMATCH", "ENDPOINT_TIMEOUT")
+FAULTS = (
+    "NONE",
+    "DUPLICATE",
+    "OUT_OF_ORDER",
+    "STALE_SIGNATURE",
+    "TAMPERED_BODY",
+    "SCHEMA_MISMATCH",
+    "ENDPOINT_TIMEOUT",
+)
 
 
 @dataclass(frozen=True, slots=True)
 class Persona:
     id: str
-    fixture: str  # the sandbox outcome it produces (approved, declined, review, inconclusive, expired)
+    fixture: (
+        str  # the sandbox outcome it produces (approved, declined, review, inconclusive, expired)
+    )
     title: str
     events: tuple[str, ...]  # what a correct server sees, in order, with a clean delivery
     final_outcome: str | None  # the decision outcome, none when the session simply expires
@@ -39,17 +51,100 @@ class Persona:
 
 
 PERSONAS: tuple[Persona, ...] = (
-    Persona("clear_pass", "approved", "A clean pass", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", teaches="the happy path, and reading the final decision from the API before acting"),
-    Persona("clear_decline", "declined", "A clean decline", ("session.created", "session.submitted", "decision.finalized"), "NOT_VERIFIED", teaches="a decline that is a decision about evidence, not an error"),
-    Persona("needs_review", "review", "A person must look", ("session.created", "session.submitted", "case.pending"), "REVIEW_REQUIRED", teaches="a pending review is never a verified result"),
-    Persona("provider_unavailable", "inconclusive", "The check could not complete", ("session.created", "session.submitted", "decision.finalized"), "INCONCLUSIVE", teaches="an inconclusive result is not a decline and not a pass"),
-    Persona("session_expired", "expired", "The applicant never finished", ("session.created", "session.closed"), None, teaches="expiry ends a session without any decision"),
-    Persona("duplicate_webhook", "approved", "Every event arrives twice", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "DUPLICATE", "deduplicating on the event id so a repeat never acts twice"),
-    Persona("out_of_order", "approved", "Events arrive in the wrong order", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "OUT_OF_ORDER", "comparing object versions and reading the session when events disagree"),
-    Persona("stale_signature", "approved", "A delivery signed long ago", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "STALE_SIGNATURE", "refusing a signature outside the time window"),
-    Persona("tampered_body", "approved", "A body changed after signing", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "TAMPERED_BODY", "refusing a body that does not match its signature, using the raw bytes"),
-    Persona("schema_drift", "approved", "An unexpected field appears", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "SCHEMA_MISMATCH", "tolerating new fields and refusing a missing required one"),
-    Persona("endpoint_timeout", "approved", "Your endpoint is slow to answer", ("session.created", "session.submitted", "decision.finalized"), "VERIFIED", "ENDPOINT_TIMEOUT", "answering quickly and doing the work afterwards, so a retry is a duplicate not a second action"),
+    Persona(
+        "clear_pass",
+        "approved",
+        "A clean pass",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        teaches="the happy path, and reading the final decision from the API before acting",
+    ),
+    Persona(
+        "clear_decline",
+        "declined",
+        "A clean decline",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "NOT_VERIFIED",
+        teaches="a decline that is a decision about evidence, not an error",
+    ),
+    Persona(
+        "needs_review",
+        "review",
+        "A person must look",
+        ("session.created", "session.submitted", "case.pending"),
+        "REVIEW_REQUIRED",
+        teaches="a pending review is never a verified result",
+    ),
+    Persona(
+        "provider_unavailable",
+        "inconclusive",
+        "The check could not complete",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "INCONCLUSIVE",
+        teaches="an inconclusive result is not a decline and not a pass",
+    ),
+    Persona(
+        "session_expired",
+        "expired",
+        "The applicant never finished",
+        ("session.created", "session.closed"),
+        None,
+        teaches="expiry ends a session without any decision",
+    ),
+    Persona(
+        "duplicate_webhook",
+        "approved",
+        "Every event arrives twice",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "DUPLICATE",
+        "deduplicating on the event id so a repeat never acts twice",
+    ),
+    Persona(
+        "out_of_order",
+        "approved",
+        "Events arrive in the wrong order",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "OUT_OF_ORDER",
+        "comparing object versions and reading the session when events disagree",
+    ),
+    Persona(
+        "stale_signature",
+        "approved",
+        "A delivery signed long ago",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "STALE_SIGNATURE",
+        "refusing a signature outside the time window",
+    ),
+    Persona(
+        "tampered_body",
+        "approved",
+        "A body changed after signing",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "TAMPERED_BODY",
+        "refusing a body that does not match its signature, using the raw bytes",
+    ),
+    Persona(
+        "schema_drift",
+        "approved",
+        "An unexpected field appears",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "SCHEMA_MISMATCH",
+        "tolerating new fields and refusing a missing required one",
+    ),
+    Persona(
+        "endpoint_timeout",
+        "approved",
+        "Your endpoint is slow to answer",
+        ("session.created", "session.submitted", "decision.finalized"),
+        "VERIFIED",
+        "ENDPOINT_TIMEOUT",
+        "answering quickly and doing the work afterwards, so a retry is a duplicate not a second action",
+    ),
 )
 
 _BY_ID = {p.id: p for p in PERSONAS}
@@ -83,18 +178,46 @@ def delivery_plan(pid: str, seed: str) -> dict[str, Any]:
     ]  # fmt: skip
     deliveries = [dict(e) for e in events]
     if p.fault == "DUPLICATE":
-        deliveries = [d for e in events for d in (dict(e), {**e, "attempt": 2, "delay_ms": e["delay_ms"] + 50 + r[10]})]
+        deliveries = [
+            d
+            for e in events
+            for d in (dict(e), {**e, "attempt": 2, "delay_ms": e["delay_ms"] + 50 + r[10]})  # type: ignore[operator]
+        ]
     elif p.fault == "OUT_OF_ORDER":
-        deliveries = [dict(events[-1]), *[dict(e) for e in events[:-1]]]  # the last event first, then the rest in order
+        deliveries = [
+            dict(events[-1]),
+            *[dict(e) for e in events[:-1]],
+        ]  # the last event first, then the rest in order
     elif p.fault == "STALE_SIGNATURE":
         deliveries = [{**e, "signature_age_s": SIGNATURE_TOLERANCE_S * 2 + r[11]} for e in events]
     elif p.fault == "TAMPERED_BODY":
-        deliveries = [{**e, "body": "ALTERED_AFTER_SIGNING"} if i == len(events) - 1 else dict(e) for i, e in enumerate(events)]
+        deliveries = [
+            {**e, "body": "ALTERED_AFTER_SIGNING"} if i == len(events) - 1 else dict(e)
+            for i, e in enumerate(events)
+        ]
     elif p.fault == "SCHEMA_MISMATCH":
-        deliveries = [{**e, "body": "EXTRA_FIELD_ADDED"} if i == 1 else ({**e, "body": "REQUIRED_FIELD_REMOVED"} if i == len(events) - 1 else dict(e)) for i, e in enumerate(events)]
+        deliveries = [
+            {**e, "body": "EXTRA_FIELD_ADDED"}
+            if i == 1
+            else ({**e, "body": "REQUIRED_FIELD_REMOVED"} if i == len(events) - 1 else dict(e))
+            for i, e in enumerate(events)
+        ]
     elif p.fault == "ENDPOINT_TIMEOUT":
-        deliveries = [{**e, "respond_after_ms": 30000} if i == 0 else dict(e) for i, e in enumerate(events)]
-    return {"catalog_version": CATALOG_VERSION, "persona": pid, "seed": seed, "deliveries": deliveries, "plan_digest": "sha-256:" + hashlib.sha256(json.dumps(deliveries, sort_keys=True, separators=(",", ":")).encode()).hexdigest(), "synthetic": True, "marker": "TEST / SYNTHETIC"}
+        deliveries = [
+            {**e, "respond_after_ms": 30000} if i == 0 else dict(e) for i, e in enumerate(events)
+        ]
+    return {
+        "catalog_version": CATALOG_VERSION,
+        "persona": pid,
+        "seed": seed,
+        "deliveries": deliveries,
+        "plan_digest": "sha-256:"
+        + hashlib.sha256(
+            json.dumps(deliveries, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "synthetic": True,
+        "marker": "TEST / SYNTHETIC",
+    }
 
 
 def expectations(pid: str) -> dict[str, Any]:
@@ -140,29 +263,102 @@ def score(obs: Observation) -> dict[str, Any]:
     """Pass or fail each expectation for one persona, with the reason. A failed expectation names what the server did wrong."""
     p = persona(obs.persona)
     if p is None:
-        return {"persona": obs.persona, "passed": False, "checks": [{"check": "KNOWN_PERSONA", "passed": False, "detail": "no such persona"}]}
+        return {
+            "persona": obs.persona,
+            "passed": False,
+            "checks": [{"check": "KNOWN_PERSONA", "passed": False, "detail": "no such persona"}],
+        }
     plan = delivery_plan(obs.persona, obs.seed)
     ex = expectations(obs.persona)
-    checks: list[dict[str, Any]] = [{"check": "PLAN_MATCHES", "passed": obs.plan_digest == plan["plan_digest"], "detail": "the plan the partner played is the one for this persona and seed"}]
+    checks: list[dict[str, Any]] = [
+        {
+            "check": "PLAN_MATCHES",
+            "passed": obs.plan_digest == plan["plan_digest"],
+            "detail": "the plan the partner played is the one for this persona and seed",
+        }
+    ]
     unique_acted = len(set(obs.acted_on_event_ids)) == len(obs.acted_on_event_ids)
-    checks.append({"check": "NEVER_ACTS_TWICE_ON_ONE_EVENT", "passed": unique_acted, "detail": "each event id acted on at most once"})
+    checks.append(
+        {
+            "check": "NEVER_ACTS_TWICE_ON_ONE_EVENT",
+            "passed": unique_acted,
+            "detail": "each event id acted on at most once",
+        }
+    )
     if ex["must_refuse_signature"]:
-        refused_needed = sum(1 for d in plan["deliveries"] if d["signature_age_s"] > SIGNATURE_TOLERANCE_S or d["body"] == "ALTERED_AFTER_SIGNING")
-        checks.append({"check": "REFUSES_BAD_SIGNATURES", "passed": obs.signatures_refused >= refused_needed, "detail": f"refused {obs.signatures_refused} of {refused_needed} deliveries that must be refused"})
+        refused_needed = sum(
+            1
+            for d in plan["deliveries"]
+            if d["signature_age_s"] > SIGNATURE_TOLERANCE_S or d["body"] == "ALTERED_AFTER_SIGNING"
+        )
+        checks.append(
+            {
+                "check": "REFUSES_BAD_SIGNATURES",
+                "passed": obs.signatures_refused >= refused_needed,
+                "detail": f"refused {obs.signatures_refused} of {refused_needed} deliveries that must be refused",
+            }
+        )
         if p.fault == "STALE_SIGNATURE":
-            checks.append({"check": "DOES_NOT_ACT_ON_REFUSED", "passed": len(obs.acted_on_event_ids) == 0, "detail": "a refused delivery is never acted on"})
+            checks.append(
+                {
+                    "check": "DOES_NOT_ACT_ON_REFUSED",
+                    "passed": len(obs.acted_on_event_ids) == 0,
+                    "detail": "a refused delivery is never acted on",
+                }
+            )
     if ex["must_deduplicate"]:
-        checks.append({"check": "DEDUPLICATES", "passed": unique_acted and len(obs.acted_on_event_ids) == len(p.events), "detail": "each event acted on once although each arrived twice"})
+        checks.append(
+            {
+                "check": "DEDUPLICATES",
+                "passed": unique_acted and len(obs.acted_on_event_ids) == len(p.events),
+                "detail": "each event acted on once although each arrived twice",
+            }
+        )
     if ex["must_read_authoritative_state"]:
-        checks.append({"check": "READS_AUTHORITATIVE_STATE", "passed": obs.read_authoritative_state, "detail": "read the session from the API when events disagreed or a review was pending"})
+        checks.append(
+            {
+                "check": "READS_AUTHORITATIVE_STATE",
+                "passed": obs.read_authoritative_state,
+                "detail": "read the session from the API when events disagreed or a review was pending",
+            }
+        )
     if ex["must_not_act_on_pending"]:
-        checks.append({"check": "DOES_NOT_TREAT_PENDING_AS_VERIFIED", "passed": not obs.acted_on_pending and obs.final_outcome_seen != "VERIFIED", "detail": "a pending review is not a verified result"})
+        checks.append(
+            {
+                "check": "DOES_NOT_TREAT_PENDING_AS_VERIFIED",
+                "passed": not obs.acted_on_pending and obs.final_outcome_seen != "VERIFIED",
+                "detail": "a pending review is not a verified result",
+            }
+        )
     if ex["must_tolerate_extra_fields"]:
-        checks.append({"check": "TOLERATES_NEW_FIELDS", "passed": obs.accepted_extra_field, "detail": "a new field did not break it"})
-        checks.append({"check": "REFUSES_MISSING_REQUIRED_FIELD", "passed": obs.refused_missing_field, "detail": "a missing required field was refused"})
+        checks.append(
+            {
+                "check": "TOLERATES_NEW_FIELDS",
+                "passed": obs.accepted_extra_field,
+                "detail": "a new field did not break it",
+            }
+        )
+        checks.append(
+            {
+                "check": "REFUSES_MISSING_REQUIRED_FIELD",
+                "passed": obs.refused_missing_field,
+                "detail": "a missing required field was refused",
+            }
+        )
     if p.fault in ("NONE", "OUT_OF_ORDER", "DUPLICATE", "ENDPOINT_TIMEOUT"):
-        checks.append({"check": "ENDS_WITH_THE_RIGHT_OUTCOME", "passed": obs.final_outcome_seen == p.final_outcome, "detail": f"expected {p.final_outcome}, saw {obs.final_outcome_seen}"})
-    return {"persona": obs.persona, "seed": obs.seed, "passed": all(c["passed"] for c in checks), "checks": checks}
+        checks.append(
+            {
+                "check": "ENDS_WITH_THE_RIGHT_OUTCOME",
+                "passed": obs.final_outcome_seen == p.final_outcome,
+                "detail": f"expected {p.final_outcome}, saw {obs.final_outcome_seen}",
+            }
+        )
+    return {
+        "persona": obs.persona,
+        "seed": obs.seed,
+        "passed": all(c["passed"] for c in checks),
+        "checks": checks,
+    }
 
 
 def report(observations: Sequence[Observation]) -> dict[str, Any]:
@@ -189,7 +385,7 @@ def parse_observation(raw: Mapping[str, Any]) -> Observation:
 
 # ------------------------------------------------------------------------------------------------------------- what a stored run is worth
 
-from datetime import datetime, timedelta  # noqa: E402
+from datetime import datetime, timedelta
 
 RUN_FRESH_FOR = timedelta(days=90)
 
@@ -199,7 +395,12 @@ def suite_status(latest: Mapping[str, Any] | None, now: datetime) -> dict[str, A
 
     This is the result of a synthetic test run. It is NOT a certification of the integration and NOT an approval to go live: those are separate decisions with their own evidence."""
     if latest is None:
-        return {"status": "NOT_RUN", "met": False, "reason": "No scored run has been recorded for this application.", "approves_go_live": False}
+        return {
+            "status": "NOT_RUN",
+            "met": False,
+            "reason": "No scored run has been recorded for this application.",
+            "approves_go_live": False,
+        }
     body = latest["report"]
     problems: list[str] = []
     if not latest["passed"]:

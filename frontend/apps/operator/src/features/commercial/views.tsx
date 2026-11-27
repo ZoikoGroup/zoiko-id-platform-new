@@ -1,6 +1,6 @@
 "use client";
 
-import type { ServiceRequest, AssuranceException, AuditPackVerdict, OperatorApi, PaymentEvent, PlanRequest, PriceBookSummary } from "@zoiko/api-client";
+import type { ServiceRequest, AssuranceException, AuditPackVerdict, OperatorApi, PaymentEvent, PriceBookSummary } from "@zoiko/api-client";
 import { Badge, Banner, Button, Card, DataTable, EmptyState, JsonView, StatusBadge, TextField, type Column } from "@zoiko/ui";
 import { BookOpen, CreditCard, Inbox, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -8,7 +8,6 @@ import { useState, type ReactNode } from "react";
 import { QueryView, useCellMutation, useCellQuery } from "@/lib/op";
 
 import { CapabilityHint } from "../recovery-shared";
-import { useDirectMode } from "./mode";
 import { OfferDialog, type PlanRequestRow } from "./plan-offers";
 import { priceText } from "./plans-prices-logic";
 import { PriceBookEditor } from "./price-book-editor";

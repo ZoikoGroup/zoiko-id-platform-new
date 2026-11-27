@@ -75,8 +75,9 @@ const NAV: NavGroup[] = [
   },
   {
     // ZID-CPS-WF-02 section 06: one Verify API destination; the Command Center links to the existing case, spend and developer pages rather than copying them
-    label: "Verify API",
+    label: "Identity verification",
     items: [
+      { id: "idv-home", label: "Dashboard", href: "/verify-api", icon: ScanFace },
       { id: "command-center", label: "Command Center", href: "/verify-api/command-center", icon: Gauge },
       { id: "idv-cases", label: "Verification cases", href: "/admin/idv-cases", icon: ScanFace },
       { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", icon: Receipt },
@@ -114,7 +115,7 @@ const NAV: NavGroup[] = [
       { id: "residency", label: "Residency", href: "/admin/residency", icon: Globe2 },
       { id: "agents", label: "Agents & tools", href: "/admin/agents", icon: Bot },
       { id: "workloads", label: "Workload identity", href: "/admin/workloads", icon: ServerCog },
-      { id: "company-verification", label: "Company verification", href: "/admin/company-verification", icon: ClipboardCheck },
+      { id: "company-verification", label: "Company grade and mandates", href: "/admin/company-verification", icon: ClipboardCheck },
       { id: "developers", label: "Developers", href: "/admin/developers", icon: Webhook },
     ],
   },

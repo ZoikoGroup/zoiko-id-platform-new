@@ -51,7 +51,16 @@ async def record_authority_snapshot(
         return snapshot_view(existing)
     body = snap.assess(edges, decision_at, required=required)
     digest = str(hash_json(body, alg="sha-256"))
-    signature = sign_evidence({"snapshot_digest": digest, "decision_ref": decision_ref, "subject_ref": subject_ref, "tenant_id": tenant_id, "verdict": body["verdict"]}, SNAPSHOT_TYP)
+    signature = sign_evidence(
+        {
+            "snapshot_digest": digest,
+            "decision_ref": decision_ref,
+            "subject_ref": subject_ref,
+            "tenant_id": tenant_id,
+            "verdict": body["verdict"],
+        },
+        SNAPSHOT_TYP,
+    )
     await store.insert_snapshot(
         conn,
         {
@@ -73,7 +82,10 @@ def snapshot_view(row: Any) -> dict[str, Any]:
         problems.append("BODY_DIFFERS_FROM_DIGEST")
     try:
         claims = verify_evidence(row.signature, SNAPSHOT_TYP)
-        if claims.get("snapshot_digest") != row.snapshot_digest or claims.get("decision_ref") != row.decision_ref:
+        if (
+            claims.get("snapshot_digest") != row.snapshot_digest
+            or claims.get("decision_ref") != row.decision_ref
+        ):
             problems.append("SIGNATURE_COVERS_ANOTHER_SNAPSHOT")
     except Exception:  # noqa: BLE001 - any failure to verify is the same answer
         problems.append("SIGNATURE_DOES_NOT_VERIFY")
@@ -98,51 +110,129 @@ def decode_list(encoded: str, size_bits: int) -> bytes:
     return bits
 
 
-async def allocate_slot(conn: AsyncConnection, tenant_id: str, purpose: str, subject_ref: str) -> dict[str, Any]:
+async def allocate_slot(
+    conn: AsyncConnection, tenant_id: str, purpose: str, subject_ref: str
+) -> dict[str, Any]:
     """A random position for this credential or agent. Positions are never handed out in order, so a position says nothing about when it was issued."""
     if purpose not in sl.PURPOSES:
         raise _err("STATUS_LIST_PURPOSE_UNKNOWN", "purpose must be revocation or suspension")
     lst = await store.ensure_list(conn, tenant_id, purpose, sl.MIN_BITS)
     have = await store.slot_for(conn, lst.list_id, subject_ref)
     if have is not None:
-        return {"list_id": str(lst.list_id), "position": int(have.position), "purpose": purpose, "size_bits": int(lst.size_bits)}
+        return {
+            "list_id": str(lst.list_id),
+            "position": int(have.position),
+            "purpose": purpose,
+            "size_bits": int(lst.size_bits),
+        }
     for _ in range(MAX_SLOT_DRAWS):
         position = secrets.randbelow(int(lst.size_bits))
         if await store.insert_slot(conn, tenant_id, lst.list_id, position, subject_ref):
-            return {"list_id": str(lst.list_id), "position": position, "purpose": purpose, "size_bits": int(lst.size_bits)}
+            return {
+                "list_id": str(lst.list_id),
+                "position": position,
+                "purpose": purpose,
+                "size_bits": int(lst.size_bits),
+            }
     raise _err("STATUS_LIST_FULL", "no free position was found; start a new list", 409)
 
 
-async def change_status(conn: AsyncConnection, tenant_id: str, purpose: str, subject_ref: str, *, revoke: bool, reason: str, by: str | None) -> dict[str, Any]:
+async def change_status(
+    conn: AsyncConnection,
+    tenant_id: str,
+    purpose: str,
+    subject_ref: str,
+    *,
+    revoke: bool,
+    reason: str,
+    by: str | None,
+) -> dict[str, Any]:
     lst = await store.ensure_list(conn, tenant_id, purpose, sl.MIN_BITS)
     slot = await store.slot_for(conn, lst.list_id, subject_ref)
     if slot is None:
         raise _err("STATUS_SLOT_UNKNOWN", "this subject has no position in the list", 404)
-    await store.insert_change(conn, tenant_id, slot.slot_id, "SET" if revoke else "REINSTATE", reason, by)
-    return {"list_id": str(lst.list_id), "purpose": purpose, "change": "SET" if revoke else "REINSTATE", "published": False, "note": "Relying parties see this only after the next publication."}
+    await store.insert_change(
+        conn, tenant_id, slot.slot_id, "SET" if revoke else "REINSTATE", reason, by
+    )
+    return {
+        "list_id": str(lst.list_id),
+        "purpose": purpose,
+        "change": "SET" if revoke else "REINSTATE",
+        "published": False,
+        "note": "Relying parties see this only after the next publication.",
+    }
 
 
-async def publish_list(conn: AsyncConnection, tenant_id: str, purpose: str, *, issuer: str, environment: str, now: datetime | None = None, ttl: timedelta = sl.TTL) -> dict[str, Any]:
+async def publish_list(
+    conn: AsyncConnection,
+    tenant_id: str,
+    purpose: str,
+    *,
+    issuer: str,
+    environment: str,
+    now: datetime | None = None,
+    ttl: timedelta = sl.TTL,
+) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     lst = await store.ensure_list(conn, tenant_id, purpose, sl.MIN_BITS)
     bits = sl.new_bits(int(lst.size_bits))
     for position in await store.marked_positions(conn, lst.list_id):
         sl.set_bit(bits, position)
     version = await store.next_version(conn, lst.list_id)
-    claims = sl.list_claims(list_id=str(lst.list_id), purpose=purpose, version=version, encoded=_encode(bytes(bits)), size_bits=int(lst.size_bits), issuer=issuer, environment=environment, now=now, ttl=ttl)
+    claims = sl.list_claims(
+        list_id=str(lst.list_id),
+        purpose=purpose,
+        version=version,
+        encoded=_encode(bytes(bits)),
+        size_bits=int(lst.size_bits),
+        issuer=issuer,
+        environment=environment,
+        now=now,
+        ttl=ttl,
+    )
     jws = sign_evidence(claims, sl.TYP)
-    await store.insert_publication(conn, tenant_id, lst.list_id, version, jws, now, datetime.fromisoformat(claims["expires_at"]))
-    return {"list_id": str(lst.list_id), "version": version, "issued_at": claims["issued_at"], "expires_at": claims["expires_at"], "jws": jws}
+    await store.insert_publication(
+        conn,
+        tenant_id,
+        lst.list_id,
+        version,
+        jws,
+        now,
+        datetime.fromisoformat(claims["expires_at"]),
+    )
+    return {
+        "list_id": str(lst.list_id),
+        "version": version,
+        "issued_at": claims["issued_at"],
+        "expires_at": claims["expires_at"],
+        "jws": jws,
+    }
 
 
-def check_published(jws: str, position: int, *, now: datetime, max_age: timedelta | None, issuer: str, environment: str) -> str:
+def check_published(
+    jws: str,
+    position: int,
+    *,
+    now: datetime,
+    max_age: timedelta | None,
+    issuer: str,
+    environment: str,
+) -> str:
     """What a relying party does: verify the list's signature, then look its own position up locally."""
     try:
         claims = dict(verify_evidence(jws, sl.TYP))
         bits = decode_list(str(claims["encoded_list"]), int(claims["size_bits"]))
     except Exception:  # noqa: BLE001
         return "UNKNOWN"
-    return sl.lookup(claims, bits, position, now=now, max_age=max_age, expected_issuer=issuer, expected_environment=environment)
+    return sl.lookup(
+        claims,
+        bits,
+        position,
+        now=now,
+        max_age=max_age,
+        expected_issuer=issuer,
+        expected_environment=environment,
+    )
 
 
 # ------------------------------------------------------------------------------------------------------------------ exports
@@ -162,10 +252,22 @@ async def request_export(
     conn: AsyncConnection, tenant_id: str, *, receipt_id: str, tier: str, recipient: Mapping[str, Any] | None, purpose: str, legal_basis: str | None, retention_days: int,
     recipient_country: str | None, tenant_country: str, requested_by: str, authenticated: bool = True,
 ) -> dict[str, Any]:  # fmt: skip
-    problems = tiers.request_problems(tier=tier, authenticated=authenticated, recipient=recipient, purpose=purpose, legal_basis=legal_basis, retention_days=retention_days, recipient_country=recipient_country)
+    problems = tiers.request_problems(
+        tier=tier,
+        authenticated=authenticated,
+        recipient=recipient,
+        purpose=purpose,
+        legal_basis=legal_basis,
+        retention_days=retention_days,
+        recipient_country=recipient_country,
+    )
     if problems:
         raise _err("EXPORT_TIER_REQUEST_REFUSED", "; ".join(problems))
-    cross = tiers.is_cross_border(tenant_country, recipient_country) if tier != "PUBLIC_MINIMAL" else False
+    cross = (
+        tiers.is_cross_border(tenant_country, recipient_country)
+        if tier != "PUBLIC_MINIMAL"
+        else False
+    )
     request_id = str(uuid.uuid4())
     await store.insert_export_request(
         conn,
@@ -180,22 +282,32 @@ async def request_export(
     return row_view(row)
 
 
-async def decide_export(conn: AsyncConnection, request_id: str, *, approve: bool, decided_by: str, reason: str | None) -> dict[str, Any]:
+async def decide_export(
+    conn: AsyncConnection, request_id: str, *, approve: bool, decided_by: str, reason: str | None
+) -> dict[str, Any]:
     row = await store.load_export_request(conn, request_id)
     if row is None:
         raise _err("NOT_FOUND", "unknown export request", 404)
     if str(row.requested_by) == decided_by:
-        raise _err("EXPORT_SECOND_PERSON_REQUIRED", "the person who asked cannot decide the request", 403)
+        raise _err(
+            "EXPORT_SECOND_PERSON_REQUIRED", "the person who asked cannot decide the request", 403
+        )
     if not approve and not (reason or "").strip():
         raise _err("EXPORT_REFUSAL_NEEDS_REASON", "a refusal needs a reason")
-    if not await store.decide_export_request(conn, request_id, approve=approve, decided_by=decided_by, reason=reason):
-        raise _err("EXPORT_REQUEST_NOT_OPEN", "the request is no longer waiting for a decision", 409)
+    if not await store.decide_export_request(
+        conn, request_id, approve=approve, decided_by=decided_by, reason=reason
+    ):
+        raise _err(
+            "EXPORT_REQUEST_NOT_OPEN", "the request is no longer waiting for a decision", 409
+        )
     row = await store.load_export_request(conn, request_id)
     assert row is not None
     return row_view(row)
 
 
-async def issue_export(conn: AsyncConnection, tenant_id: str, request_id: str, *, issued_by: str) -> dict[str, Any]:
+async def issue_export(
+    conn: AsyncConnection, tenant_id: str, request_id: str, *, issued_by: str
+) -> dict[str, Any]:
     """Build the package for the tier, sign a manifest naming the recipient, and record both. Refused until the second person has approved where one is needed."""
     row = await store.load_export_request(conn, request_id)
     if row is None:
@@ -205,7 +317,11 @@ async def issue_export(conn: AsyncConnection, tenant_id: str, request_id: str, *
     if row.state == "REFUSED":
         raise _err("EXPORT_REQUEST_REFUSED", "this request was refused", 409)
     if row.needs_second_person and row.state != "APPROVED":
-        raise _err("EXPORT_SECOND_PERSON_REQUIRED", "this tier needs a second person's approval before it is issued", 403)
+        raise _err(
+            "EXPORT_SECOND_PERSON_REQUIRED",
+            "this tier needs a second person's approval before it is issued",
+            403,
+        )
     receipt = await receipt_store.load_receipt(conn, str(row.receipt_id))
     if receipt is None:
         raise _err("NOT_FOUND", "unknown receipt", 404)
@@ -224,8 +340,15 @@ async def issue_export(conn: AsyncConnection, tenant_id: str, request_id: str, *
         "withheld_fields": withheld,
     }  # fmt: skip
     jws = sign_evidence(manifest, EXPORT_TYP)
-    if not await store.issue_export_request(conn, request_id, package_digest=digest, manifest_jws=jws, expires_at=expires):
+    if not await store.issue_export_request(
+        conn, request_id, package_digest=digest, manifest_jws=jws, expires_at=expires
+    ):
         raise _err("EXPORT_REQUEST_NOT_OPEN", "the request changed while it was being issued", 409)
     done = await store.load_export_request(conn, request_id)
     assert done is not None
-    return {"request": row_view(done), "manifest": manifest, "manifest_jws": jws, "package": package}
+    return {
+        "request": row_view(done),
+        "manifest": manifest,
+        "manifest_jws": jws,
+        "package": package,
+    }

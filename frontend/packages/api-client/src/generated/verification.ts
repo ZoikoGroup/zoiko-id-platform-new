@@ -296,6 +296,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/self-run/verifications/{verification_id}/chip-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chip Link Start
+         * @description Open a chip read. The answer is the first command for the device to send to the chip, and a sealed token to send back with the chip's answer.
+         *     The server keeps nothing: every step carries its state in the token, so any server process can take it.
+         */
+        post: operations["chip_link_start_v2_self_run_verifications__verification_id__chip_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/self-run/verifications/{verification_id}/chip-link/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chip Link Finish
+         * @description Judge what the chip gave, exactly as if the app had sent it, with an optional face for an engine the deployment accepts. The session is decided once.
+         */
+        post: operations["chip_link_finish_v2_self_run_verifications__verification_id__chip_link_finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/self-run/verifications/{verification_id}/chip-link/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chip Link Step
+         * @description The chip's answer to the last command, with the token that came with it; the reply is the next command, or the end of the read.
+         */
+        post: operations["chip_link_step_v2_self_run_verifications__verification_id__chip_link_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/source-of-funds/cases": {
         parameters: {
             query?: never;
@@ -694,6 +755,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/verification-budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Budget
+         * @description The company's monthly supplier spend budget and what has been spent this month (WF01-014). Totals only.
+         */
+        get: operations["read_budget_verification_budget_get"];
+        /** Set Budget */
+        put: operations["set_budget_verification_budget_put"];
+        post?: never;
+        /** Clear Budget */
+        delete: operations["clear_budget_verification_budget_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/verification-engine-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Engine Readiness
+         * @description Whether a face engine could be approved today, and what is missing (WF01-011/012): the engine record, each component's licence reading and the evaluation
+         *     references, as the versioned configuration states them. Read only: approving an engine is a change to that configuration by the people who own it.
+         */
+        get: operations["engine_readiness_verification_engine_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/verification-method-certification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Method Certification Board
+         * @description How far each identity-proofing method is from certified (WF03 P10; CR-119): not built, built but never run on a real document or lab, awaiting records, or approved. Read only: it states
+         *     what the versioned configuration and the trust store hold and what is still missing, and approves nothing.
+         */
+        get: operations["method_certification_board_verification_method_certification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/verification-profiles": {
         parameters: {
             query?: never;
@@ -780,6 +905,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/verification-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage
+         * @description Usage counts for Finance and operations (WF01-014): sessions by provider, status and outcome, review cases, repeat attempts. Aggregates only:
+         *     no person, no claim, no evidence. What each provider attempt cost is the vendor cost report's job (commercial); this says how many there were.
+         */
+        get: operations["usage_verification_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/verifications": {
         parameters: {
             query?: never;
@@ -806,6 +952,27 @@ export interface paths {
         };
         /** Read */
         get: operations["read_verifications__verification_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/verifications/{verification_id}/proofing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proofing Facts
+         * @description WF01's result facts for one session (CR-107): the state in WF01's words, the distinct assertions that hold, each check as pass, fail,
+         *     indeterminate or not requested, and the pinned policy. A view over the recorded decision: no evidence, no value of any claim, no score.
+         */
+        get: operations["proofing_facts_verifications__verification_id__proofing_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -921,6 +1088,13 @@ export interface components {
             /** Supported Evidence */
             supported_evidence: string[];
         };
+        /** BudgetIn */
+        BudgetIn: {
+            /** Currency */
+            currency: string;
+            /** Monthly Limit */
+            monthly_limit: string | number;
+        };
         /** BulkStartIn */
         BulkStartIn: {
             /** Jurisdiction */
@@ -937,15 +1111,38 @@ export interface components {
             /** Subject Principal Ids */
             subject_principal_ids: string[];
         };
+        /** ChipLinkFinishIn */
+        ChipLinkFinishIn: {
+            face?: components["schemas"]["zid_platform__modules__verification__api__v2_self_run__FaceIn"] | null;
+            /** Token */
+            token: string;
+        };
         /**
-         * ChipIn
-         * @description What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. Only group 1 (the MRZ) is read.
+         * ChipLinkStartIn
+         * @description The printed details the chip's access keys come from: the three machine-readable-zone details, or only the Card Access Number (CAN) printed on the document, which
+         *     works for a chip that offers PACE. They are used to open the chip and kept nowhere.
          */
-        ChipIn: {
-            /** Data Groups */
-            data_groups: Record<string, never>;
-            /** Sod Base64 */
-            sod_base64: string;
+        ChipLinkStartIn: {
+            /** Can */
+            can?: string | null;
+            /** Date Of Birth */
+            date_of_birth?: string | null;
+            /** Document Number */
+            document_number?: string | null;
+            /** Document Valid To */
+            document_valid_to?: string | null;
+            /**
+             * Include Photo
+             * @default false
+             */
+            include_photo: boolean;
+        };
+        /** ChipLinkStepIn */
+        ChipLinkStepIn: {
+            /** Response Base64 */
+            response_base64: string;
+            /** Token */
+            token: string;
         };
         /** EntitlementIn */
         EntitlementIn: {
@@ -971,17 +1168,6 @@ export interface components {
             valid_from: string;
             /** Valid Until */
             valid_until?: string | null;
-        };
-        /**
-         * FaceIn
-         * @description A live face image and a liveness capture, each base64. Used only when the deployment has an accepted engine and the chip photo came from a data
-         *     group the signed object covered; never kept.
-         */
-        FaceIn: {
-            /** Liveness Base64 */
-            liveness_base64: string;
-            /** Probe Base64 */
-            probe_base64: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1047,11 +1233,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** ReasonIn */
-        ReasonIn: {
-            /** Reason */
-            reason: string;
-        };
         /** RelianceIn */
         RelianceIn: {
             /** Claims */
@@ -1070,16 +1251,6 @@ export interface components {
              * Format: uuid
              */
             subject_principal_id: string;
-        };
-        /** ReviewIn */
-        ReviewIn: {
-            /**
-             * Decision
-             * @enum {string}
-             */
-            decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
-            /** Reason Codes */
-            reason_codes: string[];
         };
         /** RouteIn */
         RouteIn: {
@@ -1109,7 +1280,7 @@ export interface components {
             active_authentication?: components["schemas"]["ActiveAuthIn"] | null;
             /** Data Groups */
             data_groups: Record<string, never>;
-            face?: components["schemas"]["FaceIn"] | null;
+            face?: components["schemas"]["zid_platform__modules__verification__api__v2_self_run__FaceIn"] | null;
             /** Sod Base64 */
             sod_base64: string;
         };
@@ -1175,7 +1346,7 @@ export interface components {
         V2AgeIn: {
             /** Birth Date */
             birth_date?: string | null;
-            chip?: components["schemas"]["ChipIn"] | null;
+            chip?: components["schemas"]["zid_platform__modules__verification__api__v2_age__ChipIn"] | null;
             estimate?: components["schemas"]["zid_platform__modules__verification__api__v2_age__EstimateIn"] | null;
             /** Threshold */
             threshold: number;
@@ -1219,12 +1390,48 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * ChipIn
+         * @description What the phone app read from the chip: the signed object (EF.SOD) and the data groups, each as base64. Only group 1 (the MRZ) is read.
+         */
+        zid_platform__modules__verification__api__v2_age__ChipIn: {
+            /** Data Groups */
+            data_groups: Record<string, never>;
+            /** Sod Base64 */
+            sod_base64: string;
+        };
         /** EstimateIn */
         zid_platform__modules__verification__api__v2_age__EstimateIn: {
             /** Estimated Age */
             estimated_age: number;
             /** Margin */
             margin: number;
+        };
+        /** ReasonIn */
+        zid_platform__modules__verification__api__v2_providers__ReasonIn: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * FaceIn
+         * @description A live face image and a liveness capture, each base64. Used only when the deployment has an accepted engine and the chip photo came from a data
+         *     group the signed object covered; never kept.
+         */
+        zid_platform__modules__verification__api__v2_self_run__FaceIn: {
+            /** Liveness Base64 */
+            liveness_base64: string;
+            /** Probe Base64 */
+            probe_base64: string;
+        };
+        /** ReviewIn */
+        zid_platform__modules__verification__api__verification__ReviewIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT" | "REQUEST_MORE_EVIDENCE" | "ESCALATE";
+            /** Reason Codes */
+            reason_codes: string[];
         };
         /** StartIn */
         zid_platform__modules__verification__api__verification__StartIn: {
@@ -1739,7 +1946,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__v2_providers__ReasonIn"];
             };
         };
         responses: {
@@ -1777,7 +1984,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__v2_providers__ReasonIn"];
             };
         };
         responses: {
@@ -1850,6 +2057,117 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SelfRunChipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chip_link_start_v2_self_run_verifications__verification_id__chip_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChipLinkStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chip_link_finish_v2_self_run_verifications__verification_id__chip_link_finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChipLinkFinishIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chip_link_step_v2_self_run_verifications__verification_id__chip_link_step_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChipLinkStepIn"];
             };
         };
         responses: {
@@ -2783,6 +3101,129 @@ export interface operations {
             };
         };
     };
+    read_budget_verification_budget_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    set_budget_verification_budget_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_budget_verification_budget_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    engine_readiness_verification_engine_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    method_certification_board_verification_method_certification_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     profiles_verification_profiles_get: {
         parameters: {
             query?: never;
@@ -2950,9 +3391,43 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReviewIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__verification__ReviewIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_verification_usage_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+                until?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -3012,6 +3487,39 @@ export interface operations {
         };
     };
     read_verifications__verification_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                verification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proofing_facts_verifications__verification_id__proofing_get: {
         parameters: {
             query?: never;
             header?: never;

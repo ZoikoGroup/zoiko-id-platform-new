@@ -28,7 +28,9 @@ def _tree(root: Path) -> Path:
     return root
 
 
-def test_the_config_root_environment_finds_both_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_config_root_environment_finds_both_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = _tree(tmp_path / "cfg")
     monkeypatch.delenv("ZID_SELF_RUN_CONFIG", raising=False)
     monkeypatch.delenv("ZID_ENGINE_REGISTER", raising=False)
@@ -39,7 +41,9 @@ def test_the_config_root_environment_finds_both_files(tmp_path: Path, monkeypatc
     assert engine_register.register()["version"] == "t"
 
 
-def test_a_named_file_still_wins_over_the_config_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_named_file_still_wins_over_the_config_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     root = _tree(tmp_path / "cfg")
     other = tmp_path / "other.yaml"
     other.write_text("mode: DISABLED\n", encoding="utf-8")
@@ -49,7 +53,9 @@ def test_a_named_file_still_wins_over_the_config_root(tmp_path: Path, monkeypatc
     assert self_run_config.raw() == {"mode": "DISABLED"}
 
 
-def test_without_any_environment_the_repository_config_is_used(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_any_environment_the_repository_config_is_used(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     for name in ("ZID_PLATFORM_CONFIG", "ZID_SELF_RUN_CONFIG", "ZID_ENGINE_REGISTER"):
         monkeypatch.delenv(name, raising=False)
     importlib.reload(engine_register)

@@ -88,9 +88,17 @@ class SidecarFaceEngine:
         except (httpx.HTTPError, ValueError) as e:
             raise EngineUnavailable("ENGINE_FAILED") from e
         if r.status_code != 200 or not isinstance(data, dict):
-            raise EngineUnavailable(str(data.get("error")) if isinstance(data, dict) and data.get("error") else "ENGINE_FAILED")
+            raise EngineUnavailable(
+                str(data.get("error"))
+                if isinstance(data, dict) and data.get("error")
+                else "ENGINE_FAILED"
+            )
         score = data.get("score")
-        if isinstance(score, bool) or not isinstance(score, int | float) or not 0.0 <= float(score) <= 1.0:
+        if (
+            isinstance(score, bool)
+            or not isinstance(score, int | float)
+            or not 0.0 <= float(score) <= 1.0
+        ):
             raise EngineUnavailable("ENGINE_SCORE_OUT_OF_RANGE")
         return FaceMatch(float(score), self.engine_id, self.engine_version)
 
@@ -106,4 +114,8 @@ def gate_status() -> dict[str, Any]:
     from zid_platform.modules.verification.infrastructure import engine_register, self_run_config
 
     r = readiness(self_run_config.raw(), engine_register.register(), today=datetime.now(UTC).date())
-    return {"mode": r["mode"], "approvable": bool(r["approvable"]), "problems": list(r["problems_for_approval"])}
+    return {
+        "mode": r["mode"],
+        "approvable": bool(r["approvable"]),
+        "problems": list(r["problems_for_approval"]),
+    }

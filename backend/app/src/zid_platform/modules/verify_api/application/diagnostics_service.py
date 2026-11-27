@@ -24,17 +24,37 @@ async def endpoints(conn: AsyncConnection) -> dict[str, Any]:
     items = []
     for eid, ds in grouped.items():
         h = dg.endpoint_health(ds, confirmed)
-        items.append({"endpoint_id": eid, "host": ds[0]["host"], "endpoint_status": ds[0]["endpoint_status"], **h})
-    return {"items": items, "note": "Read from the newest deliveries of each endpoint. An endpoint with no deliveries yet is not listed."}
+        items.append(
+            {
+                "endpoint_id": eid,
+                "host": ds[0]["host"],
+                "endpoint_status": ds[0]["endpoint_status"],
+                **h,
+            }
+        )
+    return {
+        "items": items,
+        "note": "Read from the newest deliveries of each endpoint. An endpoint with no deliveries yet is not listed.",
+    }
 
 
-async def requests(conn: AsyncConnection, application_id: str, *, status: int | None, route: str | None, before: datetime | None, limit: int) -> dict[str, Any]:
+async def requests(
+    conn: AsyncConnection,
+    application_id: str,
+    *,
+    status: int | None,
+    route: str | None,
+    before: datetime | None,
+    limit: int,
+) -> dict[str, Any]:
     problems = dg.request_filters_problems(status, route, limit)
     if problems:
         raise PartnerError("VALIDATION_FAILED", "; ".join(problems))
     if await store.get_application(conn, application_id) is None:
         raise PartnerError("NOT_FOUND", "No such application.")
-    rows = await store.request_log(conn, application_id, status=status, route=route, before=before, limit=limit)
+    rows = await store.request_log(
+        conn, application_id, status=status, route=route, before=before, limit=limit
+    )
     return {
         "items": [{**r, "occurred_at": r["occurred_at"].isoformat()} for r in rows],
         "next_before": rows[-1]["occurred_at"].isoformat() if len(rows) == limit else None,
@@ -47,5 +67,10 @@ async def trace(conn: AsyncConnection, session_id: str) -> dict[str, Any]:
     if session is None:
         raise PartnerError("NOT_FOUND", "No such session.")
     return dg.build_trace(
-        session_id, {"status": session["status"]}, await store.requests_for_session(conn, session_id), await route_decisions_for_session(conn, session_id), await store.decisions_for_session(conn, session_id), await deliveries_for_session(conn, session_id)
+        session_id,
+        {"status": session["status"]},
+        await store.requests_for_session(conn, session_id),
+        await route_decisions_for_session(conn, session_id),
+        await store.decisions_for_session(conn, session_id),
+        await deliveries_for_session(conn, session_id),
     )

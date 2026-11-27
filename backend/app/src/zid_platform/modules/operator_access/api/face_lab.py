@@ -93,16 +93,22 @@ class PairIn(BaseModel):
 class CalibrateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pairs: list[PairIn] = Field(min_length=4, max_length=MAX_PAIRS)
-    targets: list[float] = Field(default_factory=lambda: [0.1, 0.01, 0.001], min_length=1, max_length=6)
+    targets: list[float] = Field(
+        default_factory=lambda: [0.1, 0.01, 0.001], min_length=1, max_length=6
+    )
 
 
 def _decode(value: str) -> bytes:
     try:
         raw = base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as e:
-        raise ZidError("IMAGE_UNREADABLE", "That photograph could not be read.", http_status=422) from e
+        raise ZidError(
+            "IMAGE_UNREADABLE", "That photograph could not be read.", http_status=422
+        ) from e
     if len(raw) > MAX_IMAGE:
-        raise ZidError("IMAGE_TOO_LARGE", "That photograph is too large (8 MB at most).", http_status=422)
+        raise ZidError(
+            "IMAGE_TOO_LARGE", "That photograph is too large (8 MB at most).", http_status=422
+        )
     return raw
 
 
@@ -113,7 +119,10 @@ async def lab_status(request: Request, op: OperatorDep) -> dict[str, Any]:
     return {
         "configured": v.face_lab.configured_url() is not None,
         "engine": {"id": v.face_lab.ENGINE_ID, "version": v.face_lab.ENGINE_VERSION},
-        "liveness": {"available": False, "note": "No open-source liveness model is installed in the lab image."},
+        "liveness": {
+            "available": False,
+            "note": "No open-source liveness model is installed in the lab image.",
+        },
         "gate": v.face_lab.gate_status(),
         "note": LAB_NOTE,
     }
@@ -127,9 +136,21 @@ async def compare(body: CompareIn, request: Request, op: OperatorDep) -> dict[st
         got = await v.face_lab.compare(probe, reference)
         suggested = float(got.get("recommended_cosine_threshold", 0.363))
         above = float(got["cosine"]) >= suggested
-        out = {**got, "above_suggested_threshold": above, "liveness": {"available": False}, "note": LAB_NOTE}
+        out = {
+            **got,
+            "above_suggested_threshold": above,
+            "liveness": {"available": False},
+            "note": LAB_NOTE,
+        }
         # the record names the engine and the side of the suggested threshold, never the photographs or the score
-        return out, "face-lab", {"engine": v.face_lab.ENGINE_ID, "result": "ABOVE_SUGGESTED_THRESHOLD" if above else "BELOW_SUGGESTED_THRESHOLD"}
+        return (
+            out,
+            "face-lab",
+            {
+                "engine": v.face_lab.ENGINE_ID,
+                "result": "ABOVE_SUGGESTED_THRESHOLD" if above else "BELOW_SUGGESTED_THRESHOLD",
+            },
+        )
 
     return await actions.act(
         request,
@@ -152,9 +173,21 @@ async def calibrate(body: CalibrateIn, request: Request, op: OperatorDep) -> dic
         try:
             out = fc.report([fc.Pair(p.score, p.same) for p in body.pairs], tuple(body.targets))
         except fc.CalibrationError as e:
-            raise ZidError(e.code, "That set of pairs cannot be measured: " + e.code.replace("_", " ").lower() + ".", http_status=422) from e
+            raise ZidError(
+                e.code,
+                "That set of pairs cannot be measured: " + e.code.replace("_", " ").lower() + ".",
+                http_status=422,
+            ) from e
         # the record names the engine and the size of the set, never a score
-        return out, "face-lab", {"engine": v.face_lab.ENGINE_ID, "same_pairs": out["same_pairs"], "different_pairs": out["different_pairs"]}
+        return (
+            out,
+            "face-lab",
+            {
+                "engine": v.face_lab.ENGINE_ID,
+                "same_pairs": out["same_pairs"],
+                "different_pairs": out["different_pairs"],
+            },
+        )
 
     return await actions.act(
         request,

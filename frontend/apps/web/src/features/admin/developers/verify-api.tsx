@@ -39,7 +39,7 @@ const when = (iso: string | null): string => (iso ? new Date(iso).toLocaleString
 
 /** The applications a company's server uses to call the Verify API, and the credentials of each. A secret is shown once, when it is created or rotated, and the page cannot be closed on it until the person
  * confirms they copied it: the cell keeps only a hash and can never show it again. Only the sandbox is available until the production gate has passed. */
-export function VerifyApiSection() {
+export function VerifyApiSection({ show = "all" }: { show?: "all" | "applications" | "activity" } = {}) {
   const list = useCellQuery([...KEY, "applications"], (api) => api.verifyApi.applications());
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState<"SANDBOX" | "PRODUCTION" | null>(null);
@@ -50,26 +50,41 @@ export function VerifyApiSection() {
     { key: "sc", header: "Can do", render: (a) => `${a.scopes.length} of ${SCOPES.length}` },
     { key: "c", header: "Created", render: (a) => when(a.created_at), sortValue: (a) => a.created_at },
   ];
+  const applications = show !== "activity";
+  const activity = show !== "applications";
+  // Both kinds are the company's choice: the sandbox is free and always there; production is there once it is open (see Go live above).
+  const live = useCellQuery(["verify-api", "go-live"], (api) => api.verifyApi.goLive());
+  const productionOpen = live.data?.grant?.status === "ACTIVE";
   return (
     <div className="space-y-4">
-      <Banner tone="info" title="Verify your own customers from your own server">
-        Create an application, get a client ID and a secret, and your server exchanges them for a short-lived token. Build and test in the sandbox, where no real person or document is checked. Production
-        opens after your company is verified and your integration is certified.{" "}
-        <a className="font-medium text-brand-700 underline" href="/docs/verify-api" target="_blank" rel="noreferrer noopener">
-          Read the documentation
-        </a>
-        .
-      </Banner>
-      <GoLive onCreateProduction={() => setCreating("PRODUCTION")} />
+      {applications ? (
+        <>
+          <Banner tone="info" title="Verify your own customers from your own server">
+            Create an application, get a client ID and a secret, and your server exchanges them for a short-lived token. Choose the sandbox to practise (free, no real person or document is checked) or
+            production for real customers. Production opens once your own identity, your company and a paid plan are complete.{" "}
+            <a className="font-medium text-brand-700 underline" href="/docs/verify-api" target="_blank" rel="noreferrer noopener">
+              Read the documentation
+            </a>
+            .
+          </Banner>
+          <GoLive onCreateProduction={() => setCreating("PRODUCTION")} />
+        </>
+      ) : null}
+      {applications ? (
       <QueryView query={list}>
         {(d) => (
           <Card
             title="Applications"
             description="Each application has its own credentials and the scopes you give it. Open one to see and manage its credentials."
             actions={
-              <Button size="sm" icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating("SANDBOX")}>
-                Create application
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" icon={<Plus aria-hidden className="size-4" />} onPress={() => setCreating("SANDBOX")}>
+                  Create sandbox application
+                </Button>
+                <Button size="sm" icon={<Plus aria-hidden className="size-4" />} isDisabled={!productionOpen} onPress={() => setCreating("PRODUCTION")}>
+                  Create production application
+                </Button>
+              </div>
             }
             padded={false}
           >
@@ -88,11 +103,16 @@ export function VerifyApiSection() {
           </Card>
         )}
       </QueryView>
-      <ResultsCard />
-      <ReviewCard />
-      <FraudCard />
-      <CasesCard />
-      <UsageCard />
+      ) : null}
+      {activity ? (
+        <>
+          <ResultsCard />
+          <ReviewCard />
+          <FraudCard />
+          <CasesCard />
+          <UsageCard />
+        </>
+      ) : null}
       {open ? <ApplicationDetail id={open} onClose={() => setOpen(null)} /> : null}
       {creating ? <CreateApplicationDialog environment={creating} onClose={() => setCreating(null)} onCreated={(a) => setOpen(a.application_id)} /> : null}
     </div>

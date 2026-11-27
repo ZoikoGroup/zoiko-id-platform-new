@@ -5,7 +5,7 @@ export interface GuidePage {
   id: string;
   label: string;
   href: string;
-  group: "Company" | "My account" | "Administration";
+  group: "Company" | "My account" | "Administration" | "Identity verification";
   /** Words a person might use for it. */
   keywords: string;
 }
@@ -47,7 +47,13 @@ export const PAGES: readonly GuidePage[] = [
   { id: "agents", label: "Agents & tools", href: "/admin/agents", group: "Administration", keywords: "agents tools machine automation" },
   { id: "workloads", label: "Workload identity", href: "/admin/workloads", group: "Administration", keywords: "workload identity services spiffe" },
   { id: "checks", label: "Verification checks", href: "/admin/checks", group: "Administration", keywords: "verification checks address contact device proof evidence" },
-  { id: "company-verification", label: "Company verification", href: "/admin/company-verification", group: "Administration", keywords: "company verification kyb grade mandate representative appeal export documents reviewed registry matched authority" },
+  { id: "idv-home", label: "Dashboard", href: "/verify-api", group: "Identity verification", keywords: "identity verification dashboard verify api applications home overview" },
+  { id: "command-center", label: "Command Center", href: "/verify-api/command-center", group: "Identity verification", keywords: "command center verify api cases spend decisions overview status" },
+  { id: "idv-cases", label: "Verification cases", href: "/admin/idv-cases", group: "Identity verification", keywords: "verification cases review queue identity case decisions" },
+  { id: "verification-spend", label: "Verification spend", href: "/admin/verification-spend", group: "Identity verification", keywords: "verification spend cost usage charges billing meter" },
+  { id: "trust-room", label: "Security documents", href: "/trust-room", group: "Identity verification", keywords: "security documents trust room evidence reports download request" },
+  { id: "routing", label: "Coverage & routing", href: "/admin/routing", group: "Administration", keywords: "coverage routing countries markets providers methods release approval" },
+  { id: "company-verification", label: "Company grade and mandates", href: "/admin/company-verification", group: "Administration", keywords: "company verification kyb grade mandate representative appeal export documents reviewed registry matched authority" },
   { id: "developers", label: "Developers", href: "/admin/developers", group: "Administration", keywords: "developers api webhooks keys events sdk" },
 ];
 

@@ -174,7 +174,7 @@ describe("simple identity page", () => {
         { ...base, case_id: "old1", created_at: "2026-11-19T07:00:00Z", decision: "ABANDONED", state: "CLOSED" },
         { ...base, case_id: "old2", created_at: "2026-11-19T08:00:00Z", route: "WEB_REVIEW", decision: "REVIEW_REQUIRED", signals: sent },
         { ...base, case_id: "old3", created_at: "2026-11-19T08:30:00Z", route: "WEB_AUTO", decision: "INDETERMINATE" },
-        { ...base, case_id: "new", created_at: "2026-11-19T09:00:00Z" },
+        { ...base, case_id: "new", created_at: "2026-11-19T09:00:00Z", attempts: { CAPTURE: 1 } }, // a photograph was already tried, so it is not a stranded check
       ],
     });
     mount();
@@ -198,7 +198,7 @@ describe("simple identity page", () => {
   });
 
   it("asks for the document photograph, a live photograph and the person's agreement, and sends them together", async () => {
-    fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_FACE" }] });
+    fake.idv.cases.mockResolvedValue({ items: [{ ...base, route: "WEB_FACE", attempts: { CAPTURE: 1 } }] }); // a check that has had an attempt; one with none is stranded and the wizard starts again
     fake.idv.nonce.mockResolvedValue({ nonce: "n".repeat(16) });
     fake.idv.documentImage.mockResolvedValue({ ...base, route: "WEB_FACE", decision: "APPROVED", state: "CLOSED" });
     const user = userEvent.setup();

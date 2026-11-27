@@ -34,6 +34,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/.well-known/oauth-protected-resource/v1/machine/mcp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Protected Resource Metadata
+         * @description OAuth 2.0 Protected Resource Metadata (RFC 9728) for the agent tool gateway: which resource this is, who issues the tokens it accepts, and how a token is presented. Public: it describes
+         *     the interface and holds no data. The token must be the agent's own workload token, issued for this platform's audience; a token for another resource or tenant is refused by the gateway.
+         */
+        get: operations["protected_resource_metadata__well_known_oauth_protected_resource_v1_machine_mcp_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/.well-known/openid-configuration": {
         parameters: {
             query?: never;
@@ -80,6 +101,23 @@ export interface paths {
          * @description §18: Zoiko's self-signed entity configuration (relying party + OpenID provider).
          */
         get: operations["our_entity_configuration__well_known_openid_federation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/.well-known/security.txt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security Txt */
+        get: operations["security_txt__well_known_security_txt_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -383,6 +421,26 @@ export interface operations {
             };
         };
     };
+    protected_resource_metadata__well_known_oauth_protected_resource_v1_machine_mcp_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     oidc_metadata__well_known_openid_configuration_get: {
         parameters: {
             query?: never;
@@ -426,6 +484,26 @@ export interface operations {
         };
     };
     our_entity_configuration__well_known_openid_federation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    security_txt__well_known_security_txt_get: {
         parameters: {
             query?: never;
             header?: never;

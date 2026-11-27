@@ -175,7 +175,7 @@ def build(entities: Iterable[Mapping[str, Any]], links: Iterable[Mapping[str, An
     # only if they never overlap in time, so the total is checked at every date a link starts.
     dated = any(link.valid_from or link.valid_to for link in out)
     boundaries = {d for link in out for d in (link.valid_from, link.valid_to) if d}
-    moments: list[date | None] = sorted({date.min, *boundaries}) if dated else [None]
+    moments: list[date | None] = sorted({date.min, *boundaries}) if dated else [None]  # type: ignore[assignment]
     for moment in moments:
         totals: dict[tuple[str, bool], Decimal] = defaultdict(Decimal)
         for link in out:

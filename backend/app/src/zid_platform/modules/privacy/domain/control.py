@@ -35,7 +35,7 @@ RETRY_BASE_MINUTES = 15
 
 def retry_delay_minutes(attempts: int) -> int:
     """How long to wait after the Nth failed attempt: 15 minutes, then doubling, never more than a day."""
-    return min(RETRY_BASE_MINUTES * (2 ** max(attempts - 1, 0)), 24 * 60)
+    return int(min(RETRY_BASE_MINUTES * (2 ** max(attempts - 1, 0)), 24 * 60))
 
 
 def score(likelihood: int, impact: int) -> int:

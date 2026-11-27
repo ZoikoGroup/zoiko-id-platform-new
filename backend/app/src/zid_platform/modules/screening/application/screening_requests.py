@@ -350,7 +350,7 @@ async def open_request(
                 "lv": s.last_validated_at,
             },
         )
-    for list_id, m in candidates:
+    for list_id, m in candidates:  # type: ignore[assignment]
         await conn.execute(
             text(
                 "INSERT INTO verify.screening_request_candidate (candidate_id, request_id, tenant_id, list_id, list_version, source_ref, "

@@ -30,7 +30,9 @@ def _person(rt_url: str, o: Any, actions: list[str] | None) -> str:
     async def run() -> str:
         p = str(uuid.uuid4())
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
-            await create_principal(c, Principal(p, o.tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+            await create_principal(
+                c, Principal(p, o.tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+            )
             if actions:
                 await make_admin(c, o.tenant, p, actions, ["*"], release=False)
             o.sessions[p] = await _session(c, o.tenant, p)
@@ -56,7 +58,12 @@ def _client(rt_url: str, o: Any) -> TestClient:
     return TestClient(app, base_url=ISS)
 
 
-ASK = {"actions": ["invoice.approve"], "value_amount": "500", "value_currency": "GBP", "reason": "I approve the weekly supplier invoices."}
+ASK = {
+    "actions": ["invoice.approve"],
+    "value_amount": "500",
+    "value_currency": "GBP",
+    "reason": "I approve the weekly supplier invoices.",
+}
 
 
 def test_a_person_asks_and_sees_only_their_own_requests(rt_url: str) -> None:
@@ -67,8 +74,12 @@ def test_a_person_asks_and_sees_only_their_own_requests(rt_url: str) -> None:
         made = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha))
         assert made.status_code == 201, made.text
         assert made.json()["status"] == "OPEN" and "requester_principal_id" not in made.json()
-        assert len(api.get("/v1/access-requests/mine", headers=_bearer(o, asha)).json()["items"]) == 1
-        assert api.get("/v1/access-requests/mine", headers=_bearer(o, ravi)).json()["items"] == []  # never another person's
+        assert (
+            len(api.get("/v1/access-requests/mine", headers=_bearer(o, asha)).json()["items"]) == 1
+        )
+        assert (
+            api.get("/v1/access-requests/mine", headers=_bearer(o, ravi)).json()["items"] == []
+        )  # never another person's
 
 
 def test_a_member_cannot_read_the_companys_list_or_answer_a_request(rt_url: str) -> None:
@@ -76,23 +87,45 @@ def test_a_member_cannot_read_the_companys_list_or_answer_a_request(rt_url: str)
     asha = _person(rt_url, o, None)
     ravi = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
-        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()["request_id"]
+        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()[
+            "request_id"
+        ]
         assert api.get("/v1/access-requests", headers=_bearer(o, ravi)).status_code == 403
-        assert api.post(f"/v1/access-requests/{rid}:fulfil", json={}, headers=_bearer(o, ravi)).status_code == 403
-        assert api.post(f"/v1/access-requests/{rid}:decline", json={}, headers=_bearer(o, ravi)).status_code == 403
+        assert (
+            api.post(
+                f"/v1/access-requests/{rid}:fulfil", json={}, headers=_bearer(o, ravi)
+            ).status_code
+            == 403
+        )
+        assert (
+            api.post(
+                f"/v1/access-requests/{rid}:decline", json={}, headers=_bearer(o, ravi)
+            ).status_code
+            == 403
+        )
 
 
 def test_an_administrator_answers_and_the_person_sees_the_answer(rt_url: str) -> None:
     o = onboard(rt_url)
     asha = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
-        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()["request_id"]
+        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()[
+            "request_id"
+        ]
         listed = api.get("/v1/access-requests", headers=o.bearer(o.owner, scope=""))
         assert listed.status_code == 200, listed.text
-        assert [(i["request_id"], i["requester_principal_id"]) for i in listed.json()["items"]] == [(rid, asha)]
-        no = api.post(f"/v1/access-requests/{rid}:decline", json={"note": "Ask your manager first."}, headers=o.bearer(o.owner, scope=""))
+        assert [(i["request_id"], i["requester_principal_id"]) for i in listed.json()["items"]] == [
+            (rid, asha)
+        ]
+        no = api.post(
+            f"/v1/access-requests/{rid}:decline",
+            json={"note": "Ask your manager first."},
+            headers=o.bearer(o.owner, scope=""),
+        )
         assert no.status_code == 200 and no.json()["status"] == "DECLINED", no.text
-        again = api.post(f"/v1/access-requests/{rid}:fulfil", json={}, headers=o.bearer(o.owner, scope=""))
+        again = api.post(
+            f"/v1/access-requests/{rid}:fulfil", json={}, headers=o.bearer(o.owner, scope="")
+        )
         assert again.status_code == 409  # already answered
         mine = api.get("/v1/access-requests/mine", headers=_bearer(o, asha)).json()["items"][0]
         assert mine["status"] == "DECLINED" and mine["decision_note"] == "Ask your manager first."
@@ -101,21 +134,44 @@ def test_an_administrator_answers_and_the_person_sees_the_answer(rt_url: str) ->
 def test_nobody_answers_their_own_request(rt_url: str) -> None:
     o = onboard(rt_url)
     with _client(rt_url, o) as api:
-        rid = api.post("/v1/access-requests", json=ASK, headers=o.bearer(o.owner, scope="")).json()["request_id"]
-        own = api.post(f"/v1/access-requests/{rid}:fulfil", json={}, headers=o.bearer(o.owner, scope=""))
+        rid = api.post("/v1/access-requests", json=ASK, headers=o.bearer(o.owner, scope="")).json()[
+            "request_id"
+        ]
+        own = api.post(
+            f"/v1/access-requests/{rid}:fulfil", json={}, headers=o.bearer(o.owner, scope="")
+        )
         assert own.status_code == 403 and own.json()["error"]["code"] == "ACCESS_REQUEST_OWN"
 
 
-def test_withdrawing_is_only_for_the_person_who_asked_and_the_number_waiting_is_capped(rt_url: str) -> None:
+def test_withdrawing_is_only_for_the_person_who_asked_and_the_number_waiting_is_capped(
+    rt_url: str,
+) -> None:
     o = onboard(rt_url)
     asha = _person(rt_url, o, None)
     ravi = _person(rt_url, o, None)
     with _client(rt_url, o) as api:
-        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()["request_id"]
-        assert api.post(f"/v1/access-requests/{rid}:withdraw", headers=_bearer(o, ravi)).status_code == 404
-        assert api.post(f"/v1/access-requests/{rid}:withdraw", headers=_bearer(o, asha)).json()["status"] == "WITHDRAWN"
+        rid = api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).json()[
+            "request_id"
+        ]
+        assert (
+            api.post(f"/v1/access-requests/{rid}:withdraw", headers=_bearer(o, ravi)).status_code
+            == 404
+        )
+        assert (
+            api.post(f"/v1/access-requests/{rid}:withdraw", headers=_bearer(o, asha)).json()[
+                "status"
+            ]
+            == "WITHDRAWN"
+        )
         for _ in range(5):
-            assert api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).status_code == 201
-        assert api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).status_code == 409
-        bad = api.post("/v1/access-requests", json={**ASK, "value_currency": None}, headers=_bearer(o, ravi))
+            assert (
+                api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).status_code
+                == 201
+            )
+        assert (
+            api.post("/v1/access-requests", json=ASK, headers=_bearer(o, asha)).status_code == 409
+        )
+        bad = api.post(
+            "/v1/access-requests", json={**ASK, "value_currency": None}, headers=_bearer(o, ravi)
+        )
         assert bad.status_code == 422  # an amount needs its currency

@@ -18,11 +18,10 @@ from zid_crypto import CryptoError, verify_external_jws
 from zid_platform.modules.verify_api.application import approvals_service as approvals
 from zid_platform.modules.verify_api.application import certificates as certs
 from zid_platform.modules.verify_api.application import observe
-from zid_platform.modules.verify_api.domain import app_settings
+from zid_platform.modules.verify_api.domain import app_settings, scope_changes
 from zid_platform.modules.verify_api.domain import approvals as approval_rules
 from zid_platform.modules.verify_api.domain import credential_options as opts
 from zid_platform.modules.verify_api.domain import model as m
-from zid_platform.modules.verify_api.domain import scope_changes
 from zid_platform.modules.verify_api.infrastructure import go_live_store, store
 
 AUTH_FAILED = "The client id or secret is not valid."
@@ -641,8 +640,14 @@ async def authenticate(
     if not bearer.startswith(m.TOKEN_PREFIX):
         raise m.PartnerError("AUTH_INVALID", "The access token is not valid.")
     row = await store.token_with_state(conn, m.hash_secret(bearer), now)
-    if row is not None and row["credential_status"] == "REVOKED" and row.get("revoked_at") is not None:
-        observe.REVOCATION_TO_REFUSAL.observe(max(0.0, (now - row["revoked_at"]).total_seconds()))  # the measured containment time (CR-173)
+    if (
+        row is not None
+        and row["credential_status"] == "REVOKED"
+        and row.get("revoked_at") is not None
+    ):
+        observe.REVOCATION_TO_REFUSAL.observe(
+            max(0.0, (now - row["revoked_at"]).total_seconds())
+        )  # the measured containment time (CR-173)
     if (
         row is None
         or row["expires_at"] <= now
@@ -662,7 +667,9 @@ async def authenticate(
         application_id=str(row["application_id"]),
         credential_id=str(row["credential_id"]),
         environment=row["environment"],
-        scopes=scope_changes.effective_scopes(row["application_scopes"], row["scopes"], row["current_scopes"]),  # a scope removed after the token was issued is gone on this very call
+        scopes=scope_changes.effective_scopes(
+            row["application_scopes"], row["scopes"], row["current_scopes"]
+        ),  # a scope removed after the token was issued is gone on this very call
         expires_at=row["expires_at"],
     )
 
@@ -670,38 +677,88 @@ async def authenticate(
 # ------------------------------------------------------------------------------------------------------------- versioned scopes (CR-173)
 
 
-async def change_scopes(conn: AsyncConnection, tenant_id: str, application_id: str, proposed_by: str, wanted: list[str], reason: str, effective_at: datetime | None = None, now: datetime | None = None) -> dict[str, Any]:
+async def change_scopes(
+    conn: AsyncConnection,
+    tenant_id: str,
+    application_id: str,
+    proposed_by: str,
+    wanted: list[str],
+    reason: str,
+    effective_at: datetime | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     """Propose a new scope set. A removal can be staged; an addition to a production application waits for a second person."""
     now = now or datetime.now(UTC)
     a = await store.get_application(conn, application_id, lock=True)
     if a is None:
         raise m.PartnerError("NOT_FOUND", "No such application.")
     if a["status"] == m.AppStatus.RETIRED.value:
-        raise m.PartnerError("APPLICATION_STATE_INVALID", "A retired application cannot be changed.")
+        raise m.PartnerError(
+            "APPLICATION_STATE_INVALID", "A retired application cannot be changed."
+        )
     current = await store.scopes_in_force(conn, application_id, now)
     base = list(current if current is not None else a["scopes"])
-    ch = scope_changes.plan(base, wanted, production=str(a["environment"]) == m.Environment.PRODUCTION.value, now=now, effective_at=effective_at)
+    ch = scope_changes.plan(
+        base,
+        wanted,
+        production=str(a["environment"]) == m.Environment.PRODUCTION.value,
+        now=now,
+        effective_at=effective_at,
+    )
     version = await store.next_scope_version(conn, application_id)
-    cid = await store.insert_scope_change(conn, tenant_id, application_id, version, ch.kind, ch.resulting_scopes, ch.requires_approval, proposed_by, ch.effective_at, reason)
-    return {"change_id": cid, "version": version, "kind": ch.kind, "resulting_scopes": list(ch.resulting_scopes), "effective_at": ch.effective_at.isoformat(), "needs_approval": ch.requires_approval, "approved": not ch.requires_approval}
+    cid = await store.insert_scope_change(
+        conn,
+        tenant_id,
+        application_id,
+        version,
+        ch.kind,
+        ch.resulting_scopes,
+        ch.requires_approval,
+        proposed_by,
+        ch.effective_at,
+        reason,
+    )
+    return {
+        "change_id": cid,
+        "version": version,
+        "kind": ch.kind,
+        "resulting_scopes": list(ch.resulting_scopes),
+        "effective_at": ch.effective_at.isoformat(),
+        "needs_approval": ch.requires_approval,
+        "approved": not ch.requires_approval,
+    }
 
 
-async def approve_scope_change(conn: AsyncConnection, tenant_id: str, change_id: str, approver: str) -> dict[str, Any]:
+async def approve_scope_change(
+    conn: AsyncConnection, tenant_id: str, change_id: str, approver: str
+) -> dict[str, Any]:
     c = await store.get_scope_change(conn, change_id)
     if c is None:
         raise m.PartnerError("NOT_FOUND", "No such scope change.")
     if not c["requires_approval"]:
         raise m.PartnerError("APPROVAL_STATE_INVALID", "This change does not need an approval.")
-    problems = scope_changes.approval_problems(str(c["proposed_by"]), approver, list(c["approvers"]))
+    problems = scope_changes.approval_problems(
+        str(c["proposed_by"]), approver, list(c["approvers"])
+    )
     if "PROPOSER_CANNOT_APPROVE_OWN_CHANGE" in problems:
-        raise m.PartnerError("APPROVAL_SELF_DECISION", "The person who proposed a scope change cannot approve it.")
+        raise m.PartnerError(
+            "APPROVAL_SELF_DECISION", "The person who proposed a scope change cannot approve it."
+        )
     if problems:
         raise m.PartnerError("APPROVAL_STATE_INVALID", "You already approved this change.")
     await store.insert_scope_approval(conn, tenant_id, change_id, approver)
     return {"change_id": change_id, "approved": True, "approved_by": approver}
 
 
-async def rollback_scopes(conn: AsyncConnection, tenant_id: str, application_id: str, proposed_by: str, to_version: int, reason: str, now: datetime | None = None) -> dict[str, Any]:
+async def rollback_scopes(
+    conn: AsyncConnection,
+    tenant_id: str,
+    application_id: str,
+    proposed_by: str,
+    to_version: int,
+    reason: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     """Go back to the scope set of an earlier version (0 is what the application had when it was created). It is a NEW version with the old set, so history is never rewritten, a rollback
     that widens a production application still needs a second person, and no session or idempotency key is touched."""
     a = await store.get_application(conn, application_id)
@@ -710,8 +767,23 @@ async def rollback_scopes(conn: AsyncConnection, tenant_id: str, application_id:
     if to_version == 0:
         target = list(a["scopes"])
     else:
-        found = next((c for c in await store.scope_changes(conn, application_id) if c["version"] == to_version), None)
+        found = next(
+            (
+                c
+                for c in await store.scope_changes(conn, application_id)
+                if c["version"] == to_version
+            ),
+            None,
+        )
         if found is None:
             raise m.PartnerError("NOT_FOUND", "There is no such scope version.")
         target = list(found["resulting_scopes"])
-    return await change_scopes(conn, tenant_id, application_id, proposed_by, target, f"rollback to version {to_version}: {reason}"[:300], now=now)
+    return await change_scopes(
+        conn,
+        tenant_id,
+        application_id,
+        proposed_by,
+        target,
+        f"rollback to version {to_version}: {reason}"[:300],
+        now=now,
+    )

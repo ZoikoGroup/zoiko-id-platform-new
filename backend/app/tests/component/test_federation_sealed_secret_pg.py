@@ -6,7 +6,6 @@ import asyncio
 import dataclasses
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from admin_fixture import make_admin
 from conftest import ctx, engine
@@ -63,7 +62,9 @@ def soon(days: int = 30) -> str:
     return (datetime.now(UTC) + timedelta(days=days)).isoformat()
 
 
-def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write_only(rt_url: str, owner_url: str) -> None:
+def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write_only(
+    rt_url: str, owner_url: str
+) -> None:
     """CR-138: the secret is entered once, never returned, kept as a sealed connector credential, and replaced by rotating with a new one. No operator secret store is involved."""
     tenant, admin = uid(), uid()
     web = f"web-{uid()}"
@@ -71,25 +72,62 @@ def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write
 
     async def seed() -> str:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-            await create_principal(c, Principal(admin, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
-            await make_admin(c, tenant, admin, ["tenant.identity_provider.change"], ["federation_connection:*", "federation_trust_anchor:*"])
+            await create_principal(
+                c, Principal(admin, tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+            )
+            await make_admin(
+                c,
+                tenant,
+                admin,
+                ["tenant.identity_provider.change"],
+                ["federation_connection:*", "federation_trust_anchor:*"],
+            )
             sid, now = uid(), datetime.now(UTC)
             principal, _ = await load_principal(c, admin)
             await create_session(
                 c,
-                Session(sid, tenant, admin, now - timedelta(seconds=20), "native:webauthn", 2, principal.security_revision, 1, SessionStatus.ACTIVE, now + timedelta(hours=8), now),
+                Session(
+                    sid,
+                    tenant,
+                    admin,
+                    now - timedelta(seconds=20),
+                    "native:webauthn",
+                    2,
+                    principal.security_revision,
+                    1,
+                    SessionStatus.ACTIVE,
+                    now + timedelta(hours=8),
+                    now,
+                ),
             )
             return sid
 
     sid = asyncio.run(seed())
     app = create_app(
-        Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", webauthn_rp_id="id.zoiko.test", webauthn_origins=(ISS,)),
+        Settings(
+            database_url=rt_url,
+            token_issuer=ISS,
+            token_audience=AUD,
+            public_base_url=AUD,
+            environment="test",
+            webauthn_rp_id="id.zoiko.test",
+            webauthn_origins=(ISS,),
+        ),
         keyring=ring,
     )
     app.state.federation_settings = dataclasses.replace(app.state.federation_settings)
     adm = {
         "Authorization": "Bearer "
-        + issue_access_token(ring, issuer=ISS, audience=AUD, subject=admin, tenant_id=tenant, client_id=web, now=datetime.now(UTC), session_id=sid)
+        + issue_access_token(
+            ring,
+            issuer=ISS,
+            audience=AUD,
+            subject=admin,
+            tenant_id=tenant,
+            client_id=web,
+            now=datetime.now(UTC),
+            session_id=sid,
+        )
     }
     SECRET1, SECRET2 = "s3cr3t-value-one-0123456789", "s3cr3t-value-two-9876543210"
     body = {
@@ -101,7 +139,14 @@ def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write
     def refs(conn_id: str) -> str:
         async def q() -> str:
             async with engine(owner_url) as eng, eng.connect() as c:
-                return (await c.execute(text("SELECT client_secret_ref FROM authn.federation_connection WHERE connection_id = :i"), {"i": uuid.UUID(conn_id)})).scalar_one()
+                return (
+                    await c.execute(
+                        text(
+                            "SELECT client_secret_ref FROM authn.federation_connection WHERE connection_id = :i"
+                        ),
+                        {"i": uuid.UUID(conn_id)},
+                    )
+                ).scalar_one()
 
         return asyncio.run(q())
 
@@ -116,9 +161,13 @@ def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write
 
     with TestClient(app) as http:
         # a secret together with the name of a stored one, or with a signed key, is refused
-        both = http.post("/federation/integrations", headers=adm, json={**body, "client_secret_ref": "some-name"})
+        both = http.post(
+            "/federation/integrations", headers=adm, json={**body, "client_secret_ref": "some-name"}
+        )
         assert both.status_code in (400, 422), both.text
-        bad = http.post("/federation/integrations", headers=adm, json={**body, "client_auth": "private_key_jwt"})
+        bad = http.post(
+            "/federation/integrations", headers=adm, json={**body, "client_auth": "private_key_jwt"}
+        )
         assert bad.status_code in (400, 422), bad.text
 
         made = http.post("/federation/integrations", headers=adm, json=body)
@@ -133,7 +182,11 @@ def test_a_company_gives_the_client_secret_in_the_console_and_it_is_sealed_write
         assert SECRET1 not in again.text
 
         # rotating with a new secret replaces it at once, under the same reference
-        rot = http.post(f"/federation/integrations/{cid}:rotate", headers=adm, json={"metadata_expires_at": soon(60), "client_secret": SECRET2})
+        rot = http.post(
+            f"/federation/integrations/{cid}:rotate",
+            headers=adm,
+            json={"metadata_expires_at": soon(60), "client_secret": SECRET2},
+        )
         assert rot.status_code == 200, rot.text
         assert SECRET2 not in rot.text
         assert refs(cid) == ref

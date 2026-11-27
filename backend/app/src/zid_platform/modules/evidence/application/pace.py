@@ -26,6 +26,7 @@ import hashlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.cmac import CMAC
@@ -233,7 +234,7 @@ def mul(c: Curve, k: int, point: Point) -> Point:
     while k:
         if k & 1:
             result = add(c, result, addend)
-        addend = add(c, addend, addend)
+        addend = add(c, addend, addend)  # type: ignore[assignment]
         k >>= 1
     return result
 
@@ -301,7 +302,9 @@ def _aes_cbc_zero(key: bytes, data: bytes, *, encrypt: bool) -> bytes:
     return op.update(data) + op.finalize()
 
 
-def _reader():  # the 3DES primitives live with the Basic Access Control code; imported when needed because that module imports this one
+def _reader() -> (
+    Any
+):  # the 3DES primitives live with the Basic Access Control code; imported when needed because that module imports this one
     from zid_platform.modules.evidence.application import chip_reader
 
     return chip_reader

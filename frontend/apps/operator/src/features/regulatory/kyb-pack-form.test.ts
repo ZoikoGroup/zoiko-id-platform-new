@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { buildPack, DAY, defaultForm, gaps, PURPOSE } from "./kyb-pack-form";
 
+// The parts of the pack these tests read, so no `any` is needed.
+type Pack = Record<string, unknown> & {
+  sources: Record<string, unknown>[];
+  ubo: Record<string, unknown>;
+  retention: Record<string, unknown> & { days: unknown };
+};
+
 describe("the pack form", () => {
   it("builds exactly the pack object the platform reads", () => {
     const f = defaultForm();
@@ -11,7 +18,7 @@ describe("the pack form", () => {
     f.uboSignedBy = "A. Owner";
     f.retentionBasis = "Companies Act";
     f.deletionJob = "job-7";
-    const p = buildPack(f) as Record<string, any>;
+    const p = buildPack(f) as unknown as Pack;
     expect(p.jurisdiction).toBe("GB");
     expect(p.purpose).toBe(PURPOSE);
     expect(p.region).toBeNull();
@@ -25,8 +32,8 @@ describe("the pack form", () => {
   });
 
   it("sends empty text as null so the platform names it as missing, never an invented value", () => {
-    const p = buildPack(defaultForm()) as Record<string, any>;
-    expect(p.sources[0].legal_basis).toBeNull();
+    const p = buildPack(defaultForm()) as unknown as Pack;
+    expect(p.sources[0]?.legal_basis).toBeNull();
     expect(p.ubo.signed_by).toBeNull();
     expect(p.retention.legal_basis).toBeNull();
     expect(p.retention.deletion_job_ref).toBeNull();

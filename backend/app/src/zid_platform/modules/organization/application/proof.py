@@ -284,10 +284,19 @@ async def read_proof(
     return view(row), content
 
 
-async def keep_reading(conn: AsyncConnection, tenant_id: str, case_id: str, proof_id: str, reading: dict[str, Any], now: datetime) -> None:
+async def keep_reading(
+    conn: AsyncConnection,
+    tenant_id: str,
+    case_id: str,
+    proof_id: str,
+    reading: dict[str, Any],
+    now: datetime,
+) -> None:
     """Keep the OCR reading of a stored certificate: it is what completes the claim's company check (CR-132)."""
     if reading.get("verdict") in ("CONSISTENT", "CONTRADICTS", "NOT_ENOUGH"):
-        await proof_store.record_reading(conn, tenant_id, case_id, proof_id, reading=reading, now=now)
+        await proof_store.record_reading(
+            conn, tenant_id, case_id, proof_id, reading=reading, now=now
+        )
 
 
 async def has_consistent_reading(conn: AsyncConnection, tenant_id: str, case_id: str) -> bool:

@@ -260,7 +260,9 @@ def test_an_unreadable_stored_record_is_refused_not_guessed() -> None:
             g.facts_from_dict(bad)
 
 
-def test_a_company_check_that_rested_on_an_lei_record_is_k2_but_never_claims_a_register_finding() -> None:
+def test_a_company_check_that_rested_on_an_lei_record_is_k2_but_never_claims_a_register_finding() -> (
+    None
+):
     reference = g.RegistryFact(True, "ACTIVE", NOW, timedelta(days=30), reference_only=True)
     a = grade(registry=reference)
     assert a.grade is g.Grade.K2

@@ -60,7 +60,9 @@ class ToolCall:
     purpose: str | None = None
     mandate_id: str | None = None
     approval_request_id: str | None = None
-    reservation_id: str | None = None  # the capacity this call will spend, when it names one (CR-169)
+    reservation_id: str | None = (
+        None  # the capacity this call will spend, when it names one (CR-169)
+    )
     value: tuple[str, str] | None = (
         None  # (amount as a decimal string, ISO currency) when the call spends money
     )
@@ -190,7 +192,11 @@ async def authorize_tool_call(
                 represented_principal_id=call.represented_principal_id,
             )
         )
-        problems.extend(await tool_actions.reservation_blockers(conn, mandate_id=call.mandate_id, reservation_id=call.reservation_id))
+        problems.extend(
+            await tool_actions.reservation_blockers(
+                conn, mandate_id=call.mandate_id, reservation_id=call.reservation_id
+            )
+        )
     context: str | None = None
     if tool is not None and not problems:
         context = call_context(
@@ -292,7 +298,9 @@ async def authorize_tool_call(
         args_sha256=call.arguments_digest, decision_id=str(decision_id), chain_commitment=chain_commitment(chain), agent_chain=list(ids), mandate_id=call.mandate_id,
         reservation_id=call.reservation_id, now=now,
     )  # fmt: skip
-    await tool_actions.issue_first_receipt(conn, tenant_id, nonce, sign=receipt_sign or sign, issuer=issuer, now=now)  # a receipt is evidence: its own key, never the token key
+    await tool_actions.issue_first_receipt(
+        conn, tenant_id, nonce, sign=receipt_sign or sign, issuer=issuer, now=now
+    )  # a receipt is evidence: its own key, never the token key
     await _audit(
         conn,
         tenant_id,
@@ -401,7 +409,9 @@ async def redeem_grant(
             grant_jti=str(claims["jti"]),
         )
         return RedeemResult(False, refusal)
-    await tool_actions.record_dispatched(conn, str(claims["jti"]), now)  # CR-169: from here the server owes a report of what it did
+    await tool_actions.record_dispatched(
+        conn, str(claims["jti"]), now
+    )  # CR-169: from here the server owes a report of what it did
     await _audit(
         conn,
         tenant_id,

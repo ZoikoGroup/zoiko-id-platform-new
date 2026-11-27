@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
-from zid_platform.modules.screening.application import watches
+from zid_platform.modules.screening.application import screening_requests, watches
 from zid_platform.modules.screening.domain import eligibility as elig
 from zid_platform.modules.screening.infrastructure import store
 from zid_platform.modules.screening.infrastructure.config import ScreeningConfig
@@ -53,7 +53,7 @@ async def watch_pass(
             snapshots = await store.snapshots(conn)
             for watch_id in await watches.due_watches(conn, tenant, now=now):
                 row = await watches._load(conn, watch_id)
-                case = await watches.requests._row(conn, str(row.request_id))
+                case = await screening_requests._row(conn, str(row.request_id))
                 if case is None:
                     continue
                 if monitoring_gate is not None:

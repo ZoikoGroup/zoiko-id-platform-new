@@ -14,7 +14,6 @@ Worker: `worker_pass` (sequence, checkpoint, anchor, retention sweep).
 from __future__ import annotations
 
 from zid_platform.modules.evidence.application import review_photo
-from zid_platform.modules.evidence.application.wf08_services import record_authority_snapshot
 from zid_platform.modules.evidence.application import trust as trust_model
 from zid_platform.modules.evidence.application.active_auth import (
     verify as verify_active_authentication,
@@ -65,9 +64,9 @@ from zid_platform.modules.evidence.application.runtime import (
     EvidenceRuntime,
     configure_runtime,
     current_runtime,
+    runtime_from_settings,
     sign_evidence,
     verify_evidence,
-    runtime_from_settings,
 )
 from zid_platform.modules.evidence.application.scanner import scan as scan_content
 from zid_platform.modules.evidence.application.sealed import SealError, open_sealed, seal
@@ -89,6 +88,7 @@ from zid_platform.modules.evidence.application.vault import (
     store_object,
     subject_ref,
 )
+from zid_platform.modules.evidence.application.wf08_services import record_authority_snapshot
 from zid_platform.modules.evidence.application.worker import WorkerReport, worker_pass
 from zid_platform.modules.evidence.domain.ledger import EvidenceClass, LedgerError
 from zid_platform.modules.evidence.domain.mrz import MrzError
@@ -139,9 +139,6 @@ __all__ = [
     "commitment",
     "configure_runtime",
     "current_runtime",
-    "record_authority_snapshot",
-    "sign_evidence",
-    "verify_evidence",
     "effective_csca",
     "erase_subject",
     "erase_subject_ref",
@@ -161,6 +158,7 @@ __all__ = [
     "read_object",
     "receipt_summary",
     "record_audit",
+    "record_authority_snapshot",
     "record_decision_receipt",
     "register_artifact",
     "register_issuer_binding",
@@ -170,6 +168,7 @@ __all__ = [
     "scan_content",
     "seal",
     "sequence_pending",
+    "sign_evidence",
     "store_object",
     "subject_ref",
     "trust_config",
@@ -179,6 +178,7 @@ __all__ = [
     "uploads_by_subject",
     "verify_active_authentication",
     "verify_chip",
+    "verify_evidence",
     "worker_pass",
 ]
 

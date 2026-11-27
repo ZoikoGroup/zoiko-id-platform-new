@@ -47,30 +47,44 @@ TRANSITIONS: dict[ActionState, frozenset[ActionState]] = {
     S.FAILED: frozenset(),
     S.COMPENSATED: frozenset(),
 }
-REPORTED = frozenset({S.EXECUTED, S.FAILED, S.UNKNOWN, S.COMPENSATED})  # what a tool's server may report
+REPORTED = frozenset(
+    {S.EXECUTED, S.FAILED, S.UNKNOWN, S.COMPENSATED}
+)  # what a tool's server may report
 
 
 def check_outcome(value: str) -> ActionState:
     try:
         s = ActionState(value)
     except ValueError as e:
-        raise MachineError("TOOL_ACTION_INVALID", "an outcome is EXECUTED, FAILED, UNKNOWN or COMPENSATED") from e
+        raise MachineError(
+            "TOOL_ACTION_INVALID", "an outcome is EXECUTED, FAILED, UNKNOWN or COMPENSATED"
+        ) from e
     if s not in REPORTED:
-        raise MachineError("TOOL_ACTION_INVALID", "an outcome is EXECUTED, FAILED, UNKNOWN or COMPENSATED")
+        raise MachineError(
+            "TOOL_ACTION_INVALID", "an outcome is EXECUTED, FAILED, UNKNOWN or COMPENSATED"
+        )
     return s
 
 
 def check_transition(src: ActionState, dst: ActionState) -> ActionState:
     if dst not in TRANSITIONS[src]:
         if src is S.AUTHORIZED:
-            raise MachineError("TOOL_ACTION_NOT_DISPATCHED", "the grant was never redeemed, so there is nothing to report on")
-        raise MachineError("TOOL_ACTION_STATE_INVALID", f"an action that is {src.value.lower()} cannot become {dst.value.lower()}")
+            raise MachineError(
+                "TOOL_ACTION_NOT_DISPATCHED",
+                "the grant was never redeemed, so there is nothing to report on",
+            )
+        raise MachineError(
+            "TOOL_ACTION_STATE_INVALID",
+            f"an action that is {src.value.lower()} cannot become {dst.value.lower()}",
+        )
     return dst
 
 
 def ledger_effect(outcome: ActionState) -> str:
     """What the capacity held for the action does. EXECUTED commits it, FAILED gives it back, UNKNOWN keeps holding it until someone reconciles. COMPENSATED does not return capacity on its own: whether an undone action restores a cap is a policy decision for people."""
-    return {S.EXECUTED: "COMMIT", S.FAILED: "RELEASE", S.UNKNOWN: "HOLD", S.COMPENSATED: "NONE"}[outcome]
+    return {S.EXECUTED: "COMMIT", S.FAILED: "RELEASE", S.UNKNOWN: "HOLD", S.COMPENSATED: "NONE"}[
+        outcome
+    ]
 
 
 def flags(state: ActionState, reservation_state: str | None) -> dict[str, bool]:
@@ -159,10 +173,17 @@ def canonical_request_hash(
         "tool": tool_id, "resource": resource, "arguments": arguments_digest, "on_behalf_of": represented_principal_id, "mandate": mandate_id, "reservation": reservation_id,
         "purpose": purpose, "value": list(value) if value else None,
     }  # fmt: skip
-    return "sha256:" + hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
 
 
-def preflight_decision(*, allowed: bool, codes: Sequence[str], capacity: Mapping[str, Any] | None, unavailable: bool) -> tuple[str, list[str]]:
+def preflight_decision(
+    *, allowed: bool, codes: Sequence[str], capacity: Mapping[str, Any] | None, unavailable: bool
+) -> tuple[str, list[str]]:
     """One of ALLOW, DENY, APPROVAL_REQUIRED, UNAVAILABLE, and the codes behind it. A question that could not be answered is UNAVAILABLE and is never turned into an ALLOW; a spend that would not fit is a DENY even if the policy said yes."""
     if unavailable:
         return "UNAVAILABLE", list(codes) or ["POLICY_UNAVAILABLE"]

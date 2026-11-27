@@ -14,8 +14,12 @@ from zid_platform.modules.verification.infrastructure import engine_register
 
 # ZID_SELF_RUN_CONFIG names the file itself; otherwise the config root is ZID_PLATFORM_CONFIG (the deployed image sets it to /app/config, like every other loader),
 # otherwise the repository's own config folder.
-CONFIG = Path(os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config")
-FILE = Path(os.environ.get("ZID_SELF_RUN_CONFIG") or CONFIG / "self-run-verification" / "self-run.yaml")
+CONFIG = Path(
+    os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
+)
+FILE = Path(
+    os.environ.get("ZID_SELF_RUN_CONFIG") or CONFIG / "self-run-verification" / "self-run.yaml"
+)
 
 
 def raw() -> dict[str, Any]:

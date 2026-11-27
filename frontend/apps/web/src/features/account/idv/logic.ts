@@ -114,6 +114,11 @@ export function latestCheck<T extends Pick<IdvCase, "decision" | "created_at">>(
   return [...live].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
 }
 
+/** A face-route case that was opened but never received a photograph (the upload was refused or the page was closed). It tells the person nothing and has spent no attempt, so the page starts the wizard again instead of showing it. */
+export function isStranded(c: Pick<IdvCase, "route" | "decision" | "signals" | "attempts">): boolean {
+  return isFace(c.route) && c.decision === "INDETERMINATE" && c.signals.optical === "NOT_STARTED" && (c.attempts?.CAPTURE ?? 0) === 0;
+}
+
 /** What the applicant is told is next, from the case alone. It never promises an outcome. */
 export function nextStep(c: Pick<IdvCase, "state" | "route" | "signals" | "decision" | "attempts">): Step {
   if (c.state === "CLOSED") return "STATUS";
@@ -184,6 +189,9 @@ const FOR_APPLICANT: Record<string, string> = {
   RETRY_CEILING_REACHED: "You have used all the attempts for this step. Start again later or contact support.",
   RETRY_CEILING_NOT_CONFIGURED: "This step is not available yet for your country.",
   MARKET_POLICY_NOT_PUBLISHED: "Identity proofing is not available for that country yet.",
+  COUNTRY_CAPABILITY_UNAVAILABLE: "Identity checks are not open for that country yet. Nothing is wrong with your document or your details; no case was started.",
+  REGULATORY_POLICY_UNAVAILABLE: "Identity checks are not approved for that country yet. No case was started.",
+  REGULATORY_REVIEW_REQUIRED: "Identity checks for that country need an approval before they can run. No case was started.",
   BIOMETRICS_OFF: "Face checks are not switched on for your country, so this step cannot run.",
   CASE_CLOSED: "This case is finished.",
   NOT_YOUR_CASE: "Only the person who started this case can add to it.",

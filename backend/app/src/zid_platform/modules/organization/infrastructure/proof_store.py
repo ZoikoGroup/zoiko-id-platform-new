@@ -151,7 +151,13 @@ async def insert(
 
 
 async def record_reading(
-    conn: AsyncConnection, tenant_id: str, case_id: str, proof_id: str, *, reading: dict[str, Any], now: datetime
+    conn: AsyncConnection,
+    tenant_id: str,
+    case_id: str,
+    proof_id: str,
+    *,
+    reading: dict[str, Any],
+    now: datetime,
 ) -> None:
     """Keep what OCR read from a stored certificate (codes and the date, never the text). One row per proof; a repeat upload of the same document changes nothing."""
     from datetime import date

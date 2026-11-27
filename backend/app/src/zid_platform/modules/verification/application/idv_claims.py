@@ -24,7 +24,9 @@ def grade_of(assertions: tuple[str, ...], *, automatic: bool = False) -> str:
         return CHIP
     if "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" in assertions:
         return FACE_MATCH
-    return AUTOMATED if automatic else REVIEWED  # automatic: no person looked at it, and no face or authenticity check ran
+    return (
+        AUTOMATED if automatic else REVIEWED
+    )  # automatic: no person looked at it, and no face or authenticity check ran
 
 
 async def issue(

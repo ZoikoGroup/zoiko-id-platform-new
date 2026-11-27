@@ -19,7 +19,9 @@ SCHEMA = "zoiko.authority-snapshot.v1"
 EDGE_TYPES = ("GRANT", "MANDATE", "SPONSOR", "AGENT", "EXTERNAL_IDP")
 REQUIRED = ("GRANT",)  # an authority-bearing decision rests on at least one grant
 _DIGEST = re.compile(r"^sha-(256|384|512):[0-9a-f]+$")
-LATE_TOLERANCE = timedelta(minutes=5)  # an edge obtained within this of the decision counts as known at the time (clock skew, same transaction)
+LATE_TOLERANCE = timedelta(
+    minutes=5
+)  # an edge obtained within this of the decision counts as known at the time (clock skew, same transaction)
 MAX_EDGES = 200
 
 
@@ -48,7 +50,9 @@ def normalise_edge(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
     for key in ("obtained_at", "effective_from", "effective_until"):
         parsed = _t(raw.get(key))
-        out[key] = parsed.isoformat() if parsed else (None if raw.get(key) in (None, "") else "INVALID")
+        out[key] = (
+            parsed.isoformat() if parsed else (None if raw.get(key) in (None, "") else "INVALID")
+        )
     return out
 
 
@@ -63,12 +67,18 @@ def _edge_problems(e: Mapping[str, Any]) -> list[str]:
         problems.append(f"EDGE_VERSION_INVALID:{tag}")
     if not isinstance(e["evidence_digest"], str) or not _DIGEST.match(e["evidence_digest"]):
         problems.append(f"EDGE_EVIDENCE_DIGEST_MISSING:{tag}")
-    if e["effective_from"] in (None, "INVALID") or e["obtained_at"] in (None, "INVALID") or e["effective_until"] == "INVALID":
+    if (
+        e["effective_from"] in (None, "INVALID")
+        or e["obtained_at"] in (None, "INVALID")
+        or e["effective_until"] == "INVALID"
+    ):
         problems.append(f"EDGE_TIME_INVALID:{tag}")
     return problems
 
 
-def assess(edges: Sequence[Mapping[str, Any]], decision_at: datetime, *, required: Sequence[str] = REQUIRED) -> dict[str, Any]:
+def assess(
+    edges: Sequence[Mapping[str, Any]], decision_at: datetime, *, required: Sequence[str] = REQUIRED
+) -> dict[str, Any]:
     """The snapshot body for these edges at `decision_at`. Never raises: a defect is a reason and an INDETERMINATE verdict."""
     reasons: list[str] = []
     if decision_at.tzinfo is None:
@@ -91,7 +101,9 @@ def assess(edges: Sequence[Mapping[str, Any]], decision_at: datetime, *, require
             reasons.append(f"EDGE_NOT_IN_EFFECT:{e['edge_type']}:{e['edge_id']}")
             continue
         if got > decision_at + LATE_TOLERANCE:
-            reasons.append(f"EDGE_OBTAINED_AFTER_DECISION:{e['edge_type']}:{e['edge_id']}")  # a later reconstruction, not a record made at the time
+            reasons.append(
+                f"EDGE_OBTAINED_AFTER_DECISION:{e['edge_type']}:{e['edge_id']}"
+            )  # a later reconstruction, not a record made at the time
             continue
         in_effect.append(e)
 
@@ -104,7 +116,11 @@ def assess(edges: Sequence[Mapping[str, Any]], decision_at: datetime, *, require
             seen[key] = e
         else:
             states_differ = other["state"] != e["state"]
-            two_sources = other["edge_id"] != e["edge_id"] and e["edge_type"] in ("MANDATE", "SPONSOR", "AGENT")  # one mandate, one sponsor, one agent record at a time
+            two_sources = other["edge_id"] != e["edge_id"] and e["edge_type"] in (
+                "MANDATE",
+                "SPONSOR",
+                "AGENT",
+            )  # one mandate, one sponsor, one agent record at a time
             two_versions = other["edge_id"] == e["edge_id"] and other["version"] != e["version"]
             if states_differ or two_sources or two_versions:
                 reasons.append(f"CONTRADICTORY_EDGES:{e['edge_type']}:{e['subject']}")

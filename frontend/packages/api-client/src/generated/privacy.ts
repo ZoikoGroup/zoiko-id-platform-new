@@ -1752,6 +1752,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verification-sessions/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Launch
+         * @description Spend the one-use link (WF-01 Q02, Q37). A used, expired, revoked or forged link is refused; a suspended or closed organization starts nothing.
+         */
+        post: operations["launch_v2_verification_sessions_launch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verification-sessions/{session_ref}/alternatives": {
         parameters: {
             query?: never;
@@ -1763,6 +1783,23 @@ export interface paths {
         get: operations["alternatives_v2_verification_sessions__session_ref__alternatives_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/applicant-cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Applicant Cancel */
+        post: operations["applicant_cancel_v2_verification_sessions__session_ref__applicant_cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1820,6 +1857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verification-sessions/{session_ref}/capture-intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Capture Intent
+         * @description A one-time value bound to this session's case, its method and its market, valid for minutes; the capture must carry it (S05 capture integrity).
+         */
+        post: operations["capture_intent_v2_verification_sessions__session_ref__capture_intents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verification-sessions/{session_ref}/consent-records": {
         parameters: {
             query?: never;
@@ -1837,6 +1894,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/verification-sessions/{session_ref}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Session Decision
+         * @description The business's normalized result for its own session (tenant-scoped by row-level security; Q01). No image, document field or score.
+         */
+        get: operations["session_decision_v2_verification_sessions__session_ref__decision_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/evidence/chip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evidence Chip */
+        post: operations["evidence_chip_v2_verification_sessions__session_ref__evidence_chip_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/evidence/document-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evidence Document */
+        post: operations["evidence_document_v2_verification_sessions__session_ref__evidence_document_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/evidence/nfc-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evidence Nfc State */
+        post: operations["evidence_nfc_state_v2_verification_sessions__session_ref__evidence_nfc_state_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Handoff
+         * @description A one-use link, valid for minutes, to continue on a phone (S06, S12; Q20). It carries no personal data; the phone spends it once for its own credential.
+         */
+        post: operations["handoff_v2_verification_sessions__session_ref__handoff_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/method-select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Method Select
+         * @description Only a method the server offers this person may be chosen; a tampered choice is refused (S02 Q05). Choosing it opens the proofing case, pinned to the
+         *     market's rules, and records the notice and any face-comparison consent on it. Choosing the same method again changes nothing.
+         */
+        post: operations["method_select_v2_verification_sessions__session_ref__method_select_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Notices
+         * @description The person read the notice (its exact version and language are recorded before any evidence is collected, Q07).
+         */
+        post: operations["notices_v2_verification_sessions__session_ref__notices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/verification-sessions/{session_ref}/notices/acknowledgments": {
         parameters: {
             query?: never;
@@ -1848,6 +2037,63 @@ export interface paths {
         put?: never;
         /** Acknowledge */
         post: operations["acknowledge_v2_verification_sessions__session_ref__notices_acknowledgments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/public-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public Context
+         * @description Who is asking and why, the notice, and the methods this person may use here: computed on the server for this market, its rules and this device.
+         */
+        get: operations["public_context_v2_verification_sessions__session_ref__public_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/public-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Status */
+        get: operations["public_status_v2_verification_sessions__session_ref__public_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/resume-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume Token
+         * @description WF-01 S12: the business asks for a fresh one-use link for a person who left. Every earlier link and session credential stops working.
+         */
+        post: operations["resume_token_v2_verification_sessions__session_ref__resume_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1882,6 +2128,27 @@ export interface paths {
         get: operations["subject_status_v2_verification_sessions__session_ref__subject_status_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/verification-sessions/{session_ref}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit
+         * @description The one final submission (S08). It needs the notice acknowledged, capture still permitted and evidence on the case; a repeat returns the same state
+         *     and records nothing again, so the business is told, and charged, once (Q33).
+         */
+        post: operations["submit_v2_verification_sessions__session_ref__submit_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2003,20 +2270,64 @@ export interface components {
             /** Purpose Code */
             purpose_code: string;
         };
-        /** ConsentIn */
-        ConsentIn: {
-            /** Activity Code */
-            activity_code: string;
-            /** Affirmative Action */
-            affirmative_action: string;
-            /** Capture Method */
-            capture_method: string;
-            /** Expires At */
-            expires_at?: string | null;
-            /** Notice Version */
-            notice_version: string;
-            /** Purpose Code */
-            purpose_code: string;
+        /**
+         * DeclaredIn
+         * @description What the applicant types, compared once with the platform's own reading of the document on an automatic route, and never stored.
+         */
+        DeclaredIn: {
+            /**
+             * Birth Date
+             * Format: date
+             */
+            birth_date: string;
+            /** Document Number */
+            document_number: string;
+            /** Given Names */
+            given_names: string;
+            /** Surname */
+            surname: string;
+        };
+        /**
+         * DetailsIn
+         * @description The face-match route's optional details: typed by the person, compared once with the platform's own reading of the document, never stored.
+         */
+        DetailsIn: {
+            /** Birth Date */
+            birth_date?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Number */
+            number?: string | null;
+        };
+        /** DocumentImageIn */
+        DocumentImageIn: {
+            attestation?: components["schemas"]["zid_platform__modules__verification__api__idv_cases__AttestationIn"] | null;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /**
+             * Channel
+             * @default APP
+             * @enum {string}
+             */
+            channel: "APP" | "WEB";
+            /**
+             * Consent
+             * @default false
+             */
+            consent: boolean;
+            declared?: components["schemas"]["DeclaredIn"] | null;
+            details?: components["schemas"]["DetailsIn"] | null;
+            /** Image Base64 */
+            image_base64: string;
+            /** Nonce */
+            nonce: string;
+            /** Selfie Base64 */
+            selfie_base64?: string | null;
+            /** Virtual Camera */
+            virtual_camera?: boolean | null;
         };
         /** EntitlementIn */
         EntitlementIn: {
@@ -2052,24 +2363,6 @@ export interface components {
             /** Purpose Id */
             purpose_id: string;
         };
-        /** ExportIn */
-        ExportIn: {
-            /** Claims */
-            claims: {
-                [key: string]: unknown;
-            };
-            /** Include */
-            include: string[];
-            /** Purpose */
-            purpose: string;
-            /** Recipient */
-            recipient: string;
-            /**
-             * Ttl Seconds
-             * @default 3600
-             */
-            ttl_seconds: number;
-        };
         /** ExportVerifyIn */
         ExportVerifyIn: {
             /** Expected Recipient */
@@ -2103,6 +2396,54 @@ export interface components {
              */
             review_at: string;
             scope: components["schemas"]["Scope"];
+        };
+        /** IntentIn */
+        IntentIn: {
+            /** Step */
+            step: string;
+        };
+        /** LaunchIn */
+        LaunchIn: {
+            /** Launch Token */
+            launch_token: string;
+        };
+        /** MethodIn */
+        MethodIn: {
+            /**
+             * Camera
+             * @default true
+             */
+            camera: boolean;
+            /** Method */
+            method: string;
+            /**
+             * Nfc
+             * @default false
+             */
+            nfc: boolean;
+        };
+        /** NfcStateIn */
+        NfcStateIn: {
+            /**
+             * Access
+             * @enum {string}
+             */
+            access: "UNSUPPORTED" | "USER_DECLINED" | "READ_FAILED";
+        };
+        /** NoticeIn */
+        NoticeIn: {
+            /**
+             * Biometric Consent
+             * @default false
+             */
+            biometric_consent: boolean;
+            /**
+             * Consent
+             * @default false
+             */
+            consent: boolean;
+            /** Language */
+            language: string;
         };
         /** OnBehalfBody */
         OnBehalfBody: {
@@ -2488,11 +2829,6 @@ export interface components {
             /** Retention Policy Code */
             retention_policy_code?: string | null;
         };
-        /** ReasonIn */
-        ReasonIn: {
-            /** Reason */
-            reason: string;
-        };
         /** RequestIn */
         RequestIn: {
             /** Jurisdiction */
@@ -2630,6 +2966,8 @@ export interface components {
             data_category: "D0" | "D1" | "D2" | "D3" | "D4";
             /** Jurisdiction Pack Id */
             jurisdiction_pack_id?: string | null;
+            /** Market */
+            market?: string | null;
             /** Notice Version */
             notice_version?: string | null;
             /** Provider Service Ref */
@@ -2638,6 +2976,10 @@ export interface components {
             purpose_id: string;
             /** Region */
             region?: string | null;
+            /** Return State */
+            return_state?: string | null;
+            /** Return Url */
+            return_url?: string | null;
             /** Subject Ref */
             subject_ref?: string | null;
             /** Subregion */
@@ -2755,6 +3097,88 @@ export interface components {
             valid_to?: string | null;
             /** Zoiko Role */
             zoiko_role: string;
+        };
+        /** ExportIn */
+        zid_platform__modules__privacy__api__v2_policy__ExportIn: {
+            /** Claims */
+            claims: {
+                [key: string]: unknown;
+            };
+            /** Include */
+            include: string[];
+            /** Purpose */
+            purpose: string;
+            /** Recipient */
+            recipient: string;
+            /**
+             * Ttl Seconds
+             * @default 3600
+             */
+            ttl_seconds: number;
+        };
+        /** ConsentIn */
+        zid_platform__modules__privacy__api__v2_rights__ConsentIn: {
+            /** Activity Code */
+            activity_code: string;
+            /** Affirmative Action */
+            affirmative_action: string;
+            /** Capture Method */
+            capture_method: string;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Notice Version */
+            notice_version: string;
+            /** Purpose Code */
+            purpose_code: string;
+        };
+        /**
+         * AttestationIn
+         * @description The platform's own device report for this capture: for iOS App Attest, `attestation` and `key_id` in base64. It is checked here; the client never states that it passed.
+         */
+        zid_platform__modules__verification__api__idv_cases__AttestationIn: {
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "IOS_APP_ATTEST" | "ANDROID_PLAY_INTEGRITY";
+            /** Report */
+            report: {
+                [key: string]: string;
+            };
+        };
+        /** ChipIn */
+        zid_platform__modules__verification__api__idv_cases__ChipIn: {
+            /** Data Groups */
+            data_groups: Record<string, never>;
+            face?: components["schemas"]["zid_platform__modules__verification__api__idv_cases__FaceIn"] | null;
+            /** Sod Base64 */
+            sod_base64: string;
+        };
+        /**
+         * FaceIn
+         * @description A live face image and a liveness capture, each base64, with the facts of the capture (a fresh nonce from this case). Used only when an engine is approved for the market and the chip's portrait came from a data group
+         *     the signed object covered; never kept.
+         */
+        zid_platform__modules__verification__api__idv_cases__FaceIn: {
+            attestation?: components["schemas"]["zid_platform__modules__verification__api__idv_cases__AttestationIn"] | null;
+            /**
+             * Captured At
+             * Format: date-time
+             */
+            captured_at: string;
+            /** Liveness Base64 */
+            liveness_base64: string;
+            /** Nonce */
+            nonce: string;
+            /** Probe Base64 */
+            probe_base64: string;
+            /** Virtual Camera */
+            virtual_camera?: boolean | null;
+        };
+        /** ReasonIn */
+        zid_platform__modules__verification__api__v2_providers__ReasonIn: {
+            /** Reason */
+            reason: string;
         };
     };
     responses: never;
@@ -4481,7 +4905,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ConsentIn"];
+                "application/json": components["schemas"]["zid_platform__modules__privacy__api__v2_rights__ConsentIn"];
             };
         };
         responses: {
@@ -4950,7 +5374,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ExportIn"];
+                "application/json": components["schemas"]["zid_platform__modules__privacy__api__v2_policy__ExportIn"];
             };
         };
         responses: {
@@ -6318,7 +6742,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__v2_providers__ReasonIn"];
             };
         };
         responses: {
@@ -6356,7 +6780,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReasonIn"];
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__v2_providers__ReasonIn"];
             };
         };
         responses: {
@@ -6417,10 +6841,80 @@ export interface operations {
             };
         };
     };
+    launch_v2_verification_sessions_launch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     alternatives_v2_verification_sessions__session_ref__alternatives_get: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    applicant_cancel_v2_verification_sessions__session_ref__applicant_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
             path: {
                 session_ref: string;
             };
@@ -6553,6 +7047,45 @@ export interface operations {
             };
         };
     };
+    capture_intent_v2_verification_sessions__session_ref__capture_intents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IntentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     session_consent_v2_verification_sessions__session_ref__consent_records_post: {
         parameters: {
             query?: never;
@@ -6590,6 +7123,269 @@ export interface operations {
             };
         };
     };
+    session_decision_v2_verification_sessions__session_ref__decision_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_chip_v2_verification_sessions__session_ref__evidence_chip_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["zid_platform__modules__verification__api__idv_cases__ChipIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_document_v2_verification_sessions__session_ref__evidence_document_image_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentImageIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    evidence_nfc_state_v2_verification_sessions__session_ref__evidence_nfc_state_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NfcStateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handoff_v2_verification_sessions__session_ref__handoff_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    method_select_v2_verification_sessions__session_ref__method_select_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MethodIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notices_v2_verification_sessions__session_ref__notices_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     acknowledge_v2_verification_sessions__session_ref__notices_acknowledgments_post: {
         parameters: {
             query?: never;
@@ -6604,6 +7400,112 @@ export interface operations {
                 "application/json": components["schemas"]["PrivV2AckIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_context_v2_verification_sessions__session_ref__public_context_get: {
+        parameters: {
+            query?: {
+                nfc?: boolean;
+                camera?: boolean;
+            };
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_status_v2_verification_sessions__session_ref__public_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_token_v2_verification_sessions__session_ref__resume_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             201: {
@@ -6668,6 +7570,41 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                session_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_v2_verification_sessions__session_ref__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Zoiko-Applicant-Token"?: string | null;
+            };
             path: {
                 session_ref: string;
             };

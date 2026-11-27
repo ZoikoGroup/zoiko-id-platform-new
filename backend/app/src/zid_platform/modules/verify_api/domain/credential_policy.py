@@ -17,7 +17,11 @@ PROVED_BY = {
 }
 
 
-def policy(objective_seconds: float | None = None, measured_p99_seconds: float | None = None, measured_count: int = 0) -> dict[str, Any]:
+def policy(
+    objective_seconds: float | None = None,
+    measured_p99_seconds: float | None = None,
+    measured_count: int = 0,
+) -> dict[str, Any]:
     return {
         "access_token_lifetime_seconds": int(m.TOKEN_TTL.total_seconds()),
         "credential_lifetime_days": m.CREDENTIAL_TTL.days,
@@ -27,9 +31,17 @@ def policy(objective_seconds: float | None = None, measured_p99_seconds: float |
             "how": "A new credential is issued at once. The old one keeps working for the overlap, then stops. Its last-used time is shown so you can see whether anything still uses it.",
         },
         "containment": {
-            "applies_on_the_next_call": ["a revoked credential", "a suspended or retired application", "a removed scope", "a credential past its overlap", "a call from outside the address allowlist"],
+            "applies_on_the_next_call": [
+                "a revoked credential",
+                "a suspended or retired application",
+                "a removed scope",
+                "a credential past its overlap",
+                "a call from outside the address allowlist",
+            ],
             "longest_an_issued_token_can_be_used_after_these_seconds": 0,
-            "upper_bound_if_a_token_is_stolen_and_the_credential_is_not_revoked_seconds": int(m.TOKEN_TTL.total_seconds()),
+            "upper_bound_if_a_token_is_stolen_and_the_credential_is_not_revoked_seconds": int(
+                m.TOKEN_TTL.total_seconds()
+            ),
             "statement": "This API checks the credential, the application and the scopes on every call, not only when the token is issued. A revoked credential, a suspended application or a removed scope is therefore refused on the next call. A token that was stolen but whose credential is NOT revoked works until it expires, at most the access token lifetime.",
             "not_covered": "Systems that cache a token and do not call this API are outside this guarantee. This is a design statement. The numeric objective, if the owners have ratified one, and what was actually measured are in revocation_objective.",
         },
@@ -43,15 +55,31 @@ def objective(ratified: float | None, measured_p99: float | None, count: int) ->
     """The containment objective as a pair: what the owners have ratified (nothing until they do) and what has been measured. A number is never published as a promise unless it is ratified, and a
     ratified number the measurements do not meet is shown as not met, not hidden."""
     if ratified is None:
-        status, said = "NOT_RATIFIED", "No numeric objective has been ratified. The measured figure below is what the platform actually did."
+        status, said = (
+            "NOT_RATIFIED",
+            "No numeric objective has been ratified. The measured figure below is what the platform actually did.",
+        )
     elif measured_p99 is None or count < 1:
-        status, said = "NOT_MEASURED_YET", f"The owners ratified {ratified:g} seconds, and no revocation has been refused since the platform started measuring, so it is not yet shown to be met."
+        status, said = (
+            "NOT_MEASURED_YET",
+            f"The owners ratified {ratified:g} seconds, and no revocation has been refused since the platform started measuring, so it is not yet shown to be met.",
+        )
     elif measured_p99 <= ratified:
-        status, said = "MET", f"Ratified at {ratified:g} seconds. The measured 99th percentile is {measured_p99:g} seconds over {count} refusals."
+        status, said = (
+            "MET",
+            f"Ratified at {ratified:g} seconds. The measured 99th percentile is {measured_p99:g} seconds over {count} refusals.",
+        )
     else:
-        status, said = "NOT_MET", f"Ratified at {ratified:g} seconds, but the measured 99th percentile is {measured_p99:g} seconds over {count} refusals."
+        status, said = (
+            "NOT_MET",
+            f"Ratified at {ratified:g} seconds, but the measured 99th percentile is {measured_p99:g} seconds over {count} refusals.",
+        )
     return {
-        "ratified_seconds": ratified, "measured_p99_seconds": measured_p99, "measured_refusals": count, "status": status, "statement": said,
+        "ratified_seconds": ratified,
+        "measured_p99_seconds": measured_p99,
+        "measured_refusals": count,
+        "status": status,
+        "statement": said,
         "measured_by": "zid_verify_api_revocation_to_refusal_seconds: the time from a credential's revocation to each later refusal of one of its tokens",
         "caveat": "Measured on this platform's own refusals in the current process. It says nothing about systems that cache a token.",
     }

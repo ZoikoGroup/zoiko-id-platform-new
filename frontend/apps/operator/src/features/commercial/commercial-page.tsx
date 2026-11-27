@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Badge, Banner, PageHeader, Tabs } from "@zoiko/ui";
 import { Receipt, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { ActionForm } from "./action-form";
 import { ACTIONS, GROUP_LABEL, type Action } from "./actions";
@@ -13,10 +14,6 @@ import { MarketView } from "./market-views";
 import { PlanOffersView } from "./plan-offers";
 import { PlansAndPrices } from "./plans-prices";
 import { DisputesView, ReconciliationView, RefundsView } from "./payments-page";
-import { ReviewHoldsView } from "./review-holds";
-import { VerifyCasesView } from "./verify-cases";
-import { VerifyGoLiveView } from "./verify-go-live";
-import { VerifyPricesView } from "./verify-prices";
 import { AuditView, COMMERCIAL_KEY, ExceptionsView, PaymentEventsView, PlanRequestsView, PriceBooksView, ServiceRequestsView } from "./views";
 
 function Actions({ group }: { group: Action["group"] }) {
@@ -31,6 +28,19 @@ function Actions({ group }: { group: Action["group"] }) {
   );
 }
 
+type Sub = { id: string; label: string; content: ReactNode };
+
+/** One section of the page: a line that says what it is for, then its own few tabs. */
+function Section({ label, intro, tabs }: { label: string; intro: string; tabs: Sub[] }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-muted">{intro}</p>
+      <Tabs label={label} tabs={tabs} />
+    </div>
+  );
+}
+
+/** Commercial, in five sections instead of one row of fourteen tabs. Nothing was removed: each tab sits under the section it belongs to, and the identity verification tabs now live on their own page. */
 export function CommercialPage() {
   const direct = useDirectMode();
   return (
@@ -50,8 +60,8 @@ export function CommercialPage() {
         }
         description={
           direct
-            ? "Start with Plans and prices to see and change what customers pay. The other tabs are for orders, billing runs, suppliers and checks. You make and approve every change yourself."
-            : "Start with Plans and prices to see and change what customers pay. The other tabs are for orders, billing runs, suppliers and checks. Each action needs its own approved grant, and some steps need a different operator to approve."
+            ? "What customers pay, who is on which plan, billing and payments, and the suppliers behind it. You make and approve every change yourself."
+            : "What customers pay, who is on which plan, billing and payments, and the suppliers behind it. Each action needs its own approved grant, and some steps need a different operator to approve."
         }
       />
       <Banner tone="info" className="mb-5">
@@ -60,78 +70,122 @@ export function CommercialPage() {
       <Tabs
         label="Commercial"
         tabs={[
-          { id: "prices", label: "Plans and prices", content: <PlansAndPrices /> },
           {
-            id: "catalogue",
-            label: "Price books (advanced)",
+            id: "pricing",
+            label: "Pricing",
             content: (
-              <div className="space-y-4">
-                <PriceBooksView />
-                <details className="rounded-lg border border-border bg-surface">
-                  <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink-muted">Advanced: change a price book by its ID</summary>
-                  <div className="space-y-4 p-4">
-                    <Actions group="catalogue" />
-                  </div>
-                </details>
-              </div>
-            ),
-          },
-          {
-            id: "plans",
-            label: GROUP_LABEL.plans,
-            content: (
-              <div className="space-y-4">
-                <PlanRequestsView />
-                <PlanOffersView />
-                <ServiceRequestsView />
-                <Actions group="plans" />
-                <DataDeletionStatusCard />
-              </div>
-            ),
-          },
-          { id: "verify-go-live", label: "Verify API go-live", content: <VerifyGoLiveView /> },
-          { id: "verify-cases", label: "Verify API cases", content: <VerifyCasesView /> },
-          { id: "review-holds", label: "Review holds", content: <ReviewHoldsView /> },
-          { id: "verify-prices", label: "Verify API prices", content: <VerifyPricesView /> },
-          { id: "market", label: "Market release", content: <MarketView /> },
-          { id: "sales", label: GROUP_LABEL.sales, content: <Actions group="sales" /> },
-          { id: "billing", label: GROUP_LABEL.billing, content: <Actions group="billing" /> },
-          { id: "vendors", label: GROUP_LABEL.vendors, content: <Actions group="vendors" /> },
-          {
-            id: "assurance",
-            label: GROUP_LABEL.assurance,
-            content: (
-              <div className="space-y-4">
-                <ExceptionsView />
-                <Actions group="assurance" />
-              </div>
-            ),
-          },
-          {
-            id: "payments",
-            label: GROUP_LABEL.payments,
-            content: (
-              <div className="space-y-4">
-                <PaymentEventsView />
-                <ActivationRefundsView />
-                <Actions group="payments" />
-              </div>
-            ),
-          },
-          {
-            id: "finance",
-            label: "Finance",
-            content: (
-              <Tabs
-                label="Finance"
+              <Section
+                label="Pricing"
+                intro="What customers pay for each plan. Start with Plans and prices; price books are the advanced way to change the same thing."
                 tabs={[
-                  { id: "f-overview", label: "Overview", content: <FinanceOverviewView /> },
-                  { id: "f-requests", label: "Credits", content: <FinanceRequestsView /> },
-                  { id: "f-refunds", label: "Refunds", content: <RefundsView /> },
-                  { id: "f-disputes", label: "Disputes", content: <DisputesView /> },
-                  { id: "f-recon", label: "Reconciliation", content: <ReconciliationView /> },
-                  { id: "f-authority", label: "Policy and roles", content: <FinanceAuthorityView /> },
-                  { id: "f-eligibility", label: "Eligibility", content: <EligibilityView /> },
+                  { id: "prices", label: "Plans and prices", content: <PlansAndPrices /> },
+                  {
+                    id: "catalogue",
+                    label: "Price books (advanced)",
+                    content: (
+                      <div className="space-y-4">
+                        <PriceBooksView />
+                        <details className="rounded-lg border border-border bg-surface">
+                          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink-muted">Advanced: change a price book by its ID</summary>
+                          <div className="space-y-4 p-4">
+                            <Actions group="catalogue" />
+                          </div>
+                        </details>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            ),
+          },
+          {
+            id: "customers",
+            label: "Customers",
+            content: (
+              <Section
+                label="Customers"
+                intro="The plan each company is on, the requests to change it, and the quotes and orders that put a company on a plan."
+                tabs={[
+                  {
+                    id: "plans",
+                    label: GROUP_LABEL.plans,
+                    content: (
+                      <div className="space-y-4">
+                        <PlanRequestsView />
+                        <PlanOffersView />
+                        <ServiceRequestsView />
+                        <Actions group="plans" />
+                        <DataDeletionStatusCard />
+                      </div>
+                    ),
+                  },
+                  { id: "sales", label: GROUP_LABEL.sales, content: <Actions group="sales" /> },
+                ]}
+              />
+            ),
+          },
+          {
+            id: "billing",
+            label: "Billing and payments",
+            content: (
+              <Section
+                label="Billing and payments"
+                intro="Invoices and billing runs, the payments that arrive, and putting things right when a payment goes wrong: credits, refunds and disputes."
+                tabs={[
+                  { id: "billing-runs", label: GROUP_LABEL.billing, content: <Actions group="billing" /> },
+                  {
+                    id: "payments",
+                    label: GROUP_LABEL.payments,
+                    content: (
+                      <div className="space-y-4">
+                        <PaymentEventsView />
+                        <ActivationRefundsView />
+                        <Actions group="payments" />
+                      </div>
+                    ),
+                  },
+                  {
+                    id: "finance",
+                    label: "Credits, refunds and disputes",
+                    content: (
+                      <Tabs
+                        label="Finance"
+                        tabs={[
+                          { id: "f-overview", label: "Overview", content: <FinanceOverviewView /> },
+                          { id: "f-requests", label: "Credits", content: <FinanceRequestsView /> },
+                          { id: "f-refunds", label: "Refunds", content: <RefundsView /> },
+                          { id: "f-disputes", label: "Disputes", content: <DisputesView /> },
+                          { id: "f-recon", label: "Reconciliation", content: <ReconciliationView /> },
+                          { id: "f-authority", label: "Policy and roles", content: <FinanceAuthorityView /> },
+                          { id: "f-eligibility", label: "Eligibility", content: <EligibilityView /> },
+                        ]}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            ),
+          },
+          {
+            id: "suppliers",
+            label: "Suppliers and markets",
+            content: (
+              <Section
+                label="Suppliers and markets"
+                intro="The outside providers the platform depends on, the checks that they stay reliable, and which markets are open for sale."
+                tabs={[
+                  { id: "vendors", label: GROUP_LABEL.vendors, content: <Actions group="vendors" /> },
+                  {
+                    id: "assurance",
+                    label: GROUP_LABEL.assurance,
+                    content: (
+                      <div className="space-y-4">
+                        <ExceptionsView />
+                        <Actions group="assurance" />
+                      </div>
+                    ),
+                  },
+                  { id: "market", label: "Market release", content: <MarketView /> },
                 ]}
               />
             ),

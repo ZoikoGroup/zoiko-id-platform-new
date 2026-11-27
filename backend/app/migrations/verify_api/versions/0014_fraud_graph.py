@@ -18,7 +18,15 @@ branch_labels = None
 depends_on = None
 
 TENANT = "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
-TABLES = ("api_fraud_observation", "api_fraud_edge", "api_fraud_lead", "api_fraud_note", "api_fraud_action", "api_fraud_action_target", "api_fraud_event")
+TABLES = (
+    "api_fraud_observation",
+    "api_fraud_edge",
+    "api_fraud_lead",
+    "api_fraud_note",
+    "api_fraud_action",
+    "api_fraud_action_target",
+    "api_fraud_event",
+)
 
 
 def upgrade() -> None:

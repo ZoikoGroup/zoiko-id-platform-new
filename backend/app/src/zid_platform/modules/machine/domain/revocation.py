@@ -20,25 +20,37 @@ REASON_MIN, REASON_MAX = 3, 300
 def clean_reason(text: str | None) -> str:
     out = " ".join((text or "").split())
     if not REASON_MIN <= len(out) <= REASON_MAX:
-        raise MachineError("REVOCATION_INVALID", "say why, in a few words: the person who closes this stop reads it")
+        raise MachineError(
+            "REVOCATION_INVALID",
+            "say why, in a few words: the person who closes this stop reads it",
+        )
     return out
 
 
 def check_shape(scope: str, subject: str | None) -> tuple[str, str | None, str | None]:
     """(scope, subject, blueprint version). A TENANT stop names no subject; every other scope names exactly one thing; a blueprint may be 'name' or 'name@version'."""
     if scope not in SCOPES:
-        raise MachineError("REVOCATION_INVALID", "a stop is for one AGENT, one SPONSOR, one BLUEPRINT, one outside ISSUER (or one of its keys) or the whole company (TENANT)")
+        raise MachineError(
+            "REVOCATION_INVALID",
+            "a stop is for one AGENT, one SPONSOR, one BLUEPRINT, one outside ISSUER (or one of its keys) or the whole company (TENANT)",
+        )
     s = (subject or "").strip()
     if scope == "TENANT":
         if s:
             raise MachineError("REVOCATION_INVALID", "a company-wide stop names no subject")
         return scope, None, None
     if not s or len(s) > 200:
-        raise MachineError("REVOCATION_INVALID", f"a {scope.lower()} stop names its {'agent' if scope == 'AGENT' else 'sponsor' if scope == 'SPONSOR' else 'blueprint'}")
+        raise MachineError(
+            "REVOCATION_INVALID",
+            f"a {scope.lower()} stop names its {'agent' if scope == 'AGENT' else 'sponsor' if scope == 'SPONSOR' else 'blueprint'}",
+        )
     if scope == "ISSUER":
         issuer, _, kid = s.partition("#")
         if not issuer.startswith("https://") or ("#" in s and not kid):
-            raise MachineError("REVOCATION_INVALID", "an issuer stop names an https issuer, or issuer#key-id for one of its keys")
+            raise MachineError(
+                "REVOCATION_INVALID",
+                "an issuer stop names an https issuer, or issuer#key-id for one of its keys",
+            )
         return scope, issuer, kid or None
     if scope == "BLUEPRINT" and "@" in s:
         name, _, version = s.partition("@")
@@ -58,10 +70,20 @@ def enforcement_report(servers: Iterable[str], epoch: int) -> dict[str, Any]:
         }
     ]  # fmt: skip
     unsupported = [
-        {"point": f"tool_server:{sid}", "reason": "this server is not told to stop work it already began. A grant it holds is checked again when it is redeemed, and no new grant is signed."}
+        {
+            "point": f"tool_server:{sid}",
+            "reason": "this server is not told to stop work it already began. A grant it holds is checked again when it is redeemed, and no new grant is signed.",
+        }
         for sid in sorted(set(servers))
     ]
-    return {"acknowledged": acknowledged, "pending": [], "failed": [], "unsupported": unsupported, "enforced_everywhere": not unsupported, "epoch": epoch}
+    return {
+        "acknowledged": acknowledged,
+        "pending": [],
+        "failed": [],
+        "unsupported": unsupported,
+        "enforced_everywhere": not unsupported,
+        "epoch": epoch,
+    }
 
 
 def closing_problems(*, actor: str, event: Mapping[str, Any]) -> list[str]:
@@ -74,7 +96,9 @@ def closing_problems(*, actor: str, event: Mapping[str, Any]) -> list[str]:
     return out
 
 
-def reinstate_problems(*, actor: str, open_events: Sequence[Mapping[str, Any]], initiators: Iterable[str]) -> list[str]:
+def reinstate_problems(
+    *, actor: str, open_events: Sequence[Mapping[str, Any]], initiators: Iterable[str]
+) -> list[str]:
     """An agent stopped by a recorded stop waits for that stop to be closed by someone else, and is never reinstated by the person who stopped it."""
     out: list[str] = []
     if open_events:

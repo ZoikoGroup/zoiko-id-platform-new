@@ -66,7 +66,9 @@ _CHECK_EVENT = {
     "risk": "organization.claim.risk_assessed",
 }
 # What a source can say against the claim: a certificate reading never overrides these (CR-132).
-_SOURCE_AGAINST = frozenset({"ENTITY_INACTIVE", "IDENTIFIER_MISMATCH", "SOURCES_CONFLICT", "LEI_CONFLICT"})
+_SOURCE_AGAINST = frozenset(
+    {"ENTITY_INACTIVE", "IDENTIFIER_MISMATCH", "SOURCES_CONFLICT", "LEI_CONFLICT"}
+)
 _DECISIONS = frozenset({"VERIFIED", "DECLINED", "RESTRICTED"})
 _CLOSED = frozenset({"WITHDRAWN", "ABANDONED"})
 
@@ -215,7 +217,9 @@ async def record_outcome(
     before_outcome = str(row.outcome)
     announced: list[str] = []
     for check, event in _CHECK_EVENT.items():
-        if check not in checks:  # CR-134: the authority and risk checks are not part of a claim any more
+        if (
+            check not in checks
+        ):  # CR-134: the authority and risk checks are not part of a claim any more
             continue
         was = before_checks.get(check, "PENDING")
         if checks[check] != was:

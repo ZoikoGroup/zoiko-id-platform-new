@@ -78,7 +78,8 @@ from zid_platform.modules.organization.application.registry import (
     refresh_registry_roots,
     request_registry_refresh,
 )
-from zid_platform.modules.organization.domain import certificate_read as certificate_read
+from zid_platform.modules.organization.domain import certificate_read as certificate_read  # noqa: PLC0414
+from zid_platform.modules.organization.domain import kyb_grade as kyb_grade_model
 from zid_platform.modules.organization.domain import market_policy as kyb_policy_rules
 from zid_platform.modules.organization.domain.dual_review import position as dual_position
 from zid_platform.modules.organization.domain.kyb import (
@@ -238,7 +239,9 @@ async def company_claim(conn: AsyncConnection, tenant_id: str) -> tuple[str, dat
     from zid_platform.modules.organization.application import kyb_assessment
 
     stored = await kyb_assessment.latest(conn, tenant_id)
-    if stored is None or kyb_assessment.g.rank(stored.grade) < kyb_assessment.g.rank(kyb_assessment.g.Grade.K2):
+    if stored is None or kyb_grade_model.rank(stored.grade) < kyb_grade_model.rank(
+        kyb_grade_model.Grade.K2
+    ):
         return None
     return "COMPANY_REGISTRY_MATCHED", stored.assessed_at
 

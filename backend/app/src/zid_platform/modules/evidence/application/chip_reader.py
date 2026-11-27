@@ -303,7 +303,7 @@ class AesChannel:
         self.ssc = (int.from_bytes(self.ssc, "big") + 1).to_bytes(16, "big")
         return self.ssc
 
-    def _cipher(self, ssc: bytes) -> Cipher:
+    def _cipher(self, ssc: bytes) -> Cipher:  # type: ignore[type-arg]
         return Cipher(algorithms.AES(self.ksenc), modes.CBC(_aes_ecb(self.ksenc, ssc)))
 
     def protect(

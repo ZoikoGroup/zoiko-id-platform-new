@@ -129,7 +129,12 @@ async def create_challenge(
     who = who_of(caller)
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         if await _operator_password_session(request, conn, caller):
-            return {"required": False, "tier": "S0", "action": body.action, "reasons": ["operator-password-session"]}
+            return {
+                "required": False,
+                "tier": "S0",
+                "action": body.action,
+                "reasons": ["operator-password-session"],
+            }
         try:
             return await service.create_challenge(
                 conn,

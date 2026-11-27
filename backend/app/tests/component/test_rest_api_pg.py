@@ -297,7 +297,10 @@ def test_grant_mandate_and_approval_apis(rt_url: str, owner_url: str) -> None:
         # a bystander can neither read this limit's balance nor settle someone else's reservation
         act_as(clerk)
         assert client.get(f"/v1/mandates/{mid}/balance").status_code == 403
-        assert client.post(f"/v1/mandate-reservations/{res2['reservation_id']}:release").status_code == 403
+        assert (
+            client.post(f"/v1/mandate-reservations/{res2['reservation_id']}:release").status_code
+            == 403
+        )
         act_as(cfo)  # the person who set it up still sees it
         assert client.get(f"/v1/mandates/{mid}/balance").status_code == 200
         act_as(agent)

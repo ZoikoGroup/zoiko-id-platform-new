@@ -20,7 +20,7 @@ type Step =
 
 /** The person's side of a live check: the notice first and a plain choice, then the document, then the face, then a truthful end. Camera screens are the identity page's own. The page never shows a
  * score, a result or an accusation, and never stores a photograph: the two files live in memory until they are sent, and a retake discards them. */
-export function LiveCheck({ requestedBy, noticeVersion, attemptsLeft, call }: { requestedBy: string; noticeVersion: string | null; attemptsLeft: number; call: Call }) {
+export function LiveCheck({ requestedBy, noticeVersion, attemptsLeft, photosKeptDays = 0, call }: { requestedBy: string; noticeVersion: string | null; attemptsLeft: number; photosKeptDays?: number; call: Call }) {
   const [step, setStep] = useState<Step>({ kind: "notice" });
   const [doc, setDoc] = useState<File | null>(null);
   const [nonce, setNonce] = useState<string | null>(null);
@@ -173,7 +173,7 @@ export function LiveCheck({ requestedBy, noticeVersion, attemptsLeft, call }: { 
     <section className="space-y-4">
       <h1 className="text-2xl font-bold tracking-tight text-ink">Before we start</h1>
       <ul className="list-disc space-y-2 pl-5 text-ink-muted">
-        {noticeLines(requestedBy).map((l) => (
+        {noticeLines(requestedBy, photosKeptDays).map((l) => (
           <li key={l}>{l}</li>
         ))}
       </ul>

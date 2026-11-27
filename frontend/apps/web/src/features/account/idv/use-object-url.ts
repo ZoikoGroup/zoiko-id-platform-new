@@ -7,6 +7,7 @@ export function useObjectUrl(file: File | null): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!file || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the address mirrors a browser resource that exists only after render
       setUrl(null);
       return;
     }

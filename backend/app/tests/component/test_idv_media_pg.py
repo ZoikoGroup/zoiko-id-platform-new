@@ -63,7 +63,9 @@ def install_fake_imaging(monkeypatch: pytest.MonkeyPatch) -> None:
     async def sanitize(image: bytes, **_: Any) -> bytes:
         return image
 
-    monkeypatch.setattr(capture_checks, "read_document", read)  # the shared checks, used by the signed-in page and a partner's customer alike
+    monkeypatch.setattr(
+        capture_checks, "read_document", read
+    )  # the shared checks, used by the signed-in page and a partner's customer alike
     monkeypatch.setattr(capture_checks, "sanitize_image", sanitize)
 
 

@@ -9,6 +9,8 @@ export type LiveView = {
   live: true;
   notice_version: string | null;
   attempts_left: number;
+  /** 0: neither photograph is kept. Otherwise both are kept this many days, and the notice says so. */
+  photos_kept_days?: number;
 };
 
 export const isLive = (v: { live?: boolean }): v is LiveView & { live: true } => v.live === true;
@@ -31,12 +33,14 @@ export function attemptsText(left: number): string {
 }
 
 /** The notice before anything is photographed: who is asking, what is taken, who processes it, what is kept, and that the person can stop. The company is named as the controller. */
-export function noticeLines(requestedBy: string): string[] {
+export function noticeLines(requestedBy: string, photosKeptDays = 0): string[] {
   return [
     `${requestedBy} has asked Zoiko iD to check who you are.`,
     "You will photograph an identity document and then take a photograph of your face. Zoiko iD compares the face on the document with your photograph.",
     "This is a photograph and face comparison. It does not test whether a live person is in front of the camera, and it does not check that the document is genuine.",
-    `Zoiko iD does this for ${requestedBy} and keeps neither photograph. ${requestedBy} receives the result.`,
+    photosKeptDays > 0
+      ? `Zoiko iD does this for ${requestedBy}. Both photographs are kept, encrypted, for ${photosKeptDays} ${photosKeptDays === 1 ? "day" : "days"} so that people at ${requestedBy} can look at them to understand what happened, and then they are deleted. Each time one is opened, the reason is recorded. ${requestedBy} receives the result.`
+      : `Zoiko iD does this for ${requestedBy} and keeps neither photograph. ${requestedBy} receives the result.`,
     "You can stop at any time. If you stop now, nothing is photographed.",
   ];
 }

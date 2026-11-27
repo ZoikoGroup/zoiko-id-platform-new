@@ -49,7 +49,9 @@ def test_overlapping_scores_cost_false_non_matches_and_say_so():
     assert r["separable"] is False
     strict = {row["target_fmr"]: row for row in r["operating_points"]}[0.001]  # type: ignore[union-attr, index]
     loose = {row["target_fmr"]: row for row in r["operating_points"]}[0.1]  # type: ignore[union-attr, index]
-    assert strict["threshold"] > loose["threshold"] and strict["fnmr"] > loose["fnmr"]  # a stricter target turns more right people away
+    assert (
+        strict["threshold"] > loose["threshold"] and strict["fnmr"] > loose["fnmr"]
+    )  # a stricter target turns more right people away
 
 
 def test_a_few_pairs_are_not_enough_to_trust_a_strict_target():
@@ -65,9 +67,15 @@ def test_no_strangers_let_through_is_still_only_bounded_by_about_three_over_n():
 
 @pytest.mark.parametrize(
     ("same", "different", "code"),
-    [([0.5], [0.1, 0.2], "TOO_FEW_SAME_PERSON_PAIRS"), ([0.5, 0.6], [0.1], "TOO_FEW_DIFFERENT_PERSON_PAIRS"), ([0.5, float("nan")], [0.1, 0.2], "SCORE_NOT_A_NUMBER")],
+    [
+        ([0.5], [0.1, 0.2], "TOO_FEW_SAME_PERSON_PAIRS"),
+        ([0.5, 0.6], [0.1], "TOO_FEW_DIFFERENT_PERSON_PAIRS"),
+        ([0.5, float("nan")], [0.1, 0.2], "SCORE_NOT_A_NUMBER"),
+    ],
 )
-def test_a_set_that_cannot_be_measured_is_refused_with_a_reason(same: list[float], different: list[float], code: str):
+def test_a_set_that_cannot_be_measured_is_refused_with_a_reason(
+    same: list[float], different: list[float], code: str
+):
     with pytest.raises(fc.CalibrationError) as e:
         fc.report(pairs(same, different))
     assert e.value.code == code

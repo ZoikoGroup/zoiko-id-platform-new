@@ -4,20 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell, StatusBadge, StatusBarItems, type Command, type EnvironmentKind, type NavGroup } from "@zoiko/ui";
 import {
   Activity,
-  BadgeCheck,
   ClipboardCheck,
-  FileSignature,
   Flag,
   FlaskConical,
-  Gauge,
   Globe2,
   KeyRound,
-  Landmark,
-  LayoutGrid,
   LifeBuoy,
   ListChecks,
   Megaphone,
-  OctagonX,
   Receipt,
   ScanFace,
   Server,
@@ -32,7 +26,14 @@ import type { ReactNode } from "react";
 import { useDirectMode } from "@/features/commercial/mode";
 import { useRuntime, type Subject } from "@/lib/runtime";
 
+/** The menu, by what an operator does for this product. Pages for features the product has turned off or never used are not listed: biometric method approval, the face lab, enforce readiness, service offerings,
+ * regulatory suppliers, holds, issuers, trust lists, conformance, WF-05 check methods, regulated claims, screening providers and screening release gates. Their pages still exist and open by their own address;
+ * only the menu entry is gone. Add one back here if a deployment starts using it. */
 const NAV: NavGroup[] = [
+  {
+    label: "Identity verification",
+    items: [{ id: "identity", label: "Identity verification", href: "/identity-verification", icon: ScanFace }],
+  },
   {
     label: "Operator plane",
     items: [
@@ -52,29 +53,11 @@ const NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Regulatory",
+    label: "Countries and screening",
     items: [
       { id: "reg-countries", label: "Country features", href: "/regulatory/countries", icon: Globe2 },
-      { id: "reg-face-lab", label: "Face lab", href: "/regulatory/face-lab", icon: ScanFace },
-      { id: "reg-readiness", label: "Enforce readiness", href: "/regulatory/readiness", icon: Gauge },
-      { id: "reg-offerings", label: "Service offerings", href: "/regulatory/offerings", icon: LayoutGrid },
-      { id: "reg-suppliers", label: "Suppliers", href: "/regulatory/suppliers", icon: BadgeCheck },
-      { id: "reg-holds", label: "Holds", href: "/regulatory/holds", icon: OctagonX },
-      { id: "reg-biometric-methods", label: "Biometric methods", href: "/regulatory/biometric-methods", icon: ScanFace },
-      { id: "reg-issuers", label: "Issuers", href: "/regulatory/issuers", icon: Landmark },
-      { id: "reg-trust-lists", label: "Trust lists", href: "/regulatory/trust-lists", icon: FileSignature },
-      { id: "reg-claims", label: "Regulated claims", href: "/regulatory/claims", icon: Megaphone },
-      { id: "reg-conformance", label: "Conformance", href: "/regulatory/conformance", icon: ListChecks },
-      { id: "reg-checks", label: "Checks", href: "/regulatory/checks", icon: ShieldQuestion },
-    ],
-  },
-  {
-    label: "Screening",
-    items: [
       { id: "screening-cases", label: "Screening cases", href: "/screening/cases", icon: ClipboardCheck },
       { id: "screening-sources", label: "Sanctions sources", href: "/screening/sources", icon: ShieldQuestion },
-      { id: "screening-providers", label: "Screening providers", href: "/screening/providers", icon: BadgeCheck },
-      { id: "screening-gates", label: "Release gates", href: "/screening/gates", icon: ClipboardCheck },
     ],
   },
   {
@@ -129,7 +112,7 @@ export function OperatorShell({ subject, environment, children }: { subject: Sub
   return (
     <AppShell
       surface="Operator Console"
-      homeHref={direct ? "/commercial" : "/requests"}
+      homeHref={direct ? "/identity-verification" : "/requests"}
       nav={nav}
       currentPath={pathname}
       environment={environment}

@@ -123,7 +123,13 @@ async def register_directory_connector(
 
 
 async def register_signin_connector(
-    conn: AsyncConnection, tenant_id: str, *, display_name: str, connection_id: str, owner: str, actor: str
+    conn: AsyncConnection,
+    tenant_id: str,
+    *,
+    display_name: str,
+    connection_id: str,
+    owner: str,
+    actor: str,
 ) -> str:
     """An OIDC identity-provider connector that holds the company's client secret for one federation connection (CR-138): the secret is sealed here, write-only, under the cell's
     data key, instead of being kept in an operator-run secret store. Returns the connector id; the federation connection refers to it as `connector:<id>`."""

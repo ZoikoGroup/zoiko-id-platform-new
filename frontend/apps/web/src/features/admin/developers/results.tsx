@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ApiErrorView, QueryView, useCellMutation, useCellQuery } from "@/lib/cell";
 
 import { checkLabel, cleanReference, ENVIRONMENT_FILTERS, historyLines, outcomeLabel, STATUS_FILTERS } from "./results-logic";
+import { SessionPhotographs } from "./session-photographs";
 import { sessionState } from "./test-lab-logic";
 
 const KEY = ["verify-api", "results"];
@@ -33,6 +34,7 @@ export function ResultsCard() {
     { key: "a", header: "Application", render: (s) => s.application_name },
     { key: "e", header: "Where", render: (s) => <Badge tone={s.mode === "sandbox" ? "info" : "warn"}>{s.mode === "sandbox" ? "Sandbox test" : "Live"}</Badge> },
     { key: "s", header: "State", render: (s) => <Badge tone={sessionState(s.status).tone}>{sessionState(s.status).label}</Badge> },
+    { key: "o", header: "Result", render: (s) => (s.outcome ? <Badge tone={outcomeLabel(s.outcome).tone}>{outcomeLabel(s.outcome).label}</Badge> : <span className="text-xs text-ink-muted">Not decided</span>) },
     { key: "f", header: "Started", render: (s) => when(s.created_at) },
     { key: "d", header: "Finished", render: (s) => when(s.completed_at) },
   ];
@@ -88,7 +90,7 @@ function ResultDialog({ id, onClose, onOpenOther }: { id: string; onClose: () =>
     },
   });
   return (
-    <Dialog isOpen onOpenChange={(o) => !o && onClose()} title="Verification result" description="Only the result is shown: never a photograph, a document or a score." size="lg" footer={<Button onPress={onClose}>Close</Button>}>
+    <Dialog isOpen onOpenChange={(o) => !o && onClose()} title="Verification result" description="The result, how it was decided, and, only where photographs are kept, the photographs themselves, opened under a recorded reason. Never a score." size="lg" footer={<Button onPress={onClose}>Close</Button>}>
       <QueryView query={q}>
         {(d) => (
           <div className="space-y-4">
@@ -145,6 +147,7 @@ function ResultDialog({ id, onClose, onOpenOther }: { id: string; onClose: () =>
                 </>
               )}
             </section>
+            <SessionPhotographs sessionId={id} />
             {d.rechecks.length ? (
               <section aria-label="Rechecks" className="space-y-1">
                 <h3 className="text-sm font-semibold text-ink">Rechecks</h3>

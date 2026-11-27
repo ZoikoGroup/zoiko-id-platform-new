@@ -22,6 +22,7 @@ import {
   imageProblem,
   isAuto,
   isFace,
+  isStranded,
   latestCheck,
   MY_IDV_KEY,
   NO_DETAILS,
@@ -230,7 +231,7 @@ export function IdentityProofingPage() {
   const approved = items.find((c) => c.decision === "APPROVED");
   // A check opened on a route this page no longer offers (the passport-lines route, the reviewed route, the phone-app chip route) stays on record, and an approved one still counts, but an
   // unfinished one is not shown: it would put an old form in front of the person instead of the choice of document.
-  const latest = approved ?? latestCheck(items.filter((c) => isFace(c.route)));
+  const latest = approved ?? latestCheck(items.filter((c) => isFace(c.route) && !isStranded(c)));
   return (
     <div className="space-y-6">
       <PageHeader title="Verify your identity" description="Photograph an identity document and yourself. We compare the two and tell you the result." />

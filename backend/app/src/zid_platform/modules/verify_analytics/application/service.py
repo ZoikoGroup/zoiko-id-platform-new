@@ -39,7 +39,17 @@ class AnalyticsError(ValueError):
 # ------------------------------------------------------------------------------------------------------------------------------ audit
 
 
-async def audit(conn: AsyncConnection, tenant: str, actor: str, *, action: str, outcome: str, target: str, details: dict[str, str], reason: str | None = None) -> None:
+async def audit(
+    conn: AsyncConnection,
+    tenant: str,
+    actor: str,
+    *,
+    action: str,
+    outcome: str,
+    target: str,
+    details: dict[str, str],
+    reason: str | None = None,
+) -> None:
     await record_audit(
         conn, tenant,
         AuditFacts(
@@ -54,13 +64,19 @@ async def audit(conn: AsyncConnection, tenant: str, actor: str, *, action: str, 
 
 
 async def _roles(conn: AsyncConnection, principal: str) -> tuple[str, ...]:
-    return tuple(sorted({a.role.value for a in await live_roles(conn, principal) if a.status.value == "ACTIVE"}))
+    return tuple(
+        sorted(
+            {a.role.value for a in await live_roles(conn, principal) if a.status.value == "ACTIVE"}
+        )
+    )
 
 
 async def _granted(conn: AsyncConnection, principal: str, now: datetime) -> frozenset[str]:
     rows = (
         await conn.execute(
-            text("SELECT permissions FROM metering.va_grant WHERE grantee = :p AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > :now)"),
+            text(
+                "SELECT permissions FROM metering.va_grant WHERE grantee = :p AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > :now)"
+            ),
             {"p": uuid.UUID(principal), "now": now},
         )
     ).all()
@@ -68,26 +84,67 @@ async def _granted(conn: AsyncConnection, principal: str, now: datetime) -> froz
 
 
 async def permissions(conn: AsyncConnection, principal: str) -> list[str]:
-    roles, granted = await _roles(conn, principal), await _granted(conn, principal, datetime.now(UTC))
+    roles, granted = (
+        await _roles(conn, principal),
+        await _granted(conn, principal, datetime.now(UTC)),
+    )
     return sorted(p for p in ac.PERMISSIONS if ac.allowed(roles, granted, p))
 
 
 async def check(conn: AsyncConnection, tenant: str, principal: str, permission: str) -> bool:
     """Does the person hold the key now. A refusal is recorded; the caller commits that record before refusing the request."""
-    if ac.allowed(await _roles(conn, principal), await _granted(conn, principal, datetime.now(UTC)), permission):
+    if ac.allowed(
+        await _roles(conn, principal),
+        await _granted(conn, principal, datetime.now(UTC)),
+        permission,
+    ):
         return True
-    await audit(conn, tenant, principal, action="access.decision", outcome="DENIED", target=permission, details={"permission": permission}, reason="NO_ANALYTICS_GRANT")
+    await audit(
+        conn,
+        tenant,
+        principal,
+        action="access.decision",
+        outcome="DENIED",
+        target=permission,
+        details={"permission": permission},
+        reason="NO_ANALYTICS_GRANT",
+    )
     return False
 
 
-async def give(conn: AsyncConnection, tenant: str, actor: str, *, grantee: str, bundle: str, expires_at: datetime | None) -> str | AnalyticsError:
+async def give(
+    conn: AsyncConnection,
+    tenant: str,
+    actor: str,
+    *,
+    grantee: str,
+    bundle: str,
+    expires_at: datetime | None,
+) -> str | AnalyticsError:
     """The grant id, or the refusal (already recorded; returned rather than raised so the record commits)."""
     now = datetime.now(UTC)
     member = any(a.status.value == "ACTIVE" for a in await live_roles(conn, grantee))
     try:
-        keys = ac.check_grant(actor_roles=await _roles(conn, actor), actor=actor, grantee=grantee, grantee_is_member=member, bundle=bundle, now=now, expires_at=expires_at)
+        keys = ac.check_grant(
+            actor_roles=await _roles(conn, actor),
+            actor=actor,
+            grantee=grantee,
+            grantee_is_member=member,
+            bundle=bundle,
+            now=now,
+            expires_at=expires_at,
+        )
     except ac.AccessError as e:
-        await audit(conn, tenant, actor, action="access.granted", outcome="DENIED", target=grantee, details={"bundle": bundle}, reason=e.code)
+        await audit(
+            conn,
+            tenant,
+            actor,
+            action="access.granted",
+            outcome="DENIED",
+            target=grantee,
+            details={"bundle": bundle},
+            reason=e.code,
+        )
         return AnalyticsError(e.code, e.detail, 403 if "OWNER" in e.code else 422)
     gid = uuid.uuid4()
     await conn.execute(
@@ -95,24 +152,46 @@ async def give(conn: AsyncConnection, tenant: str, actor: str, *, grantee: str, 
              "VALUES (:g, :t, :p, :b, :k, :by, :now, :exp)"),
         {"g": gid, "t": uuid.UUID(tenant), "p": uuid.UUID(grantee), "b": bundle, "k": sorted(keys), "by": uuid.UUID(actor), "now": now, "exp": expires_at},
     )  # fmt: skip
-    await audit(conn, tenant, actor, action="access.granted", outcome="SUCCESS", target=str(gid), details={"bundle": bundle, "grantee": grantee})
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="access.granted",
+        outcome="SUCCESS",
+        target=str(gid),
+        details={"bundle": bundle, "grantee": grantee},
+    )
     return str(gid)
 
 
 async def take_away(conn: AsyncConnection, tenant: str, actor: str, grant_id: str) -> None:
     if "OWNER" not in await _roles(conn, actor):
-        raise AnalyticsError("ANALYTICS_DELEGATION_OWNER_ONLY", "Only an Owner takes analytics access away.", 403)
+        raise AnalyticsError(
+            "ANALYTICS_DELEGATION_OWNER_ONLY", "Only an Owner takes analytics access away.", 403
+        )
     gone = await conn.execute(
-        text("UPDATE metering.va_grant SET revoked_at = now(), revoked_by = :by WHERE grant_id = :g AND revoked_at IS NULL"),
+        text(
+            "UPDATE metering.va_grant SET revoked_at = now(), revoked_by = :by WHERE grant_id = :g AND revoked_at IS NULL"
+        ),
         {"g": uuid.UUID(grant_id), "by": uuid.UUID(actor)},
     )
     if not gone.rowcount:
-        raise AnalyticsError("ANALYTICS_GRANT_NOT_FOUND", "No live analytics grant by that id.", 404)
-    await audit(conn, tenant, actor, action="access.revoked", outcome="SUCCESS", target=grant_id, details={})
+        raise AnalyticsError(
+            "ANALYTICS_GRANT_NOT_FOUND", "No live analytics grant by that id.", 404
+        )
+    await audit(
+        conn, tenant, actor, action="access.revoked", outcome="SUCCESS", target=grant_id, details={}
+    )
 
 
 async def grants(conn: AsyncConnection) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT * FROM metering.va_grant WHERE revoked_at IS NULL ORDER BY granted_at DESC"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM metering.va_grant WHERE revoked_at IS NULL ORDER BY granted_at DESC"
+            )
+        )
+    ).all()
     return [{"grant_id": str(r.grant_id), "grantee": str(r.grantee), "bundle": r.bundle, "permissions": list(r.permissions),
              "granted_at": r.granted_at.isoformat(), "expires_at": r.expires_at.isoformat() if r.expires_at else None} for r in rows]  # fmt: skip
 
@@ -120,7 +199,9 @@ async def grants(conn: AsyncConnection) -> list[dict[str, Any]]:
 # ------------------------------------------------------------------------------------------------------------------------------ facts
 
 
-def window(start: date | None, end: date | None, tz: str, now: datetime) -> tuple[datetime, datetime]:
+def window(
+    start: date | None, end: date | None, tz: str, now: datetime
+) -> tuple[datetime, datetime]:
     """Whole days in the person's timezone (Q13: day edges follow DST), at most 92 of them; the default is the last 7 days."""
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -140,10 +221,14 @@ def window(start: date | None, end: date | None, tz: str, now: datetime) -> tupl
     return lo, hi
 
 
-_EXCLUDED = "event_id NOT IN (SELECT event_id FROM metering.va_correction WHERE approved_by IS NOT NULL)"
+_EXCLUDED = (
+    "event_id NOT IN (SELECT event_id FROM metering.va_correction WHERE approved_by IS NOT NULL)"
+)
 
 
-async def journeys(conn: AsyncConnection, lo: datetime, hi: datetime, *, environment: str, market: str | None) -> list[mx.Journey]:
+async def journeys(
+    conn: AsyncConnection, lo: datetime, hi: datetime, *, environment: str, market: str | None
+) -> list[mx.Journey]:
     """Every fact of the sessions created in the window (their later events too, so a decision after the window still counts for its cohort)."""
     rows = (
         await conn.execute(
@@ -159,30 +244,51 @@ async def journeys(conn: AsyncConnection, lo: datetime, hi: datetime, *, environ
     return mx.journeys([dict(r._mapping) for r in rows])
 
 
-async def facts_of(conn: AsyncConnection, prefix: str, lo: datetime, hi: datetime) -> list[dict[str, Any]]:
+async def facts_of(
+    conn: AsyncConnection, prefix: str, lo: datetime, hi: datetime
+) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text(f"SELECT event_type, case_id, occurred_at, attrs FROM metering.va_fact WHERE {_EXCLUDED} AND event_type LIKE :p AND occurred_at >= :lo AND occurred_at < :hi"),
+            text(
+                f"SELECT event_type, case_id, occurred_at, attrs FROM metering.va_fact WHERE {_EXCLUDED} AND event_type LIKE :p AND occurred_at >= :lo AND occurred_at < :hi"
+            ),
             {"p": prefix + "%", "lo": lo, "hi": hi},
         )
     ).all()
-    return [{"event_type": r.event_type, "occurred_at": r.occurred_at, **(r.attrs or {})} for r in rows]
+    return [
+        {"event_type": r.event_type, "occurred_at": r.occurred_at, **(r.attrs or {})} for r in rows
+    ]
 
 
 async def watermarks(conn: AsyncConnection) -> list[dict[str, Any]]:
-    return [dict(r._mapping) for r in (await conn.execute(text("SELECT * FROM metering.va_watermark ORDER BY source"))).all()]
+    return [
+        dict(r._mapping)
+        for r in (
+            await conn.execute(text("SELECT * FROM metering.va_watermark ORDER BY source"))
+        ).all()
+    ]
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ views
 
 
-async def quality(conn: AsyncConnection, *, now: datetime, stale_after: timedelta) -> tuple[str, list[dict[str, Any]], str | None]:
+async def quality(
+    conn: AsyncConnection, *, now: datetime, stale_after: timedelta
+) -> tuple[str, list[dict[str, Any]], str | None]:
     q, rows = mx.freshness(await watermarks(conn), now=now, stale_after=stale_after)
     mark = max((r["last_ingested_at"] for r in rows), default=None)
     return q, rows, mark
 
 
-def _scope(environment: str, market: str | None, lo: datetime, hi: datetime, tz: str, mark: str | None, k: int) -> dict[str, Any]:
+def _scope(
+    environment: str,
+    market: str | None,
+    lo: datetime,
+    hi: datetime,
+    tz: str,
+    mark: str | None,
+    k: int,
+) -> dict[str, Any]:
     return {"environment": environment, "market": market, "from": lo.isoformat(), "to": hi.isoformat(), "timezone": tz, "watermark_utc": mark, "min_group": k,
             "data_label": "SANDBOX" if environment in ("local", "test", "dev", "sandbox") else "OBSERVED"}  # fmt: skip
 
@@ -191,7 +297,18 @@ def fingerprint(request: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(request, sort_keys=True, default=str).encode()).hexdigest()
 
 
-async def overview(conn: AsyncConnection, *, lo: datetime, hi: datetime, tz: str, environment: str, market: str | None, now: datetime, k: int, stale_after: timedelta) -> dict[str, Any]:
+async def overview(
+    conn: AsyncConnection,
+    *,
+    lo: datetime,
+    hi: datetime,
+    tz: str,
+    environment: str,
+    market: str | None,
+    now: datetime,
+    k: int,
+    stale_after: timedelta,
+) -> dict[str, Any]:
     q, fresh, mark = await quality(conn, now=now, stale_after=stale_after)
     js = await journeys(conn, lo, hi, environment=environment, market=market)
     m = mx.session_metrics(js, now=now, k=k, quality=q)
@@ -214,13 +331,19 @@ async def query(conn: AsyncConnection, *, metric_ids: list[str], dimension: str 
     """Allow-listed metrics and dimensions only (no arbitrary SQL, 08); every row protected by the small-group rules."""
     unknown = [m for m in metric_ids if m not in CATALOGUE]
     if unknown or not metric_ids:
-        raise AnalyticsError("METRIC_UNKNOWN", f"Unknown metric: {', '.join(unknown) or 'none given'}.")
+        raise AnalyticsError(
+            "METRIC_UNKNOWN", f"Unknown metric: {', '.join(unknown) or 'none given'}."
+        )
     if dimension is not None and dimension not in DIMENSIONS:
         raise AnalyticsError("DIMENSION_NOT_ALLOWED", "That breakdown is not available.")
     if cohort not in ("created", "started"):
         raise AnalyticsError("COHORT_UNKNOWN", "Cohort is created or started.")
     if any(CATALOGUE[m].finance for m in metric_ids):
-        raise AnalyticsError("FINANCE_METRIC_ELSEWHERE", "Cost and yield are read from the economics view, under billing access.", 403)
+        raise AnalyticsError(
+            "FINANCE_METRIC_ELSEWHERE",
+            "Cost and yield are read from the economics view, under billing access.",
+            403,
+        )
     q, fresh, mark = await quality(conn, now=now, stale_after=stale_after)
     js = await journeys(conn, lo, hi, environment=environment, market=market)
     sm = mx.session_metrics(js, now=now, k=k, quality=q)
@@ -229,15 +352,23 @@ async def query(conn: AsyncConnection, *, metric_ids: list[str], dimension: str 
         if mid in SESSION_METRICS:
             out["results"].append(sm[mid])
             if dimension:
-                out["breakdowns"][mid] = mx.breakdown(js, dimension=dimension, metric=mid, now=now, k=k, tz=tz)
+                out["breakdowns"][mid] = mx.breakdown(
+                    js, dimension=dimension, metric=mid, now=now, k=k, tz=tz
+                )
         elif mid == "M11":
-            rows = mx.provider_quality(await facts_of(conn, "verification.idv.provider_check_finished", lo, hi), k=k)
+            rows = mx.provider_quality(
+                await facts_of(conn, "verification.idv.provider_check_finished", lo, hi), k=k
+            )
             num = sum(r["numerator"] or 0 for r in rows if not r.get("suppressed"))
             den = sum(r["denominator"] or 0 for r in rows if not r.get("suppressed"))
             out["results"].append(mx.result("M11", num, den, k=k, quality=q, extra={"providers": rows, "comparable": False,
                                                                                       "note": "Providers serve different methods and markets; rows are not a league table."}))  # fmt: skip
         elif mid == "M12":
-            out["results"].append(mx.webhook_delivery(await facts_of(conn, "webhook.delivery.", lo, hi), k=k, quality=q))
+            out["results"].append(
+                mx.webhook_delivery(
+                    await facts_of(conn, "webhook.delivery.", lo, hi), k=k, quality=q
+                )
+            )
         elif mid == "M16":
             out["results"].append({"metric_id": "M16", "name": CATALOGUE["M16"].name, "definition_version": "1.0", "unit": "seconds", "quality": q, "sources": fresh,
                                    "value": max((r["lag_seconds"] for r in fresh), default=None), "suppressed": False})  # fmt: skip
@@ -246,8 +377,20 @@ async def query(conn: AsyncConnection, *, metric_ids: list[str], dimension: str 
     out["funnel"] = mx.funnel(js, now=now, k=k, cohort=cohort)
     out["first_attempt_causes"] = mx.first_attempt_causes(js, k=k)
     scope = _scope(environment, market, lo, hi, tz, mark, k)
-    request = {"metric_ids": sorted(metric_ids), "dimension": dimension, "cohort": cohort, **scope, "versions": {m: CATALOGUE[m].version for m in metric_ids}}
-    return {"scope": scope, "quality": q, **out, "query_fingerprint": fingerprint(request), "request": request}
+    request = {
+        "metric_ids": sorted(metric_ids),
+        "dimension": dimension,
+        "cohort": cohort,
+        **scope,
+        "versions": {m: CATALOGUE[m].version for m in metric_ids},
+    }
+    return {
+        "scope": scope,
+        "quality": q,
+        **out,
+        "query_fingerprint": fingerprint(request),
+        "request": request,
+    }
 
 
 async def economics(conn: AsyncConnection, tenant: str, *, finance: bool, lo: datetime, hi: datetime, environment: str, market: str | None, now: datetime, k: int,
@@ -261,7 +404,12 @@ async def economics(conn: AsyncConnection, tenant: str, *, finance: bool, lo: da
     usage = meters.get("IDV_SUBMISSION", {})
     out: dict[str, Any] = {
         "approved_subjects": None if mx.suppressed_count(approved, k) else approved,
-        "billable_units": {"meter": "IDV_SUBMISSION", "month": month.isoformat(), "net": usage.get("net"), "frozen": usage.get("frozen")},
+        "billable_units": {
+            "meter": "IDV_SUBMISSION",
+            "month": month.isoformat(),
+            "net": usage.get("net"),
+            "frozen": usage.get("frozen"),
+        },
         "finance_visible": finance,
     }
     if not finance:
@@ -282,50 +430,122 @@ async def drill(conn: AsyncConnection, tenant: str, actor: str, session_ref: str
     stays in the case workspace under its own access. Every drill is on record (Q47)."""
     rows = (
         await conn.execute(
-            text(f"SELECT event_type, occurred_at, attrs FROM metering.va_fact WHERE session_ref = :r AND {_EXCLUDED} ORDER BY occurred_at"),
+            text(
+                f"SELECT event_type, occurred_at, attrs FROM metering.va_fact WHERE session_ref = :r AND {_EXCLUDED} ORDER BY occurred_at"
+            ),
             {"r": session_ref},
         )
     ).all()
     if not rows:
         raise AnalyticsError("NOT_FOUND", "No such session.", 404)
-    await audit(conn, tenant, actor, action="drill", outcome="SUCCESS", target=session_ref, details={"session_ref": session_ref})
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="drill",
+        outcome="SUCCESS",
+        target=session_ref,
+        details={"session_ref": session_ref},
+    )
     keep = ("attempt_no", "step", "result", "method", "state", "decided_by", "decision_version")
-    return {"session_ref": session_ref, "timeline": [{"event": r.event_type, "at": r.occurred_at.isoformat(), **{k: v for k, v in (r.attrs or {}).items() if k in keep}} for r in rows]}
+    return {
+        "session_ref": session_ref,
+        "timeline": [
+            {
+                "event": r.event_type,
+                "at": r.occurred_at.isoformat(),
+                **{k: v for k, v in (r.attrs or {}).items() if k in keep},
+            }
+            for r in rows
+        ],
+    }
 
 
 # ------------------------------------------------------------------------------------------------------------------------- corrections
 
 
-async def request_correction(conn: AsyncConnection, tenant: str, actor: str, *, event_id: str, reason: str) -> str:
+async def request_correction(
+    conn: AsyncConnection, tenant: str, actor: str, *, event_id: str, reason: str
+) -> str:
     """Ask for one fact to be left out of the metrics (07.11 item 04). Nothing changes until a different person approves it."""
-    if not (await conn.execute(text("SELECT 1 FROM metering.va_fact WHERE event_id = :e"), {"e": uuid.UUID(event_id)})).first():
+    if not (
+        await conn.execute(
+            text("SELECT 1 FROM metering.va_fact WHERE event_id = :e"), {"e": uuid.UUID(event_id)}
+        )
+    ).first():
         raise AnalyticsError("NOT_FOUND", "No such fact.", 404)
     cid = uuid.uuid4()
     try:
         await conn.execute(
-            text("INSERT INTO metering.va_correction (correction_id, tenant_id, event_id, reason, requested_by, requested_at) VALUES (:c, :t, :e, :r, :by, now())"),
-            {"c": cid, "t": uuid.UUID(tenant), "e": uuid.UUID(event_id), "r": reason, "by": uuid.UUID(actor)},
+            text(
+                "INSERT INTO metering.va_correction (correction_id, tenant_id, event_id, reason, requested_by, requested_at) VALUES (:c, :t, :e, :r, :by, now())"
+            ),
+            {
+                "c": cid,
+                "t": uuid.UUID(tenant),
+                "e": uuid.UUID(event_id),
+                "r": reason,
+                "by": uuid.UUID(actor),
+            },
         )
     except Exception as e:  # the unique index: one correction per fact
         raise AnalyticsError("CORRECTION_EXISTS", "That fact already has a correction.", 409) from e
-    await audit(conn, tenant, actor, action="correction.requested", outcome="SUCCESS", target=str(cid), details={"event_id": event_id})
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="correction.requested",
+        outcome="SUCCESS",
+        target=str(cid),
+        details={"event_id": event_id},
+    )
     return str(cid)
 
 
-async def approve_correction(conn: AsyncConnection, tenant: str, actor: str, correction_id: str) -> None:
-    row = (await conn.execute(text("SELECT requested_by, approved_by FROM metering.va_correction WHERE correction_id = :c FOR UPDATE"), {"c": uuid.UUID(correction_id)})).first()
+async def approve_correction(
+    conn: AsyncConnection, tenant: str, actor: str, correction_id: str
+) -> None:
+    row = (
+        await conn.execute(
+            text(
+                "SELECT requested_by, approved_by FROM metering.va_correction WHERE correction_id = :c FOR UPDATE"
+            ),
+            {"c": uuid.UUID(correction_id)},
+        )
+    ).first()
     if row is None:
         raise AnalyticsError("NOT_FOUND", "No such correction.", 404)
     if row.approved_by is not None:
         raise AnalyticsError("CORRECTION_APPROVED", "Already approved.", 409)
     if str(row.requested_by) == actor:
-        raise AnalyticsError("CORRECTION_SAME_PERSON", "A correction is approved by someone other than the person who asked for it.", 403)
-    await conn.execute(text("UPDATE metering.va_correction SET approved_by = :by, approved_at = now() WHERE correction_id = :c"), {"c": uuid.UUID(correction_id), "by": uuid.UUID(actor)})
-    await audit(conn, tenant, actor, action="correction.approved", outcome="SUCCESS", target=correction_id, details={})
+        raise AnalyticsError(
+            "CORRECTION_SAME_PERSON",
+            "A correction is approved by someone other than the person who asked for it.",
+            403,
+        )
+    await conn.execute(
+        text(
+            "UPDATE metering.va_correction SET approved_by = :by, approved_at = now() WHERE correction_id = :c"
+        ),
+        {"c": uuid.UUID(correction_id), "by": uuid.UUID(actor)},
+    )
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="correction.approved",
+        outcome="SUCCESS",
+        target=correction_id,
+        details={},
+    )
 
 
 async def corrections(conn: AsyncConnection) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT * FROM metering.va_correction ORDER BY requested_at DESC LIMIT 200"))).all()
+    rows = (
+        await conn.execute(
+            text("SELECT * FROM metering.va_correction ORDER BY requested_at DESC LIMIT 200")
+        )
+    ).all()
     return [{"correction_id": str(r.correction_id), "event_id": str(r.event_id), "reason": r.reason, "requested_by": str(r.requested_by),
              "requested_at": r.requested_at.isoformat(), "approved_by": str(r.approved_by) if r.approved_by else None,
              "approved_at": r.approved_at.isoformat() if r.approved_at else None} for r in rows]  # fmt: skip
@@ -347,7 +567,12 @@ async def snapshot(conn: AsyncConnection, tenant: str, actor: str, result: dict[
 
 
 async def load_snapshot(conn: AsyncConnection, snapshot_id: str) -> dict[str, Any]:
-    row = (await conn.execute(text("SELECT result FROM metering.va_snapshot WHERE snapshot_id = :s"), {"s": uuid.UUID(snapshot_id)})).first()
+    row = (
+        await conn.execute(
+            text("SELECT result FROM metering.va_snapshot WHERE snapshot_id = :s"),
+            {"s": uuid.UUID(snapshot_id)},
+        )
+    ).first()
     if row is None:
         raise AnalyticsError("NOT_FOUND", "No such snapshot.", 404)
     return dict(row.result)
@@ -366,14 +591,53 @@ def render(result: dict[str, Any], fmt: str) -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf)
     scope = result.get("scope", {})
-    w.writerow([cell(x) for x in ("# fingerprint", result.get("query_fingerprint"), "watermark_utc", scope.get("watermark_utc"), "quality", result.get("quality"))])
-    w.writerow(["metric_id", "name", "definition_version", "numerator", "denominator", "value", "quality", "suppressed"])
+    w.writerow(
+        [
+            cell(x)
+            for x in (
+                "# fingerprint",
+                result.get("query_fingerprint"),
+                "watermark_utc",
+                scope.get("watermark_utc"),
+                "quality",
+                result.get("quality"),
+            )
+        ]
+    )
+    w.writerow(
+        [
+            "metric_id",
+            "name",
+            "definition_version",
+            "numerator",
+            "denominator",
+            "value",
+            "quality",
+            "suppressed",
+        ]
+    )
     for r in result.get("results", []) + result.get("tiles", []):
-        w.writerow([cell(r.get(k)) for k in ("metric_id", "name", "definition_version", "numerator", "denominator", "value", "quality", "suppressed")])
+        w.writerow(
+            [
+                cell(r.get(k))
+                for k in (
+                    "metric_id",
+                    "name",
+                    "definition_version",
+                    "numerator",
+                    "denominator",
+                    "value",
+                    "quality",
+                    "suppressed",
+                )
+            ]
+        )
     return buf.getvalue().encode()
 
 
-async def create_export(conn: AsyncConnection, tenant: str, actor: str, *, snapshot_id: str, fmt: str, purpose: str) -> dict[str, Any]:
+async def create_export(
+    conn: AsyncConnection, tenant: str, actor: str, *, snapshot_id: str, fmt: str, purpose: str
+) -> dict[str, Any]:
     """A job over a frozen snapshot, stored in this cell's database (the tenant's region), valid 24 hours, downloaded once with a token shown only now."""
     if fmt not in ("csv", "json"):
         raise AnalyticsError("FORMAT_UNKNOWN", "Format is csv or json.")
@@ -386,27 +650,63 @@ async def create_export(conn: AsyncConnection, tenant: str, actor: str, *, snaps
         {"e": eid, "t": uuid.UUID(tenant), "s": uuid.UUID(snapshot_id), "f": fmt, "p": purpose, "by": uuid.UUID(actor), "now": now,
          "exp": now + EXPORT_TTL, "h": hashlib.sha256(token.encode()).hexdigest(), "c": content},
     )  # fmt: skip
-    await audit(conn, tenant, actor, action="export.created", outcome="SUCCESS", target=str(eid), details={"snapshot_id": snapshot_id, "format": fmt, "purpose": purpose[:100]})
-    return {"export_id": str(eid), "status": "READY", "expires_at": (now + EXPORT_TTL).isoformat(), "download_token": token, "format": fmt}
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="export.created",
+        outcome="SUCCESS",
+        target=str(eid),
+        details={"snapshot_id": snapshot_id, "format": fmt, "purpose": purpose[:100]},
+    )
+    return {
+        "export_id": str(eid),
+        "status": "READY",
+        "expires_at": (now + EXPORT_TTL).isoformat(),
+        "download_token": token,
+        "format": fmt,
+    }
 
 
 def _export_view(r: Any, now: datetime) -> dict[str, Any]:
-    state = "REVOKED" if r.revoked_at else "DOWNLOADED" if r.downloaded_at else "EXPIRED" if r.expires_at <= now else "READY"
+    state = (
+        "REVOKED"
+        if r.revoked_at
+        else "DOWNLOADED"
+        if r.downloaded_at
+        else "EXPIRED"
+        if r.expires_at <= now
+        else "READY"
+    )
     return {"export_id": str(r.export_id), "snapshot_id": str(r.snapshot_id), "format": r.format, "purpose": r.purpose, "status": state,
             "requested_by": str(r.requested_by), "created_at": r.created_at.isoformat(), "expires_at": r.expires_at.isoformat()}  # fmt: skip
 
 
 async def exports(conn: AsyncConnection, actor: str) -> list[dict[str, Any]]:
     """The person's own export jobs (an export is owner-scoped, 08)."""
-    rows = (await conn.execute(text("SELECT * FROM metering.va_export WHERE requested_by = :a ORDER BY created_at DESC LIMIT 100"), {"a": uuid.UUID(actor)})).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM metering.va_export WHERE requested_by = :a ORDER BY created_at DESC LIMIT 100"
+            ),
+            {"a": uuid.UUID(actor)},
+        )
+    ).all()
     now = datetime.now(UTC)
     return [_export_view(r, now) for r in rows]
 
 
-async def download(conn: AsyncConnection, tenant: str, actor: str, export_id: str, token: str) -> tuple[bytes, str] | AnalyticsError:
+async def download(
+    conn: AsyncConnection, tenant: str, actor: str, export_id: str, token: str
+) -> tuple[bytes, str] | AnalyticsError:
     """Once, by the person who asked, with the token, before it expires or is revoked (Q39). Every try is on record; a refusal is returned, not
     raised, so its record commits."""
-    r = (await conn.execute(text("SELECT * FROM metering.va_export WHERE export_id = :e FOR UPDATE"), {"e": uuid.UUID(export_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM metering.va_export WHERE export_id = :e FOR UPDATE"),
+            {"e": uuid.UUID(export_id)},
+        )
+    ).first()
     now = datetime.now(UTC)
     why = None
     if r is None or str(r.requested_by) != actor:
@@ -420,19 +720,53 @@ async def download(conn: AsyncConnection, tenant: str, actor: str, export_id: st
     elif not secrets.compare_digest(r.token_hash, hashlib.sha256(token.encode()).hexdigest()):
         why = "EXPORT_TOKEN_INVALID"
     if why:
-        await audit(conn, tenant, actor, action="export.downloaded", outcome="DENIED", target=export_id, details={}, reason=why)
-        return AnalyticsError(why, "This download link cannot be used.", 404 if why == "NOT_FOUND" else 410)
+        await audit(
+            conn,
+            tenant,
+            actor,
+            action="export.downloaded",
+            outcome="DENIED",
+            target=export_id,
+            details={},
+            reason=why,
+        )
+        return AnalyticsError(
+            why, "This download link cannot be used.", 404 if why == "NOT_FOUND" else 410
+        )
     assert r is not None  # no refusal means the row was found
-    await conn.execute(text("UPDATE metering.va_export SET downloaded_at = :now, content = ''::bytea WHERE export_id = :e"), {"e": uuid.UUID(export_id), "now": now})
-    await audit(conn, tenant, actor, action="export.downloaded", outcome="SUCCESS", target=export_id, details={})
+    await conn.execute(
+        text(
+            "UPDATE metering.va_export SET downloaded_at = :now, content = ''::bytea WHERE export_id = :e"
+        ),
+        {"e": uuid.UUID(export_id), "now": now},
+    )
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="export.downloaded",
+        outcome="SUCCESS",
+        target=export_id,
+        details={},
+    )
     return bytes(r.content), "text/csv" if r.format == "csv" else "application/json"
 
 
 async def revoke_export(conn: AsyncConnection, tenant: str, actor: str, export_id: str) -> None:
     gone = await conn.execute(
-        text("UPDATE metering.va_export SET revoked_at = now(), revoked_by = :a, content = ''::bytea WHERE export_id = :e AND requested_by = :a AND revoked_at IS NULL"),
+        text(
+            "UPDATE metering.va_export SET revoked_at = now(), revoked_by = :a, content = ''::bytea WHERE export_id = :e AND requested_by = :a AND revoked_at IS NULL"
+        ),
         {"e": uuid.UUID(export_id), "a": uuid.UUID(actor)},
     )
     if not gone.rowcount:
         raise AnalyticsError("NOT_FOUND", "No such export.", 404)
-    await audit(conn, tenant, actor, action="export.revoked", outcome="SUCCESS", target=export_id, details={})
+    await audit(
+        conn,
+        tenant,
+        actor,
+        action="export.revoked",
+        outcome="SUCCESS",
+        target=export_id,
+        details={},
+    )

@@ -377,7 +377,10 @@ def _role_step(owner_url: str, role: str | None) -> Any:
 
     async def go() -> object:
         step = dict(steps(settings))["access_readiness"]
-        async with engine(owner_url) as eng, eng.begin() as c:  # the worker's connection: superuser here, BYPASSRLS in a deployment
+        async with (
+            engine(owner_url) as eng,
+            eng.begin() as c,
+        ):  # the worker's connection: superuser here, BYPASSRLS in a deployment
             return await step(c, datetime.now(UTC))
 
     return go
@@ -417,5 +420,9 @@ def test_a_run_role_that_cannot_be_assumed_runs_nothing_and_leaves_the_run_queue
     w = approved_world(rt_url, owner_url)
     queued = make_run(w, "idem-bad-role")["run_id"]
     outs = [w.run(_role_step(owner_url, "no_such_role")()) for _ in range(3)]
-    assert all(isinstance(o, dict) and o["picked"] > 0 and o["errors"] == o["picked"] for o in outs), outs
-    assert run_state(w, queued)[0] == "QUEUED"  # nothing ran, nothing was denied by accident, it will be tried again
+    assert all(
+        isinstance(o, dict) and o["picked"] > 0 and o["errors"] == o["picked"] for o in outs
+    ), outs
+    assert (
+        run_state(w, queued)[0] == "QUEUED"
+    )  # nothing ran, nothing was denied by accident, it will be tried again

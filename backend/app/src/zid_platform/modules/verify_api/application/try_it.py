@@ -26,13 +26,35 @@ OPERATIONS: dict[str, dict[str, str]] = {
     "whoami": {"method": "GET", "path": "/v1/verify-api/whoami", "scope": ""},
     "products": {"method": "GET", "path": "/v1/verify-api/products", "scope": "products:read"},
     "workflows": {"method": "GET", "path": "/v1/verify-api/workflows", "scope": "workflows:read"},
-    "list_sessions": {"method": "GET", "path": "/v1/verify-api/verification-sessions", "scope": "verifications:list"},
-    "create_session": {"method": "POST", "path": "/v1/verify-api/verification-sessions", "scope": "verifications:create"},
+    "list_sessions": {
+        "method": "GET",
+        "path": "/v1/verify-api/verification-sessions",
+        "scope": "verifications:list",
+    },
+    "create_session": {
+        "method": "POST",
+        "path": "/v1/verify-api/verification-sessions",
+        "scope": "verifications:create",
+    },
 }
-DEFAULT_BODY = {"customer_reference": "try-it", "country": "US", "purpose_code": "customer_onboarding"}
+DEFAULT_BODY = {
+    "customer_reference": "try-it",
+    "country": "US",
+    "purpose_code": "customer_onboarding",
+}
 
 
-async def run(conn: AsyncConnection, tenant_id: str, application_id: str, operation: str, *, body: dict[str, Any] | None, idempotency_key: str | None, origin: str, now: datetime | None = None) -> dict[str, Any]:
+async def run(
+    conn: AsyncConnection,
+    tenant_id: str,
+    application_id: str,
+    operation: str,
+    *,
+    body: dict[str, Any] | None,
+    idempotency_key: str | None,
+    origin: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     op = OPERATIONS.get(operation)
     if op is None:
@@ -41,17 +63,37 @@ async def run(conn: AsyncConnection, tenant_id: str, application_id: str, operat
     if app is None:
         raise PartnerError("NOT_FOUND", "No such application.")
     if str(app["environment"]) != "SANDBOX":
-        raise PartnerError("ENVIRONMENT_MISMATCH", "Try it runs only against a sandbox application. A production application is never called from here.")
+        raise PartnerError(
+            "ENVIRONMENT_MISMATCH",
+            "Try it runs only against a sandbox application. A production application is never called from here.",
+        )
     if str(app["status"]) != "ACTIVE":
         raise PartnerError("APPLICATION_STATE_INVALID", "This application is not active.")
     held = await store.scopes_in_force(conn, application_id, now)
     scopes = tuple(s for s in (held if held is not None else app["scopes"]) if s in SCOPES)
-    who = VerifyApiCaller(tenant_id=tenant_id, application_id=application_id, credential_id="try-it", environment="SANDBOX", scopes=scopes, expires_at=now + timedelta(minutes=1))
+    who = VerifyApiCaller(
+        tenant_id=tenant_id,
+        application_id=application_id,
+        credential_id="try-it",
+        environment="SANDBOX",
+        scopes=scopes,
+        expires_at=now + timedelta(minutes=1),
+    )
     if op["scope"]:
-        who.require(op["scope"])  # the application could not make this call itself: neither can the runner
-    request: dict[str, Any] = {"method": op["method"], "path": op["path"], "headers": {"Authorization": "Bearer <your access token>"}}
+        who.require(
+            op["scope"]
+        )  # the application could not make this call itself: neither can the runner
+    request: dict[str, Any] = {
+        "method": op["method"],
+        "path": op["path"],
+        "headers": {"Authorization": "Bearer <your access token>"},
+    }
     if operation == "whoami":
-        out: dict[str, Any] = {"application_id": application_id, "environment": "sandbox", "scopes": list(scopes)}
+        out: dict[str, Any] = {
+            "application_id": application_id,
+            "environment": "sandbox",
+            "scopes": list(scopes),
+        }
     elif operation == "products":
         out = {"items": sessions_domain.PRODUCTS}
     elif operation == "workflows":
@@ -63,6 +105,14 @@ async def run(conn: AsyncConnection, tenant_id: str, application_id: str, operat
         key = idempotency_key or f"try-it-{application_id[:8]}-{int(now.timestamp())}"
         request["headers"]["Idempotency-Key"] = key
         request["body"] = full
-        view, created = await svc.create_session(conn, who, key=key, body=full, origin=origin, now=now)
+        view, created = await svc.create_session(
+            conn, who, key=key, body=full, origin=origin, now=now
+        )
         out = {**view, "created": created}
-    return {"request": request, "status": 201 if operation == "create_session" and out.get("created") else 200, "response": out, "sandbox": True, "note": "This ran against the sandbox. It called no provider and created nothing in production."}
+    return {
+        "request": request,
+        "status": 201 if operation == "create_session" and out.get("created") else 200,
+        "response": out,
+        "sandbox": True,
+        "note": "This ran against the sandbox. It called no provider and created nothing in production.",
+    }

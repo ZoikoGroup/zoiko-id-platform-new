@@ -23,13 +23,17 @@ export function GoLive({ onCreateProduction }: { onCreateProduction: () => void 
       {(d) => (
         <Card
           title="Go live"
-          description="Production opens after you have tested in the sandbox and our team has confirmed your company, your terms and the countries you will serve."
+          description={
+            d.self_serve?.enabled
+              ? "Production opens by itself once your own identity check and your company check are complete and your plan is paid. The sandbox is free and optional: use it to practise, or go straight to production."
+              : "Production opens after you have tested in the sandbox and our team has confirmed your company, your terms and the countries you will serve."
+          }
           actions={d.grant ? <Badge tone="ok">Production open</Badge> : <Badge tone="info">Sandbox only</Badge>}
         >
           <div className="space-y-4">
             {d.grant ? <Granted d={d} onCreateProduction={onCreateProduction} /> : <Asking d={d} onAsk={() => setAsking(true)} />}
           </div>
-          {asking ? <AskDialog d={d} onClose={() => setAsking(false)} /> : null}
+          {asking ? <AskDialog d={d} onClose={() => setAsking(false)} selfServe={Boolean(d.self_serve?.enabled)} /> : null}
         </Card>
       )}
     </QueryView>
@@ -55,6 +59,47 @@ function Granted({ d, onCreateProduction }: { d: VerifyApiGoLive; onCreateProduc
   );
 }
 
+/** The three things that open production by themselves, each with where to finish it. The button opens only when all three are done; there is no sandbox test and no waiting for a person. */
+function SelfServe({ d, onAsk }: { d: VerifyApiGoLive; onAsk: () => void }) {
+  const s = d.self_serve!;
+  const rows: { done: boolean; label: string; help: string; href: string; link: string }[] = [
+    { done: s.identity, label: "Your own identity is verified", help: "Photograph your document and yourself once.", href: "/account/identity-proofing", link: "Verify my identity" },
+    { done: s.company, label: "Your company is verified", help: "Claim your company and finish its check.", href: "/admin/organization", link: "Verify my company" },
+    { done: s.paid_plan, label: "Your plan is paid", help: "Production is part of a paid plan. The free plan has the sandbox only.", href: "/admin/billing", link: "Choose a plan" },
+  ];
+  return (
+    <>
+      <section aria-label="What opens production" className="space-y-2">
+        <h3 className="text-sm font-semibold text-ink">Three things open production</h3>
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li key={r.label} className="flex items-start gap-2 text-sm">
+              {r.done ? <CheckCircle2 aria-hidden className="mt-0.5 size-4 text-ok-fg" /> : <Circle aria-hidden className="mt-0.5 size-4 text-ink-muted" />}
+              <span>
+                <span className={r.done ? "text-ink" : "font-medium text-ink"}>{r.label}</span>
+                {r.done ? (
+                  <span className="sr-only"> (done)</span>
+                ) : (
+                  <span className="block text-xs text-ink-muted">
+                    {r.help}{" "}
+                    <a className="font-medium text-brand-700 underline" href={r.href}>
+                      {r.link}
+                    </a>
+                  </span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <Button size="sm" icon={<Rocket aria-hidden className="size-4" />} isDisabled={!s.ready} onPress={onAsk}>
+        Open production
+      </Button>
+      {!s.ready ? <p className="text-xs text-ink-muted">The button opens when all three are done. You can still use the sandbox meanwhile.</p> : null}
+    </>
+  );
+}
+
 function Asking({ d, onAsk }: { d: VerifyApiGoLive; onAsk: () => void }) {
   const qc = useQueryClient();
   const withdraw = useCellMutation((api, id: string) => api.verifyApi.withdrawGoLive(id), {
@@ -64,6 +109,7 @@ function Asking({ d, onAsk }: { d: VerifyApiGoLive; onAsk: () => void }) {
   const r = d.request;
   const open = r && (r.status === "SUBMITTED" || r.status === "IN_REVIEW");
   const ready = d.certification.every((c) => c.met);
+  if (d.self_serve?.enabled && !open) return <SelfServe d={d} onAsk={onAsk} />;
   if (open && r) {
     const s = REQUEST_STATE[r.status]!;
     return (
@@ -125,13 +171,13 @@ function Asking({ d, onAsk }: { d: VerifyApiGoLive; onAsk: () => void }) {
   );
 }
 
-function AskDialog({ d, onClose }: { d: VerifyApiGoLive; onClose: () => void }) {
+function AskDialog({ d, onClose, selfServe = false }: { d: VerifyApiGoLive; onClose: () => void; selfServe?: boolean }) {
   const qc = useQueryClient();
   const [draft, setDraft] = useState<GoLiveDraft>(EMPTY_DRAFT);
   const set = (p: Partial<GoLiveDraft>) => setDraft((x) => ({ ...x, ...p }));
   const problem = draftProblem(draft);
   const send = useCellMutation((api) => api.verifyApi.askToGoLive(toRequest(draft, { terms: d.terms_version, dpa: d.dpa_version })), {
-    success: "Request sent",
+    success: selfServe ? "Production is open" : "Request sent",
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEY });
       onClose();
@@ -141,8 +187,8 @@ function AskDialog({ d, onClose }: { d: VerifyApiGoLive; onClose: () => void }) 
     <Dialog
       isOpen
       onOpenChange={(o) => !o && onClose()}
-      title="Ask to go live"
-      description="Tell us where and how you will use verification. We review it before production opens."
+      title={selfServe ? "Open production" : "Ask to go live"}
+      description={selfServe ? "Tell us where and how you will use verification. Production opens as soon as you send this." : "Tell us where and how you will use verification. We review it before production opens."}
       size="lg"
       footer={
         <>
@@ -150,7 +196,7 @@ function AskDialog({ d, onClose }: { d: VerifyApiGoLive; onClose: () => void }) 
             Cancel
           </Button>
           <Button isDisabled={problem !== null || send.isPending} pending={send.isPending} onPress={() => send.mutate(undefined)}>
-            Send request
+            {selfServe ? "Open production" : "Send request"}
           </Button>
         </>
       }

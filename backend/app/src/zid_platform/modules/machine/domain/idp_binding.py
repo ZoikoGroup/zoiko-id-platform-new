@@ -50,7 +50,10 @@ def check_issuer(issuer: str | None) -> str:
     """An exact https address, no query, fragment or credentials: it is compared as text, never fetched."""
     s = (issuer or "").strip()
     if not s.startswith("https://") or len(s) > 300 or any(ch in s for ch in ("?", "#", "@", " ")):
-        raise MachineError("IDP_BINDING_INVALID", "an issuer is an exact https address with no query, fragment or credentials")
+        raise MachineError(
+            "IDP_BINDING_INVALID",
+            "an issuer is an exact https address with no query, fragment or credentials",
+        )
     return s
 
 
@@ -61,12 +64,21 @@ def check_keys(keys: Any, algs: Sequence[str]) -> tuple[list[dict[str, Any]], li
     clean: list[dict[str, Any]] = []
     seen: set[str] = set()
     for k in keys:
-        if not isinstance(k, dict) or not isinstance(k.get("kid"), str) or not k["kid"] or len(k["kid"]) > 100:
+        if (
+            not isinstance(k, dict)
+            or not isinstance(k.get("kid"), str)
+            or not k["kid"]
+            or len(k["kid"]) > 100
+        ):
             raise MachineError("IDP_BINDING_INVALID", "each key is an object with a key id")
         if any(p in k for p in PRIVATE_PARTS):
-            raise MachineError("IDP_BINDING_INVALID", "pin public keys only: this one holds private material")
+            raise MachineError(
+                "IDP_BINDING_INVALID", "pin public keys only: this one holds private material"
+            )
         if any(p in k for p in ("jku", "x5u")):
-            raise MachineError("IDP_BINDING_INVALID", "a key is pinned, not fetched from an address")
+            raise MachineError(
+                "IDP_BINDING_INVALID", "a key is pinned, not fetched from an address"
+            )
         if k["kid"] in seen:
             raise MachineError("IDP_BINDING_INVALID", "two keys have the same id")
         seen.add(k["kid"])
@@ -80,14 +92,20 @@ def check_keys(keys: Any, algs: Sequence[str]) -> tuple[list[dict[str, Any]], li
 def check_audience(audience: str | None) -> str:
     s = (audience or "").strip()
     if not 3 <= len(s) <= 300:
-        raise MachineError("IDP_BINDING_INVALID", "name the audience the provider puts in its tokens for this agent")
+        raise MachineError(
+            "IDP_BINDING_INVALID",
+            "name the audience the provider puts in its tokens for this agent",
+        )
     return s
 
 
 def check_subject(subject: str | None) -> str:
     s = (subject or "").strip()
     if not 1 <= len(s) <= 200:
-        raise MachineError("IDP_BINDING_INVALID", "name the provider's own identifier for the agent (the token's subject)")
+        raise MachineError(
+            "IDP_BINDING_INVALID",
+            "name the provider's own identifier for the agent (the token's subject)",
+        )
     return s
 
 
@@ -95,7 +113,16 @@ def _num(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
-def claim_problems(claims: Mapping[str, Any], *, issuer: str, audience: str, subject: str, now: datetime, needs_jti: bool, max_lifetime: int = MAX_TOKEN_LIFETIME) -> list[str]:
+def claim_problems(
+    claims: Mapping[str, Any],
+    *,
+    issuer: str,
+    audience: str,
+    subject: str,
+    now: datetime,
+    needs_jti: bool,
+    max_lifetime: int = MAX_TOKEN_LIFETIME,
+) -> list[str]:
     """Why a token whose signature already verified still does not prove this binding. Every reason is named."""
     out: list[str] = []
     if claims.get("iss") != issuer:
@@ -109,15 +136,15 @@ def claim_problems(claims: Mapping[str, Any], *, issuer: str, audience: str, sub
     exp, iat, nbf = claims.get("exp"), claims.get("iat"), claims.get("nbf")
     if not _num(exp):
         out.append("IDP_TOKEN_NO_EXPIRY")
-    elif exp + LEEWAY <= ts:
+    elif exp + LEEWAY <= ts:  # type: ignore[operator]
         out.append("IDP_TOKEN_EXPIRED")
     if not _num(iat):
         out.append("IDP_TOKEN_NO_ISSUE_TIME")
-    elif _num(exp) and exp - iat > max_lifetime:
+    elif _num(exp) and exp - iat > max_lifetime:  # type: ignore[operator]
         out.append("IDP_TOKEN_TOO_LONG_LIVED")
-    if _num(iat) and iat - LEEWAY > ts:
+    if _num(iat) and iat - LEEWAY > ts:  # type: ignore[operator]
         out.append("IDP_TOKEN_FROM_THE_FUTURE")
-    if _num(nbf) and nbf - LEEWAY > ts:
+    if _num(nbf) and nbf - LEEWAY > ts:  # type: ignore[operator]
         out.append("IDP_TOKEN_NOT_YET_VALID")
     if needs_jti and not (isinstance(claims.get("jti"), str) and claims["jti"]):
         out.append("IDP_TOKEN_NO_ID")
@@ -141,10 +168,24 @@ def token_digest(token: str) -> str:
 
 
 def keys_fingerprint(keys: Iterable[Mapping[str, Any]]) -> str:
-    return "sha256:" + hashlib.sha256(json.dumps(sorted((dict(k) for k in keys), key=lambda k: str(k.get("kid"))), sort_keys=True).encode()).hexdigest()
+    return (
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                sorted((dict(k) for k in keys), key=lambda k: str(k.get("kid"))), sort_keys=True
+            ).encode()
+        ).hexdigest()
+    )
 
 
-def binding_state(*, status: str, expires_at: datetime | None, now: datetime, last_ok_at: datetime | None, stale_after_s: int) -> str:
+def binding_state(
+    *,
+    status: str,
+    expires_at: datetime | None,
+    now: datetime,
+    last_ok_at: datetime | None,
+    stale_after_s: int,
+) -> str:
     """ACTIVE only while the provider has been heard from lately. A connector that has gone quiet is STALE and proves nothing: there is no implicit fallback."""
     if status != "ACTIVE":
         return status

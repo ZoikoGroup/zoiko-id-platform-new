@@ -247,9 +247,64 @@ def create_app(
         lambda: _partner_capture.services_from_state(app.state)
     )  # a production session is made only where the owners have published the face route and acknowledged its limits
 
+    async def _go_live_company_claim(conn, tenant_id):  # type: ignore[no-untyped-def]
+        """The company check go-live reads: a registry match (K2 or higher) as before, or the company's own claim whose COMPANY check is complete, which includes a certificate of
+        incorporation whose reading agrees with the claim (CR-132, the owner's decision of 20 Nov 2026: that completes the company check without a reviewer). The label says which.
+        Anything else, a claim that is not complete, one on the development shortcut, or any error, is "not verified": it fails closed."""
+        registry = await _company_claim(conn, tenant_id)
+        if registry is not None:
+            return registry
+        try:
+            from datetime import UTC as _UTC
+            from datetime import datetime as _datetime
+
+            from .modules.onboarding.application import claims as _claims
+            from .modules.organization.infrastructure.kyb_store import (
+                latest_case_id as _latest_case,
+            )
+
+            case_id = await _latest_case(conn, tenant_id)
+            if case_id is None:
+                return None
+            now = _datetime.now(_UTC)
+            seen = await _claims.status(conn, tenant_id, case_id, now)
+            if seen["checks"].get("company") != "COMPLETED" or seen.get("development_shortcut"):
+                return None
+            label = (
+                "COMPANY_CERTIFICATE_MATCHED"
+                if seen.get("company_basis") == "DOCUMENT_OCR"
+                else "COMPANY_REGISTRY_MATCHED"
+            )
+            return label, now
+        except Exception:  # noqa: BLE001 - fail closed
+            return None
+
     _verify_go_live.configure_company_source(
-        _company_claim
-    )  # production for a Verify API partner needs the company's own registry-matched claim; the verify_api module imports no organization code
+        _go_live_company_claim
+    )  # production for a Verify API partner needs the company's own completed company check; the verify_api module imports no organization code
+
+    async def _go_live_person_ok(conn, principal):  # type: ignore[no-untyped-def]
+        """The signed-in person's own identity check is complete and current (self-serve go-live)."""
+        from datetime import UTC as _UTC
+        from datetime import datetime as _datetime
+
+        try:
+            return bool(await person_assurance_current(conn, principal, _datetime.now(_UTC)))
+        except Exception:  # noqa: BLE001 - fail closed: a doubt is "not met"
+            return False
+
+    async def _go_live_plan_ok(conn):  # type: ignore[no-untyped-def]
+        """The company holds a paid plan (self-serve go-live)."""
+        from .modules.commercial.ports import has_paid_plan as _has_paid_plan
+
+        try:
+            return await _has_paid_plan(conn)
+        except Exception:  # noqa: BLE001 - fail closed
+            return False
+
+    _verify_go_live.configure_self_serve_sources(
+        _go_live_person_ok, _go_live_plan_ok
+    )  # production opens by itself when the person's identity, the company and a paid plan are all complete; the verify_api module imports none of those modules
     configure_screening_sources(
         _screening_admin, _screening_claim
     )  # screening asks who may request it and which identity claim a subject rests on; it imports neither the tenant, verification nor organization module
@@ -259,7 +314,9 @@ def create_app(
     from .modules.commercial.ports import idv_usage_sink
     from .modules.verification.ports import configure_idv_usage_sink
 
-    configure_idv_usage_sink(idv_usage_sink)  # one IDV_SUBMISSION per submitted hosted session (WF-01 Q33); verification never imports commercial
+    configure_idv_usage_sink(
+        idv_usage_sink
+    )  # one IDV_SUBMISSION per submitted hosted session (WF-01 Q33); verification never imports commercial
     app.state.monitoring_scope = settings.monitoring_scope
     if settings.agent_governance == "off" and settings.environment not in ("local", "test", "dev"):
         raise RuntimeError(
@@ -316,8 +373,12 @@ def create_app(
 
     app.state.verify_go_live_sign = verify_go_live_signer(settings)
     app.state.review_agent_enabled = settings.review_agent_enabled
-    app.state.mandate_signing = settings.mandate_signing if settings.mandate_signing in ("off", "enforce") else "off"
-    app.state.review_adviser = None  # no model is installed here; a deployment that has an approved one sets it
+    app.state.mandate_signing = (
+        settings.mandate_signing if settings.mandate_signing in ("off", "enforce") else "off"
+    )
+    app.state.review_adviser = (
+        None  # no model is installed here; a deployment that has an approved one sets it
+    )
     from .modules.verify_api.application import edge_cert as _edge_cert
 
     app.state.partner_mtls = _edge_cert.config_from_settings(
@@ -958,12 +1019,20 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         app.state.billing_return_origin = (
             f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
         )
+    # The launch link is {origin}/verify/session/{token}, so the origin must be only scheme and host. An explicit ZID_VERIFY_HOSTED_ORIGIN is used as written; the two fallbacks are
+    # page addresses (the consent page is .../consent), so they are cut down to their origin, or every link would have the page's path in the middle of it.
+    from urllib.parse import urlparse as _urlparse
+
+    def _origin_only(url: str | None) -> str:
+        p = _urlparse((url or "").strip())
+        return f"{p.scheme}://{p.netloc}" if p.scheme and p.netloc else ""
+
     app.state.verify_hosted_origin = (
-        settings.verify_hosted_origin
-        or settings.billing_return_origin
-        or settings.consent_url
-        or ""
-    ).strip().rstrip("/") or None
+        (settings.verify_hosted_origin or "").strip().rstrip("/")
+        or _origin_only(settings.billing_return_origin)
+        or _origin_only(settings.consent_url)
+        or None
+    )
     # The built-in rate table answers only when Stripe Tax cannot, and only once Finance has approved it (config/commercial/tax-rate-table.yaml).
     import os
     from pathlib import Path as _Path
@@ -1092,11 +1161,15 @@ def _configure_metering(app: FastAPI, settings: Settings) -> None:
         response = await call_next(request)
         if response.status_code == 401 and request.url.path == "/v1/machine/mcp":
             settings = getattr(request.app.state, "token_settings", None)
-            base = str(getattr(settings, "public_base_url", "") or str(request.base_url)).rstrip("/")
+            base = str(getattr(settings, "public_base_url", "") or str(request.base_url)).rstrip(
+                "/"
+            )
             hint = f'resource_metadata="{base}/.well-known/oauth-protected-resource/v1/machine/mcp"'
             current = response.headers.get("www-authenticate", "")
             if "resource_metadata" not in current:
-                response.headers["www-authenticate"] = f"{current}, {hint}" if current else f"Bearer {hint}"
+                response.headers["www-authenticate"] = (
+                    f"{current}, {hint}" if current else f"Bearer {hint}"
+                )
         return response
 
     @app.middleware("http")
@@ -1262,6 +1335,26 @@ def _configure_phase_f(app: FastAPI, settings: Settings) -> None:
         )
     app.state.idv_face_route_ack = settings.idv_face_route_ack
     app.state.idv_global_policy_ack = settings.idv_global_policy_ack
+    if settings.idv_open_to_all_countries:
+        from .modules.verification.api.idv_cases import FACE_ROUTE_ACK as _FACE_ROUTE_ACK
+        from .modules.verification.infrastructure.idv_policy_file import (
+            GLOBAL_POLICY_ACK as _GLOBAL_POLICY_ACK,
+        )
+        from .modules.verification.infrastructure.idv_policy_file import configure_open_country
+
+        configure_open_country(
+            True
+        )  # the global policy also carries a basis label, so the face route's lawful-basis check passes
+        app.state.idv_face_route_ack = _FACE_ROUTE_ACK
+        app.state.idv_global_policy_ack = _GLOBAL_POLICY_ACK
+        app.state.idv_open_to_all_countries = (
+            True  # country_gate.enforce no longer holds identity checks by country
+        )
+        logging.getLogger("zid.idv").warning(
+            "ZID_IDV_OPEN_TO_ALL_COUNTRIES is on: identity checks are open in every country with no country opening, no policy of its own and no acknowledgement; the global policy "
+            "serves them and the face-match route runs with no liveness test, no evaluated engine and no check that the document is genuine (environment=%s)",
+            settings.environment,
+        )
     if settings.idv_global_policy_ack:
         logging.getLogger("zid.idv").warning(
             "ZID_IDV_GLOBAL_POLICY_ACK is set: a country with no policy of its own is served by the global identity policy (config/idv/global-policy.yaml), "

@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[4]
-spec = importlib.util.spec_from_file_location("bundle_secret_scan", REPO / "tools" / "scripts" / "bundle_secret_scan.py")
+spec = importlib.util.spec_from_file_location(
+    "bundle_secret_scan", REPO / "tools" / "scripts" / "bundle_secret_scan.py"
+)
 assert spec and spec.loader
 scan = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(scan)  # type: ignore[union-attr]
@@ -33,7 +35,9 @@ def test_each_kind_of_secret_is_found_by_name(rule: str, tmp_path: Path) -> None
     assert files == 1 and findings == [f"chunk.js:2: {rule}"]
 
 
-def test_a_finding_never_contains_the_secret_so_a_log_cannot_leak_it(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_finding_never_contains_the_secret_so_a_log_cannot_leak_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     (tmp_path / "a.js").write_text(SHAPES["verify-api-client-secret"], encoding="utf-8")
     assert scan.main([str(tmp_path)]) == 1
     out = capsys.readouterr().out
@@ -41,12 +45,17 @@ def test_a_finding_never_contains_the_secret_so_a_log_cannot_leak_it(tmp_path: P
 
 
 def test_placeholders_and_ordinary_words_are_not_findings(tmp_path: Path) -> None:
-    (tmp_path / "ok.js").write_text("// zps_ is the prefix; send zat_xxx as the bearer\nconst prefix='zps_';const note='client_secret is never sent from a browser';\n", encoding="utf-8")
+    (tmp_path / "ok.js").write_text(
+        "// zps_ is the prefix; send zat_xxx as the bearer\nconst prefix='zps_';const note='client_secret is never sent from a browser';\n",
+        encoding="utf-8",
+    )
     assert scan.scan_dir(tmp_path)[1] == []
     assert scan.main([str(tmp_path)]) == 0
 
 
-def test_an_empty_folder_or_a_missing_one_fails_because_nothing_scanned_proves_nothing(tmp_path: Path) -> None:
+def test_an_empty_folder_or_a_missing_one_fails_because_nothing_scanned_proves_nothing(
+    tmp_path: Path,
+) -> None:
     assert scan.main([str(tmp_path)]) == 2
     assert scan.main([str(tmp_path / "missing")]) == 2
     assert scan.main([]) == 2

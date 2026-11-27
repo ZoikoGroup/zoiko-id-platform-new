@@ -87,7 +87,9 @@ class Candidate:
     registration_status: str
     source_uri: str
     confidence: float  # ranking only: a candidate is never chosen for the applicant
-    lei: str | None = None  # the LEI, when the source is GLEIF: the registration number is then the national one, when GLEIF holds it
+    lei: str | None = (
+        None  # the LEI, when the source is GLEIF: the registration number is then the national one, when GLEIF holds it
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +112,9 @@ class CompanyFacts:
     lei: str | None = None
     duns: str | None = None
     supplier_entity_id: str | None = None
-    national_number: str | None = None  # an LEI record's own `registeredAs`: the number the national register gave the company
+    national_number: str | None = (
+        None  # an LEI record's own `registeredAs`: the number the national register gave the company
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,12 +331,17 @@ def reconcile(
         return result(KybStatus.UNAVAILABLE, "NO_COVERAGE", extra=["NO_COVERAGE"])
 
     found = [o for o in primary if o.state is SourceState.FOUND and o.facts is not None]
+
     def same_company(f: CompanyFacts) -> bool:
         if f.jurisdiction != applicant.jurisdiction:
             return False
         if f.source_kind is SourceKind.LEI_REFERENCE:
             # an LEI record is matched on the national number it carries and on the LEI the applicant gave, never on a name
-            return bool(applicant.lei) and f.lei == applicant.lei and f.national_number == applicant.registration_number
+            return (
+                bool(applicant.lei)
+                and f.lei == applicant.lei
+                and f.national_number == applicant.registration_number
+            )
         return f.registration_number == applicant.registration_number
 
     matching = [o.facts for o in found if o.facts is not None and same_company(o.facts)]
@@ -353,7 +362,9 @@ def reconcile(
 
     best = next((f for f in matching if f.source_kind is SourceKind.OFFICIAL_REGISTER), matching[0])
     if best.source_kind is SourceKind.LEI_REFERENCE:
-        reasons.append("LEI_REFERENCE_ONLY")  # no register confirmed this company: the record says so, so nothing downstream reads it as a register finding
+        reasons.append(
+            "LEI_REFERENCE_ONLY"
+        )  # no register confirmed this company: the record says so, so nothing downstream reads it as a register finding
     confidence = name_similarity(applicant.legal_name, best.legal_name)
 
     if any(_incomplete(f) for f in matching):

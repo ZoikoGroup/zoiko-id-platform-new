@@ -22,11 +22,11 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.decision.ports import AccessQuery, evaluate_access
+from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.modules.machine.application import tool_gateway as gateway
 from zid_platform.modules.machine.domain.agents import MachineError, ToolStatus
 from zid_platform.modules.machine.domain.tool_gateway import ARGS_DIGEST, args_digest
 from zid_platform.modules.machine.infrastructure import machine_store
-from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.protected import catalog
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-tool-gateway"])
@@ -34,7 +34,13 @@ metadata_router = APIRouter(tags=["agent-tool-gateway"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
 PROTOCOL = "2026-07-28"
 SERVER = {"name": "zoiko-id-tool-gateway", "version": "1"}
-OPTIONAL_CALL_FIELDS = ("represented_principal_id", "purpose", "mandate_id", "approval_request_id", "reservation_id")
+OPTIONAL_CALL_FIELDS = (
+    "represented_principal_id",
+    "purpose",
+    "mandate_id",
+    "approval_request_id",
+    "reservation_id",
+)
 INPUT_SCHEMA = {
     "type": "object",
     "required": ["resource_type", "resource_id", "arguments"],
@@ -60,12 +66,23 @@ def _error(rid: Any, code: int, message: str) -> JSONResponse:
 
 
 def _result(rid: Any, result: dict[str, Any]) -> JSONResponse:
-    return JSONResponse({"jsonrpc": "2.0", "id": rid, "result": result}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {"jsonrpc": "2.0", "id": rid, "result": result}, headers={"Cache-Control": "no-store"}
+    )
 
 
 def _tool_error(rid: Any, codes: list[str], extra: dict[str, Any] | None = None) -> JSONResponse:
     body = {"decision": "DENY", "reason_codes": codes, **(extra or {})}
-    return _result(rid, {"isError": True, "content": [{"type": "text", "text": "This tool call is not allowed: " + ", ".join(codes)}], "structuredContent": body})
+    return _result(
+        rid,
+        {
+            "isError": True,
+            "content": [
+                {"type": "text", "text": "This tool call is not allowed: " + ", ".join(codes)}
+            ],
+            "structuredContent": body,
+        },
+    )
 
 
 async def _list_tools(request: Request, caller: Caller) -> list[dict[str, Any]]:
@@ -89,12 +106,21 @@ def _call_from(agent_id: str, params: dict[str, Any]) -> gateway.ToolCall | str:
     if not isinstance(name, str) or not isinstance(args, dict):
         return "a tool call names the tool and gives its arguments"
     inner = args.get("arguments")
-    if not isinstance(args.get("resource_type"), str) or not isinstance(args.get("resource_id"), str) or not isinstance(inner, dict):
+    if (
+        not isinstance(args.get("resource_type"), str)
+        or not isinstance(args.get("resource_id"), str)
+        or not isinstance(inner, dict)
+    ):
         return "give resource_type, resource_id and arguments"
-    if set(args) - set(INPUT_SCHEMA["properties"]):  # type: ignore[arg-type]
+    if set(args) - set(INPUT_SCHEMA["properties"]):  # type: ignore[call-overload]
         return "unknown argument: only the documented fields are accepted (the agent is never one of them)"
     value = args.get("value")
-    if value is not None and not (isinstance(value, dict) and isinstance(value.get("amount"), str) and isinstance(value.get("currency"), str) and set(value) <= {"amount", "currency"}):
+    if value is not None and not (
+        isinstance(value, dict)
+        and isinstance(value.get("amount"), str)
+        and isinstance(value.get("currency"), str)
+        and set(value) <= {"amount", "currency"}
+    ):
         return "value is an amount as text and a currency"
     digest = args_digest(inner)
     assert ARGS_DIGEST.match(digest)
@@ -111,7 +137,11 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
     if body.jsonrpc != "2.0" or not isinstance(body.method, str):
         return _error(rid, -32600, "not a JSON-RPC 2.0 request")
     if "workload" not in caller.scope:
-        raise ZidError("TOOL_CALL_FORBIDDEN", "Only an agent's own workload credential may use the tool gateway.", http_status=403)
+        raise ZidError(
+            "TOOL_CALL_FORBIDDEN",
+            "Only an agent's own workload credential may use the tool gateway.",
+            http_status=403,
+        )
     settings = getattr(request.app.state, "token_settings", None)
     if settings is None:
         raise ZidError("UNAUTHENTICATED", "No token issuer is configured.", http_status=503)
@@ -119,7 +149,15 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
         return Response(status_code=202)  # a notification has no answer
     method = body.method
     if method == "initialize":
-        return _result(rid, {"protocolVersion": PROTOCOL, "capabilities": {"tools": {"listChanged": False}}, "serverInfo": SERVER, "instructions": "Every tool call is decided at the Zoiko iD gateway. Listing a tool grants nothing."})
+        return _result(
+            rid,
+            {
+                "protocolVersion": PROTOCOL,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": SERVER,
+                "instructions": "Every tool call is decided at the Zoiko iD gateway. Listing a tool grants nothing.",
+            },
+        )
     if method == "ping":
         return _result(rid, {})
     try:
@@ -127,7 +165,11 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
             return _result(rid, {"tools": await _list_tools(request, caller)})
         if method != "tools/call":
             return _error(rid, -32601, "method not offered by this server")
-        agent_id, tenant, engine = caller.ctx.principal_id or "", caller.ctx.tenant_id or "", request_engine(request)
+        agent_id, tenant, engine = (
+            caller.ctx.principal_id or "",
+            caller.ctx.tenant_id or "",
+            request_engine(request),
+        )
         call = _call_from(agent_id, body.params or {})
         if isinstance(call, str):
             return _error(rid, -32602, call)
@@ -142,14 +184,29 @@ async def mcp(body: McpRequest, request: Request, caller: CallerDep) -> Response
     except MachineError as e:
         return _tool_error(rid, [e.code])
     if not result.allowed:
-        return _tool_error(rid, list(result.codes), {"approval_context": result.approval_context} if result.approval_context else None)
+        return _tool_error(
+            rid,
+            list(result.codes),
+            {"approval_context": result.approval_context} if result.approval_context else None,
+        )
     assert result.grant is not None and result.expires_at is not None
     return _result(
         rid,
         {
             "isError": False,
-            "content": [{"type": "text", "text": "Authorized for the tool's own server. This is a grant, not the tool's result: the server redeems it, acts, and reports what happened."}],
-            "structuredContent": {"decision": "ALLOW", "grant": result.grant, "expires_at": result.expires_at.isoformat(), "decision_id": result.decision_id, "agent_chain": list(result.chain)},
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Authorized for the tool's own server. This is a grant, not the tool's result: the server redeems it, acts, and reports what happened.",
+                }
+            ],
+            "structuredContent": {
+                "decision": "ALLOW",
+                "grant": result.grant,
+                "expires_at": result.expires_at.isoformat(),
+                "decision_id": result.decision_id,
+                "agent_chain": list(result.chain),
+            },
         },
     )
 

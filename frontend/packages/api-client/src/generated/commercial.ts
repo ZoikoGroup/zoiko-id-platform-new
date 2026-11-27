@@ -1673,6 +1673,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commercial/plan-offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Waiting Plan Offers
+         * @description Prices made for one company that still wait: for a second operator's approval, or for the company to buy at them (CR-148).
+         */
+        get: operations["waiting_plan_offers_v1_commercial_plan_offers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/plan-prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Plan Price
+         * @description Set one price: select the item (the monthly plan fee, or a usage rate) and the plan, enter the amount (CR-147).
+         *
+         *     It does what an operator would do by hand in four steps: copy the approved price book into a new draft, change that one line (every other
+         *     line is kept as it is), record the change, and approve. In direct mode the book is approved at once; in governed mode it stays a DRAFT for a second operator,
+         *     because the author may not approve their own book. The price is the same in every region. A company that already has the plan keeps the price it signed; the
+         *     new price applies to new purchases and orders.
+         */
+        post: operations["set_plan_price_v1_commercial_plan_prices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commercial/plan-requests": {
         parameters: {
             query?: never;
@@ -1708,6 +1753,67 @@ export interface paths {
          *     below). DECLINED: the company is told why. The company's own entitlement is untouched either way.
          */
         post: operations["answer_plan_request_v1_commercial_plan_requests__request_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/plan-requests/{request_id}:approve-offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Plan Offer
+         * @description A different operator, holding the role the reduction needs, lets the company buy at the offered price.
+         */
+        post: operations["approve_plan_offer_v1_commercial_plan_requests__request_id__approve_offer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/plan-requests/{request_id}:offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Offer Plan Price
+         * @description Answer a company's request with the price that company will pay (CR-148). It moves no plan and charges nothing: the company buys the plan at this amount, pays on Stripe, and
+         *     the plan switches only after that payment is confirmed. A price below the list price needs the discount authority (direct mode: you are it; governed mode: a second operator approves).
+         */
+        post: operations["offer_plan_price_v1_commercial_plan_requests__request_id__offer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commercial/plan-requests/{request_id}:withdraw-offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Plan Offer
+         * @description Take an offer back. A plan already bought at it is untouched; the company can no longer buy at that price.
+         */
+        post: operations["withdraw_plan_offer_v1_commercial_plan_requests__request_id__withdraw_offer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2865,11 +2971,6 @@ export interface components {
             /** Role */
             role: string;
         };
-        /** ApproveBody */
-        ApproveBody: {
-            /** Effective From */
-            effective_from?: string | null;
-        };
         /** ApproveQuoteBody */
         ApproveQuoteBody: {
             /**
@@ -3250,6 +3351,46 @@ export interface components {
             /** Month */
             month: string;
         };
+        /**
+         * PlanOfferBody
+         * @description The monthly amount one company will pay for the plan it asked for. Never above the list price; below it is a reduction held to the discount authority.
+         */
+        PlanOfferBody: {
+            /** Amount */
+            amount: number | string;
+            /** Note */
+            note?: string | null;
+            /**
+             * Valid Days
+             * @default 14
+             */
+            valid_days: number;
+        };
+        /** PlanOfferWithdraw */
+        PlanOfferWithdraw: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * PlanPriceBody
+         * @description One price: pick the item and the plan, type the amount. The item is the monthly plan fee by default, or one of the usage rates charged above what a plan
+         *     includes. There is no region field: a plan has one price everywhere (the price book has no region dimension).
+         */
+        PlanPriceBody: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Item
+             * @default ZID-BASE
+             * @enum {string}
+             */
+            item: "ZID-BASE" | "ZID-HUM" | "ZID-AUTH" | "ZID-PDP" | "ZID-M2M" | "ZID-VCI" | "ZID-VCP" | "ZID-FED" | "ZID-SCIM";
+            /**
+             * Plan
+             * @enum {string}
+             */
+            plan: "LAUNCH" | "BUSINESS" | "SCALE" | "ENTERPRISE";
+        };
         /** PlanRequestAnswer */
         PlanRequestAnswer: {
             /**
@@ -3398,19 +3539,6 @@ export interface components {
              * @enum {string}
              */
             basis: "PRINCIPAL" | "AGENT" | "UNDECIDED";
-        };
-        /** ReconcileBody */
-        ReconcileBody: {
-            /**
-             * Period End
-             * Format: date-time
-             */
-            period_end: string;
-            /**
-             * Period Start
-             * Format: date-time
-             */
-            period_start: string;
         };
         /** RefundBody */
         RefundBody: {
@@ -3664,6 +3792,11 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** ApproveBody */
+        zid_platform__modules__operator_access__api__commercial_admin__ApproveBody: {
+            /** Effective From */
+            effective_from?: string | null;
+        };
         /** NoticeBody */
         zid_platform__modules__operator_access__api__commercial_admin__NoticeBody: {
             /** Body */
@@ -3673,11 +3806,26 @@ export interface components {
         };
         /** PlanBody */
         zid_platform__modules__operator_access__api__commercial_admin__PlanBody: {
+            /** Complimentary Reason */
+            complimentary_reason?: string | null;
             /**
              * Plan
              * @enum {string}
              */
             plan: "DEVELOPER" | "LAUNCH" | "BUSINESS" | "SCALE" | "ENTERPRISE";
+        };
+        /** ReconcileBody */
+        zid_platform__modules__operator_access__api__commercial_admin__ReconcileBody: {
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
         };
         /** ResolveBody */
         zid_platform__modules__operator_access__api__commercial_admin__ResolveBody: {
@@ -4467,7 +4615,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApproveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"];
             };
         };
         responses: {
@@ -5422,7 +5570,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApproveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"];
             };
         };
         responses: {
@@ -5994,7 +6142,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApproveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"];
             };
         };
         responses: {
@@ -7015,6 +7163,63 @@ export interface operations {
             };
         };
     };
+    waiting_plan_offers_v1_commercial_plan_offers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    set_plan_price_v1_commercial_plan_prices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanPriceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     open_plan_requests_v1_commercial_plan_requests_get: {
         parameters: {
             query?: never;
@@ -7049,6 +7254,113 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PlanRequestAnswer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_plan_offer_v1_commercial_plan_requests__request_id__approve_offer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    offer_plan_price_v1_commercial_plan_requests__request_id__offer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanOfferBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_plan_offer_v1_commercial_plan_requests__request_id__withdraw_offer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanOfferWithdraw"];
             };
         };
         responses: {
@@ -7245,7 +7557,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApproveBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ApproveBody"];
             };
         };
         responses: {
@@ -9092,7 +9404,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReconcileBody"];
+                "application/json": components["schemas"]["zid_platform__modules__operator_access__api__commercial_admin__ReconcileBody"];
             };
         };
         responses: {

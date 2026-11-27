@@ -1,4 +1,4 @@
-﻿"""Alembic env for the `verify_analytics` stream; the shared runner lives in zid_platform.migrations."""
+"""Alembic env for the `verify_analytics` stream; the shared runner lives in zid_platform.migrations."""
 
 from alembic import context
 from zid_platform.migrations import run_env

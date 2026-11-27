@@ -26,18 +26,29 @@ from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.domain import review as rv
 
 REVIEW = ("verify_api.review.read", "verify_api.review.work", "verify_api.review.approve")
-FRAUD = ("verify_api.fraud.read", "verify_api.fraud.analyze", "verify_api.fraud.propose", "verify_api.fraud.approve")
+FRAUD = (
+    "verify_api.fraud.read",
+    "verify_api.fraud.analyze",
+    "verify_api.fraud.propose",
+    "verify_api.fraud.approve",
+)
 
 
 class Crew(Company):
     """A company with three administrators who can all read, work and approve, so the tests can name who does what."""
 
-    def __init__(self, rt_url: str, *, adviser: Any = None, agent: bool = False, fraud: bool = False) -> None:
+    def __init__(
+        self, rt_url: str, *, adviser: Any = None, agent: bool = False, fraud: bool = False
+    ) -> None:
         self.rt_url = rt_url
         self.o: Onboarded = onboard(
             rt_url,
             extra_actions=(*ACTIONS, *REVIEW, *(FRAUD if fraud else ())),
-            extra_resources=("verify_api_application:*", "verify_api_review:*", *(("verify_api_fraud:*",) if fraud else ())),
+            extra_resources=(
+                "verify_api_application:*",
+                "verify_api_review:*",
+                *(("verify_api_fraud:*",) if fraud else ()),
+            ),
             with_third=True,
         )
         app = create_app(settings(rt_url, verify_hosted_origin=ORIGIN), keyring=self.o.ring)
@@ -265,7 +276,11 @@ def test_verified_needs_the_required_check_confirmed_and_the_proposal_cannot_use
         d = co.get(case)
         # the screen needs no arithmetic of its own: the case says which evidence a proposal must name, who is asking, and what the checklists are
         assert d["evidence_manifest_hash"] == manifest(d) and d["viewer"]
-        assert set(d["challenges"]) == {"evidence_reviewed", "reason_matches_evidence", "no_conflict_of_interest"}
+        assert set(d["challenges"]) == {
+            "evidence_reviewed",
+            "reason_matches_evidence",
+            "no_conflict_of_interest",
+        }
         assert d["info_templates"]["RETAKE_FACE"]
         listed = co.http.get("/v1/verify-api/review-cases", headers=co.a).json()
         assert listed["viewer"] == d["viewer"]

@@ -52,7 +52,13 @@ FEATURES = (
     ("CREDENTIAL_ISSUANCE", "Credentials", "Verifiable credentials are issued"),
     ("ENTERPRISE_USE", "Enterprise use", "Organization workspaces and approvals"),
 )
-FeatureName = Literal["REGISTRATION", "INDIVIDUAL_VERIFICATION", "BUSINESS_VERIFICATION", "CREDENTIAL_ISSUANCE", "ENTERPRISE_USE"]
+FeatureName = Literal[
+    "REGISTRATION",
+    "INDIVIDUAL_VERIFICATION",
+    "BUSINESS_VERIFICATION",
+    "CREDENTIAL_ISSUANCE",
+    "ENTERPRISE_USE",
+]
 
 # Who owns each approval (ZID-EDR-001 section 4), so the screen can say whose decision a reference stands for.
 APPROVALS = (
@@ -142,14 +148,18 @@ async def list_openings(request: Request, op: OperatorDep) -> dict[str, Any]:
                 {
                     "capability": name,
                     "file_status": entry.availability.value if entry else "DISABLED",
-                    "in_force": v.availability(merged, code, capability, now=now, environment=env).value,
+                    "in_force": v.availability(
+                        merged, code, capability, now=now, environment=env
+                    ).value,
                     "opening": _opening_view(opening) if opening else None,
                 }
             )
         countries.append({"country": code, "name": c.name, "wave": c.wave, "features": features})
     return {
         "environment": env,
-        "features": [{"capability": k, "label": label, "unlocks": unlocks} for k, label, unlocks in FEATURES],
+        "features": [
+            {"capability": k, "label": label, "unlocks": unlocks} for k, label, unlocks in FEATURES
+        ],
         "approvals": [{"key": k, "label": label, "owner": owner} for k, label, owner in APPROVALS],
         "cells": _cells(),
         "countries": countries,
@@ -175,7 +185,9 @@ async def record_opening(
             known = {c.cell_id for c in cell_catalog().cells.values() if not c.recovery_only}
             unknown = sorted(set(cells) - known)
             if unknown:
-                raise v.CountryError("CELL_UNKNOWN", f"this deployment does not know the cell {unknown}")
+                raise v.CountryError(
+                    "CELL_UNKNOWN", f"this deployment does not know the cell {unknown}"
+                )
             saved = await v.country_opening_store.record(
                 conn,
                 country=country,
@@ -190,7 +202,9 @@ async def record_opening(
             )
         else:
             if body.capability not in {c.value for c in v.OPENABLE}:
-                raise v.CountryError("CAPABILITY_NOT_OPENABLE", f"{body.capability} cannot be closed here.")
+                raise v.CountryError(
+                    "CAPABILITY_NOT_OPENABLE", f"{body.capability} cannot be closed here."
+                )
             saved = await v.country_opening_store.record(
                 conn,
                 country=country,
@@ -224,5 +238,7 @@ async def record_opening(
         target=f"country:{country}",
         work=work,
     )
-    await v.country_opening_store.refresh(request_engine(request), force=True)  # in force from the next request, in this process
+    await v.country_opening_store.refresh(
+        request_engine(request), force=True
+    )  # in force from the next request, in this process
     return out

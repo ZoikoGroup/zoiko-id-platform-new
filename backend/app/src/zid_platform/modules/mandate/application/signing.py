@@ -22,7 +22,9 @@ Sign = Callable[[Mapping[str, Any], str], str]
 Verify = Callable[[str], Mapping[str, Any]]
 
 
-async def _load(conn: AsyncConnection, mandate_id: str) -> tuple[dict[str, Any], dict[str, Any], str]:
+async def _load(
+    conn: AsyncConnection, mandate_id: str
+) -> tuple[dict[str, Any], dict[str, Any], str]:
     row = await store.canonical_row(conn, mandate_id)
     if row is None:
         raise LedgerError("MANDATE_NOT_FOUND")
@@ -30,7 +32,9 @@ async def _load(conn: AsyncConnection, mandate_id: str) -> tuple[dict[str, Any],
     return row, terms, c.canonical_hash(terms)
 
 
-def _sig_view(s: Mapping[str, Any], current: str, mandate_id: str, verify: Verify | None) -> dict[str, Any]:
+def _sig_view(
+    s: Mapping[str, Any], current: str, mandate_id: str, verify: Verify | None
+) -> dict[str, Any]:
     out = {
         "signature_id": str(s["signature_id"]), "role": s["role"], "canonical_hash": s["canonical_hash"], "signer": str(s["signer_principal_id"]), "assurance_level": s["assurance_level"],
         "auth_time": s["auth_time"].isoformat() if s["auth_time"] else None, "signed_at": s["signed_at"].isoformat(), "key_id": s["key_id"], "signature": s["signature"],
@@ -39,13 +43,20 @@ def _sig_view(s: Mapping[str, Any], current: str, mandate_id: str, verify: Verif
     if verify is not None:
         try:
             claims = verify(s["signature"])
-            out["signature_valid"] = claims.get("canonical_hash") == s["canonical_hash"] and claims.get("mandate_id") == mandate_id and claims.get("role") == s["role"] and claims.get("signer") == str(s["signer_principal_id"])
+            out["signature_valid"] = (
+                claims.get("canonical_hash") == s["canonical_hash"]
+                and claims.get("mandate_id") == mandate_id
+                and claims.get("role") == s["role"]
+                and claims.get("signer") == str(s["signer_principal_id"])
+            )
         except Exception:  # noqa: BLE001 - one that does not verify is reported as such
             out["signature_valid"] = False
     return out
 
 
-async def view(conn: AsyncConnection, mandate_id: str, verify: Verify | None = None) -> dict[str, Any]:
+async def view(
+    conn: AsyncConnection, mandate_id: str, verify: Verify | None = None
+) -> dict[str, Any]:
     _row, terms, h = await _load(conn, mandate_id)
     sigs = await store.signatures_of(conn, mandate_id)
     return {
@@ -62,10 +73,30 @@ async def sign(
     row, terms, h = await _load(conn, mandate_id)
     c.check_hash(presented_hash, h)
     prior = await store.signatures_of(conn, mandate_id)
-    c.check_signer(role, signer=signer, creator=str(row["created_by_principal_id"]), executor=str(row["executor_principal_id"]), represented=str(row["represented_principal_id"]), prior=[p for p in prior if p["canonical_hash"] == h])
+    c.check_signer(
+        role,
+        signer=signer,
+        creator=str(row["created_by_principal_id"]),
+        executor=str(row["executor_principal_id"]),
+        represented=str(row["represented_principal_id"]),
+        prior=[p for p in prior if p["canonical_hash"] == h],
+    )
     if role is c.Role.APPROVER and c.Role.APPROVER not in c.required_roles(terms):
-        raise LedgerError("MANDATE_NO_SECOND_CONFIRMATION_NEEDED", "this mandate cannot spend, so it needs only its grantor's confirmation")
-    claims = {"typ": c.SIGNATURE_TYP, "iss": issuer, "mandate_id": mandate_id, "tenant_id": tenant_id, "canonical_hash": h, "role": role.value, "signer": signer, "assurance_level": assurance_level, "iat": int(now.timestamp())}
+        raise LedgerError(
+            "MANDATE_NO_SECOND_CONFIRMATION_NEEDED",
+            "this mandate cannot spend, so it needs only its grantor's confirmation",
+        )
+    claims = {
+        "typ": c.SIGNATURE_TYP,
+        "iss": issuer,
+        "mandate_id": mandate_id,
+        "tenant_id": tenant_id,
+        "canonical_hash": h,
+        "role": role.value,
+        "signer": signer,
+        "assurance_level": assurance_level,
+        "iat": int(now.timestamp()),
+    }
     token = signer_fn(claims, c.SIGNATURE_TYP)
     await store.add_signature(
         conn, tenant_id, mandate_id=mandate_id, role=role.value, canonical_hash=h, signer=signer, assurance_level=assurance_level, auth_time=auth_time, signature=token,
@@ -79,4 +110,9 @@ async def require_signed(conn: AsyncConnection, mandate_id: str) -> None:
     _row, terms, h = await _load(conn, mandate_id)
     state = c.signed_state(c.required_roles(terms), await store.signatures_of(conn, mandate_id), h)
     if not state["complete"]:
-        raise LedgerError("MANDATE_NOT_SIGNED", "this mandate has not been confirmed in full: " + ", ".join(state["missing"]).lower() + " still to confirm its exact terms")
+        raise LedgerError(
+            "MANDATE_NOT_SIGNED",
+            "this mandate has not been confirmed in full: "
+            + ", ".join(state["missing"]).lower()
+            + " still to confirm its exact terms",
+        )

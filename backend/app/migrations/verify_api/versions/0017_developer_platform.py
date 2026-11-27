@@ -25,7 +25,7 @@ TABLES = ("api_scope_change", "api_scope_approval", "api_request_log", "api_cert
 
 
 def upgrade() -> None:
-    _run(f"""
+    _run("""
         CREATE FUNCTION verify.api_dev_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
             RAISE EXCEPTION 'verify.% is append-only (% refused)', TG_TABLE_NAME, TG_OP USING ERRCODE = 'restrict_violation';
@@ -77,7 +77,7 @@ def upgrade() -> None:
             tenant_id      uuid NOT NULL,
             application_id uuid NOT NULL REFERENCES verify.api_application (application_id),
             report         jsonb NOT NULL,
-            report_digest  text NOT NULL CHECK (report_digest ~ '^sha-256:[0-9a-f]{{64}}$'),
+            report_digest  text NOT NULL CHECK (report_digest ~ '^sha-256:[0-9a-f]{64}$'),
             passed         boolean NOT NULL,
             personas_passed integer NOT NULL CHECK (personas_passed >= 0),
             personas_total integer NOT NULL CHECK (personas_total >= 1),

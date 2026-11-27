@@ -97,7 +97,11 @@ async def run_once(conn: AsyncConnection, now: datetime) -> dict[str, int]:
         result = await conn.execute(text(f"DELETE FROM {table} WHERE {where}"), params)
         counts[f"purged:{table}"] = result.rowcount
     # the partner request log is append-only; its one way to lose rows is this function, and it never touches a row newer than the period
-    removed = (await conn.execute(text("SELECT verify.api_purge_request_log(:days)"), {"days": REQUEST_LOG_RETENTION_DAYS})).scalar_one()
+    removed = (
+        await conn.execute(
+            text("SELECT verify.api_purge_request_log(:days)"), {"days": REQUEST_LOG_RETENTION_DAYS}
+        )
+    ).scalar_one()
     counts["purged:verify.api_request_log"] = int(removed)
     for name, statement in SWEEP.items():
         result = await conn.execute(text(statement), params)

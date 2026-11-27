@@ -44,6 +44,7 @@ x-backend: &backend
     ZID_TOKEN_AUDIENCE: ${ZID_TOKEN_AUDIENCE_URL:-http://localhost:8000}
     ZID_PUBLIC_BASE_URL: http://localhost:8000
     ZID_CONSENT_URL: http://localhost:3000/consent
+    ZID_VERIFY_HOSTED_ORIGIN: http://localhost:3000   # where a Verify API launch link points: the console's own address, with no page path
     ZID_WEBAUTHN_RP_ID: localhost
     ZID_WEBAUTHN_RP_NAME: Zoiko iD (rehearsal)
     ZID_WEBAUTHN_ORIGINS: '["http://localhost:3000","http://localhost:3100"]'
@@ -51,6 +52,9 @@ x-backend: &backend
     # the agents (CR-091 to CR-094): Access Readiness, governance that denies for real, and DAARA. Not on by default anywhere.
     ZID_ACCESS_READINESS_ENABLED: "true"
     ZID_ACCESS_READINESS_REGIONS: '["local-1"]' # the cells it may run in; a cell not listed says "not available in this region"
+    ZID_VERIFY_KEEP_PHOTOS_DAYS: "14" # the document photograph and selfie of each Verify API attempt are kept ENCRYPTED for 14 days, then deleted, for people at the company to look at under a recorded reason. 0 keeps none. The hosted page's notice says which.
+    ZID_VERIFY_SELF_SERVE_GO_LIVE: "on" # production opens BY ITSELF once the person's own identity check, the company check and a PAID plan are complete: no operator, no sandbox test. Off keeps the request an operator approves.
+    ZID_VERIFY_SINGLE_APPROVER: "on" # the person who asked for a Verify API go-live, price or production credential may also approve it (one operator and one company user can test end to end)
     ZID_API_AGENTS: "on" # API-based agents are OFF in production unless this is set (CR-144); the rehearsal turns them on to test them
     ZID_AGENT_RUN_ROLE: zid_runtime # the worker runs each company's queued agent run AS the runtime role (row-level security applies), not as its own BYPASSRLS role (CR-142)
     ZID_AGENT_GOVERNANCE: enforce
@@ -71,26 +75,22 @@ x-backend: &backend
     ZID_SMTP_PORT: "${ZID_SMTP_PORT:?set ZID_SMTP_PORT in .env.smtp}"
     ZID_SMTP_USERNAME: "${ZID_SMTP_USERNAME:?set ZID_SMTP_USERNAME in .env.smtp}"
     ZID_SMTP_PASSWORD_FILE: /zid/smtp_password
-    # identity checks (ZID-DTV-WF-03): the market policy is supplied from outside the image (the repo's own policy file ships with no market, on purpose),
-    # the photo service reads the document's printed lines, and a real malware scanner checks every upload (a deployed cell with no scanner refuses uploads)
-    ZID_IDV_POLICIES: /etc/zid/idv-policies.yaml
+    # identity checks (ZID-DTV-WF-03): no per-country policy file. The photo service reads the document's printed lines, and a real malware scanner checks every
+    # upload (a deployed cell with no scanner refuses uploads)
     ZID_OCR_URL: http://ocr:8090
     ZID_PROOF_SCANNER_ADDRESS: clamd:3310
     # the face-match lab engine (open source, no liveness, never an approval): used only by the Operator Console's Face lab until the engine gate is satisfied
     ZID_FACE_URL: http://face:8091
-    # THE OWNER'S ACKNOWLEDGEMENT (CR-129): a market's WEB_FACE route approves a person on a live face against an uploaded document photograph, with no liveness test and no check that the
-    # document is genuine. Delete this line to switch every face-match route off. It is a local test setting; set it nowhere that real people are verified without Legal and Privacy.
-    ZID_IDV_FACE_ROUTE_ACK: accept-no-liveness-no-evaluation
-    # LOCAL TEST ONLY: the owners' written acceptance of the built-in global identity policy (backend/config/idv/global-policy.yaml, values PROPOSED, not accepted by any owner). It lets a person verify from any
-    # country on this machine. Never copy it to a stack where real people are verified without Privacy, Legal and Compliance accepting every value in that file.
-    ZID_IDV_GLOBAL_POLICY_ACK: accept-global-idv-policy
+    # THE DEPLOYMENT DECISION: identity checks are open in every country, with no country opening and no per-country policy. The built-in global policy serves them and the
+    # WEB_FACE route approves on a live face against an uploaded document photograph, with no liveness test and no check that the document is genuine. This one setting stands in
+    # for both acknowledgements (ZID_IDV_FACE_ROUTE_ACK and ZID_IDV_GLOBAL_POLICY_ACK), so none of them is set here.
+    ZID_IDV_OPEN_TO_ALL_COUNTRIES: "true"
     ZID_IDV_GLOBAL_POLICY: /app/config/idv/global-policy.yaml  # where the cell reads the global policy (the config folder is mounted at /app/config)
   volumes:
     - ../../contracts:/app/contracts:ro
     - ${ZID_CONFIG_DIR:-../../backend/config}:/app/config:ro # a local-only copy of the config (ZID_CONFIG_DIR in .env) for the rehearsal; the repository's folder by default
     - tsa-data:/tsa:ro # the timestamp authority's root (ca.pem), which a timestamp must chain to
     - keys:/zid:ro # master key, OpenBao token and SMTP password: root-only files on a real VM
-    - ./idv-policies.local.yaml:/etc/zid/idv-policies.yaml:ro # the approved markets for identity checks: a test policy here, the owners' signed one on a real VM
 
 services:
   # --- database VM ---------------------------------------------------------------------------------------------------------
@@ -230,6 +230,7 @@ services:
     restart: "no"
     depends_on:
       init-volumes: {condition: service_completed_successfully}
+      tsa: {condition: service_healthy}   # the timestamp authority writes its root (/tsa/ca.pem) on its first start; migrate reads it, so on a fresh volume it must wait
     environment:
       <<: *backend-env
       ZID_CELL_DATABASE_URL: postgresql+asyncpg://zid_owner:${ZID_OWNER_PASSWORD}@postgres:5432/zid_cell

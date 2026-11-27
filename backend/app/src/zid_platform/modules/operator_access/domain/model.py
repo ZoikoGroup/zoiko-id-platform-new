@@ -955,7 +955,9 @@ CONFLICT_SETS: tuple[ConflictRule, ...] = (
     ),
     ConflictRule(
         "trust-evidence-manager-vs-reviewer",
-        frozenset({"trust.evidence.manage", *(f"trust.claim.review_{r}" for r in TRUST_REVIEW_ROLES)}),
+        frozenset(
+            {"trust.evidence.manage", *(f"trust.claim.review_{r}" for r in TRUST_REVIEW_ROLES)}
+        ),
         "Whoever records evidence does not approve a claim that relies on it (ZID-CP-WF12 WF-12.10)",
     ),
     ConflictRule(

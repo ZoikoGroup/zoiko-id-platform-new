@@ -34,13 +34,19 @@ class Journey:
     review_required_at: datetime | None = None
     review_due_at: datetime | None = None
     attempts: list[tuple[int, str]] = field(default_factory=list)  # (attempt number, result code)
-    decisions: list[dict[str, Any]] = field(default_factory=list)  # every finalized event, oldest first
+    decisions: list[dict[str, Any]] = field(
+        default_factory=list
+    )  # every finalized event, oldest first
     risk_signal: bool = False
 
     @property
     def final(self) -> dict[str, Any] | None:
         """The effective decision: the newest version. Earlier ones stay in `decisions` (superseded, never rewritten)."""
-        return max(self.decisions, key=lambda d: (int(d.get("decision_version") or 0), d["at"])) if self.decisions else None
+        return (
+            max(self.decisions, key=lambda d: (int(d.get("decision_version") or 0), d["at"]))
+            if self.decisions
+            else None
+        )
 
     def matured(self, now: datetime) -> bool:
         return self.expires_at is not None and self.expires_at <= now
@@ -104,7 +110,9 @@ def suppressed_count(count: int, k: int) -> bool:
     return 0 < count < k
 
 
-def protect_rows(rows: list[dict[str, Any]], *, k: int, size_key: str = "denominator") -> list[dict[str, Any]]:
+def protect_rows(
+    rows: list[dict[str, Any]], *, k: int, size_key: str = "denominator"
+) -> list[dict[str, Any]]:
     """Primary suppression of every row under k, then complementary suppression: when only one row of a breakdown is withheld, the next
     smallest is withheld too, so the total minus the shown rows cannot reveal it (differencing, Q36)."""
     out = [dict(r) for r in rows]
@@ -125,10 +133,25 @@ def _withhold(r: dict[str, Any]) -> None:
     r["suppressed"] = True
 
 
-def result(metric_id: str, numerator: float | None, denominator: int | None, *, k: int, quality: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+def result(
+    metric_id: str,
+    numerator: float | None,
+    denominator: int | None,
+    *,
+    k: int,
+    quality: str,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """One governed figure: value with its numerator, denominator, definition version and quality, or withheld."""
     m = CATALOGUE[metric_id]
-    out: dict[str, Any] = {"metric_id": metric_id, "name": m.name, "definition_version": m.version, "unit": m.unit, "quality": quality, "suppressed": False}
+    out: dict[str, Any] = {
+        "metric_id": metric_id,
+        "name": m.name,
+        "definition_version": m.version,
+        "unit": m.unit,
+        "quality": quality,
+        "suppressed": False,
+    }
     if m.unit == "ratio":
         den = int(denominator or 0)
         num = int(numerator or 0)
@@ -166,7 +189,9 @@ AUTOMATED = "AUTOMATED"
 REVIEWER_FINDINGS = frozenset({"DOCUMENT_MANIPULATION_SUSPECTED"})
 
 
-def session_metrics(js: list[Journey], *, now: datetime, k: int, quality: str) -> dict[str, dict[str, Any]]:
+def session_metrics(
+    js: list[Journey], *, now: datetime, k: int, quality: str
+) -> dict[str, dict[str, Any]]:
     created = [j for j in js if j.created_at]
     matured = [j for j in created if j.matured(now)]
     started_m = [j for j in matured if j.started_at]
@@ -175,8 +200,14 @@ def session_metrics(js: list[Journey], *, now: datetime, k: int, quality: str) -
     auto = [j for j in finals if (j.final or {}).get("decided_by") == AUTOMATED]
     attempted = [j for j in created if j.attempts]
     first_ok = [j for j in attempted if _first(j) == "ACCEPTED"]
-    proc = [(j.final["at"] - j.submitted_at).total_seconds() for j in auto if j.final and j.submitted_at]
-    e2e = [(j.final["at"] - j.presented_at).total_seconds() for j in finals if j.final and j.presented_at]
+    proc = [
+        (j.final["at"] - j.submitted_at).total_seconds() for j in auto if j.final and j.submitted_at
+    ]
+    e2e = [
+        (j.final["at"] - j.presented_at).total_seconds()
+        for j in finals
+        if j.final and j.presented_at
+    ]
     due = [j for j in created if j.review_due_at and j.review_due_at <= now]
     breached = [j for j in due if _breached(j)]
     findings = sum(1 for j in finals if (j.final or {}).get("finding_code") in REVIEWER_FINDINGS)
@@ -211,7 +242,9 @@ def _decided_after_review(j: Journey) -> bool:
 
 
 def _breached(j: Journey) -> bool:
-    decided = [d["at"] for d in j.decisions if j.review_required_at and d["at"] >= j.review_required_at]
+    decided = [
+        d["at"] for d in j.decisions if j.review_required_at and d["at"] >= j.review_required_at
+    ]
     return not decided or (j.review_due_at is not None and min(decided) > j.review_due_at)
 
 
@@ -233,7 +266,9 @@ def funnel(js: list[Journey], *, now: datetime, k: int, cohort: str) -> dict[str
     """The funnel for matured journeys (Q09). `cohort` = created (every session) or started (only those that began a capture). Drop-off is
     classified only from observed events: a session that stopped with no terminal event is EXPIRED, one whose events contradict each other is
     UNKNOWN, never abandonment (Q08)."""
-    pool = [j for j in js if j.created_at and j.matured(now) and (cohort == "created" or j.started_at)]
+    pool = [
+        j for j in js if j.created_at and j.matured(now) and (cohort == "created" or j.started_at)
+    ]
     steps = [
         ("created", len(pool)),
         ("started", sum(1 for j in pool if j.started_at)),
@@ -255,21 +290,35 @@ def funnel(js: list[Journey], *, now: datetime, k: int, cohort: str) -> dict[str
         else:
             reasons["EXPIRED"] += 1
     base = steps[0][1]
-    rows = [{"step": s, "count": n, "denominator": base, "value": (round(n / base, 4) if base else None)} for s, n in steps]
+    rows = [
+        {
+            "step": s,
+            "count": n,
+            "denominator": base,
+            "value": (round(n / base, 4) if base else None),
+        }
+        for s, n in steps
+    ]
     return {
         "cohort": cohort,
         "matured_only": True,
         "steps": protect_rows(rows, k=k),
-        "drop_off": protect_rows([{"reason": r, "count": n, "denominator": n} for r, n in sorted(reasons.items())], k=k),
+        "drop_off": protect_rows(
+            [{"reason": r, "count": n, "denominator": n} for r, n in sorted(reasons.items())], k=k
+        ),
     }
 
 
-def breakdown(js: list[Journey], *, dimension: str, metric: str, now: datetime, k: int, tz: str = "UTC") -> list[dict[str, Any]]:
+def breakdown(
+    js: list[Journey], *, dimension: str, metric: str, now: datetime, k: int, tz: str = "UTC"
+) -> list[dict[str, Any]]:
     """A metric by one allow-listed dimension (market, method, environment, day). Each row is a ratio with its own denominator, protected."""
     key: Callable[[Journey], str]
     if dimension == "day":
         zone = ZoneInfo(tz)
-        key = lambda j: j.created_at.astimezone(zone).date().isoformat() if j.created_at else "UNKNOWN"
+        key = lambda j: (
+            j.created_at.astimezone(zone).date().isoformat() if j.created_at else "UNKNOWN"
+        )
     else:
         key = lambda j: getattr(j, dimension) or "UNKNOWN"
     groups: dict[str, list[Journey]] = {}
@@ -278,21 +327,36 @@ def breakdown(js: list[Journey], *, dimension: str, metric: str, now: datetime, 
             groups.setdefault(key(j), []).append(j)
     rows = []
     for g, members in sorted(groups.items()):
-        r = session_metrics(members, now=now, k=1, quality="OBSERVED")[metric]  # k applied below, across the breakdown
-        rows.append({dimension: g, "numerator": r.get("numerator"), "denominator": r.get("denominator") or r.get("numerator") or 0, "value": r.get("value")})
+        r = session_metrics(members, now=now, k=1, quality="OBSERVED")[
+            metric
+        ]  # k applied below, across the breakdown
+        rows.append(
+            {
+                dimension: g,
+                "numerator": r.get("numerator"),
+                "denominator": r.get("denominator") or r.get("numerator") or 0,
+                "value": r.get("value"),
+            }
+        )
     return protect_rows(rows, k=k)
 
 
 def first_attempt_causes(js: list[Journey], *, k: int) -> list[dict[str, Any]]:
     """Why first attempts were not accepted, from the attempt's own result code; no code is UNKNOWN (07.03 item 05)."""
-    c: Counter[str] = Counter(_first(j) or "UNKNOWN" for j in js if j.attempts and _first(j) != "ACCEPTED")
-    return protect_rows([{"cause": cause, "count": n, "denominator": n} for cause, n in sorted(c.items())], k=k)
+    c: Counter[str] = Counter(
+        _first(j) or "UNKNOWN" for j in js if j.attempts and _first(j) != "ACCEPTED"
+    )
+    return protect_rows(
+        [{"cause": cause, "count": n, "denominator": n} for cause, n in sorted(c.items())], k=k
+    )
 
 
 def decision_split(js: list[Journey], *, now: datetime, k: int) -> list[dict[str, Any]]:
     """Current state of each session (07.04 item 01): final outcomes, review, unresolved and system-error kept apart."""
     c: Counter[str] = Counter(state_of(j, now) for j in js if j.created_at)
-    return protect_rows([{"state": s, "count": n, "denominator": n} for s, n in sorted(c.items())], k=k)
+    return protect_rows(
+        [{"state": s, "count": n, "denominator": n} for s, n in sorted(c.items())], k=k
+    )
 
 
 # ------------------------------------------------------------------------------------------------------------------- providers, webhooks
@@ -318,7 +382,9 @@ def webhook_delivery(rows: list[dict[str, Any]], *, k: int, quality: str) -> dic
     last: dict[str, dict[str, Any]] = {}
     for r in sorted(rows, key=lambda x: x["occurred_at"]):
         last[str(r.get("delivery_id"))] = r
-    final = [r for r in last.values() if r["event_type"] != "webhook.delivery.failed" or r.get("final")]
+    final = [
+        r for r in last.values() if r["event_type"] != "webhook.delivery.failed" or r.get("final")
+    ]
     ok = [r for r in final if r["event_type"] == "webhook.delivery.succeeded"]
     delays = [float(r["delay_ms"]) for r in ok if r.get("delay_ms") is not None]
     return result("M12", len(ok), len(final), k=k, quality=quality, extra={
@@ -331,7 +397,9 @@ def webhook_delivery(rows: list[dict[str, Any]], *, k: int, quality: str) -> dic
 # --------------------------------------------------------------------------------------------------------------------------- freshness
 
 
-def freshness(watermarks: list[dict[str, Any]], *, now: datetime, stale_after: timedelta) -> tuple[str, list[dict[str, Any]]]:
+def freshness(
+    watermarks: list[dict[str, Any]], *, now: datetime, stale_after: timedelta
+) -> tuple[str, list[dict[str, Any]]]:
     """Overall quality and per-source lag (M16). No source is NO_DATA; any source past the policy makes dependent figures PROVISIONAL (Q12)."""
     rows = []
     for w in watermarks:

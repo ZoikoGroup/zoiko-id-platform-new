@@ -123,6 +123,11 @@ class Settings(ServiceSettings):
     # retention, how long an approval counts, the biometric basis and the expired-document rule. It must equal `accept-global-idv-policy`. Without it a country that has no policy of
     # its own is refused, exactly as before; with it that country is served by the global policy. A country policy in market-policies.yaml always wins.
     idv_global_policy_ack: str | None = None
+    # ZID_IDV_OPEN_TO_ALL_COUNTRIES: a named deployment decision. On, identity checks are open in EVERY country: no country opening (Country features), no per-country policy, no
+    # global-policy acknowledgement and no face-route acknowledgement. The built-in global policy serves every country and the face-match route runs. It stands in for both
+    # acknowledgements above, so the same limits apply: no liveness test, no evaluated engine, no check that a document is genuine. Other regulated features (sign-up,
+    # company claims, credentials) keep their country gates. Off by default: the openings and acknowledgements stay the owners' to give.
+    idv_open_to_all_countries: bool = False
     # First operator account from configuration (entrypoints/bootstrap_operator.py; one-shot, idempotent):
     # ZID_OPERATOR_BOOTSTRAP_PRINCIPAL_ID (uuid of the operator's principal), ZID_OPERATOR_ORIGIN (the Operator
     # Console's public origin; its redirect is <origin>/auth/callback unless ZID_OPERATOR_REDIRECT_URIS lists them),

@@ -16,6 +16,7 @@ export type HostedView = {
   live?: boolean;
   notice_version?: string | null;
   attempts_left?: number;
+  photos_kept_days?: number;
 };
 
 const TOKEN = /^zvl_[A-Za-z0-9_-]{20,80}$/;

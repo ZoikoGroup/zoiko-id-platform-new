@@ -31,8 +31,24 @@ def perfect(seed: str = "7") -> list[dict[str, Any]]:
     for p in fx.PERSONAS:
         plan = fx.delivery_plan(p.id, seed)
         ex = fx.expectations(p.id)
-        refused = sum(1 for d in plan["deliveries"] if d["signature_age_s"] > fx.SIGNATURE_TOLERANCE_S or d["body"] == "ALTERED_AFTER_SIGNING")
-        ids = [] if p.fault == "STALE_SIGNATURE" else list(dict.fromkeys(d["event_id"] for d in plan["deliveries"] if d["body"] != "ALTERED_AFTER_SIGNING" and d["signature_age_s"] <= fx.SIGNATURE_TOLERANCE_S))
+        refused = sum(
+            1
+            for d in plan["deliveries"]
+            if d["signature_age_s"] > fx.SIGNATURE_TOLERANCE_S
+            or d["body"] == "ALTERED_AFTER_SIGNING"
+        )
+        ids = (
+            []
+            if p.fault == "STALE_SIGNATURE"
+            else list(
+                dict.fromkeys(
+                    d["event_id"]
+                    for d in plan["deliveries"]
+                    if d["body"] != "ALTERED_AFTER_SIGNING"
+                    and d["signature_age_s"] <= fx.SIGNATURE_TOLERANCE_S
+                )
+            )
+        )
         out.append(
             {
                 "persona": p.id, "seed": seed, "plan_digest": plan["plan_digest"], "signatures_refused": refused, "acted_on_event_ids": ids, "final_outcome_seen": None if p.fault == "STALE_SIGNATURE" else p.final_outcome,
@@ -42,7 +58,9 @@ def perfect(seed: str = "7") -> list[dict[str, Any]]:
     return out
 
 
-def test_a_run_is_scored_kept_with_its_digest_and_shown_beside_go_live_without_blocking_it(rt_url: str, owner_url: str) -> None:
+def test_a_run_is_scored_kept_with_its_digest_and_shown_beside_go_live_without_blocking_it(
+    rt_url: str, owner_url: str
+) -> None:
     w = World(rt_url)
     try:
         h = w.server()
@@ -52,26 +70,48 @@ def test_a_run_is_scored_kept_with_its_digest_and_shown_beside_go_live_without_b
         none = run(rt_url, w.tenant, lambda c: svc.status(c, app_id))
         assert none["suite"]["status"] == "NOT_RUN" and none["runs"] == []
 
-        partial = run(rt_url, w.tenant, lambda c: svc.record_run(c, w.tenant, app_id, by, perfect()[:2]))
-        assert partial["passed"] is False and partial["is_certification"] is False and "needs_review" in partial["missing_personas"]
+        partial = run(
+            rt_url, w.tenant, lambda c: svc.record_run(c, w.tenant, app_id, by, perfect()[:2])
+        )
+        assert (
+            partial["passed"] is False
+            and partial["is_certification"] is False
+            and "needs_review" in partial["missing_personas"]
+        )
         good = run(rt_url, w.tenant, lambda c: svc.record_run(c, w.tenant, app_id, by, perfect()))
-        assert good["passed"] is True and good["personas_passed"] == good["personas_total"] == len(fx.PERSONAS) and good["report_digest"].startswith("sha-256:")
+        assert (
+            good["passed"] is True
+            and good["personas_passed"] == good["personas_total"] == len(fx.PERSONAS)
+            and good["report_digest"].startswith("sha-256:")
+        )
         again = run(rt_url, w.tenant, lambda c: svc.record_run(c, w.tenant, app_id, by, perfect()))
-        assert again["report_digest"] == good["report_digest"] and again["run_id"] != good["run_id"]  # the same behaviour gives the same digest, so a partner QA can reproduce it
+        assert (
+            again["report_digest"] == good["report_digest"] and again["run_id"] != good["run_id"]
+        )  # the same behaviour gives the same digest, so a partner QA can reproduce it
 
         st = run(rt_url, w.tenant, lambda c: svc.status(c, app_id))
-        assert st["suite"]["status"] == "PASSED" and st["suite"]["met"] is True and st["suite"]["approves_go_live"] is False and len(st["runs"]) == 3
+        assert (
+            st["suite"]["status"] == "PASSED"
+            and st["suite"]["met"] is True
+            and st["suite"]["approves_go_live"] is False
+            and len(st["runs"]) == 3
+        )
 
         # a run with one persona handled wrongly fails and says so; the earlier pass is no longer the latest
         wrong = perfect()
         wrong[5] = {**wrong[5], "acted_on_event_ids": wrong[5]["acted_on_event_ids"] * 2}
         bad = run(rt_url, w.tenant, lambda c: svc.record_run(c, w.tenant, app_id, by, wrong))
         assert bad["passed"] is False and bad["personas_passed"] == len(fx.PERSONAS) - 1
-        assert run(rt_url, w.tenant, lambda c: svc.status(c, app_id))["suite"]["status"] == "NOT_CURRENT"
+        assert (
+            run(rt_url, w.tenant, lambda c: svc.status(c, app_id))["suite"]["status"]
+            == "NOT_CURRENT"
+        )
 
         # beside the go-live checks, informational: the existing go-live checks are not changed by it
         status = run(rt_url, w.tenant, lambda c: go_live_service.status_view(c, w.tenant))
-        assert status["adversarial_suite"]["approves_go_live"] is False and {c["id"] for c in status["certification"]} == {"sandbox_approved", "sandbox_declined", "webhook_ready"}
+        assert status["adversarial_suite"]["approves_go_live"] is False and {
+            c["id"] for c in status["certification"]
+        } == {"sandbox_approved", "sandbox_declined", "webhook_ready"}
 
         async def edit() -> None:
             async with engine(owner_url) as eng, eng.begin() as c:
@@ -81,16 +121,23 @@ def test_a_run_is_scored_kept_with_its_digest_and_shown_beside_go_live_without_b
             asyncio.run(edit())
 
         async def other(c: Any) -> int:
-            return int((await c.execute(text("SELECT count(*) FROM verify.api_certification_run"))).scalar_one())
+            return int(
+                (
+                    await c.execute(text("SELECT count(*) FROM verify.api_certification_run"))
+                ).scalar_one()
+            )
 
         assert run(rt_url, uid(), other) == 0  # another company sees none of it
     finally:
         w.close()
 
 
-def test_only_a_sandbox_application_can_be_tested_and_an_unknown_one_has_nothing(rt_url: str) -> None:
+def test_only_a_sandbox_application_can_be_tested_and_an_unknown_one_has_nothing(
+    rt_url: str,
+) -> None:
     w = World(rt_url)
     try:
+
         async def go(c: Any) -> None:
             with pytest.raises(PartnerError) as e:
                 await svc.record_run(c, w.tenant, str(uuid.uuid4()), str(uuid.uuid4()), perfect())

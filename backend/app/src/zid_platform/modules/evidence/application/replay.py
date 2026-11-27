@@ -118,7 +118,12 @@ class ReceiptVerification:
             "checks": self.checks,
             # CR-170 (ZID-CP-WF08 08.1): the same evidence as separate axes, with no overall success. `ok` above is only the integrity checks.
             "axes": verification_axes.axes(
-                checks=self.checks, receipt_hash_valid=self.hash_ok, ledgered=self.ledgered, sealed=self.sealed, keys_source="trusted", now=datetime.now(UTC)
+                checks=self.checks,
+                receipt_hash_valid=self.hash_ok,
+                ledgered=self.ledgered,
+                sealed=self.sealed,
+                keys_source="trusted",
+                now=datetime.now(UTC),
             ),
         }
 

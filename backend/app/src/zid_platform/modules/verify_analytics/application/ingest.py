@@ -28,7 +28,14 @@ ALLOWED: dict[str, tuple[str, ...]] = {
     "verification.session.media_accepted": ("source_attestation_result",),
     "verification.session.submitted": (),
     "verification.session.review_required": ("state", "decision_version", "due_at", "decided_by"),
-    "verification.session.finalized": ("state", "outcome", "decision_version", "decided_by", "finding_code", "policy_version"),
+    "verification.session.finalized": (
+        "state",
+        "outcome",
+        "decision_version",
+        "decided_by",
+        "finding_code",
+        "policy_version",
+    ),
     "verification.session.canceled": ("by",),
     "verification.idv.provider_check_finished": ("provider", "outcome", "latency_ms"),
     "webhook.delivery.succeeded": WEBHOOK,
@@ -86,7 +93,9 @@ async def ingest(conn: AsyncConnection, event: CloudEvent) -> bool:
     return bool(written)
 
 
-async def _count(conn: AsyncConnection, tenant: str, source: str, occurred: Any, *, rejected: bool = False) -> None:
+async def _count(
+    conn: AsyncConnection, tenant: str, source: str, occurred: Any, *, rejected: bool = False
+) -> None:
     try:
         t = uuid.UUID(str(tenant))
     except ValueError:

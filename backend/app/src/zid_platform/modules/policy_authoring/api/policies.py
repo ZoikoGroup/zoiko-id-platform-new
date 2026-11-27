@@ -200,13 +200,20 @@ class WhatIfBody(BaseModel):
 
 
 @router.post("/{release_id}:compare", status_code=201)
-async def compare(release_id: uuid.UUID, body: WhatIfBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def compare(
+    release_id: uuid.UUID, body: WhatIfBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Run each scenario under the draft and under the active release, and keep the result as a signed ANALYSIS (never attached to a receipt)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=f"policy_release:{release_id}")
         try:
             return await service.signed_what_if(
-                conn, str(release_id), [s.model_dump() for s in body.scenarios], catalog=catalog(), requested_by=_me(caller), now=datetime.now(UTC)
+                conn,
+                str(release_id),
+                [s.model_dump() for s in body.scenarios],
+                catalog=catalog(),
+                requested_by=_me(caller),
+                now=datetime.now(UTC),
             )
         except PolicyError as e:
             raise http(e) from e

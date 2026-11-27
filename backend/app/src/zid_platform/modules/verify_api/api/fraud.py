@@ -146,7 +146,9 @@ class FraudNoteOnlyBody(BaseModel):
     note: str = Field(max_length=1000)
 
 
-async def _run(request: Request, caller: Caller, action: str, fn: Any, *, metric: str | None = None) -> dict[str, Any]:
+async def _run(
+    request: Request, caller: Caller, action: str, fn: Any, *, metric: str | None = None
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=action, resource=RESOURCE)
         try:
@@ -173,7 +175,9 @@ async def sources(request: Request, caller: CallerDep) -> dict[str, Any]:
 
 @router.post("/v1/verify-api/fraud/graph:refresh")
 async def refresh(request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.refresh(conn, t, me), metric="refreshed")
+    return await _run(
+        request, caller, ANALYZE, lambda conn, t, me: svc.refresh(conn, t, me), metric="refreshed"
+    )
 
 
 @router.get("/v1/verify-api/fraud/leads")
@@ -183,7 +187,12 @@ async def leads(
     status: str | None = Query(default=None, max_length=16),
     finding: str | None = Query(default=None, max_length=16),
 ) -> dict[str, Any]:
-    return await _run(request, caller, READ, lambda conn, t, me: svc.list_leads(conn, status=status, finding=finding))
+    return await _run(
+        request,
+        caller,
+        READ,
+        lambda conn, t, me: svc.list_leads(conn, status=status, finding=finding),
+    )
 
 
 @router.get("/v1/verify-api/fraud/leads/{lead_id}")
@@ -192,22 +201,52 @@ async def lead(lead_id: str, request: Request, caller: CallerDep) -> dict[str, A
 
 
 @router.post("/v1/verify-api/fraud/leads/{lead_id}:triage")
-async def triage(lead_id: str, body: FraudTriageBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.triage(conn, t, me, lead_id, body.status, body.note, body.expected_version), metric="triaged")
+async def triage(
+    lead_id: str, body: FraudTriageBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.triage(
+            conn, t, me, lead_id, body.status, body.note, body.expected_version
+        ),
+        metric="triaged",
+    )
 
 
 @router.post("/v1/verify-api/fraud/leads/{lead_id}:escalate")
-async def escalate(lead_id: str, body: FraudVersionBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.escalate(conn, t, me, lead_id, body.expected_version), metric="escalated")
+async def escalate(
+    lead_id: str, body: FraudVersionBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.escalate(conn, t, me, lead_id, body.expected_version),
+        metric="escalated",
+    )
 
 
 @router.post("/v1/verify-api/fraud/leads/{lead_id}:finding")
-async def finding(lead_id: str, body: FraudFindingBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.record_finding(conn, t, me, lead_id, body.finding, body.note, body.expected_version), metric="finding")
+async def finding(
+    lead_id: str, body: FraudFindingBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.record_finding(
+            conn, t, me, lead_id, body.finding, body.note, body.expected_version
+        ),
+        metric="finding",
+    )
 
 
 @router.post("/v1/verify-api/fraud/leads/{lead_id}/notes", status_code=201)
-async def note(lead_id: str, body: FraudNoteBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def note(
+    lead_id: str, body: FraudNoteBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     return await _run(
         request, caller, ANALYZE,
         lambda conn, t, me: svc.add_note(conn, t, me, lead_id, kind=body.kind, body=body.body, edge_id=body.edge_id, source_ref=body.source_ref),
@@ -222,7 +261,12 @@ async def graph(
     depth: int = Query(default=2, ge=0, le=10),
     limit: int = Query(default=200, ge=0, le=1000),
 ) -> dict[str, Any]:
-    return await _run(request, caller, READ, lambda conn, t, me: svc.graph(conn, t, me, seed, depth=depth, limit=limit))
+    return await _run(
+        request,
+        caller,
+        READ,
+        lambda conn, t, me: svc.graph(conn, t, me, seed, depth=depth, limit=limit),
+    )
 
 
 @router.get("/v1/verify-api/fraud/edges/{edge_id}")
@@ -231,8 +275,18 @@ async def edge(edge_id: str, request: Request, caller: CallerDep) -> dict[str, A
 
 
 @router.post("/v1/verify-api/fraud/edges/{edge_id}:challenge")
-async def challenge(edge_id: str, body: FraudChallengeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.challenge_edge(conn, t, me, edge_id, body.action, body.reason, body.expected_version), metric="challenged")
+async def challenge(
+    edge_id: str, body: FraudChallengeBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.challenge_edge(
+            conn, t, me, edge_id, body.action, body.reason, body.expected_version
+        ),
+        metric="challenged",
+    )
 
 
 @router.post("/v1/verify-api/fraud/actions:propose", status_code=201)
@@ -253,8 +307,12 @@ async def propose(
 
 
 @router.get("/v1/verify-api/fraud/actions")
-async def actions(request: Request, caller: CallerDep, lead_id: str | None = Query(default=None, max_length=40)) -> dict[str, Any]:
-    return await _run(request, caller, READ, lambda conn, t, me: svc.list_actions(conn, lead_id=lead_id))
+async def actions(
+    request: Request, caller: CallerDep, lead_id: str | None = Query(default=None, max_length=40)
+) -> dict[str, Any]:
+    return await _run(
+        request, caller, READ, lambda conn, t, me: svc.list_actions(conn, lead_id=lead_id)
+    )
 
 
 @router.get("/v1/verify-api/fraud/actions/{action_id}")
@@ -266,18 +324,44 @@ async def action(action_id: str, request: Request, caller: CallerDep) -> dict[st
 
 
 @router.post("/v1/verify-api/fraud/actions/{action_id}:approve")
-async def approve(action_id: str, body: FraudApproveBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.approve_action(conn, t, me, action_id, body.manifest_checksum, body.note), metric="approved")
+async def approve(
+    action_id: str, body: FraudApproveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.approve_action(
+            conn, t, me, action_id, body.manifest_checksum, body.note
+        ),
+        metric="approved",
+    )
 
 
 @router.post("/v1/verify-api/fraud/actions/{action_id}:reject")
-async def reject(action_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.reject_action(conn, t, me, action_id, body.note), metric="rejected")
+async def reject(
+    action_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.reject_action(conn, t, me, action_id, body.note),
+        metric="rejected",
+    )
 
 
 @router.post("/v1/verify-api/fraud/actions/{action_id}:revoke")
-async def revoke(action_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.revoke_action(conn, t, me, action_id, body.note), metric="revoked")
+async def revoke(
+    action_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.revoke_action(conn, t, me, action_id, body.note),
+        metric="revoked",
+    )
 
 
 @router.get("/v1/verify-api/fraud/audit/{scope}")
@@ -319,77 +403,178 @@ class FraudCheckBody(BaseModel):
 
 @router.post("/v1/verify-api/fraud/queries", status_code=201)
 async def create_query(body: FraudQueryBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.create_query(conn, t, me, body.key, body.params), metric="query_drafted")
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.create_query(conn, t, me, body.key, body.params),
+        metric="query_drafted",
+    )
 
 
 @router.get("/v1/verify-api/fraud/queries")
-async def queries(request: Request, caller: CallerDep, status: str | None = Query(default=None, max_length=12)) -> dict[str, Any]:
+async def queries(
+    request: Request, caller: CallerDep, status: str | None = Query(default=None, max_length=12)
+) -> dict[str, Any]:
     return await _run(request, caller, READ, lambda conn, t, me: svc.list_queries(conn, status))
 
 
 @router.post("/v1/verify-api/fraud/queries/{query_id}:replay")
 async def replay_query(query_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.replay_query(conn, t, me, query_id), metric="query_replayed")
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.replay_query(conn, t, me, query_id),
+        metric="query_replayed",
+    )
 
 
 @router.post("/v1/verify-api/fraud/queries/{query_id}:submit")
 async def submit_query(query_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.submit_query(conn, t, me, query_id))
+    return await _run(
+        request, caller, ANALYZE, lambda conn, t, me: svc.submit_query(conn, t, me, query_id)
+    )
 
 
 @router.post("/v1/verify-api/fraud/queries/{query_id}:approve")
-async def approve_query(query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.decide_query(conn, t, me, query_id, True, body.note), metric="query_published")
+async def approve_query(
+    query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.decide_query(conn, t, me, query_id, True, body.note),
+        metric="query_published",
+    )
 
 
 @router.post("/v1/verify-api/fraud/queries/{query_id}:reject")
-async def reject_query(query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.decide_query(conn, t, me, query_id, False, body.note))
+async def reject_query(
+    query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.decide_query(conn, t, me, query_id, False, body.note),
+    )
 
 
 @router.post("/v1/verify-api/fraud/queries/{query_id}:retire")
-async def retire_query(query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.retire_query(conn, t, me, query_id, body.note))
+async def retire_query(
+    query_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.retire_query(conn, t, me, query_id, body.note),
+    )
 
 
 @router.get("/v1/verify-api/fraud/blocklist")
-async def blocklist(request: Request, caller: CallerDep, status: str | None = Query(default=None, max_length=12)) -> dict[str, Any]:
+async def blocklist(
+    request: Request, caller: CallerDep, status: str | None = Query(default=None, max_length=12)
+) -> dict[str, Any]:
     return await _run(request, caller, READ, lambda conn, t, me: svc.list_entries(conn, status))
 
 
 @router.post("/v1/verify-api/fraud/blocklist", status_code=201)
-async def propose_entry(body: FraudEntryBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, PROPOSE, lambda conn, t, me: svc.propose_entry(conn, t, me, body.lead_id, body.reason_code, body.basis_ref), metric="entry_proposed")
+async def propose_entry(
+    body: FraudEntryBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        PROPOSE,
+        lambda conn, t, me: svc.propose_entry(
+            conn, t, me, body.lead_id, body.reason_code, body.basis_ref
+        ),
+        metric="entry_proposed",
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist:check")
-async def check_reference(body: FraudCheckBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, READ, lambda conn, t, me: svc.check_reference(conn, t, me, body.customer_reference))
+async def check_reference(
+    body: FraudCheckBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        READ,
+        lambda conn, t, me: svc.check_reference(conn, t, me, body.customer_reference),
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist/{entry_id}:approve")
-async def approve_entry(entry_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.decide_entry(conn, t, me, entry_id, True, body.note), metric="entry_approved")
+async def approve_entry(
+    entry_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.decide_entry(conn, t, me, entry_id, True, body.note),
+        metric="entry_approved",
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist/{entry_id}:reject")
-async def reject_entry(entry_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.decide_entry(conn, t, me, entry_id, False, body.note))
+async def reject_entry(
+    entry_id: str, body: FraudNoteOnlyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.decide_entry(conn, t, me, entry_id, False, body.note),
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist/{entry_id}:challenge")
-async def challenge_entry(entry_id: str, body: FraudEntryNoteBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, ANALYZE, lambda conn, t, me: svc.challenge_entry(conn, t, me, entry_id, body.note, body.expected_version), metric="entry_challenged")
+async def challenge_entry(
+    entry_id: str, body: FraudEntryNoteBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.challenge_entry(
+            conn, t, me, entry_id, body.note, body.expected_version
+        ),
+        metric="entry_challenged",
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist/{entry_id}:resolve")
-async def resolve_entry(entry_id: str, body: FraudEntryResolveBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.resolve_challenge(conn, t, me, entry_id, body.uphold, body.note, body.expected_version))
+async def resolve_entry(
+    entry_id: str, body: FraudEntryResolveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.resolve_challenge(
+            conn, t, me, entry_id, body.uphold, body.note, body.expected_version
+        ),
+    )
 
 
 @router.post("/v1/verify-api/fraud/blocklist/{entry_id}:remove")
-async def remove_entry(entry_id: str, body: FraudEntryNoteBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, APPROVE, lambda conn, t, me: svc.remove_entry(conn, t, me, entry_id, body.note, body.expected_version), metric="entry_removed")
+async def remove_entry(
+    entry_id: str, body: FraudEntryNoteBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _run(
+        request,
+        caller,
+        APPROVE,
+        lambda conn, t, me: svc.remove_entry(
+            conn, t, me, entry_id, body.note, body.expected_version
+        ),
+        metric="entry_removed",
+    )
 
 
 @router.get("/v1/verify-api/fraud/leads/{lead_id}/timeline")
@@ -402,11 +587,16 @@ async def graph_as_of(
     seed: str,
     request: Request,
     caller: CallerDep,
-    at: datetime = Query(),
+    at: datetime = Query(),  # noqa: B008
     depth: int = Query(default=2, ge=0, le=10),
     limit: int = Query(default=200, ge=0, le=1000),
 ) -> dict[str, Any]:
-    return await _run(request, caller, READ, lambda conn, t, me: svc.graph_as_of(conn, t, me, seed, at, depth=depth, limit=limit))
+    return await _run(
+        request,
+        caller,
+        READ,
+        lambda conn, t, me: svc.graph_as_of(conn, t, me, seed, at, depth=depth, limit=limit),
+    )
 
 
 @router.get("/v1/verify-api/fraud/quality")
@@ -431,7 +621,15 @@ async def export_graph(
     limit: int = Query(default=200, ge=0, le=1000),
 ) -> Response:
     """A masked file of the picture, for a stated purpose and reason. Never cached, and the company is told when to delete it."""
-    out = await _run(request, caller, ANALYZE, lambda conn, t, me: svc.export_graph(conn, t, me, seed, fmt=format, purpose=purpose, reason=reason, depth=depth, limit=limit), metric="exported")
+    out = await _run(
+        request,
+        caller,
+        ANALYZE,
+        lambda conn, t, me: svc.export_graph(
+            conn, t, me, seed, fmt=format, purpose=purpose, reason=reason, depth=depth, limit=limit
+        ),
+        metric="exported",
+    )
     return Response(
         content=out["content"], media_type=out["content_type"],
         headers={"Content-Disposition": f'attachment; filename="{out["filename"]}"', "Cache-Control": "no-store", "X-Export-Purpose": out["purpose"], "X-Export-Do-Not-Keep-After": out["expires_at"], "X-Content-Type-Options": "nosniff"},

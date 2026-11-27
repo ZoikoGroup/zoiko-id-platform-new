@@ -204,7 +204,9 @@ def test_the_worker_creates_the_organization_for_a_claim_verified_from_a_certifi
                 if reading:
                     row = (
                         await c.execute(
-                            text("SELECT source_revision FROM org.authority_root_assertion WHERE tenant_id = :t"),
+                            text(
+                                "SELECT source_revision FROM org.authority_root_assertion WHERE tenant_id = :t"
+                            ),
                             {"t": uuid.UUID(tenant)},
                         )
                     ).one()
@@ -230,15 +232,24 @@ def test_a_connection_that_bypasses_row_level_security_never_activates_another_c
 
         monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
         claims.configure_dev_shortcut(True, "local")
-        async with engine(owner_url) as eng:  # the owner role bypasses row-level security, as the worker's does
-            async with eng.begin() as c:
-                assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {newer: 1}
+        # the owner role bypasses row-level security, as the worker's does
+        async with engine(owner_url) as eng, eng.begin() as c:
+            assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {newer: 1}
         async with engine(rt_url) as eng:
             async with tenant_transaction(eng, ctx(newer)) as c:
-                assert any(a.role.value == "OWNER" and a.status.value == "ACTIVE" for a in await tenant_ports.live_roles(c, newer_owner))
+                assert any(
+                    a.role.value == "OWNER" and a.status.value == "ACTIVE"
+                    for a in await tenant_ports.live_roles(c, newer_owner)
+                )
             async with tenant_transaction(eng, ctx(older)) as c:
-                still = [a for a in await tenant_ports.live_roles(c, older_owner) if a.role.value == "OWNER"]
-                assert still and all(a.status.value == "PENDING_VERIFICATION" for a in still), "another company's OWNER must stay pending"
+                still = [
+                    a
+                    for a in await tenant_ports.live_roles(c, older_owner)
+                    if a.role.value == "OWNER"
+                ]
+                assert still and all(a.status.value == "PENDING_VERIFICATION" for a in still), (
+                    "another company's OWNER must stay pending"
+                )
 
     asyncio.run(run())
 
@@ -251,7 +262,14 @@ def test_an_owner_set_up_with_fewer_actions_is_topped_up_once_and_a_new_owner_ge
 
     async def held(tenant: str, owner: str) -> set[str]:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-            rows = (await c.execute(text("SELECT actions FROM authz.authority_grant WHERE grantee_principal_id = :p AND status = 'ACTIVE'"), {"p": uuid.UUID(owner)})).all()
+            rows = (
+                await c.execute(
+                    text(
+                        "SELECT actions FROM authz.authority_grant WHERE grantee_principal_id = :p AND status = 'ACTIVE'"
+                    ),
+                    {"p": uuid.UUID(owner)},
+                )
+            ).all()
         return set().union(*(set(r.actions or []) for r in rows))
 
     async def run() -> None:
@@ -265,10 +283,11 @@ def test_an_owner_set_up_with_fewer_actions_is_topped_up_once_and_a_new_owner_ge
         monkeypatch.setattr(claims, "kyb_open_claims", open_claims)
         claims.configure_dev_shortcut(True, "local")
         # set up the old way: only the standing administrator list
-        monkeypatch.setattr(org, "owner_actions", lambda cat: tuple(a for a in TENANT_ADMIN_ACTIONS if a in cat))
-        async with engine(owner_url) as eng:
-            async with eng.begin() as c:
-                assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {tenant: 1}
+        monkeypatch.setattr(
+            org, "owner_actions", lambda cat: tuple(a for a in TENANT_ADMIN_ACTIONS if a in cat)
+        )
+        async with engine(owner_url) as eng, eng.begin() as c:
+            assert await org.auto_establish_pass(c, NOW, catalog=catalog()) == {tenant: 1}
         monkeypatch.undo()
         wanted = set(owner_actions(catalog()))
         assert await held(tenant, owner) < wanted
@@ -277,7 +296,9 @@ def test_an_owner_set_up_with_fewer_actions_is_topped_up_once_and_a_new_owner_ge
             async with eng.begin() as c:
                 assert await org.owner_grant_top_up_pass(c, NOW, catalog=catalog()) == {tenant: 1}
             async with eng.begin() as c:
-                assert await org.owner_grant_top_up_pass(c, NOW, catalog=catalog()) == {}, "repeating adds nothing once the owner holds them all"
+                assert await org.owner_grant_top_up_pass(c, NOW, catalog=catalog()) == {}, (
+                    "repeating adds nothing once the owner holds them all"
+                )
         assert await held(tenant, owner) == wanted
 
     asyncio.run(run())

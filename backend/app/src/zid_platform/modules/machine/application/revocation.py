@@ -19,7 +19,12 @@ from zid_platform.modules.machine.application import governance
 from zid_platform.modules.machine.application.agents import _record
 from zid_platform.modules.machine.domain import revocation as rv
 from zid_platform.modules.machine.domain.agents import AgentStatus, MachineError
-from zid_platform.modules.machine.infrastructure import agent_store, idp_store, machine_store, revocation_store
+from zid_platform.modules.machine.infrastructure import (
+    agent_store,
+    idp_store,
+    machine_store,
+    revocation_store,
+)
 from zid_platform.modules.mandate.ports import mandates_executed_by, pause_mandates_of_executors
 
 
@@ -27,7 +32,9 @@ def _iso(x: datetime | None) -> str | None:
     return x.isoformat() if x else None
 
 
-async def _targets(conn: AsyncConnection, scope: str, subject: str | None, version: str | None) -> list[str]:
+async def _targets(
+    conn: AsyncConnection, scope: str, subject: str | None, version: str | None
+) -> list[str]:
     """The agents that are ACTIVE now and would be stopped, in the order they would be reached. For an agent, the agent and everything below it."""
     if scope == "AGENT":
         assert subject is not None
@@ -67,7 +74,9 @@ async def _servers(conn: AsyncConnection, agent_ids: list[str]) -> list[str]:
     return [str(registry[t].server_principal_id) for t in listed if t in registry]
 
 
-async def plan(conn: AsyncConnection, scope: str, subject: str | None, now: datetime | None = None) -> dict[str, Any]:
+async def plan(
+    conn: AsyncConnection, scope: str, subject: str | None, now: datetime | None = None
+) -> dict[str, Any]:
     """The dry run, for any scope: who would be stopped, what else would be paused, what would NOT be undone, and where the stop would be enforced. Nothing changes."""
     now = now or datetime.now(UTC)
     scope, subject, version = rv.check_shape(scope, subject)
@@ -95,7 +104,15 @@ def event_view(e: dict[str, Any]) -> dict[str, Any]:
     }  # fmt: skip
 
 
-async def execute(conn: AsyncConnection, tenant_id: str, actor: str, scope: str, subject: str | None, reason: str | None, now: datetime | None = None) -> dict[str, Any]:
+async def execute(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    scope: str,
+    subject: str | None,
+    reason: str | None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     scope, subject, version = rv.check_shape(scope, subject)
     why = rv.clean_reason(reason)
@@ -105,15 +122,28 @@ async def execute(conn: AsyncConnection, tenant_id: str, actor: str, scope: str,
     servers = await _servers(conn, ids)
     freeze_case: str | None = None
     if scope in ("AGENT", "TENANT"):
-        got = await governance.pause(conn, tenant_id, actor, scope=scope, agent_id=subject if scope == "AGENT" else None, reason=why)  # the emergency freeze: its restore needs two independent signers
+        got = await governance.pause(
+            conn,
+            tenant_id,
+            actor,
+            scope=scope,
+            agent_id=subject if scope == "AGENT" else None,
+            reason=why,
+        )  # the emergency freeze: its restore needs two independent signers
         freeze_case = str(got["case_id"])
     else:
         for i in ids:
             agent = await machine_store.load_agent(conn, i)
-            if agent is not None and agent.status is AgentStatus.ACTIVE:  # one already stopped with its parent is not stopped twice
-                await agent_service.suspend(conn, tenant_id, i, reason="REVOKED_BY_SCOPE", actor=actor)
+            if (
+                agent is not None and agent.status is AgentStatus.ACTIVE
+            ):  # one already stopped with its parent is not stopped twice
+                await agent_service.suspend(
+                    conn, tenant_id, i, reason="REVOKED_BY_SCOPE", actor=actor
+                )
     revoked_bindings = 0
-    if scope == "ISSUER":  # the provider's trust is withdrawn too: its bindings stop proving anything
+    if (
+        scope == "ISSUER"
+    ):  # the provider's trust is withdrawn too: its bindings stop proving anything
         for bid in await revocation_store.bindings_of_issuer(conn, subject or "", version):
             revoked_bindings += int(await idp_store.revoke(conn, bid, by=actor, now=now))
     paused = await pause_mandates_of_executors(conn, ids)
@@ -132,7 +162,14 @@ async def execute(conn: AsyncConnection, tenant_id: str, actor: str, scope: str,
     return event_view(got_event)
 
 
-async def close(conn: AsyncConnection, tenant_id: str, actor: str, event_id: str, note: str | None, now: datetime | None = None) -> dict[str, Any]:
+async def close(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    event_id: str,
+    note: str | None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     """The original cause is closed, by someone other than the person who stopped. This does not start the agents again: they are activated through their own gates, which now allow it."""
     now = now or datetime.now(UTC)
     e = await revocation_store.get_event(conn, event_id, lock=True)
@@ -140,7 +177,9 @@ async def close(conn: AsyncConnection, tenant_id: str, actor: str, event_id: str
         raise MachineError("REVOCATION_NOT_FOUND", "no such stop")
     problems = rv.closing_problems(actor=actor, event=e)
     if problems:
-        raise MachineError(problems[0], "a stop is closed once, by someone other than the person who made it")
+        raise MachineError(
+            problems[0], "a stop is closed once, by someone other than the person who made it"
+        )
     text_note = rv.clean_reason(note)
     await revocation_store.close_event(conn, event_id, by=actor, note=text_note, now=now)
     await _record(
@@ -153,7 +192,12 @@ async def close(conn: AsyncConnection, tenant_id: str, actor: str, event_id: str
 
 
 async def list_events(conn: AsyncConnection, *, open_only: bool) -> dict[str, Any]:
-    return {"items": [event_view(e) for e in await revocation_store.list_events(conn, open_only=open_only, limit=100)]}
+    return {
+        "items": [
+            event_view(e)
+            for e in await revocation_store.list_events(conn, open_only=open_only, limit=100)
+        ]
+    }
 
 
 async def read_event(conn: AsyncConnection, event_id: str) -> dict[str, Any]:
@@ -166,4 +210,8 @@ async def read_event(conn: AsyncConnection, event_id: str) -> dict[str, Any]:
 async def reinstate_blockers(conn: AsyncConnection, agent_id: str, actor: str) -> list[str]:
     """Called before an agent is activated: a stop that reached it must be closed by someone else, and its maker never reinstates it."""
     events = await revocation_store.events_covering(conn, agent_id)
-    return rv.reinstate_problems(actor=actor, open_events=[e for e in events if e["closed_at"] is None], initiators=[str(e["actor"]) for e in events])
+    return rv.reinstate_problems(
+        actor=actor,
+        open_events=[e for e in events if e["closed_at"] is None],
+        initiators=[str(e["actor"]) for e in events],
+    )

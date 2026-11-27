@@ -25,11 +25,11 @@ from zid_errors import ErrorDetail, ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.decision.ports import AccessQuery, evaluate_access
+from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.modules.machine.application import authority_history, preflight
 from zid_platform.modules.machine.application import tool_gateway as gateway
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.domain.tool_gateway import GRANT_TYP
-from zid_platform.modules.evidence.ports import sign_evidence
 from zid_platform.protected import catalog
 
 router = APIRouter(prefix="/v1/machine", tags=["agent-tool-gateway"])
@@ -57,7 +57,9 @@ class ToolCallBody(BaseModel):
     purpose: str | None = Field(default=None, max_length=128)
     mandate_id: str | None = Field(default=None, min_length=36, max_length=36)
     approval_request_id: str | None = Field(default=None, min_length=36, max_length=36)
-    reservation_id: str | None = Field(default=None, min_length=36, max_length=36)  # capacity this call will spend (CR-169)
+    reservation_id: str | None = Field(
+        default=None, min_length=36, max_length=36
+    )  # capacity this call will spend (CR-169)
     value: ToolCallValue | None = None
 
 
@@ -114,7 +116,13 @@ async def authorize_tool_call(
             if result.allowed:
                 # the authority as it stood for this decision, in the same transaction: no grant without its history (fails closed)
                 await authority_history.record_for_allowed_call(
-                    conn, tenant, decision_id=result.decision_id, agent_id=agent_id, agent_chain=list(result.chain), mandate_id=body.mandate_id, at=datetime.now(UTC)
+                    conn,
+                    tenant,
+                    decision_id=result.decision_id,  # type: ignore[arg-type]
+                    agent_id=agent_id,
+                    agent_chain=list(result.chain),
+                    mandate_id=body.mandate_id,
+                    at=datetime.now(UTC),
                 )
     except MachineError as e:
         raise _http(e) from e
@@ -139,10 +147,16 @@ async def authorize_tool_call(
 
 
 @router.post("/tool-calls:preflight")
-async def preflight_tool_call(body: ToolCallBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def preflight_tool_call(
+    body: ToolCallBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Would this call be allowed right now? The real gateway runs and its transaction is thrown away, so nothing is granted, recorded, reserved or metered. ALLOW, DENY, APPROVAL_REQUIRED or UNAVAILABLE, with the reasons."""
     if "workload" not in caller.scope:
-        raise ZidError("TOOL_CALL_FORBIDDEN", "Only an agent's own workload credential may ask the tool gateway.", http_status=403)
+        raise ZidError(
+            "TOOL_CALL_FORBIDDEN",
+            "Only an agent's own workload credential may ask the tool gateway.",
+            http_status=403,
+        )
     settings = getattr(request.app.state, "token_settings", None)
     if settings is None:
         raise ZidError("UNAUTHENTICATED", "No token issuer is configured.", http_status=503)
@@ -164,7 +178,9 @@ async def preflight_tool_call(body: ToolCallBody, request: Request, caller: Call
             )  # fmt: skip
     except preflight.Rollback as r:
         return r.view
-    raise ZidError("PREFLIGHT_FAILED", "The rehearsal did not finish.", http_status=500)  # unreachable: rehearse always ends by raising
+    raise ZidError(
+        "PREFLIGHT_FAILED", "The rehearsal did not finish.", http_status=500
+    )  # unreachable: rehearse always ends by raising
 
 
 class RedeemBody(BaseModel):

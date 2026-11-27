@@ -48,7 +48,13 @@ class AgentCredentialVerifyBody(BaseModel):
 
 def http(e: MachineError) -> ZidError:
     code = e.code
-    status = 404 if code.endswith("NOT_FOUND") else 422 if code.endswith("_INVALID") and code != "AGENT_CREDENTIAL_STATE_INVALID" else 409
+    status = (
+        404
+        if code.endswith("NOT_FOUND")
+        else 422
+        if code.endswith("_INVALID") and code != "AGENT_CREDENTIAL_STATE_INVALID"
+        else 409
+    )
     return ZidError(code, str(e), http_status=status)
 
 
@@ -69,7 +75,9 @@ async def _run(request: Request, caller: Caller, action: str, fn: Any) -> Any:
 
 
 @router.post("/agents/{agent_id}/credentials", status_code=201)
-async def issue(agent_id: str, body: AgentCredentialIssueBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def issue(
+    agent_id: str, body: AgentCredentialIssueBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     s = _settings(request)
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
     base = str(getattr(s, "issuer", "")).rstrip("/")
@@ -83,18 +91,31 @@ async def issue(agent_id: str, body: AgentCredentialIssueBody, request: Request,
 
 
 @router.get("/agent-credentials")
-async def list_credentials(request: Request, caller: CallerDep, agent_id: str | None = Query(default=None, min_length=36, max_length=36)) -> dict[str, Any]:
-    return await _run(request, caller, "machine.agent.read", lambda conn: svc.list_for(conn, agent_id))  # type: ignore[no-any-return]
+async def list_credentials(
+    request: Request,
+    caller: CallerDep,
+    agent_id: str | None = Query(default=None, min_length=36, max_length=36),
+) -> dict[str, Any]:
+    return await _run(  # type: ignore[no-any-return]
+        request, caller, "machine.agent.read", lambda conn: svc.list_for(conn, agent_id)
+    )
 
 
 @router.post("/agent-credentials/{credential_id}:revoke")
 async def revoke(credential_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
-    return await _run(request, caller, "machine.agent.manage", lambda conn: svc.revoke(conn, tenant, actor, credential_id))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "machine.agent.manage",
+        lambda conn: svc.revoke(conn, tenant, actor, credential_id),
+    )
 
 
 @router.post("/agent-credentials:verify")
-async def verify(body: AgentCredentialVerifyBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def verify(
+    body: AgentCredentialVerifyBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     s = _settings(request)
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
     return await _run(  # type: ignore[no-any-return]

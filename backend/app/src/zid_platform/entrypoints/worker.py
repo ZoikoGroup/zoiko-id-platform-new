@@ -24,6 +24,7 @@ A failing step is logged and retried on the next pass; it never stops the others
                              platform and privacy schemas, no DELETE (falls back to
                              ZID_DATABASE_URL in local/test only)
     ZID_WORKER_INTERVAL_S    seconds between passes (default 10)
+    ZID_SANCTIONS_FETCH_INTERVAL_S  seconds between downloads of the sanctions lists (default 3600; 0 = every pass)
 """
 
 from __future__ import annotations
@@ -40,13 +41,18 @@ from zid_telemetry import configure_logging
 from zid_platform.settings import Settings
 
 log = logging.getLogger("zid.worker")
+
+# When the sanctions lists were last fetched by this process. Module level because `steps()` builds its closures again on every pass.
+_SANCTIONS_LAST_FETCH: dict[str, datetime] = {}
 Step = Callable[[AsyncConnection, datetime], Awaitable[object]]
 
 
 def steps(settings: Settings) -> list[tuple[str, Step]]:
     from zid_platform import api_agents_switch
 
-    api_agents_switch.configure(settings.api_agents, settings.environment)  # API agents ship OFF in production (CR-144)
+    api_agents_switch.configure(
+        settings.api_agents, settings.environment
+    )  # API agents ship OFF in production (CR-144)
     from zid_platform.modules.evidence.infrastructure.tsa import Rfc3161Client
     from zid_platform.modules.evidence.infrastructure.tsa_token import (
         timestamp_verifier_from_settings,
@@ -223,12 +229,20 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
         from zid_platform.modules.evidence.ports import master_list_refresh_pass
         from zid_platform.modules.operator_access.infrastructure.store import in_tenant
 
-        return await master_list_refresh_pass(conn, now, in_tenant=in_tenant)
+        return await master_list_refresh_pass(conn, now, in_tenant=in_tenant)  # type: ignore[no-untyped-call]
 
     async def sanctions_lists(conn: AsyncConnection, now: datetime) -> object:
-        """ED-04 section 07: fetch and load the sanctions lists that have a verified address."""
+        """ED-04 section 07: fetch and load the sanctions lists that have a verified address.
+        Not on every pass: a pass runs every few seconds, and the publishers' lists change daily at most. Without this the worker downloaded the whole UN file
+        every 10 seconds, thousands of times a day, which is abusive to a public server and risks the address being blocked. ZID_SANCTIONS_FETCH_INTERVAL_S sets the
+        gap (default one hour; 0 fetches on every pass). The corpus is still only as fresh as list_max_age_hours allows, so an hour is far inside it."""
         from zid_platform.modules.screening.ports import ingest_pass, screening_config
 
+        gap = float(os.environ.get("ZID_SANCTIONS_FETCH_INTERVAL_S", "3600"))
+        last = _SANCTIONS_LAST_FETCH.get("at")
+        if gap > 0 and last is not None and (now - last).total_seconds() < gap:
+            return "SKIPPED_FETCHED_RECENTLY"
+        _SANCTIONS_LAST_FETCH["at"] = now
         return await ingest_pass(conn, screening_config(), now)
 
     async def screening(conn: AsyncConnection, now: datetime) -> object:
@@ -539,14 +553,21 @@ def steps(settings: Settings) -> list[tuple[str, Step]]:
 
         from zid_platform.modules.verify_analytics.ports import purge_expired
 
-        return {"purged": await purge_expired(conn, before=now - timedelta(days=settings.verify_analytics_retention_days))}
+        return {
+            "purged": await purge_expired(
+                conn, before=now - timedelta(days=settings.verify_analytics_retention_days)
+            )
+        }
 
     async def trust_center_sweep(conn: AsyncConnection, now: datetime) -> object:
         """WF-12.12: a live public claim whose own date has passed, or whose evidence is no longer current, is taken out of service; the public page already hides it on every read."""
         from zid_platform.modules.trust_center.ports import expire_due
 
         gone = await expire_due(conn, now=now)
-        return {"taken_out_of_service": len(gone), "claims": [f"{g['claim_id']}#{g['revision']}:{g['reason']}" for g in gone]}
+        return {
+            "taken_out_of_service": len(gone),
+            "claims": [f"{g['claim_id']}#{g['revision']}:{g['reason']}" for g in gone],
+        }
 
     return [
         ("evidence", evidence),
@@ -648,7 +669,9 @@ async def main_loop(settings: Settings, *, passes: int | None = None) -> None:
         while passes is None or n < passes:
             from zid_platform.modules.verification.ports import country_opening_store
 
-            await country_opening_store.refresh(engine)  # the countries an operator has opened (CR-127), for checks the worker runs
+            await country_opening_store.refresh(
+                engine
+            )  # the countries an operator has opened (CR-127), for checks the worker runs
             await run_pass(engine, settings)
             n += 1
             if passes is None or n < passes:

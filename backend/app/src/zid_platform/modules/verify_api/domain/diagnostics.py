@@ -23,7 +23,15 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-CLASSES = ("DELIVERED", "REJECTED_BY_ENDPOINT", "ENDPOINT_ERROR", "TIMED_OUT", "COULD_NOT_CONNECT", "DESTINATION_BLOCKED", "WAITING")
+CLASSES = (
+    "DELIVERED",
+    "REJECTED_BY_ENDPOINT",
+    "ENDPOINT_ERROR",
+    "TIMED_OUT",
+    "COULD_NOT_CONNECT",
+    "DESTINATION_BLOCKED",
+    "WAITING",
+)
 ADVICE = {
     "DELIVERED": "Working.",
     "REJECTED_BY_ENDPOINT": "Your endpoint is refusing events with a 4xx. Check the signature verification and that the URL is the right route, then replay.",
@@ -58,7 +66,9 @@ def classify(status: str, status_code: int | None, error: str | None) -> str:
     return "WAITING"
 
 
-def endpoint_health(deliveries: Sequence[Mapping[str, Any]], confirmed_events: int = 0) -> dict[str, Any]:
+def endpoint_health(
+    deliveries: Sequence[Mapping[str, Any]], confirmed_events: int = 0
+) -> dict[str, Any]:
     """A verdict from the newest deliveries: HEALTHY, DEGRADED, FAILING or UNKNOWN (nothing delivered yet), with the counts and what to do."""
     recent = list(deliveries)[:SAMPLE]
     counts = {c: 0 for c in CLASSES}
@@ -69,9 +79,15 @@ def endpoint_health(deliveries: Sequence[Mapping[str, Any]], confirmed_events: i
         verdict, main = "UNKNOWN", "WAITING"
     else:
         ok = counts["DELIVERED"]
-        main = max((c for c in CLASSES if c not in ("DELIVERED", "WAITING")), key=lambda c: counts[c])
+        main = max(
+            (c for c in CLASSES if c not in ("DELIVERED", "WAITING")), key=lambda c: counts[c]
+        )
         failing = attempted - ok
-        verdict = "HEALTHY" if failing == 0 else ("FAILING" if ok == 0 or failing * 2 > attempted else "DEGRADED")
+        verdict = (
+            "HEALTHY"
+            if failing == 0
+            else ("FAILING" if ok == 0 or failing * 2 > attempted else "DEGRADED")
+        )
         if verdict == "HEALTHY":
             main = "DELIVERED"
     return {
@@ -85,15 +101,64 @@ def _t(v: Any) -> str:
     return v.isoformat() if isinstance(v, datetime) else str(v)
 
 
-def build_trace(session_id: str, session: Mapping[str, Any] | None, requests: Sequence[Mapping[str, Any]], routes: Sequence[Mapping[str, Any]], decisions: Sequence[Mapping[str, Any]], deliveries: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def build_trace(
+    session_id: str,
+    session: Mapping[str, Any] | None,
+    requests: Sequence[Mapping[str, Any]],
+    routes: Sequence[Mapping[str, Any]],
+    decisions: Sequence[Mapping[str, Any]],
+    deliveries: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
     """The ordered chain for one verification. An absent link is reported as absent and never invented."""
     steps: list[dict[str, Any]] = []
-    steps += [{"at": _t(r["occurred_at"]), "kind": "API_REQUEST", "id": str(r["trace_id"]), "summary": f"{r['method']} {r['route']} answered {r['status']}" + (f" ({r['error_code']})" if r.get("error_code") else "")} for r in requests]
-    steps += [{"at": _t(r["created_at"]), "kind": "ROUTE_DECISION", "id": str(r["decision_id"]), "summary": f"{r['status']}" + (f", provider chosen" if r.get("selected") else "")} for r in routes]
-    steps += [{"at": _t(d["created_at"]), "kind": "DECISION", "id": str(d["decision_id"]), "summary": f"version {d['version']}: {d['outcome']}"} for d in decisions]
-    steps += [{"at": _t(w["created_at"]), "kind": "WEBHOOK_DELIVERY", "id": str(w["event_id"]), "summary": f"{w['event_type']}: {classify(str(w['status']), w.get('last_status_code'), w.get('last_error')).lower().replace('_', ' ')}"} for w in deliveries]
+    steps += [
+        {
+            "at": _t(r["occurred_at"]),
+            "kind": "API_REQUEST",
+            "id": str(r["trace_id"]),
+            "summary": f"{r['method']} {r['route']} answered {r['status']}"
+            + (f" ({r['error_code']})" if r.get("error_code") else ""),
+        }
+        for r in requests
+    ]
+    steps += [
+        {
+            "at": _t(r["created_at"]),
+            "kind": "ROUTE_DECISION",
+            "id": str(r["decision_id"]),
+            "summary": f"{r['status']}" + (", provider chosen" if r.get("selected") else ""),
+        }
+        for r in routes
+    ]
+    steps += [
+        {
+            "at": _t(d["created_at"]),
+            "kind": "DECISION",
+            "id": str(d["decision_id"]),
+            "summary": f"version {d['version']}: {d['outcome']}",
+        }
+        for d in decisions
+    ]
+    steps += [
+        {
+            "at": _t(w["created_at"]),
+            "kind": "WEBHOOK_DELIVERY",
+            "id": str(w["event_id"]),
+            "summary": f"{w['event_type']}: {classify(str(w['status']), w.get('last_status_code'), w.get('last_error')).lower().replace('_', ' ')}",
+        }
+        for w in deliveries
+    ]
     steps.sort(key=lambda s: (s["at"], s["kind"], s["id"]))
-    missing = [name for name, rows in (("API_REQUEST", requests), ("ROUTE_DECISION", routes), ("DECISION", decisions), ("WEBHOOK_DELIVERY", deliveries)) if not rows]
+    missing = [
+        name
+        for name, rows in (
+            ("API_REQUEST", requests),
+            ("ROUTE_DECISION", routes),
+            ("DECISION", decisions),
+            ("WEBHOOK_DELIVERY", deliveries),
+        )
+        if not rows
+    ]
     return {
         "session_id": session_id, "found": session is not None, "status": session.get("status") if session else None, "steps": steps, "missing_links": missing,
         "note": "Ids, states and times only: no document, face, name or score appears here. A missing link is listed, not guessed.",

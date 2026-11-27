@@ -15,11 +15,16 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_db import in_tenant
 
-from zid_platform.modules.verify_api.application import observe, service
-from zid_platform.modules.verify_api.application import certification_service
+from zid_platform.modules.verify_api.application import (
+    approval_policy,
+    certification_service,
+    observe,
+    service,
+)
 from zid_platform.modules.verify_api.domain import go_live as g
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.infrastructure import go_live_store as db
+from zid_platform.modules.verify_api.infrastructure import single_approver
 from zid_platform.modules.webhook.ports import active_endpoint_count
 
 
@@ -93,11 +98,16 @@ async def production_open(conn: AsyncConnection) -> bool:
     return await db.active_grant(conn) is not None
 
 
-async def status_view(conn: AsyncConnection, tenant_id: str) -> dict[str, Any]:
+async def status_view(
+    conn: AsyncConnection, tenant_id: str, principal: str | None = None
+) -> dict[str, Any]:
     """Everything the Go live screen needs in one answer: the automatic checks now, the company's own verification, the latest request, the grant, and the choices."""
     latest = await db.latest_request(conn)
     grant = await db.active_grant(conn)
     return {
+        "self_serve": await self_serve_status(
+            conn, tenant_id, principal
+        ),  # production opens by itself when all three are met (see open_production)
         "certification": await _checks(conn),
         "adversarial_suite": await certification_service.suite_for_go_live(conn, tenant_id),
         "suite_gate": suite_gate_mode(),  # off, shadow or enforce (CR-173)
@@ -147,8 +157,18 @@ async def submit(
         suite = await certification_service.suite_for_go_live(conn, tenant_id, now)
         if not suite["met"]:
             if mode == "enforce":
-                raise m.PartnerError("GO_LIVE_SUITE_NOT_PASSED", "Run the sandbox test scenarios first. Your server has not passed every one recently: " + (suite.get("reason") or "; ".join(suite.get("reasons", [])).lower().replace("_", " ")) + ".")
-            observe.GO_LIVE.inc(event="suite_would_block")  # shadow: the request goes ahead and the platform counts what an enforced gate would have refused
+                raise m.PartnerError(
+                    "GO_LIVE_SUITE_NOT_PASSED",
+                    "Run the sandbox test scenarios first. Your server has not passed every one recently: "
+                    + (
+                        suite.get("reason")
+                        or "; ".join(suite.get("reasons", [])).lower().replace("_", " ")
+                    )
+                    + ".",
+                )
+            observe.GO_LIVE.inc(
+                event="suite_would_block"
+            )  # shadow: the request goes ahead and the platform counts what an enforced gate would have refused
     request_id = str(uuid.uuid4())
     try:
         await db.insert_request(
@@ -183,6 +203,118 @@ async def withdraw(
     fresh = await db.get_request(conn, request_id)
     assert fresh is not None
     return request_view(fresh)
+
+
+# ------------------------------------------------------------------------------- self-serve: production opens by itself
+# The owner's decision (26 Nov 2026): once the person's own identity check and the company check are complete and the company holds a PAID plan, production opens with no operator and no sandbox test, like
+# other verification products that unlock live access when the account is verified and paid. A deployment chooses it with ZID_VERIFY_SELF_SERVE_GO_LIVE; off (the default) keeps the request that an operator approves.
+# The grant is signed exactly as before and records that the automatic rule opened it: its approver is the fixed identity below, never a person.
+
+SELF_SERVE_ACTOR = "00000000-0000-4000-8000-0000000000a1"
+PersonSource = Callable[[AsyncConnection, str], Awaitable[bool]]
+PlanSource = Callable[[AsyncConnection], Awaitable[bool]]
+_person_source: PersonSource | None = None
+_plan_source: PlanSource | None = None
+_NEEDED = {
+    "identity": "your own identity check",
+    "company": "your company check",
+    "paid_plan": "a paid plan, with its payment completed",
+}
+
+
+def configure_self_serve_sources(person: PersonSource | None, plan: PlanSource | None) -> None:
+    """The composition root says how to read a person's identity check and a company's plan (this module imports neither the verification nor the commercial code). Unset, they read as not met."""
+    global _person_source, _plan_source
+    _person_source, _plan_source = person, plan
+
+
+def self_serve_enabled() -> bool:
+    import os
+
+    return os.environ.get("ZID_VERIFY_SELF_SERVE_GO_LIVE", "").strip().lower() in {
+        "on",
+        "true",
+        "1",
+        "yes",
+    }
+
+
+async def self_serve_status(
+    conn: AsyncConnection, tenant_id: str, principal: str | None
+) -> dict[str, Any]:
+    """What is met now, for the Go live screen: the person's identity check, the company check and the paid plan. Read only."""
+    identity = bool(_person_source and principal and await _person_source(conn, principal))
+    company = bool((await company_check(conn, tenant_id))["verified"])
+    plan = bool(_plan_source and await _plan_source(conn))
+    return {
+        "enabled": self_serve_enabled(),
+        "identity": identity,
+        "company": company,
+        "paid_plan": plan,
+        "ready": identity and company and plan,
+    }
+
+
+async def open_production(
+    conn: AsyncConnection,
+    tenant_id: str,
+    principal: str,
+    body: dict[str, Any],
+    *,
+    sign: Callable[[dict[str, Any]], str] | None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Open production for this company if the three conditions hold; otherwise say which do not. Never opens on a doubt."""
+    if not self_serve_enabled():
+        raise m.PartnerError(
+            "GO_LIVE_SELF_SERVE_OFF",
+            "Production opens through a request that the platform approves.",
+        )
+    clean = g.check_request(body)
+    if await db.active_grant(conn) is not None:
+        raise m.PartnerError("GO_LIVE_ALREADY_APPROVED", "Production is already open for you.")
+    state = await self_serve_status(conn, tenant_id, principal)
+    missing = [label for key, label in _NEEDED.items() if not state[key]]
+    if missing:
+        raise m.PartnerError(
+            "PRODUCTION_REQUIREMENTS_NOT_MET",
+            "Production opens by itself when these are done: " + "; ".join(missing) + ".",
+        )
+    now = now or datetime.now(UTC)
+    request_id = str(uuid.uuid4())
+    try:
+        await db.insert_request(
+            conn,
+            request_id=request_id,
+            tenant_id=tenant_id,
+            clean=clean,
+            accepted_by=principal,
+            certification=await _checks(conn),
+        )
+    except Exception as e:  # the unique index: one open request per company
+        if "api_go_live_one_open" in str(e):
+            raise m.PartnerError(
+                "GO_LIVE_REQUEST_OPEN",
+                "You already have a request waiting. Withdraw it first to open production this way.",
+            ) from e
+        raise
+    note = "Opened by the automatic rule: the person's identity check, the company check and a paid plan were all complete."
+    async with db.operator_scope(conn):
+        await start_review(conn, request_id, SELF_SERVE_ACTOR, now)
+        await approve(
+            conn,
+            request_id,
+            SELF_SERVE_ACTOR,
+            {k: True for k in g.ATTESTATIONS},
+            note,
+            now,
+            sign=sign,
+            automatic=True,
+        )
+    observe.GO_LIVE.inc(event="self_serve_opened")
+    made = await db.get_request(conn, request_id)
+    assert made is not None
+    return request_view(made)
 
 
 # ------------------------------------------------------------------------------- the operator (inside `db.operator_scope`)
@@ -236,8 +368,10 @@ async def approve(
     now: datetime | None = None,
     *,
     sign: Callable[[dict[str, Any]], str] | None = None,
+    automatic: bool = False,
 ) -> dict[str, Any]:
-    """Approve: a different operator from the reviewer, every confirmation given, the sandbox checks still met now. Leaves the company's production grant, the digest of what it allows and a signature over both.
+    """`automatic` is only for the self-serve rule (`open_production`): the same fixed identity reviews and approves, and the sandbox checks are not part of it. Everything else here still holds.
+    Approve: a different operator from the reviewer, every confirmation given, the sandbox checks still met now. Leaves the company's production grant, the digest of what it allows and a signature over both.
     With no signing key there is no approval: a grant is never made unsigned."""
     now = now or datetime.now(UTC)
     if sign is None:
@@ -246,8 +380,16 @@ async def approve(
             "Approval needs the go-live signing key and none is configured. Nothing was approved.",
         )
     r = await _operator_load(conn, request_id)
+    await single_approver.apply(
+        conn, approval_policy.single_approver() or automatic
+    )  # the table's own different-person rule yields only in single-approver mode or for the automatic rule (verify_api_0019)
     g.check_transition(g.GoLiveStatus(r["status"]), g.GoLiveStatus.APPROVED)
-    if r["reviewer_id"] is not None and str(r["reviewer_id"]) == operator:
+    if (
+        r["reviewer_id"] is not None
+        and str(r["reviewer_id"]) == operator
+        and not approval_policy.single_approver()
+        and not automatic
+    ):
         raise m.PartnerError(
             "GO_LIVE_SELF_APPROVAL",
             "The person who took the request into review cannot also approve it.",
@@ -259,7 +401,7 @@ async def approve(
         conn, tenant_id
     ):  # the company's own sandbox facts, read under its own scope
         checks = await _checks(conn)
-        if not g.certified(checks):
+        if not automatic and not g.certified(checks):
             raise m.PartnerError(
                 "GO_LIVE_NOT_READY", "The company's sandbox checks are no longer all met."
             )
@@ -267,7 +409,7 @@ async def approve(
         if not company["verified"]:
             raise m.PartnerError(
                 "GO_LIVE_COMPANY_NOT_VERIFIED",
-                "The company has no registry-verified company check on record. Documents alone are not enough; finish its company verification first.",
+                "The company has no completed company check on record. Finish its company verification first: a registry match, or a certificate of incorporation whose reading agrees with the claim.",
             )
         record = g.manifest(
             company_check={"claim": company["claim"], "assessed_at": company["assessed_at"]},

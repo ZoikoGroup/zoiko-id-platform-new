@@ -32,17 +32,23 @@ async def deliver(owner_url: str, tenant: str, *, status: str = "DELIVERED") -> 
     endpoint, event = uuid.uuid4(), uuid.uuid4()
     async with engine(owner_url) as eng, eng.begin() as c:
         await c.execute(
-            text("INSERT INTO events.webhook_endpoint (endpoint_id, tenant_id, url, event_types, status, signing_key_id, created_by) VALUES (:e, :t, 'https://hooks.example.com/zoiko', ARRAY['verification.api.session_decided'], 'ACTIVE', 'k1', :u)"),
+            text(
+                "INSERT INTO events.webhook_endpoint (endpoint_id, tenant_id, url, event_types, status, signing_key_id, created_by) VALUES (:e, :t, 'https://hooks.example.com/zoiko', ARRAY['verification.api.session_decided'], 'ACTIVE', 'k1', :u)"
+            ),
             {"e": endpoint, "t": uuid.UUID(tenant), "u": uuid.uuid4()},
         )
         await c.execute(
-            text("INSERT INTO events.webhook_delivery (delivery_id, tenant_id, endpoint_id, event_id, event_type, payload, payload_digest, status, delivered_at) VALUES (:d, :t, :e, :ev, 'verification.api.session_decided', '{}', 'x', :s, now())"),
+            text(
+                "INSERT INTO events.webhook_delivery (delivery_id, tenant_id, endpoint_id, event_id, event_type, payload, payload_digest, status, delivered_at) VALUES (:d, :t, :e, :ev, 'verification.api.session_decided', '{}', 'x', :s, now())"
+            ),
             {"d": uuid.uuid4(), "t": uuid.UUID(tenant), "e": endpoint, "ev": event, "s": status},
         )
     return str(event)
 
 
-def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_delivered_webhook_makes_it_ready(rt_url: str, owner_url: str) -> None:
+def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_delivered_webhook_makes_it_ready(
+    rt_url: str, owner_url: str
+) -> None:
     w = World(rt_url)
     try:
         h = w.server()
@@ -51,15 +57,29 @@ def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_del
 
         first = run(rt_url, w.tenant, lambda c: svc.checklist(c, app_id))
         steps = {s["step"]: s["done"] for s in first["steps"]}
-        assert steps["CREDENTIAL"] and steps["TOKEN"] and steps["SESSION"] and not steps["VERIFIED_WEBHOOK"]
-        assert first["ready"] is False and first["seconds_to_first_verified_webhook"] is None and first["environment"] == "sandbox"
+        assert (
+            steps["CREDENTIAL"]
+            and steps["TOKEN"]
+            and steps["SESSION"]
+            and not steps["VERIFIED_WEBHOOK"]
+        )
+        assert (
+            first["ready"] is False
+            and first["seconds_to_first_verified_webhook"] is None
+            and first["environment"] == "sandbox"
+        )
 
         url = "/v1/verify-api/onboarding/webhook-confirmations"
         # a webhook the platform did not deliver cannot be confirmed
         bad = w.http.post(url, headers=h, json={"event_id": str(uuid.uuid4())})
         assert bad.status_code == 404 and bad.json()["error"]["code"] == "NOT_FOUND"
         assert w.http.post(url, headers=h, json={"event_id": "not-an-event-id"}).status_code == 404
-        assert w.http.post(url, headers=h, json={"event_id": str(uuid.uuid4()), "extra": 1}).status_code == 422
+        assert (
+            w.http.post(
+                url, headers=h, json={"event_id": str(uuid.uuid4()), "extra": 1}
+            ).status_code
+            == 422
+        )
 
         # a delivery that failed is not a delivery
         failed_event = asyncio.run(deliver(owner_url, w.tenant, status="FAILED"))
@@ -70,11 +90,16 @@ def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_del
         assert ok.status_code == 201, ok.text
         done = ok.json()
         assert done["complete"] is True and done["ready"] is True and done["next_step"] is None
-        assert done["seconds_to_first_verified_webhook"] is not None and done["seconds_to_first_verified_webhook"] >= 0
+        assert (
+            done["seconds_to_first_verified_webhook"] is not None
+            and done["seconds_to_first_verified_webhook"] >= 0
+        )
         assert next(s for s in done["steps"] if s["step"] == "VERIFIED_WEBHOOK")["evidence"] == real
 
         again = w.http.post(url, headers=h, json={"event_id": real})
-        assert again.status_code == 422 and "already confirmed" in again.json()["error"]["message"]  # one event is confirmed once
+        assert (
+            again.status_code == 422 and "already confirmed" in again.json()["error"]["message"]
+        )  # one event is confirmed once
 
         # another company event cannot be confirmed by this one
         foreign = asyncio.run(deliver(owner_url, uid()))
@@ -82,7 +107,12 @@ def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_del
 
         async def edit() -> None:
             async with engine(owner_url) as eng, eng.begin() as c:
-                await c.execute(text("UPDATE verify.api_webhook_confirmation SET confirmed_at = now() WHERE application_id = :a"), {"a": uuid.UUID(app_id)})
+                await c.execute(
+                    text(
+                        "UPDATE verify.api_webhook_confirmation SET confirmed_at = now() WHERE application_id = :a"
+                    ),
+                    {"a": uuid.UUID(app_id)},
+                )
 
         with pytest.raises(Exception, match="append-only"):
             asyncio.run(edit())
@@ -90,11 +120,17 @@ def test_each_step_is_backed_by_something_that_happened_and_only_a_confirmed_del
         w.close()
 
 
-def test_a_token_without_the_webhook_scope_cannot_confirm_and_an_unknown_application_has_no_checklist(rt_url: str) -> None:
+def test_a_token_without_the_webhook_scope_cannot_confirm_and_an_unknown_application_has_no_checklist(
+    rt_url: str,
+) -> None:
     w = World(rt_url)
     try:
         narrow = w.server(scopes=["verifications:create", "verifications:read"])
-        r = w.http.post("/v1/verify-api/onboarding/webhook-confirmations", headers=narrow, json={"event_id": str(uuid.uuid4())})
+        r = w.http.post(
+            "/v1/verify-api/onboarding/webhook-confirmations",
+            headers=narrow,
+            json={"event_id": str(uuid.uuid4())},
+        )
         assert r.status_code in (400, 403), r.text
 
         async def missing(c: Any) -> None:
@@ -106,18 +142,37 @@ def test_a_token_without_the_webhook_scope_cannot_confirm_and_an_unknown_applica
         w.close()
 
 
-def test_the_cohort_counts_unfinished_installs_and_takes_the_median_of_finished_ones_only(rt_url: str, owner_url: str) -> None:
+def test_the_cohort_counts_unfinished_installs_and_takes_the_median_of_finished_ones_only(
+    rt_url: str, owner_url: str
+) -> None:
     w = World(rt_url)
     try:
         h = w.server()
         assert w.create(h).status_code == 201
         before = run(rt_url, w.tenant, svc.cohort)
-        assert before["installs"] == 1 and before["complete"] == 0 and before["incomplete"] == 1 and before["median_seconds"] is None  # an unfinished install has no time, not zero
+        assert (
+            before["installs"] == 1
+            and before["complete"] == 0
+            and before["incomplete"] == 1
+            and before["median_seconds"] is None
+        )  # an unfinished install has no time, not zero
 
         real = asyncio.run(deliver(owner_url, w.tenant))
-        assert w.http.post("/v1/verify-api/onboarding/webhook-confirmations", headers=h, json={"event_id": real}).status_code == 201
+        assert (
+            w.http.post(
+                "/v1/verify-api/onboarding/webhook-confirmations",
+                headers=h,
+                json={"event_id": real},
+            ).status_code
+            == 201
+        )
         after = run(rt_url, w.tenant, svc.cohort)
-        assert after["installs"] == 1 and after["complete"] == 1 and after["incomplete"] == 0 and after["median_seconds"] >= 0
+        assert (
+            after["installs"] == 1
+            and after["complete"] == 1
+            and after["incomplete"] == 0
+            and after["median_seconds"] >= 0
+        )
 
         other = World(rt_url)  # another company's installs are not in this company's cohort
         try:

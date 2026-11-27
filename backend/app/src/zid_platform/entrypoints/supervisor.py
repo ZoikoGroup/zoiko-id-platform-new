@@ -49,7 +49,9 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
         )
     for name in REFUSED:
         if environ.get(name):
-            raise ValueError(f"{name} is not supported: the platform runs on one port and one database")
+            raise ValueError(
+                f"{name} is not supported: the platform runs on one port and one database"
+            )
     env = {k: v for k, v in environ.items() if k not in ROLE_SCOPED}
     env.update(
         ZID_ROLE=Role.CELL.value,
@@ -62,7 +64,9 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
     else:
         env.pop("ZID_DATABASE_URL", None)  # a bare ZID_DATABASE_URL is never inherited
     if environ.get("ZID_CELL_PORT", str(PORT)) != str(PORT):
-        raise ValueError(f"the platform listens on port {PORT} only; map a different host port in Docker instead")
+        raise ValueError(
+            f"the platform listens on port {PORT} only; map a different host port in Docker instead"
+        )
     return [RoleProcess(Role.CELL, PORT, env)]
 
 

@@ -478,7 +478,11 @@ async def verify_api_caller(request: Request) -> VerifyApiCaller:
         raise _fail(e) from e
     ctx = current_context()
     # remembered for the request log, written after the response (CR-173): who called, and the trace id of this request
-    request.state.verify_api_log = (who, ctx.correlation_id if ctx else "cor_unknown", time.monotonic())
+    request.state.verify_api_log = (
+        who,
+        ctx.correlation_id if ctx else "cor_unknown",
+        time.monotonic(),
+    )
     return who
 
 

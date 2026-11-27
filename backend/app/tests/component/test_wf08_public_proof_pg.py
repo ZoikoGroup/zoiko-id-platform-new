@@ -40,7 +40,11 @@ def app() -> FastAPI:
 
     @a.exception_handler(ZidError)
     async def _zid_error(request: Request, exc: ZidError) -> JSONResponse:
-        return JSONResponse(status_code=exc.http_status, content={"error": {"code": exc.code, "message": exc.message}}, headers=dict(exc.headers) or None)
+        return JSONResponse(
+            status_code=exc.http_status,
+            content={"error": {"code": exc.code, "message": exc.message}},
+            headers=dict(exc.headers) or None,
+        )
 
     a.include_router(public_proof.router)
     a.state.environment = "production"
@@ -59,7 +63,15 @@ def sealed_bundle(rt_url: str, owner_url: str) -> tuple[dict[str, Any], str, str
         async with engine(owner_url) as eng, eng.begin() as c:
             await worker_pass(c, force_seal=True)
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
-            pkg = await replay.export_package(c, tenant, out["receipt_id"], mode="CUSTOMER_VERIFY", purpose="self-verification", case_ref="case-1", custodian_principal_id=admin)
+            pkg = await replay.export_package(
+                c,
+                tenant,
+                out["receipt_id"],
+                mode="CUSTOMER_VERIFY",
+                purpose="self-verification",
+                case_ref="case-1",
+                custodian_principal_id=admin,
+            )
             out["bundle"] = pkg["bundle"]
             out["verification"] = (await replay.verify_receipt(c, out["receipt_id"])).to_dict()
 
@@ -67,24 +79,46 @@ def sealed_bundle(rt_url: str, owner_url: str) -> tuple[dict[str, Any], str, str
     return out["bundle"], out["receipt_id"], tenant, admin
 
 
-def test_a_sealed_bundle_checks_out_as_separate_axes_and_every_failure_stays_on_its_own_axis(rt_url: str, owner_url: str) -> None:
-    bundle, receipt_id, _tenant, _admin = sealed_bundle(rt_url, owner_url)
+def test_a_sealed_bundle_checks_out_as_separate_axes_and_every_failure_stays_on_its_own_axis(
+    rt_url: str, owner_url: str
+) -> None:
+    bundle, _receipt_id, _tenant, _admin = sealed_bundle(rt_url, owner_url)
     public_proof._limiter = public_proof._Window(window=60, limit=30)
     with TestClient(app()) as http:
         ok = http.post("/v1/receipts/verify", json={"bundle": bundle})
         assert ok.status_code == 200, ok.text
         got = ok.json()
         a = got["axes"]
-        assert a["signature_integrity"] == "VALID" and a["issuer_trust"] == "TRUSTED" and a["proof_completeness"] == "COMPLETE"
-        assert a["success"] is None and a["real_world_claim_verification"] == "NOT_ASSESSED" and a["time_proof"] == "NONE" and a["status_now"] == "NOT_CHECKED"
-        assert got["stored"] is False and got["record_included"] is True and got["summary"][-1] == "Correctness of the decision: not assessed" and ok.headers["cache-control"] == "no-store"
+        assert (
+            a["signature_integrity"] == "VALID"
+            and a["issuer_trust"] == "TRUSTED"
+            and a["proof_completeness"] == "COMPLETE"
+        )
+        assert (
+            a["success"] is None
+            and a["real_world_claim_verification"] == "NOT_ASSESSED"
+            and a["time_proof"] == "NONE"
+            and a["status_now"] == "NOT_CHECKED"
+        )
+        assert (
+            got["stored"] is False
+            and got["record_included"] is True
+            and got["summary"][-1] == "Correctness of the decision: not assessed"
+            and ok.headers["cache-control"] == "no-store"
+        )
         assert "success" not in {k for k in got} and "ok" not in got  # no top-level pass
 
         # a changed record: integrity fails on its own axis, the signer is still the trusted one
         altered = copy.deepcopy(bundle)
-        altered["record"]["outcome"] = "DENY" if altered["record"].get("outcome") != "DENY" else "ALLOW"
+        altered["record"]["outcome"] = (
+            "DENY" if altered["record"].get("outcome") != "DENY" else "ALLOW"
+        )
         r = http.post("/v1/receipts/verify", json={"bundle": altered}).json()["axes"]
-        assert r["signature_integrity"] == "INVALID" and "CHECK_FAILED:record_hash" in r["reasons"] and r["issuer_trust"] == "TRUSTED"
+        assert (
+            r["signature_integrity"] == "INVALID"
+            and "CHECK_FAILED:record_hash" in r["reasons"]
+            and r["issuer_trust"] == "TRUSTED"
+        )
         # a forged checkpoint signature is both bad integrity and an untrusted signer
         forged = copy.deepcopy(bundle)
         forged["checkpoint"]["signature"] = forged["checkpoint"]["signature"][:-6] + "AAAAAA"
@@ -107,12 +141,21 @@ def test_a_sealed_bundle_checks_out_as_separate_axes_and_every_failure_stays_on_
         fake["record"]["receipt_id"] = fake["record_id"]
         fk = http.post("/v1/receipts/verify", json={"bundle": fake})
         assert junk.status_code == 200 and fk.status_code == 200
-        assert junk.json()["axes"]["signature_integrity"] in ("INVALID", "INDETERMINATE") and fk.json()["axes"]["signature_integrity"] == "INVALID"
+        assert (
+            junk.json()["axes"]["signature_integrity"] in ("INVALID", "INDETERMINATE")
+            and fk.json()["axes"]["signature_integrity"] == "INVALID"
+        )
         assert "NOT_FOUND" not in json.dumps([junk.json(), fk.json()])
         # a bundle bigger than any proof is refused, and the check is rate limited per caller
-        assert http.post("/v1/receipts/verify", json={"bundle": {"pad": "x" * 300_000}}).status_code == 413
+        assert (
+            http.post("/v1/receipts/verify", json={"bundle": {"pad": "x" * 300_000}}).status_code
+            == 413
+        )
         public_proof._limiter = public_proof._Window(window=60, limit=5)
-        codes = [http.post("/v1/receipts/verify", json={"bundle": {"format": "x"}}).status_code for _ in range(7)]
+        codes = [
+            http.post("/v1/receipts/verify", json={"bundle": {"format": "x"}}).status_code
+            for _ in range(7)
+        ]
         assert codes[:5] == [200] * 5 and codes[5:] == [429, 429]
     public_proof._limiter = public_proof._Window(window=60, limit=30)
     # the same evidence over the authenticated route carries the axes too, and its `ok` is only the integrity checks
@@ -120,7 +163,7 @@ def test_a_sealed_bundle_checks_out_as_separate_axes_and_every_failure_stays_on_
 
 
 def _authenticated_axes(rt_url: str, owner_url: str) -> dict[str, Any]:
-    bundle, receipt_id, tenant, _a = sealed_bundle(rt_url, owner_url)
+    _bundle, receipt_id, tenant, _a = sealed_bundle(rt_url, owner_url)
 
     async def run() -> dict[str, Any]:
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as c:
@@ -129,31 +172,69 @@ def _authenticated_axes(rt_url: str, owner_url: str) -> dict[str, Any]:
     return asyncio.run(run())["axes"]  # type: ignore[no-any-return]
 
 
-def test_the_trust_bundle_is_signed_by_the_evidence_key_lists_rotation_and_compromise_and_a_stale_copy_is_refused(rt_url: str, owner_url: str) -> None:
+def test_the_trust_bundle_is_signed_by_the_evidence_key_lists_rotation_and_compromise_and_a_stale_copy_is_refused(
+    rt_url: str, owner_url: str
+) -> None:
     public_proof._limiter = public_proof._Window(window=60, limit=30)
     with TestClient(app()) as http:
         r = http.get("/v1/trust/issuer")
         assert r.status_code == 200 and r.headers["cache-control"] == "public, max-age=300"
         body = r.json()
         rt = current_runtime()
-        claims = verify_jws(body["signature"], keys=rt.trusted_keys(), typ=tb.BUNDLE_TYP)[1]  # verified with keys pinned beforehand
+        claims = verify_jws(body["signature"], keys=rt.trusted_keys(), typ=tb.BUNDLE_TYP)[
+            1
+        ]  # verified with keys pinned beforehand
         assert claims == body["bundle"] and body["typ"] == tb.BUNDLE_TYP
-        assert claims["environment"] == "production" and claims["pq_hybrid"] == "NOT_OFFERED" and {k["kid"] for k in claims["keys"]} == {k["kid"] for k in rt.trusted_keys()}
+        assert (
+            claims["environment"] == "production"
+            and claims["pq_hybrid"] == "NOT_OFFERED"
+            and {k["kid"] for k in claims["keys"]} == {k["kid"] for k in rt.trusted_keys()}
+        )
         now = datetime.now(UTC)
-        assert tb.bundle_problems(claims, expected_issuer=claims["issuer"], expected_environment="production", now=now) == []
+        assert (
+            tb.bundle_problems(
+                claims, expected_issuer=claims["issuer"], expected_environment="production", now=now
+            )
+            == []
+        )
         # stale, substituted and other-environment copies are refused by a careful verifier
-        assert tb.bundle_problems(claims, expected_issuer=claims["issuer"], expected_environment="production", now=now + timedelta(days=2)) == ["TRUST_BUNDLE_EXPIRED"]
-        assert tb.bundle_problems(claims, expected_issuer="another-issuer", expected_environment="production", now=now) == ["TRUST_BUNDLE_WRONG_ISSUER"]
-        assert tb.bundle_problems(claims, expected_issuer=claims["issuer"], expected_environment="sandbox", now=now) == ["TRUST_BUNDLE_WRONG_ENVIRONMENT"]
+        assert tb.bundle_problems(
+            claims,
+            expected_issuer=claims["issuer"],
+            expected_environment="production",
+            now=now + timedelta(days=2),
+        ) == ["TRUST_BUNDLE_EXPIRED"]
+        assert tb.bundle_problems(
+            claims, expected_issuer="another-issuer", expected_environment="production", now=now
+        ) == ["TRUST_BUNDLE_WRONG_ISSUER"]
+        assert tb.bundle_problems(
+            claims, expected_issuer=claims["issuer"], expected_environment="sandbox", now=now
+        ) == ["TRUST_BUNDLE_WRONG_ENVIRONMENT"]
         first_version = claims["version"]
 
         # a graceful rotation keeps the old key trusted for history and raises the version
-        configure_runtime(replace(rt, signer=LocalSigner("evidence-key-v2"), historic_keys=(*rt.historic_keys, rt.signer.public_jwk())))
+        configure_runtime(
+            replace(
+                rt,
+                signer=LocalSigner("evidence-key-v2"),
+                historic_keys=(*rt.historic_keys, rt.signer.public_jwk()),
+            )
+        )
         try:
             rotated = http.get("/v1/trust/issuer").json()["bundle"]
             states = {k["kid"]: k["state"] for k in rotated["keys"]}
-            assert states["evidence-key-v2"] == "ACTIVE" and states[str(rt.signer.public_jwk()["kid"])] == "RETIRED" and rotated["version"] > first_version
-            assert tb.bundle_problems(claims, expected_issuer=claims["issuer"], expected_environment="production", now=now, last_seen_version=rotated["version"]) == ["TRUST_BUNDLE_ROLLED_BACK"]  # the old copy is refused once a newer one was seen
+            assert (
+                states["evidence-key-v2"] == "ACTIVE"
+                and states[str(rt.signer.public_jwk()["kid"])] == "RETIRED"
+                and rotated["version"] > first_version
+            )
+            assert tb.bundle_problems(
+                claims,
+                expected_issuer=claims["issuer"],
+                expected_environment="production",
+                now=now,
+                last_seen_version=rotated["version"],
+            ) == ["TRUST_BUNDLE_ROLLED_BACK"]  # the old copy is refused once a newer one was seen
         finally:
             configure_runtime(rt)
         # a compromise is listed with the moment from which that key's signatures prove nothing
@@ -162,9 +243,18 @@ def test_the_trust_bundle_is_signed_by_the_evidence_key_lists_rotation_and_compr
         try:
             c3 = http.get("/v1/trust/issuer").json()["bundle"]
             bad = next(k for k in c3["keys"] if k["kid"] == str(rt.signer.public_jwk()["kid"]))
-            assert bad["state"] == "COMPROMISED" and bad["compromised_from"] and c3["version"] > first_version
-            assert tb.key_standing(c3, bad["kid"], since - timedelta(days=1)) == "TRUSTED_RETIRED" and tb.key_standing(c3, bad["kid"], now) == "COMPROMISED_AT_SIGNING"
+            assert (
+                bad["state"] == "COMPROMISED"
+                and bad["compromised_from"]
+                and c3["version"] > first_version
+            )
+            assert (
+                tb.key_standing(c3, bad["kid"], since - timedelta(days=1)) == "TRUSTED_RETIRED"
+                and tb.key_standing(c3, bad["kid"], now) == "COMPROMISED_AT_SIGNING"
+            )
         finally:
             configure_runtime(rt)
-    with pytest.raises(Exception):  # noqa: B017, PT011 - a bundle signed by the evidence key is not accepted as a token-keyring statement
-        verify_jws(body["signature"], keys=[LocalSigner("some-token-key").public_jwk()], typ=tb.BUNDLE_TYP)
+    with pytest.raises(Exception):  # noqa: B017 - a bundle signed by the evidence key is not accepted as a token-keyring statement
+        verify_jws(
+            body["signature"], keys=[LocalSigner("some-token-key").public_jwk()], typ=tb.BUNDLE_TYP
+        )

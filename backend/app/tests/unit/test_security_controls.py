@@ -429,7 +429,9 @@ def test_p47_no_application_log_call_names_a_card_number_or_security_code() -> N
     assert hits == []
 
 
-def test_a_sealed_client_secret_is_the_one_sent_to_the_provider_and_the_store_is_not_asked() -> None:
+def test_a_sealed_client_secret_is_the_one_sent_to_the_provider_and_the_store_is_not_asked() -> (
+    None
+):
     """CR-138: when the company entered the secret in the console, the exchange uses that sealed value; the operator's secret store (`settings.secrets`) is never consulted for it."""
     import base64
     from datetime import UTC, datetime
@@ -446,10 +448,16 @@ def test_a_sealed_client_secret_is_the_one_sent_to_the_provider_and_the_store_is
                 return httpx.Response(200, json={"id_token": "x"}, request=request)
 
         def never(_ref: str) -> str:
-            raise AssertionError("the operator's secret store must not be asked for a sealed secret")
+            raise AssertionError(
+                "the operator's secret store must not be asked for a sealed secret"
+            )
 
         settings = oidc_login.FederationSettings(
-            issuer="https://id.zoiko.test", keyring=KeyRing(LocalSigner("t")), home_cell="uk-1", secrets=never, transport=Capture()
+            issuer="https://id.zoiko.test",
+            keyring=KeyRing(LocalSigner("t")),
+            home_cell="uk-1",
+            secrets=never,
+            transport=Capture(),
         )
         c = Connection(
             connection_id="c", tenant_id="t", protocol="OIDC", display_name="x", issuer="https://idp.example.com", status="ACTIVE", config_revision=1,
@@ -457,7 +465,9 @@ def test_a_sealed_client_secret_is_the_one_sent_to_the_provider_and_the_store_is
             client_auth="client_secret_basic", client_secret_ref="connector:abc", token_endpoint="https://idp.example.com/token",
         )  # fmt: skip
         login: Any = SimpleNamespace(code_verifier="v")
-        out = await oidc_login._exchange(settings, c, login, "code", datetime.now(UTC), client_secret="sealed-secret")
+        out = await oidc_login._exchange(
+            settings, c, login, "code", datetime.now(UTC), client_secret="sealed-secret"
+        )
         assert out == {"id_token": "x"}
         assert seen["authorization"] == "Basic " + base64.b64encode(b"cid:sealed-secret").decode()
 

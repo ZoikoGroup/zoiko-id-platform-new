@@ -36,7 +36,7 @@ function secretClient(f: ReturnType<typeof fake>, now: () => number) {
 
 function toPem(der: ArrayBuffer): string {
   const b64 = btoa(String.fromCharCode(...new Uint8Array(der)));
-  return `-----BEGIN PRIVATE KEY-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END PRIVATE KEY-----\n`;
+  return `-----BEGIN PRIVATE KEY-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END PRIVATE KEY-----\n`;  // zid-secret-scan: allow: test key shape, not a key
 }
 
 describe("the Verify API client (CR-163)", () => {
@@ -115,7 +115,7 @@ describe("the Verify API client (CR-163)", () => {
   }
 
   it("refuses a key that is not EC P-256 or Ed25519", async () => {
-    const c = new VerifyClient(BASE, { clientId: "zpc_abc", privateKeyPem: "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----", fetch: fake().fetcher, now: () => 1 });
+    const c = new VerifyClient(BASE, { clientId: "zpc_abc", privateKeyPem: "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----", fetch: fake().fetcher, now: () => 1 });  // zid-secret-scan: allow: test key shape, not a key
     await expect(c.whoami()).rejects.toThrow(/EC P-256 or Ed25519/);
   });
 

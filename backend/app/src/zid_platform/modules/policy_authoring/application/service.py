@@ -24,7 +24,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_context import uuid7
 from zid_outbox import emit
 
-from zid_platform.modules.evidence.ports import AuditFacts, EvidenceClass, record_audit, sign_evidence
+from zid_platform.modules.evidence.ports import (
+    AuditFacts,
+    EvidenceClass,
+    record_audit,
+    sign_evidence,
+)
 from zid_platform.modules.policy_authoring.domain import what_if
 from zid_platform.modules.policy_authoring.infrastructure import release_store
 from zid_platform.modules.policy_runtime.ports import (
@@ -282,10 +287,26 @@ async def compare_scenarios(
 
     return {
         "tenant_id": rel.tenant_id,
-        "candidate": {"release_id": rel.release_id, "status": rel.status.value, "content_hash": rel.content_hash},
-        "active": {"release_id": active.release_id, "status": active.status.value, "content_hash": active.content_hash} if active else None,
+        "candidate": {
+            "release_id": rel.release_id,
+            "status": rel.status.value,
+            "content_hash": rel.content_hash,
+        },
+        "active": {
+            "release_id": active.release_id,
+            "status": active.status.value,
+            "content_hash": active.content_hash,
+        }
+        if active
+        else None,
         "results": [
-            {"scenario": dict(sc), "candidate": run(rel, sc), "active": run(active, sc) if active and active.release_id != rel.release_id else None}
+            {
+                "scenario": dict(sc),
+                "candidate": run(rel, sc),
+                "active": run(active, sc)
+                if active and active.release_id != rel.release_id
+                else None,
+            }
             for sc in scenarios
         ],
     }
@@ -306,13 +327,21 @@ async def signed_what_if(
     """The comparison, summarised and signed with the evidence key and kept. It never alters a release or a decision receipt; it is analysis (CR-170)."""
     comparison = await compare_scenarios(conn, release_id, scenarios, catalog=catalog)
     summary = what_if.summarize(comparison["results"])
-    claims = what_if.analysis_claims(comparison=comparison, summary=summary, requested_by=requested_by, now_iso=now.isoformat())
+    claims = what_if.analysis_claims(
+        comparison=comparison, summary=summary, requested_by=requested_by, now_iso=now.isoformat()
+    )
     signature = sign_evidence(claims, WHAT_IF_TYP)
     analysis_id = await release_store.insert_what_if(
         conn, tenant_id=comparison["tenant_id"], release_id=release_id, candidate_hash=comparison["candidate"]["content_hash"],
         active_hash=comparison["active"]["content_hash"] if comparison["active"] else None, scenarios=len(scenarios), claims=claims, signature=signature, created_by=requested_by,
     )  # fmt: skip
-    return {"analysis_id": analysis_id, "claims": claims, "signature": signature, "typ": WHAT_IF_TYP, "results": comparison["results"]}
+    return {
+        "analysis_id": analysis_id,
+        "claims": claims,
+        "signature": signature,
+        "typ": WHAT_IF_TYP,
+        "results": comparison["results"],
+    }
 
 
 async def review(

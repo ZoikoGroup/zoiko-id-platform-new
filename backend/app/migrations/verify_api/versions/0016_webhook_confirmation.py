@@ -41,4 +41,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    _run("DROP TABLE verify.api_webhook_confirmation; DROP FUNCTION verify.api_confirmation_append_only();")
+    _run(
+        "DROP TABLE verify.api_webhook_confirmation; DROP FUNCTION verify.api_confirmation_append_only();"
+    )

@@ -55,12 +55,16 @@ async def search(
     )
     page = rows[:limit]
     names = await _names(conn)
+    outcomes = await db.latest_outcomes(conn, [str(r["session_id"]) for r in page])
     return {
         "items": [
             {
                 **svc.session_view(r),
                 "application_id": str(r["application_id"]),
                 "application_name": names.get(str(r["application_id"]), ""),
+                "outcome": outcomes.get(
+                    str(r["session_id"])
+                ),  # the newest decision's outcome, so a list can show "Verified" without opening each one
             }
             for r in page
         ],

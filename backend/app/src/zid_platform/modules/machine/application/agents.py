@@ -672,7 +672,10 @@ async def activate(
     stop = await revocation.reinstate_blockers(conn, agent_id, actor)
     if stop:
         raise MachineError(
-            stop[0], "this agent was stopped, and the stop has not been closed by someone else" if stop[0] == "REVOCATION_OPEN" else "the person who stopped this agent cannot reinstate it"
+            stop[0],
+            "this agent was stopped, and the stop has not been closed by someone else"
+            if stop[0] == "REVOCATION_OPEN"
+            else "the person who stopped this agent cannot reinstate it",
         )
     evidence = await _evidence(conn, agent)
     new = await machine_store.change_agent_status(

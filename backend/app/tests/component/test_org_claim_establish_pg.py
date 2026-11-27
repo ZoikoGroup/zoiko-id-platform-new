@@ -201,23 +201,40 @@ def test_a_claim_whose_company_check_came_from_a_certificate_reading_establishes
             return {"outcome": "VERIFIED", "checks": {}, "company_basis": "DOCUMENT_OCR"}
 
         async def case(conn: Any, tenant_id: str, case_id: str, *, now: datetime) -> Any:
-            return SimpleNamespace(requested_by=owner, jurisdiction="GB", registration_number="00123456", legal_name="Acme Widgets Limited")
+            return SimpleNamespace(
+                requested_by=owner,
+                jurisdiction="GB",
+                registration_number="00123456",
+                legal_name="Acme Widgets Limited",
+            )
 
         monkeypatch.setattr(claims, "status", status)
         monkeypatch.setattr(org_ports, "kyb_get_case", case)
         async with engine(rt_url) as eng:
             async with tenant_transaction(eng, ctx(tenant)) as c:
-                result = await org.establish_from_verified_claim(c, tenant, uid(), adapters={}, catalog=catalog(), now=NOW)
+                result = await org.establish_from_verified_claim(
+                    c, tenant, uid(), adapters={}, catalog=catalog(), now=NOW
+                )
                 assert result.root is not None and result.root.legal_name == "Acme Widgets Limited"
-                assert (result.root.source_id, result.root.namespace) == ("certificate-ocr", "CERTIFICATE_OCR")
+                assert (result.root.source_id, result.root.namespace) == (
+                    "certificate-ocr",
+                    "CERTIFICATE_OCR",
+                )
             async with tenant_transaction(eng, ctx(tenant)) as c:
                 roles = await tenant_ports.live_roles(c, owner)
                 assert any(a.role.value == "OWNER" and a.status.value == "ACTIVE" for a in roles)
                 row = (
                     await c.execute(
-                        text("SELECT root_type::text AS root_type, assurance_class::text AS assurance FROM org.authority_root_assertion WHERE tenant_id = :t"), {"t": uuid.UUID(tenant)}
+                        text(
+                            "SELECT root_type::text AS root_type, assurance_class::text AS assurance FROM org.authority_root_assertion WHERE tenant_id = :t"
+                        ),
+                        {"t": uuid.UUID(tenant)},
                     )
                 ).first()
-                assert row is not None and row.root_type == "INSTITUTIONAL_KYB" and row.assurance == "AR3"
+                assert (
+                    row is not None
+                    and row.root_type == "INSTITUTIONAL_KYB"
+                    and row.assurance == "AR3"
+                )
 
     asyncio.run(run())

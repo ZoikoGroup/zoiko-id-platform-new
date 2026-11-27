@@ -40,7 +40,13 @@ class ToolActionFinalizeBody(BaseModel):
 
 def http(e: MachineError) -> ZidError:
     code = e.code
-    status = 404 if code.endswith("NOT_FOUND") else 422 if code.endswith("_INVALID") and code != "TOOL_ACTION_STATE_INVALID" else 409
+    status = (
+        404
+        if code.endswith("NOT_FOUND")
+        else 422
+        if code.endswith("_INVALID") and code != "TOOL_ACTION_STATE_INVALID"
+        else 409
+    )
     return ZidError(code, str(e), http_status=status)
 
 
@@ -52,7 +58,9 @@ def _settings(request: Request) -> Any:
 
 
 @router.post("/tool-actions/{action_id}:finalize")
-async def finalize_action(action_id: str, body: ToolActionFinalizeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def finalize_action(
+    action_id: str, body: ToolActionFinalizeBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     settings = _settings(request)
     tenant = caller.ctx.tenant_id or ""
     try:
@@ -61,7 +69,13 @@ async def finalize_action(action_id: str, body: ToolActionFinalizeBody, request:
             async def settle(effect: str, reservation_id: str) -> tuple[str, str | None]:
                 cell, epoch = await cell_writer_epoch(request, conn, tenant)
                 return await settle_for_action(
-                    conn, tenant_id=tenant, reservation_id=reservation_id, effect=effect, cell_id=cell, writer_epoch=epoch, now=datetime.now(UTC)
+                    conn,
+                    tenant_id=tenant,
+                    reservation_id=reservation_id,
+                    effect=effect,
+                    cell_id=cell,
+                    writer_epoch=epoch,
+                    now=datetime.now(UTC),
                 )
 
             return await svc.finalize(
@@ -83,20 +97,25 @@ async def _read(request: Request, caller: Caller, fn: Any) -> Any:
 
 @router.get("/tool-actions")
 async def list_actions(
-    request: Request, caller: CallerDep, state: str | None = Query(default=None, max_length=12), agent_id: str | None = Query(default=None, min_length=36, max_length=36)
+    request: Request,
+    caller: CallerDep,
+    state: str | None = Query(default=None, max_length=12),
+    agent_id: str | None = Query(default=None, min_length=36, max_length=36),
 ) -> dict[str, Any]:
-    return await _read(request, caller, lambda conn: svc.list_actions(conn, state=state, agent_id=agent_id))  # type: ignore[no-any-return]
+    return await _read(  # type: ignore[no-any-return]
+        request, caller, lambda conn: svc.list_actions(conn, state=state, agent_id=agent_id)
+    )
 
 
 @router.get("/tool-actions/{action_id}")
 async def read_action(action_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    verify = lambda token: verify_evidence(token, RECEIPT_TYP)  # noqa: E731
+    verify = lambda token: verify_evidence(token, RECEIPT_TYP)
     return await _read(request, caller, lambda conn: svc.view(conn, action_id, verify))  # type: ignore[no-any-return]
 
 
 @router.get("/tool-actions/{action_id}/receipts")
 async def read_receipts(action_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    verify = lambda token: verify_evidence(token, RECEIPT_TYP)  # noqa: E731
+    verify = lambda token: verify_evidence(token, RECEIPT_TYP)
     return await _read(request, caller, lambda conn: svc.receipts(conn, action_id, verify))  # type: ignore[no-any-return]
 
 

@@ -53,7 +53,9 @@ def test_port_8000_may_be_stated() -> None:
 
 def test_per_role_settings_never_reach_the_process() -> None:
     (cell,) = plan({**BASE, "ZID_CELL_PORT": "8000"})
-    assert not (ROLE_SCOPED & set(cell.env))  # the supervisor's own settings are consumed, not passed on
+    assert not (
+        ROLE_SCOPED & set(cell.env)
+    )  # the supervisor's own settings are consumed, not passed on
 
 
 def test_a_bare_database_url_is_not_inherited() -> None:

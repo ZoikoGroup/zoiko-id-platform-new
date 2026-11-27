@@ -29,7 +29,7 @@ export function priceProblem(d: { meter: string; currency: string; rate: string;
 }
 
 const STATE: Record<string, { label: string; tone: "info" | "ok" | "danger" }> = {
-  PROPOSED: { label: "Waiting for a second person", tone: "info" },
+  PROPOSED: { label: "Waiting for approval", tone: "info" },
   APPROVED: { label: "Approved", tone: "ok" },
   REJECTED: { label: "Rejected", tone: "danger" },
 };
@@ -70,10 +70,10 @@ function Propose({ currencies, meters }: { currencies: string[]; meters: { id: s
   const problem = priceProblem(draft, new Date());
   const send = useCellMutation<void, VerifyApiPrice>((api) => api.commercial.verifyPricePropose({ meter: draft.meter, currency: draft.currency, unit_rate: draft.rate.trim(), effective_from: draft.start.trim() } satisfies VerifyApiPriceIn), {
     invalidate: [KEY],
-    success: "Price proposed. A different person must approve it.",
+    success: "Price proposed. Approve it below to make it count.",
   });
   return (
-    <Card title="Propose a price" description="From the first day of a later month. A different person approves it.">
+    <Card title="Propose a price" description="From the first day of a later month. Once proposed, approve it in the list below.">
       <div className="grid gap-3 sm:grid-cols-2">
         <Select label="What is priced" options={meters.map((m) => ({ id: m.id, label: m.label }))} value={draft.meter} onChange={(v) => setDraft({ ...draft, meter: v })} />
         <Select label="Currency" options={currencies.map((c) => ({ id: c, label: c }))} value={draft.currency} onChange={(v) => setDraft({ ...draft, currency: v })} />

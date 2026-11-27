@@ -20,12 +20,21 @@ def _caller(tenant: str = OP_TENANT, session_id: str | None = "s1"):
     return SimpleNamespace(session_id=session_id, ctx=SimpleNamespace(tenant_id=tenant))
 
 
-def _check(monkeypatch, *, context="operator:password", status=SessionStatus.ACTIVE, request=None, caller=None):
+def _check(
+    monkeypatch,
+    *,
+    context="operator:password",
+    status=SessionStatus.ACTIVE,
+    request=None,
+    caller=None,
+):
     async def fake_load(_conn, _session_id):
         return SimpleNamespace(authentication_context=context, status=status)
 
     monkeypatch.setattr(step_up, "load_session", fake_load)
-    return asyncio.run(step_up._operator_password_session(request or _request(), None, caller or _caller()))
+    return asyncio.run(
+        step_up._operator_password_session(request or _request(), None, caller or _caller())
+    )
 
 
 def test_operator_password_session_is_excused(monkeypatch):
@@ -41,7 +50,9 @@ def test_a_revoked_session_is_not_excused(monkeypatch):
 
 
 def test_a_customer_tenant_is_not_excused(monkeypatch):
-    assert _check(monkeypatch, caller=_caller(tenant="01a1a56f-0000-7000-8000-0000000000ff")) is False
+    assert (
+        _check(monkeypatch, caller=_caller(tenant="01a1a56f-0000-7000-8000-0000000000ff")) is False
+    )
 
 
 def test_no_operator_tenant_configured_excuses_nobody(monkeypatch):

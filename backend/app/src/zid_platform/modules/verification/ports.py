@@ -54,7 +54,7 @@ from zid_platform.modules.verification.domain import biometric_methods as biomet
 from zid_platform.modules.verification.domain import check_methods as check_method_model
 from zid_platform.modules.verification.domain import conformance as conformance_model
 from zid_platform.modules.verification.domain import entitlement as entitlement_model
-from zid_platform.modules.verification.domain import face_calibration as face_calibration
+from zid_platform.modules.verification.domain import face_calibration as face_calibration  # noqa: PLC0414
 from zid_platform.modules.verification.domain import market_release as release_model
 from zid_platform.modules.verification.domain import offerings as offerings_model
 from zid_platform.modules.verification.domain import privacy_overlay as privacy_overlay_model
@@ -158,7 +158,9 @@ from zid_platform.modules.verification.infrastructure.product_line_registry impo
     product_line_registry,
 )
 
-PartnerServices = partner_capture.Services  # what a partner's customer's capture needs from the running cell (CR-164)
+PartnerServices = (
+    partner_capture.Services
+)  # what a partner's customer's capture needs from the running cell (CR-164)
 
 __all__ = [
     "APPROVER_ROLES",
@@ -337,8 +339,18 @@ async def verification_session_view(
     }
 
 
-async def route_decisions_for_session(conn: AsyncConnection, session_id: str) -> list[dict[str, Any]]:
+async def route_decisions_for_session(
+    conn: AsyncConnection, session_id: str
+) -> list[dict[str, Any]]:
     """The tenant's provider route decisions for one verification session: id, status, whether a provider was chosen, and when (no candidates, no reasons: those stay in the routing console)."""
     from zid_platform.modules.verification.infrastructure import routing_store
 
-    return [{"decision_id": str(r.decision_id), "status": r.status, "selected": r.selected, "created_at": r.created_at} for r in await routing_store.decisions_for_session(conn, session_id)]
+    return [
+        {
+            "decision_id": str(r.decision_id),
+            "status": r.status,
+            "selected": r.selected,
+            "created_at": r.created_at,
+        }
+        for r in await routing_store.decisions_for_session(conn, session_id)
+    ]

@@ -198,7 +198,9 @@ def check_synthetic(clean: dict[str, Any]) -> None:
     if problems:
         raise PartnerError(
             "SANDBOX_REQUIRES_SYNTHETIC_DATA",
-            "The sandbox is for made-up people only. This looks like real personal data (" + "; ".join(problems) + "). Use an invented reference such as test-user-1.",
+            "The sandbox is for made-up people only. This looks like real personal data ("
+            + "; ".join(problems)
+            + "). Use an invented reference such as test-user-1.",
         )
 
 

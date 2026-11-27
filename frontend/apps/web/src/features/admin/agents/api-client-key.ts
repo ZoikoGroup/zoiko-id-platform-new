@@ -184,7 +184,7 @@ export async function normalizePublicKey(raw: string): Promise<KeyResult> {
 /** PEM-wrap a PKCS#8 private key for the file the person keeps. */
 function pkcs8Pem(der: ArrayBuffer): string {
   const body = btoa(String.fromCharCode(...new Uint8Array(der))).match(/.{1,64}/g)?.join("\n") ?? "";
-  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----\n`;
+  return `-----BEGIN PRIVATE KEY-----\n${body}\n-----END PRIVATE KEY-----\n`;  // zid-secret-scan: allow: PEM framing of a key generated in the browser, not a stored secret
 }
 
 /**

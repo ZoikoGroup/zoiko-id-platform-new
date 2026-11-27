@@ -108,6 +108,7 @@ def test_every_public_site_drops_the_forwarded_certificate_header() -> None:
         "id.{$ZID_DOMAIN}",
         "api.{$ZID_DOMAIN}",
         "global.{$ZID_DOMAIN}",
+        "trust.{$ZID_DOMAIN}",  # the public Trust Center host
         "operator.{$ZID_DOMAIN}",
     ]
     for site in sites:

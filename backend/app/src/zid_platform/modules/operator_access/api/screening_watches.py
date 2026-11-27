@@ -147,7 +147,7 @@ async def activate(watch_id: IdPath, request: Request, op: OperatorDep) -> dict[
                 "MONITORING",
                 now=datetime.now(UTC),
             )
-        return await sc.watches.activate_watch(conn, str(watch_id), gates_signed=signed)
+        return await sc.watches.activate_watch(conn, str(watch_id), gates_signed=signed)  # type: ignore[no-any-return]
 
     return await _on_watch(
         request, op, watch_id, "screening.watch.activated", "activate_watch", run

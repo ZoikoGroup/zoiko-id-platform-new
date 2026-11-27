@@ -239,7 +239,15 @@ function isCurrent(currentPath: string, href: string) {
   return currentPath === href || (href !== "/" && currentPath.startsWith(`${href}/`));
 }
 
+/** The one menu address that matches the page best: when a parent page (/verify-api) and its child (/verify-api/command-center) are both in the menu, only the child lights up. */
+function bestMatch(nav: NavGroup[], currentPath: string): string | null {
+  let best: string | null = null;
+  for (const g of nav) for (const it of g.items) if (isCurrent(currentPath, it.href) && (best === null || it.href.length > best.length)) best = it.href;
+  return best;
+}
+
 function SideNav({ nav, currentPath, collapsed }: { nav: NavGroup[]; currentPath: string; collapsed: boolean }) {
+  const best = bestMatch(nav, currentPath);
   return (
     <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
       {nav.map((g, gi) => (
@@ -251,7 +259,7 @@ function SideNav({ nav, currentPath, collapsed }: { nav: NavGroup[]; currentPath
           ) : null}
           <ul className="space-y-0.5">
             {g.items.map((it) => {
-              const current = isCurrent(currentPath, it.href);
+              const current = it.href === best;
               const Icon = it.icon;
               return (
                 <li key={it.id}>

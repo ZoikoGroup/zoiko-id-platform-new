@@ -313,7 +313,9 @@ def test_guided_approval_needs_no_ids_or_context_strings(rt_url: str) -> None:
 from test_email_pg import FakeSender, make_cfg
 
 
-def _app_with_email(rt_url: str, o: Any, *, sender: Any = None, configured: bool = True) -> tuple[TestClient, Any]:
+def _app_with_email(
+    rt_url: str, o: Any, *, sender: Any = None, configured: bool = True
+) -> tuple[TestClient, Any]:
     app = create_app(
         Settings(database_url=rt_url, token_issuer=ISS, token_audience=AUD, public_base_url=AUD, environment="test", cell_id="uk-1"),
         keyring=o.ring,
@@ -325,20 +327,30 @@ def _app_with_email(rt_url: str, o: Any, *, sender: Any = None, configured: bool
     return TestClient(app, base_url=ISS), sender
 
 
-def test_inviting_with_an_email_sends_the_fixed_template_and_still_returns_the_link(rt_url: str) -> None:
+def test_inviting_with_an_email_sends_the_fixed_template_and_still_returns_the_link(
+    rt_url: str,
+) -> None:
     o = onboard(rt_url)
     api, sender = _app_with_email(rt_url, o)
     with api:
-        res = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR", "email": "Asha.Rao@Example.com", "send_email": True})
+        res = api.post(
+            "/v1/tenant/members",
+            headers=o.bearer(o.owner),
+            json={"role": "OPERATOR", "email": "Asha.Rao@Example.com", "send_email": True},
+        )
         assert res.status_code == 201, res.text
         body = res.json()
         assert body["enrollment_ticket"]  # the link is still handed back
-        assert body["email"]["status"] == "SENT" and body["email"]["to"] == "a***@example.com"  # the address is never echoed whole
+        assert (
+            body["email"]["status"] == "SENT" and body["email"]["to"] == "a***@example.com"
+        )  # the address is never echoed whole
     assert len(sender.sent) == 1
     to, rendered, _ = sender.sent[0]
     assert to == "asha.rao@example.com"
     assert rendered.template_id == "ZID-EM-004"
-    assert "invited you to join" in rendered.text and "an Operator" in rendered.text  # fixed words, merged role
+    assert (
+        "invited you to join" in rendered.text and "an Operator" in rendered.text
+    )  # fixed words, merged role
     assert "/r/single_use_invitation_url?t=" in rendered.text  # the link is the one routed token
     token = rendered.text.split("?t=")[1].split()[0].strip(".")
     slug, _, ticket = token.partition("_")
@@ -349,21 +361,37 @@ def test_inviting_without_asking_for_an_email_sends_nothing(rt_url: str) -> None
     o = onboard(rt_url)
     api, sender = _app_with_email(rt_url, o)
     with api:
-        res = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "VIEWER", "email": "someone@example.com"})
-        assert res.status_code == 201 and "email" not in res.json()  # the address alone only lets sign-up recognise the person
+        res = api.post(
+            "/v1/tenant/members",
+            headers=o.bearer(o.owner),
+            json={"role": "VIEWER", "email": "someone@example.com"},
+        )
+        assert (
+            res.status_code == 201 and "email" not in res.json()
+        )  # the address alone only lets sign-up recognise the person
     assert sender.sent == []
 
 
-def test_an_existing_invitation_can_be_emailed_later_with_a_fresh_single_use_link(rt_url: str) -> None:
+def test_an_existing_invitation_can_be_emailed_later_with_a_fresh_single_use_link(
+    rt_url: str,
+) -> None:
     o = onboard(rt_url)
     api, sender = _app_with_email(rt_url, o)
     with api:
-        made = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}).json()
-        again = api.post(f"/v1/tenant/members/{made['assignment_id']}:email-invitation", headers=o.bearer(o.owner), json={"email": "new.person@example.com"})
+        made = api.post(
+            "/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}
+        ).json()
+        again = api.post(
+            f"/v1/tenant/members/{made['assignment_id']}:email-invitation",
+            headers=o.bearer(o.owner),
+            json={"email": "new.person@example.com"},
+        )
         assert again.status_code == 200, again.text
         body = again.json()
         assert body["email"]["status"] == "SENT"
-        assert body["enrollment_ticket"] != made["enrollment_ticket"]  # the link on screen before is replaced by this one
+        assert (
+            body["enrollment_ticket"] != made["enrollment_ticket"]
+        )  # the link on screen before is replaced by this one
     assert [t for t, _, _ in sender.sent] == ["new.person@example.com"]
     assert body["enrollment_ticket"] in sender.sent[0][1].text
 
@@ -372,18 +400,37 @@ def test_a_bad_address_is_reported_and_nothing_is_sent(rt_url: str) -> None:
     o = onboard(rt_url)
     api, sender = _app_with_email(rt_url, o)
     with api:
-        made = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}).json()
-        for bad in ("not-an-address", "a@b.com, c@d.com", "Name <a@b.com>", "a@b.com\r\nBcc: x@y.com"):
-            res = api.post(f"/v1/tenant/members/{made['assignment_id']}:email-invitation", headers=o.bearer(o.owner), json={"email": bad})
-            assert res.status_code == 200 and res.json()["email"]["status"] == "INVALID_ADDRESS", bad
+        made = api.post(
+            "/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}
+        ).json()
+        for bad in (
+            "not-an-address",
+            "a@b.com, c@d.com",
+            "Name <a@b.com>",
+            "a@b.com\r\nBcc: x@y.com",
+        ):
+            res = api.post(
+                f"/v1/tenant/members/{made['assignment_id']}:email-invitation",
+                headers=o.bearer(o.owner),
+                json={"email": bad},
+            )
+            assert res.status_code == 200 and res.json()["email"]["status"] == "INVALID_ADDRESS", (
+                bad
+            )
     assert sender.sent == []  # no header smuggling, no second recipient
 
 
-def test_when_email_is_not_set_up_the_invitation_is_still_made_and_the_answer_says_so(rt_url: str) -> None:
+def test_when_email_is_not_set_up_the_invitation_is_still_made_and_the_answer_says_so(
+    rt_url: str,
+) -> None:
     o = onboard(rt_url)
     api, _ = _app_with_email(rt_url, o, configured=False)
     with api:
-        res = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR", "email": "a@example.com", "send_email": True})
+        res = api.post(
+            "/v1/tenant/members",
+            headers=o.bearer(o.owner),
+            json={"role": "OPERATOR", "email": "a@example.com", "send_email": True},
+        )
         assert res.status_code == 201
         assert res.json()["email"]["status"] == "NOT_CONFIGURED" and res.json()["enrollment_ticket"]
 
@@ -394,8 +441,14 @@ def test_a_delivery_failure_never_loses_the_link(rt_url: str) -> None:
     o = onboard(rt_url)
     api, _ = _app_with_email(rt_url, o, sender=FakeSender([SendResult("REJECTED", "550", "x")] * 6))
     with api:
-        res = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR", "email": "a@example.com", "send_email": True})
-        assert res.status_code == 201 and res.json()["enrollment_ticket"]  # the invitation exists whatever the mail did
+        res = api.post(
+            "/v1/tenant/members",
+            headers=o.bearer(o.owner),
+            json={"role": "OPERATOR", "email": "a@example.com", "send_email": True},
+        )
+        assert (
+            res.status_code == 201 and res.json()["enrollment_ticket"]
+        )  # the invitation exists whatever the mail did
         assert res.json()["email"]["status"] != "SENT"
 
 
@@ -403,8 +456,14 @@ def test_only_someone_who_may_invite_can_email_an_invitation(rt_url: str) -> Non
     o = onboard(rt_url)
     api, sender = _app_with_email(rt_url, o)
     with api:
-        made = api.post("/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}).json()
+        made = api.post(
+            "/v1/tenant/members", headers=o.bearer(o.owner), json={"role": "OPERATOR"}
+        ).json()
         outsider = o.bearer(str(uuid.uuid4()))
-        res = api.post(f"/v1/tenant/members/{made['assignment_id']}:email-invitation", headers=outsider, json={"email": "a@example.com"})
+        res = api.post(
+            f"/v1/tenant/members/{made['assignment_id']}:email-invitation",
+            headers=outsider,
+            json={"email": "a@example.com"},
+        )
         assert res.status_code in (401, 403)
     assert sender.sent == []

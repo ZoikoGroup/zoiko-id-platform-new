@@ -4,7 +4,6 @@ paid offer, Sovereign and Dedicated are contract-gated, and a cell that has not 
 from __future__ import annotations
 
 import ast
-import uuid
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -278,11 +277,15 @@ def _placement_client(
         return await fn(None)
 
     async def approval(*args: object, **kwargs: object) -> None:
-        seen["approvals"] += 1  # the second administrator is no longer asked for (CR-139): this must stay 0
+        seen["approvals"] += (
+            1  # the second administrator is no longer asked for (CR-139): this must stay 0
+        )
 
     async def set_residency(conn: object, tenant_id: str, **kwargs: Any) -> Residency:
         seen["placed"].append((kwargs["profile"], kwargs["home_cell_id"]))
-        seen.setdefault("filled", []).append((kwargs["jurisdiction_pack_id"], kwargs["approval_ref"]))
+        seen.setdefault("filled", []).append(
+            (kwargs["jurisdiction_pack_id"], kwargs["approval_ref"])
+        )
         return Residency(
             tenant_id,
             kwargs["profile"],
@@ -320,7 +323,9 @@ def _placement_client(
 
 
 def _put(http: TestClient, profile: str, cell: str) -> Any:
-    return http.put("/v1/tenant/residency", json={"residency_profile_id": profile, "home_cell_id": cell})
+    return http.put(
+        "/v1/tenant/residency", json={"residency_profile_id": profile, "home_cell_id": cell}
+    )
 
 
 def test_a_regional_placement_needs_no_readiness_gate_and_no_second_administrator(
@@ -344,9 +349,17 @@ def test_the_legal_pack_and_the_reference_are_filled_in_from_the_cell_when_not_t
     assert all(ref.startswith("self-service:SRP-1:") for _, ref in seen["filled"])
     typed = http.put(
         "/v1/tenant/residency",
-        json={"residency_profile_id": "SRP-1", "home_cell_id": "uk-1", "jurisdiction_pack_id": "eu-gdpr", "approval_ref": "legal-123"},
+        json={
+            "residency_profile_id": "SRP-1",
+            "home_cell_id": "uk-1",
+            "jurisdiction_pack_id": "eu-gdpr",
+            "approval_ref": "legal-123",
+        },
     )
-    assert typed.status_code == 200 and seen["filled"][-1] == ("eu-gdpr", "legal-123")  # what is typed is kept
+    assert typed.status_code == 200 and seen["filled"][-1] == (
+        "eu-gdpr",
+        "legal-123",
+    )  # what is typed is kept
 
 
 def test_shared_global_placement_needs_no_ready_cell(monkeypatch: pytest.MonkeyPatch) -> None:

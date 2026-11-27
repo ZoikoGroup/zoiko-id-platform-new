@@ -109,7 +109,7 @@ def _canonical(p: MarketPolicy) -> bytes:
             return o.total_seconds()
         raise TypeError(type(o))
 
-    return json.dumps(default(p), default=default, sort_keys=True, separators=(",", ":")).encode()
+    return json.dumps(default(p), default=default, sort_keys=True, separators=(",", ":")).encode()  # type: ignore[no-untyped-call]
 
 
 def policy_hash(p: MarketPolicy) -> str:
@@ -320,7 +320,7 @@ def policy_from_dict(d: dict[str, object]) -> MarketPolicy:
                     bool(s.get("credential_required", True)),
                     s.get("terms_version"),
                 )
-                for s in d.get("sources", [])  # type: ignore[union-attr]
+                for s in d.get("sources", [])  # type: ignore[attr-defined]
             ),
             documents=tuple(
                 DocumentRule(
@@ -328,22 +328,22 @@ def policy_from_dict(d: dict[str, object]) -> MarketPolicy:
                     Claim(str(x["claim"])),
                     None if x.get("max_age_s") is None else timedelta(seconds=int(x["max_age_s"])),
                 )
-                for x in d.get("documents", [])  # type: ignore[union-attr]
+                for x in d.get("documents", [])  # type: ignore[attr-defined]
             ),
             ubo=None
             if not ubo
             else UboPolicy(
                 None
-                if ubo.get("threshold_percent") is None
-                else Decimal(str(ubo["threshold_percent"])),
-                bool(ubo.get("other_control_tests")),
-                ubo.get("signed_by"),
-            ),  # type: ignore[attr-defined]
+                if ubo.get("threshold_percent") is None  # type: ignore[attr-defined]
+                else Decimal(str(ubo["threshold_percent"])),  # type: ignore[index]
+                bool(ubo.get("other_control_tests")),  # type: ignore[attr-defined]
+                ubo.get("signed_by"),  # type: ignore[attr-defined]
+            ),
             reviewers_for_document_first=int(d.get("reviewers_for_document_first", 0)),  # type: ignore[call-overload]
             recheck_days={str(k): int(v) for k, v in dict(d.get("recheck_days", {})).items()},  # type: ignore[call-overload]
             recheck_ratified=bool(d.get("recheck_ratified", False)),
             retention=Retention(
-                {str(k): (None if v is None else int(v)) for k, v in dict(ret["days"]).items()},  # type: ignore[index, call-overload]
+                {str(k): (None if v is None else int(v)) for k, v in dict(ret["days"]).items()},  # type: ignore[index]
                 ret.get("legal_basis"),  # type: ignore[attr-defined]
                 bool(ret.get("legal_hold_supported")),  # type: ignore[attr-defined]
                 ret.get("deletion_job_ref"),  # type: ignore[attr-defined]

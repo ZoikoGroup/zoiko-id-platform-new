@@ -51,7 +51,12 @@ def _me(caller: Caller) -> tuple[str, str]:
     return str(caller.ctx.tenant_id), str(caller.ctx.principal_id)
 
 
-async def _run[T](request: Request, caller: Caller, permission: str | None, fn: Callable[[AsyncConnection, str, str], Awaitable[T]]) -> T:
+async def _run[T](
+    request: Request,
+    caller: Caller,
+    permission: str | None,
+    fn: Callable[[AsyncConnection, str, str], Awaitable[T]],
+) -> T:
     """Decide access in its own transaction (so a refusal's record commits), then do the work in another. A value the work returns as an
     AnalyticsError is a refusal it recorded: raised only after its transaction committed."""
     tenant, me = _me(caller)
@@ -60,7 +65,11 @@ async def _run[T](request: Request, caller: Caller, permission: str | None, fn: 
         async with tenant_transaction(engine, caller.ctx) as conn:
             allowed = await svc.check(conn, tenant, me, permission)
         if not allowed:
-            raise ZidError("ANALYTICS_PERMISSION_REQUIRED", "Your account does not have analytics access for this.", http_status=403)
+            raise ZidError(
+                "ANALYTICS_PERMISSION_REQUIRED",
+                "Your account does not have analytics access for this.",
+                http_status=403,
+            )
     try:
         async with tenant_transaction(engine, caller.ctx) as conn:
             out = await fn(conn, tenant, me)
@@ -151,7 +160,9 @@ async def query(body: QueryIn, request: Request, caller: CallerDep) -> dict[str,
 
 @router.get(f"{P}/snapshots/{{snapshot_id}}")
 async def snapshot(snapshot_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "analytics.read", lambda conn, t, me: svc.load_snapshot(conn, snapshot_id))
+    return await _run(
+        request, caller, "analytics.read", lambda conn, t, me: svc.load_snapshot(conn, snapshot_id)
+    )
 
 
 @router.get(f"{P}/definitions")
@@ -184,13 +195,20 @@ async def quality(request: Request, caller: CallerDep) -> dict[str, Any]:
 
     async def go(conn: AsyncConnection, t: str, me: str) -> dict[str, Any]:
         q, fresh, mark = await svc.quality(conn, now=datetime.now(UTC), stale_after=stale)
-        return {"quality": q, "watermark_utc": mark, "sources": fresh, "stale_after_minutes": int(stale.total_seconds() // 60)}
+        return {
+            "quality": q,
+            "watermark_utc": mark,
+            "sources": fresh,
+            "stale_after_minutes": int(stale.total_seconds() // 60),
+        }
 
     return await _run(request, caller, "analytics.read", go)
 
 
 @router.get(f"{P}/operations")
-async def operations(request: Request, caller: CallerDep, days: Annotated[int, Query(ge=1, le=92)] = 7) -> dict[str, Any]:
+async def operations(
+    request: Request, caller: CallerDep, days: Annotated[int, Query(ge=1, le=92)] = 7
+) -> dict[str, Any]:
     """07.08 and 07.09. Availability counts server errors only against valid requests (4xx excluded); 100% is never inferred from no data (M15)."""
     _, _, stale = _policy(request)
 
@@ -233,7 +251,12 @@ async def coverage(request: Request, caller: CallerDep) -> dict[str, Any]:
 
 @router.get(f"{P}/sessions/{{session_ref}}/timeline")
 async def timeline(session_ref: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "analytics.drill", lambda conn, tenant, me: svc.drill(conn, tenant, me, session_ref))
+    return await _run(
+        request,
+        caller,
+        "analytics.drill",
+        lambda conn, tenant, me: svc.drill(conn, tenant, me, session_ref),
+    )
 
 
 class CorrectionIn(BaseModel):
@@ -244,18 +267,38 @@ class CorrectionIn(BaseModel):
 
 @router.get(f"{P}/corrections")
 async def corrections(request: Request, caller: CallerDep) -> dict[str, Any]:
-    return {"items": await _run(request, caller, "analytics.read", lambda conn, t, me: svc.corrections(conn))}
+    return {
+        "items": await _run(
+            request, caller, "analytics.read", lambda conn, t, me: svc.corrections(conn)
+        )
+    }
 
 
 @router.post(f"{P}/corrections", status_code=201)
-async def request_correction(body: CorrectionIn, request: Request, caller: CallerDep) -> dict[str, Any]:
-    cid = await _run(request, caller, "analytics.corrections.request", lambda conn, tenant, me: svc.request_correction(conn, tenant, me, event_id=body.event_id, reason=body.reason))
+async def request_correction(
+    body: CorrectionIn, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    cid = await _run(
+        request,
+        caller,
+        "analytics.corrections.request",
+        lambda conn, tenant, me: svc.request_correction(
+            conn, tenant, me, event_id=body.event_id, reason=body.reason
+        ),
+    )
     return {"correction_id": cid, "approved": False}
 
 
 @router.post(f"{P}/corrections/{{correction_id}}:approve")
-async def approve_correction(correction_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    await _run(request, caller, "analytics.corrections.approve", lambda conn, tenant, me: svc.approve_correction(conn, tenant, me, correction_id))
+async def approve_correction(
+    correction_id: str, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    await _run(
+        request,
+        caller,
+        "analytics.corrections.approve",
+        lambda conn, tenant, me: svc.approve_correction(conn, tenant, me, correction_id),
+    )
     return {"correction_id": correction_id, "approved": True}
 
 
@@ -268,25 +311,58 @@ class ExportIn(BaseModel):
 
 @router.get(f"{P}/exports")
 async def exports(request: Request, caller: CallerDep) -> dict[str, Any]:
-    return {"items": await _run(request, caller, "analytics.export", lambda conn, t, me: svc.exports(conn, me))}
+    return {
+        "items": await _run(
+            request, caller, "analytics.export", lambda conn, t, me: svc.exports(conn, me)
+        )
+    }
 
 
 @router.post(f"{P}/exports", status_code=202)
 async def create_export(body: ExportIn, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "analytics.export", lambda conn, tenant, me: svc.create_export(conn, tenant, me, snapshot_id=body.snapshot_id, fmt=body.format, purpose=body.purpose))
+    return await _run(
+        request,
+        caller,
+        "analytics.export",
+        lambda conn, tenant, me: svc.create_export(
+            conn, tenant, me, snapshot_id=body.snapshot_id, fmt=body.format, purpose=body.purpose
+        ),
+    )
 
 
 @router.get(f"{P}/exports/{{export_id}}/download")
-async def download(export_id: str, request: Request, caller: CallerDep, token: Annotated[str, Header(alias="X-Download-Token", max_length=100)]) -> Response:
-    got = await _run(request, caller, "analytics.export", lambda conn, tenant, me: svc.download(conn, tenant, me, export_id, token))
+async def download(
+    export_id: str,
+    request: Request,
+    caller: CallerDep,
+    token: Annotated[str, Header(alias="X-Download-Token", max_length=100)],
+) -> Response:
+    got = await _run(
+        request,
+        caller,
+        "analytics.export",
+        lambda conn, tenant, me: svc.download(conn, tenant, me, export_id, token),
+    )
     assert not isinstance(got, svc.AnalyticsError)  # _run raised it
     body, ctype = got
-    return Response(body, media_type=ctype, headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="analytics-{export_id}"'})
+    return Response(
+        body,
+        media_type=ctype,
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": f'attachment; filename="analytics-{export_id}"',
+        },
+    )
 
 
 @router.post(f"{P}/exports/{{export_id}}:revoke")
 async def revoke_export(export_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    await _run(request, caller, "analytics.export", lambda conn, tenant, me: svc.revoke_export(conn, tenant, me, export_id))
+    await _run(
+        request,
+        caller,
+        "analytics.export",
+        lambda conn, tenant, me: svc.revoke_export(conn, tenant, me, export_id),
+    )
     return {"export_id": export_id, "status": "REVOKED"}
 
 
@@ -299,7 +375,11 @@ class GrantIn(BaseModel):
 
 @router.get(f"{P}/grants")
 async def grants(request: Request, caller: CallerDep) -> dict[str, Any]:
-    return {"items": await _run(request, caller, "analytics.access.delegate", lambda conn, t, me: svc.grants(conn))}
+    return {
+        "items": await _run(
+            request, caller, "analytics.access.delegate", lambda conn, t, me: svc.grants(conn)
+        )
+    }
 
 
 @router.post(f"{P}/grants", status_code=201)
@@ -311,5 +391,7 @@ async def give(body: GrantIn, request: Request, caller: CallerDep) -> dict[str, 
 
 @router.delete(f"{P}/grants/{{grant_id}}", status_code=204)
 async def take_away(grant_id: str, request: Request, caller: CallerDep) -> Response:
-    await _run(request, caller, None, lambda conn, tenant, me: svc.take_away(conn, tenant, me, grant_id))
+    await _run(
+        request, caller, None, lambda conn, tenant, me: svc.take_away(conn, tenant, me, grant_id)
+    )
     return Response(status_code=204)

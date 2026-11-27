@@ -45,12 +45,23 @@ def check_evidence_class(value: str | None) -> str:
 
 def check_public_key(jwk: Any) -> dict[str, Any]:
     """The agent's own PUBLIC key. A private key, a key with no id, or a remote reference is refused."""
-    if not isinstance(jwk, dict) or not isinstance(jwk.get("kid"), str) or not jwk["kid"] or len(jwk["kid"]) > 100:
-        raise MachineError("AGENT_CREDENTIAL_INVALID", "give the agent's public key as an object with a key id")
+    if (
+        not isinstance(jwk, dict)
+        or not isinstance(jwk.get("kid"), str)
+        or not jwk["kid"]
+        or len(jwk["kid"]) > 100
+    ):
+        raise MachineError(
+            "AGENT_CREDENTIAL_INVALID", "give the agent's public key as an object with a key id"
+        )
     if any(p in jwk for p in ("d", "p", "q", "dp", "dq", "qi", "k")):
-        raise MachineError("AGENT_CREDENTIAL_INVALID", "give the public key only: this one holds private material")
+        raise MachineError(
+            "AGENT_CREDENTIAL_INVALID", "give the public key only: this one holds private material"
+        )
     if any(p in jwk for p in ("jku", "x5u")):
-        raise MachineError("AGENT_CREDENTIAL_INVALID", "a key is given, not fetched from an address")
+        raise MachineError(
+            "AGENT_CREDENTIAL_INVALID", "a key is given, not fetched from an address"
+        )
     return {k: v for k, v in jwk.items() if isinstance(k, str) and len(k) <= 20}
 
 
@@ -59,7 +70,11 @@ def credential_claims(
     status_url: str, issued_at: datetime, expires_at: datetime,
 ) -> dict[str, Any]:  # fmt: skip
     """Minimal claims. Everything is an identifier, a digest, a class or a time."""
-    subject: dict[str, Any] = {"id": f"urn:zoiko:agent:{agent_id}", "organization": organization_id, "evidence_class": evidence_class}
+    subject: dict[str, Any] = {
+        "id": f"urn:zoiko:agent:{agent_id}",
+        "organization": organization_id,
+        "evidence_class": evidence_class,
+    }
     if mandate_id:
         subject["mandate"] = {"id": mandate_id, "hash": mandate_hash}
     claims: dict[str, Any] = {
@@ -75,7 +90,9 @@ def credential_claims(
     return claims
 
 
-def credential_problems(claims: Mapping[str, Any], *, record: Mapping[str, Any] | None, now: datetime) -> list[str]:
+def credential_problems(
+    claims: Mapping[str, Any], *, record: Mapping[str, Any] | None, now: datetime
+) -> list[str]:
     """Why a credential whose signature verified is still not good: expired, unknown to this issuer, revoked, or issued for another agent or key."""
     out: list[str] = []
     ts = now.timestamp()
@@ -85,11 +102,15 @@ def credential_problems(claims: Mapping[str, Any], *, record: Mapping[str, Any] 
     if isinstance(nbf, (int, float)) and nbf - LEEWAY > ts:
         out.append("CREDENTIAL_NOT_YET_VALID")
     if record is None:
-        out.append("CREDENTIAL_UNKNOWN")  # a signature from this issuer for something this issuer has no record of
+        out.append(
+            "CREDENTIAL_UNKNOWN"
+        )  # a signature from this issuer for something this issuer has no record of
         return out
     if record["status"] != "ACTIVE":
         out.append("CREDENTIAL_REVOKED")
-    if str(record["agent_principal_id"]) != str(claims.get("sub", "")).removeprefix("urn:zoiko:agent:"):
+    if str(record["agent_principal_id"]) != str(claims.get("sub", "")).removeprefix(
+        "urn:zoiko:agent:"
+    ):
         out.append("CREDENTIAL_SUBJECT_MISMATCH")
     if str(record["jkt"]) != str((claims.get("cnf") or {}).get("jkt")):
         out.append("CREDENTIAL_KEY_MISMATCH")
@@ -108,11 +129,15 @@ def agent_problems(*, status: str, frozen: bool, sponsor_active: bool) -> list[s
     return out
 
 
-def presentation_problems(claims: Mapping[str, Any], *, credential_id: str, relying_party: str, nonce: str, now: datetime) -> list[str]:
+def presentation_problems(
+    claims: Mapping[str, Any], *, credential_id: str, relying_party: str, nonce: str, now: datetime
+) -> list[str]:
     """Why a presentation, signed by the key the credential is bound to, does not prove possession for THIS relying party now."""
     out: list[str] = []
     if claims.get("aud") != relying_party:
-        out.append("PRESENTATION_AUDIENCE_MISMATCH")  # made for another relying party: a relayed presentation
+        out.append(
+            "PRESENTATION_AUDIENCE_MISMATCH"
+        )  # made for another relying party: a relayed presentation
     if claims.get("nonce") != nonce:
         out.append("PRESENTATION_NONCE_MISMATCH")
     if claims.get("cred") != credential_id:

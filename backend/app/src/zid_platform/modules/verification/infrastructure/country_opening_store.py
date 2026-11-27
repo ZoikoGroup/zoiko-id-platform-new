@@ -69,11 +69,14 @@ async def record(
 ) -> Opening:
     """Append the next version for a (country, capability). A lock on the pair keeps two operators from taking the same number."""
     await conn.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"country_opening:{country}:{capability}"}
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"country_opening:{country}:{capability}"},
     )
     version = (
         await conn.execute(
-            text("SELECT coalesce(max(version), 0) + 1 FROM verify.country_opening WHERE country = :c AND capability = :p"),
+            text(
+                "SELECT coalesce(max(version), 0) + 1 FROM verify.country_opening WHERE country = :c AND capability = :p"
+            ),
             {"c": country, "p": capability},
         )
     ).scalar_one()
@@ -122,4 +125,6 @@ async def refresh(engine: Any, *, force: bool = False) -> None:
         async with engine.connect() as conn:
             country_registry.set_openings(await newest(conn))
     except Exception:
-        logging.getLogger("zid.country_opening").warning("country openings could not be read", exc_info=True)
+        logging.getLogger("zid.country_opening").warning(
+            "country openings could not be read", exc_info=True
+        )

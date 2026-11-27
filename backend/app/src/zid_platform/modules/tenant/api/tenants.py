@@ -494,7 +494,9 @@ async def invite_member(body: Invite, request: Request, caller: CallerDep) -> di
         "enrollment_ticket": inv.enrollment_ticket,  # shown once; hand it to the invitee
         "enrollment_ticket_expires_at": _iso(inv.ticket_expires_at),
     }
-    if body.send_email and body.email:  # after the commit: a mail problem never undoes the invitation
+    if (
+        body.send_email and body.email
+    ):  # after the commit: a mail problem never undoes the invitation
         out["email"] = await _email_invitation(
             request,
             tenant_id=tenant,

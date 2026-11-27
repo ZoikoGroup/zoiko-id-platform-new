@@ -101,7 +101,6 @@ function Thumb({ file, caption, retake, onRetake }: { file: File | null; caption
     <figure className="min-w-0">
       <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-xl border border-border bg-sunken">
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={caption} className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-ink-subtle">Not added</span>

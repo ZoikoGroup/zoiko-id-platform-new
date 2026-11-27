@@ -53,7 +53,11 @@ def catalog() -> dict[str, Any]:
 KYB_GATE_FILE = Path(
     os.environ.get("ZID_KYB_ACTION_GATE")
     # an installed image keeps its reviewed configuration under ZID_PLATFORM_CONFIG; a source checkout keeps it beside the package
-    or (Path(os.environ["ZID_PLATFORM_CONFIG"]) / "kyb" / "action-gate.yaml" if os.environ.get("ZID_PLATFORM_CONFIG") else None)
+    or (
+        Path(os.environ["ZID_PLATFORM_CONFIG"]) / "kyb" / "action-gate.yaml"
+        if os.environ.get("ZID_PLATFORM_CONFIG")
+        else None
+    )
     or Path(__file__).resolve().parents[3] / "config" / "kyb" / "action-gate.yaml"
 )
 

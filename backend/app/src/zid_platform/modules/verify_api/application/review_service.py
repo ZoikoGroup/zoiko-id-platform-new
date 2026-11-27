@@ -82,9 +82,13 @@ async def _detail(conn: AsyncConnection, c: dict[str, Any], now: datetime) -> di
         now=now,
     )
     out["evidence"] = [r.redact(e) for e in await db.evidence(conn, c["case_id"])]
-    out["evidence_manifest_hash"] = await _manifest(conn, c["case_id"])  # a proposal must name exactly this
+    out["evidence_manifest_hash"] = await _manifest(
+        conn, c["case_id"]
+    )  # a proposal must name exactly this
     out["challenges"] = list(CHALLENGES)  # the second reviewer's checklist
-    out["info_templates"] = dict(r.INFO_TEMPLATES)  # the only requests a reviewer may send the applicant
+    out["info_templates"] = dict(
+        r.INFO_TEMPLATES
+    )  # the only requests a reviewer may send the applicant
     proposal = await db.open_proposal(conn, c["case_id"])
     out["proposal"] = (
         {
@@ -356,7 +360,8 @@ async def attach_evidence(
     await _held(conn, case_id)
     if st is r.CaseState.AWAITING_SECOND_REVIEW:
         raise m.PartnerError(
-            "CASE_STATE_INVALID", "This case is waiting for its second review, so its evidence cannot change now."
+            "CASE_STATE_INVALID",
+            "This case is waiting for its second review, so its evidence cannot change now.",
         )
     content = r.content_hash(summary)
     await db.insert_evidence(
@@ -1137,7 +1142,7 @@ async def ask_adviser(
         model_version=ADVISER_MODEL,
         requested_by=reviewer,
         status=status,
-        body=body,
+        body=body,  # type: ignore[arg-type]
         flags=[],
     )
     await _event(conn, c, "advice_given", reviewer, now, data={"advice_id": aid, "status": status})
