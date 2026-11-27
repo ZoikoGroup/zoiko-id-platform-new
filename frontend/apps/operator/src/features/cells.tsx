@@ -9,8 +9,8 @@ import { ApiErrorView, QueryView, listInput, useCellMutation, useCellQuery } fro
 
 import { CapabilityHint } from "./recovery-shared";
 
-/** The cells of the reference catalogue (backend/config/cells) plus the local development cell. */
-const DEFAULT_CELLS = "local-1, uk-1, eu-1, eu-1-dr";
+/** The real regions of the reference catalogue (backend/config/cells). The development cell is never offered. */
+const DEFAULT_CELLS = "uk-1, eu-1, eu-1-dr";
 
 function num(v: number | null | undefined, unit: string): string {
   return v === null || v === undefined ? "—" : `${v}${unit}`;

@@ -22,6 +22,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from zid_platform.cell_identity import resolve_cell_id
 from zid_platform.roles import Role
 
 PORT = 8000  # the one port
@@ -55,7 +56,7 @@ def plan(environ: Mapping[str, str]) -> list[RoleProcess]:
     env = {k: v for k, v in environ.items() if k not in ROLE_SCOPED}
     env.update(
         ZID_ROLE=Role.CELL.value,
-        ZID_CELL_ID=environ.get("ZID_CELL_ID", "local-1"),
+        ZID_CELL_ID=resolve_cell_id(environ),
         ZID_SERVE_GLOBAL_PLANE="true",
     )
     db = environ.get("ZID_CELL_DATABASE_URL")

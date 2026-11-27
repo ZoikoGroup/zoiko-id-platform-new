@@ -95,7 +95,7 @@ def _signup_open(request: Request) -> tuple[str, str]:
     if not getattr(request.app.state, "tenant_signup", False):
         raise ZidError("SIGNUP_DISABLED", "Company sign-up is not enabled here.", http_status=403)
     return (
-        getattr(request.app.state, "home_cell", None) or "local-1",
+        request.app.state.home_cell,
         str(getattr(request.app.state, "tenant_signup_notice_version", "")),
     )
 

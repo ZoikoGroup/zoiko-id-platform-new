@@ -324,7 +324,7 @@ async def register_oauth_client(
                     name=body.name,
                     jwks=body.jwks,
                     audience=request.app.state.token_audience,
-                    home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+                    home_cell=str(request.app.state.home_cell),
                     actor=_me(caller),
                 )
             elif body.purpose == "DECISIONS":
@@ -340,7 +340,7 @@ async def register_oauth_client(
                     name=body.name,
                     jwks=body.jwks,
                     audience=request.app.state.token_audience,
-                    home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+                    home_cell=str(request.app.state.home_cell),
                     actor=_me(caller),
                 )
             else:
@@ -751,7 +751,7 @@ async def create_sandbox_identities(
                 count=body.count,
                 days=body.days,
                 actor=_me(caller),
-                home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+                home_cell=str(request.app.state.home_cell),
             )
         except IntegrationError as e:
             raise http(e) from e

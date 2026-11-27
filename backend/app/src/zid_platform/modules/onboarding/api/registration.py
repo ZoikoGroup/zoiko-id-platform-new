@@ -102,7 +102,7 @@ def _env(request: Request) -> svc.Env:
         raise ZidError("REGISTRATION_DISABLED", "Sign-up is not enabled here.", http_status=403)
     return svc.Env(
         registration_tenant=str(tenant),
-        here=str(getattr(request.app.state, "home_cell", None) or "local-1"),
+        here=str(request.app.state.home_cell),
         notice_version=str(getattr(request.app.state, "tenant_signup_notice_version", "")),
         environment=str(getattr(request.app.state, "environment", "production")),
         console=ConsoleClient(*console)
