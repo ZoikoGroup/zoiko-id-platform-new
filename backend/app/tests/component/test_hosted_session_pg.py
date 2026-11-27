@@ -63,9 +63,7 @@ def test_a_person_completes_a_hosted_session_and_sees_only_a_state_a_reference_a
             headers=me,
             json={"method": "WEB_AUTO"},
         )
-        assert (
-            early.status_code == 409 and early.json()["code"] == "notice_not_acknowledged"
-        )
+        assert early.status_code == 409 and early.json()["code"] == "notice_not_acknowledged"
         ack = api.post(
             f"/v2/verification-sessions/{ref}/notices",
             headers=me,
@@ -77,10 +75,7 @@ def test_a_person_completes_a_hosted_session_and_sees_only_a_state_a_reference_a
             headers=me,
             json={"method": "SOMETHING_ELSE"},
         )
-        assert (
-            tampered.status_code == 422
-            and tampered.json()["code"] == "unsupported_document"
-        )
+        assert tampered.status_code == 422 and tampered.json()["code"] == "unsupported_document"
         chosen = api.post(
             f"/v2/verification-sessions/{ref}/method-select",
             headers=me,
@@ -118,8 +113,14 @@ def test_a_person_completes_a_hosted_session_and_sees_only_a_state_a_reference_a
         assert (
             api.post(f"/v2/verification-sessions/{ref}/submit", headers=me).json() == done
         )  # Q33: a repeat changes nothing
-        billed = rows(owner_url, "SELECT meter_id, transaction_type FROM commercial.billable_event WHERE deduplication_key = :k", k=f"idvsub:{ref}")
-        assert [tuple(r) for r in billed] == [("IDV_SUBMISSION", "SUBMITTED")]  # recorded once as usage, however often the person submits
+        billed = rows(
+            owner_url,
+            "SELECT meter_id, transaction_type FROM commercial.billable_event WHERE deduplication_key = :k",
+            k=f"idvsub:{ref}",
+        )
+        assert [tuple(r) for r in billed] == [
+            ("IDV_SUBMISSION", "SUBMITTED")
+        ]  # recorded once as usage, however often the person submits
 
         decided = api.get(f"/v2/verification-sessions/{ref}/decision", headers=owner).json()
         assert decided["state"] == "FINAL_APPROVED" and decided["decision"]["outcome"] == "APPROVED"
@@ -168,8 +169,7 @@ def test_a_return_address_must_be_on_a_verified_domain_of_the_business(rt_url: s
         for url in ("https://evil.example/back", "javascript:alert(1)", "https://user@localhost/x"):
             refused = hosted(api, owner, notice, return_url=url)
             assert (
-                refused.status_code == 422
-                and refused.json()["code"] == "return_url_not_allowed"
+                refused.status_code == 422 and refused.json()["code"] == "return_url_not_allowed"
             ), (url, refused.text)
 
 

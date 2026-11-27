@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from zid_platform.modules.machine.application.agents import sponsor_is_active
 from zid_platform.modules.machine.application.idp import STALE_AFTER
 from zid_platform.modules.machine.domain import risk_signals as rs
-from zid_platform.modules.machine.infrastructure import action_store, agent_store, idp_store, revocation_store
+from zid_platform.modules.machine.infrastructure import (
+    action_store,
+    agent_store,
+    idp_store,
+    revocation_store,
+)
 
 LIMIT = 200
 
@@ -19,7 +24,9 @@ async def signals(conn: AsyncConnection, now: datetime | None = None) -> dict[st
     now = now or datetime.now(UTC)
     found: list[dict[str, Any]] = []
     found += rs.unresolved(await action_store.unresolved_actions(conn, limit=LIMIT), now)
-    found += rs.providers(await idp_store.active_bindings(conn, limit=LIMIT), now, timedelta(seconds=STALE_AFTER))
+    found += rs.providers(
+        await idp_store.active_bindings(conn, limit=LIMIT), now, timedelta(seconds=STALE_AFTER)
+    )
     found += rs.open_stops(await revocation_store.list_events(conn, open_only=True, limit=LIMIT))
     orphans: list[str] = []
     for a in await agent_store.list_agents(conn, status="ACTIVE", limit=LIMIT):

@@ -26,6 +26,7 @@ import hashlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.cmac import CMAC
@@ -233,7 +234,7 @@ def mul(c: Curve, k: int, point: Point) -> Point:
     while k:
         if k & 1:
             result = add(c, result, addend)
-        addend = add(c, addend, addend)
+        addend = add(c, addend, addend)  # type: ignore[assignment]
         k >>= 1
     return result
 
@@ -291,7 +292,7 @@ def password_key(
 ) -> bytes:
     """K = KDF(f(password), 3), section 9.7.3. For the MRZ f is SHA-1 of the MRZ information (document number, birth date, expiry date, each with its check digit);
     for the CAN f is the CAN itself as an ISO/IEC 8859-1 string."""
-    f = mrz_information if can else hashlib.sha1(mrz_information).digest()
+    f = mrz_information if can else hashlib.sha1(mrz_information).digest()  # nosec B324 - ICAO 9303 PACE password derivation is defined with SHA-1 over the MRZ information
     return kdf(f, 3, bits, tdes=tdes)
 
 
@@ -301,7 +302,9 @@ def _aes_cbc_zero(key: bytes, data: bytes, *, encrypt: bool) -> bytes:
     return op.update(data) + op.finalize()
 
 
-def _reader():  # the 3DES primitives live with the Basic Access Control code; imported when needed because that module imports this one
+def _reader() -> (
+    Any
+):  # the 3DES primitives live with the Basic Access Control code; imported when needed because that module imports this one
     from zid_platform.modules.evidence.application import chip_reader
 
     return chip_reader
@@ -768,7 +771,7 @@ def chip_authentication_data(ksenc: bytes, encrypted: bytes) -> bytes:
         raise PaceError(
             "PACE_CAM_DATA_INVALID", "the encrypted chip authentication data is malformed"
         )
-    ecb = Cipher(algorithms.AES(ksenc), modes.ECB()).encryptor()
+    ecb = Cipher(algorithms.AES(ksenc), modes.ECB()).encryptor()  # nosec B305 - ICAO 9303 PACE: AES-ECB of one block to derive the IV, as the standard specifies
     iv = ecb.update(b"\xff" * 16) + ecb.finalize()
     cbc = Cipher(algorithms.AES(ksenc), modes.CBC(iv)).decryptor()
     padded = cbc.update(encrypted) + cbc.finalize()

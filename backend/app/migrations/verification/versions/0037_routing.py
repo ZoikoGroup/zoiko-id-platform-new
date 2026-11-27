@@ -23,7 +23,13 @@ branch_labels = None
 depends_on = None
 
 RULE = "(tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid)"
-TABLES = ("route_capability", "route_decision", "route_attempt_event", "route_release", "route_release_approval")
+TABLES = (
+    "route_capability",
+    "route_decision",
+    "route_attempt_event",
+    "route_release",
+    "route_release_approval",
+)
 
 
 def upgrade() -> None:

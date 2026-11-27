@@ -46,7 +46,10 @@ _WORDS = {
     "RESTRICTED": RESTRICTED,  # a review suspended it
 }
 
-TRUST_CHECKS = ("company", "person_assurance")  # CR-134: the authority and the screening are no longer required for activation
+TRUST_CHECKS = (
+    "company",
+    "person_assurance",
+)  # CR-134: the authority and the screening are no longer required for activation
 TRUST_TITLES = {
     "company": "Legal entity",
     "person_assurance": "Your identity",

@@ -554,9 +554,12 @@ from zid_platform.modules.trust_center.domain import reports as rp
 @pytest.mark.parametrize(
     ("sample", "name"),
     [
-        ("key -----BEGIN PRIVATE KEY----- abc", "PRIVATE_KEY"),
+        (
+            "key -----BEGIN PRIVATE KEY----- abc",  # zid-secret-scan: allow: redaction test input
+            "PRIVATE_KEY",
+        ),
         ("token zvl_abcdefghijkl", "PLATFORM_TOKEN"),
-        ("AKIAABCDEFGHIJKLMNOP", "CLOUD_KEY"),
+        ("AKIAABCDEFGHIJKLMNOP", "CLOUD_KEY"),  # zid-secret-scan: allow: redaction test input
         ("host 10.0.3.17 is reachable", "IPV4"),
         ("subnet 10.0.0.0/16", "CIDR_OR_SUBNET"),
         ("db.prod.internal", "INTERNAL_HOST"),
@@ -566,14 +569,19 @@ from zid_platform.modules.trust_center.domain import reports as rp
         ("the exploit chain works", "EXPLOIT_DETAIL"),
     ],
 )
-def test_public_text_carrying_a_secret_an_address_or_attack_detail_is_found(sample: str, name: str) -> None:
+def test_public_text_carrying_a_secret_an_address_or_attack_detail_is_found(
+    sample: str, name: str
+) -> None:
     assert name in dz.findings(sample)
 
 
 def test_ordinary_trust_language_passes_and_an_allowed_contact_is_not_a_finding() -> None:
     assert dz.findings("Customer data is stored in the region the customer chooses.") == []
     assert dz.findings("Write to security@example.com", allow=("EMAIL_ADDRESS",)) == []
-    assert dz.vague_security_language("Our military-grade encryption is unbreakable") == ["military-grade", "unbreakable"]
+    assert dz.vague_security_language("Our military-grade encryption is unbreakable") == [
+        "military-grade",
+        "unbreakable",
+    ]
 
 
 def test_a_report_state_only_moves_forward_and_a_severity_sets_a_response_target() -> None:
@@ -588,31 +596,61 @@ def test_a_report_state_only_moves_forward_and_a_severity_sets_a_response_target
 def test_a_report_too_short_or_too_long_is_refused_and_a_real_one_is_taken_as_written() -> None:
     assert rp.intake_problems("short", "", contact=None)
     assert rp.intake_problems("x" * 9000, "", contact=None)
-    assert rp.intake_problems("I found that the sign-up page reveals whether an address is registered.", "", contact=None) == []
+    assert (
+        rp.intake_problems(
+            "I found that the sign-up page reveals whether an address is registered.",
+            "",
+            contact=None,
+        )
+        == []
+    )
 
 
 def _v(seq: int, kind: rp.AdvisoryKind, **kw: object) -> rp.AdvisoryVersion:
-    base: dict[str, object] = {"seq": seq, "kind": kind, "title": "Delayed sign-in", "body": "Some sign-ins were delayed.", "reason": "", "author": "alice", "approved_by": "bob"}
+    base: dict[str, object] = {
+        "seq": seq,
+        "kind": kind,
+        "title": "Delayed sign-in",
+        "body": "Some sign-ins were delayed.",
+        "reason": "",
+        "author": "alice",
+        "approved_by": "bob",
+    }
     base.update(kw)
     return rp.AdvisoryVersion(**base)  # type: ignore[arg-type]
 
 
-def test_an_advisory_needs_a_second_approver_a_reason_for_a_correction_and_no_attack_detail() -> None:
+def test_an_advisory_needs_a_second_approver_a_reason_for_a_correction_and_no_attack_detail() -> (
+    None
+):
     first = _v(1, rp.AdvisoryKind.PUBLISH)
     assert rp.advisory_problems(first, None) == []
     assert rp.advisory_problems(_v(1, rp.AdvisoryKind.PUBLISH, approved_by=None), None)
     assert rp.advisory_problems(_v(1, rp.AdvisoryKind.PUBLISH, approved_by="alice"), None)
     assert rp.advisory_problems(_v(2, rp.AdvisoryKind.CORRECTION), first)  # no reason
-    assert rp.advisory_problems(_v(2, rp.AdvisoryKind.CORRECTION, reason="Wrong start time"), first) == []
-    assert rp.advisory_problems(_v(2, rp.AdvisoryKind.UPDATE, body="The exploit chain used 10.1.2.3"), first)
+    assert (
+        rp.advisory_problems(_v(2, rp.AdvisoryKind.CORRECTION, reason="Wrong start time"), first)
+        == []
+    )
+    assert rp.advisory_problems(
+        _v(2, rp.AdvisoryKind.UPDATE, body="The exploit chain used 10.1.2.3"), first
+    )
     assert rp.advisory_problems(_v(1, rp.AdvisoryKind.PUBLISH), first)  # already public
     assert rp.advisory_problems(_v(2, rp.AdvisoryKind.UPDATE), None)  # nothing to update
 
 
 def test_the_public_history_keeps_every_approved_version_and_marks_a_correction() -> None:
-    vs = [_v(1, rp.AdvisoryKind.PUBLISH), _v(2, rp.AdvisoryKind.CORRECTION, reason="Wrong start time"), _v(3, rp.AdvisoryKind.UPDATE, approved_by=None)]
+    vs = [
+        _v(1, rp.AdvisoryKind.PUBLISH),
+        _v(2, rp.AdvisoryKind.CORRECTION, reason="Wrong start time"),
+        _v(3, rp.AdvisoryKind.UPDATE, approved_by=None),
+    ]
     h = rp.public_history(vs)
-    assert [x["seq"] for x in h] == [1, 2] and h[1]["correction_reason"] == "Wrong start time" and h[0]["correction_reason"] is None
+    assert (
+        [x["seq"] for x in h] == [1, 2]
+        and h[1]["correction_reason"] == "Wrong start time"
+        and h[0]["correction_reason"] is None
+    )
 
 
 # ---------------------------------------------------------------------------------------------------- 12.05 privacy and subprocessor disclosures
@@ -622,15 +660,57 @@ from zid_platform.modules.trust_center.domain import privacy as pv
 
 def test_each_disclosure_kind_names_what_it_must_carry() -> None:
     assert pv.problems("subprocessor", "CloudCo", {})
-    ok = {"purpose": "hosting", "country": "GB", "access_mode": "hosting", "data_categories": ["DC2"], "contract_ref": "DPA-7"}
+    ok = {
+        "purpose": "hosting",
+        "country": "GB",
+        "access_mode": "hosting",
+        "data_categories": ["DC2"],
+        "contract_ref": "DPA-7",
+    }
     assert pv.problems("subprocessor", "CloudCo", ok) == []
-    assert pv.problems("subprocessor", "CloudCo", ok | {"notice_days": 30})  # a notice period must name its source
-    assert pv.problems("subprocessor", "CloudCo", ok | {"notice_days": 30, "notice_source": "DPA-7 clause 9"}) == []
+    assert pv.problems(
+        "subprocessor", "CloudCo", ok | {"notice_days": 30}
+    )  # a notice period must name its source
+    assert (
+        pv.problems(
+            "subprocessor", "CloudCo", ok | {"notice_days": 30, "notice_source": "DPA-7 clause 9"}
+        )
+        == []
+    )
     assert pv.problems("subprocessor", "CloudCo", ok | {"country": "UK1"})
-    assert pv.problems("retention", "images", {"data_category": "DC3", "rule": "Deleted 30 days after the decision"})  # no basis, no instruction
-    assert pv.problems("biometric", "face", {"necessity": "x", "safeguards": "y", "alternative_route": "manual", "capability_ref": "DTV-12", "dpia_applicable": True})
-    assert pv.problems("transfer", "GB-US", {"from_country": "GB", "to_country": "US", "mechanism": "IDTA"})  # remote support and backups unsaid
-    assert pv.problems("transfer", "GB-US", {"from_country": "GB", "to_country": "US", "mechanism": "IDTA", "remote_support": False, "backups": False}) == []
+    assert pv.problems(
+        "retention",
+        "images",
+        {"data_category": "DC3", "rule": "Deleted 30 days after the decision"},
+    )  # no basis, no instruction
+    assert pv.problems(
+        "biometric",
+        "face",
+        {
+            "necessity": "x",
+            "safeguards": "y",
+            "alternative_route": "manual",
+            "capability_ref": "DTV-12",
+            "dpia_applicable": True,
+        },
+    )
+    assert pv.problems(
+        "transfer", "GB-US", {"from_country": "GB", "to_country": "US", "mechanism": "IDTA"}
+    )  # remote support and backups unsaid
+    assert (
+        pv.problems(
+            "transfer",
+            "GB-US",
+            {
+                "from_country": "GB",
+                "to_country": "US",
+                "mechanism": "IDTA",
+                "remote_support": False,
+                "backups": False,
+            },
+        )
+        == []
+    )
 
 
 def test_a_universal_thirty_day_notice_promise_is_refused_unless_it_cites_a_contract() -> None:
@@ -638,12 +718,48 @@ def test_a_universal_thirty_day_notice_promise_is_refused_unless_it_cites_a_cont
     assert pv.text_problems("Under the customer contract, notice is 30 days.") == []
 
 
-def test_a_regional_residency_claim_is_blocked_by_any_subprocessor_or_transfer_that_leaves_the_region() -> None:
-    subs = [{"name": "CloudCo", "country": "GB", "data_categories": ["DC2"], "access_mode": "hosting"}, {"name": "SupportCo", "country": "IN", "data_categories": ["DC3"], "access_mode": "support_remote"}]
+def test_a_regional_residency_claim_is_blocked_by_any_subprocessor_or_transfer_that_leaves_the_region() -> (
+    None
+):
+    subs = [
+        {"name": "CloudCo", "country": "GB", "data_categories": ["DC2"], "access_mode": "hosting"},
+        {
+            "name": "SupportCo",
+            "country": "IN",
+            "data_categories": ["DC3"],
+            "access_mode": "support_remote",
+        },
+    ]
     assert pv.region_claim_blockers("GB", subs, [])
     assert pv.region_claim_blockers("GB", subs[:1], []) == []
-    assert pv.region_claim_blockers("GB", subs[:1], [{"from_country": "GB", "to_country": "US", "mechanism": "IDTA", "remote_support": True, "backups": False}])
-    assert pv.region_claim_blockers("GB", [{"name": "Stats", "country": "US", "data_categories": ["DC1"], "access_mode": "analytics"}], []) == []
+    assert pv.region_claim_blockers(
+        "GB",
+        subs[:1],
+        [
+            {
+                "from_country": "GB",
+                "to_country": "US",
+                "mechanism": "IDTA",
+                "remote_support": True,
+                "backups": False,
+            }
+        ],
+    )
+    assert (
+        pv.region_claim_blockers(
+            "GB",
+            [
+                {
+                    "name": "Stats",
+                    "country": "US",
+                    "data_categories": ["DC1"],
+                    "access_mode": "analytics",
+                }
+            ],
+            [],
+        )
+        == []
+    )
 
 
 # ---------------------------------------------------------------------------------------------------- 12.12 drift scanning and the release gate
@@ -663,13 +779,20 @@ def test_the_scanner_finds_number_certification_superlative_and_structured_data_
     assert {"CERTIFICATION", "NUMBER", "SUPERLATIVE", "STRUCTURED_DATA"} <= kinds
 
 
-def test_only_a_sentence_that_matches_a_live_approved_one_passes_and_a_withdrawn_one_is_a_defect() -> None:
+def test_only_a_sentence_that_matches_a_live_approved_one_passes_and_a_withdrawn_one_is_a_defect() -> (
+    None
+):
     found = mon.observe("https://x.test/", PAGE)
     live = ["An independent SOC 2 report is available on request."]
     codes = [f.code for f in mon.reconcile(found, live, withdrawn=[])]
     assert "UNREGISTERED_CLAIM" in codes and "VAGUE_SECURITY_LANGUAGE" in codes
-    assert not any("independent soc 2 report" in f.sentence.lower() for f in mon.reconcile(found, live, withdrawn=[]))  # the approved sentence is not reported
-    withdrawn = mon.reconcile(found, [], withdrawn=["An independent SOC 2 report is available on request."])
+    assert not any(
+        "independent soc 2 report" in f.sentence.lower()
+        for f in mon.reconcile(found, live, withdrawn=[])
+    )  # the approved sentence is not reported
+    withdrawn = mon.reconcile(
+        found, [], withdrawn=["An independent SOC 2 report is available on request."]
+    )
     assert "WITHDRAWN_CLAIM_STILL_LIVE" in [f.code for f in withdrawn]
     clean = mon.observe("https://x.test/about", "<p>We build identity verification.</p>")
     assert mon.reconcile(clean, [], []) == []
@@ -684,6 +807,10 @@ def test_the_expiry_watch_lists_soonest_first_and_a_lapsed_date_is_zero_days() -
 
 
 def test_the_release_gate_needs_zero_unsupported_claims_and_no_overdue_obligations() -> None:
-    assert mon.release_gate(unsupported_live=0, overdue_withdrawal_reviews=0, unacknowledged_reports=0) == (True, [])
-    ok, why = mon.release_gate(unsupported_live=2, overdue_withdrawal_reviews=1, unacknowledged_reports=1)
+    assert mon.release_gate(
+        unsupported_live=0, overdue_withdrawal_reviews=0, unacknowledged_reports=0
+    ) == (True, [])
+    ok, why = mon.release_gate(
+        unsupported_live=2, overdue_withdrawal_reviews=1, unacknowledged_reports=1
+    )
     assert not ok and len(why) == 3

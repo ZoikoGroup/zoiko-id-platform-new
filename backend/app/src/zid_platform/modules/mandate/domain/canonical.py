@@ -25,7 +25,9 @@ MODES = ("off", "enforce")
 
 
 class Role(StrEnum):
-    GRANTOR = "GRANTOR"  # the person whose authority is handed on, confirming exactly what they hand on
+    GRANTOR = (
+        "GRANTOR"  # the person whose authority is handed on, confirming exactly what they hand on
+    )
     APPROVER = "APPROVER"  # an independent second person, for a mandate that can spend
 
 
@@ -77,30 +79,62 @@ def canonical_hash(terms: Mapping[str, Any]) -> str:
 
 def can_spend(terms: Mapping[str, Any]) -> bool:
     """A mandate that can move value or count is high-risk enough to need a second person."""
-    return any(terms.get(k) is not None for k in ("value_limit", "per_transaction_value_limit", "count_limit"))
+    return any(
+        terms.get(k) is not None
+        for k in ("value_limit", "per_transaction_value_limit", "count_limit")
+    )
 
 
 def required_roles(terms: Mapping[str, Any]) -> tuple[Role, ...]:
     return (Role.GRANTOR, Role.APPROVER) if can_spend(terms) else (Role.GRANTOR,)
 
 
-def check_signer(role: Role, *, signer: str, creator: str, executor: str, represented: str, prior: Sequence[Mapping[str, Any]]) -> None:
+def check_signer(
+    role: Role,
+    *,
+    signer: str,
+    creator: str,
+    executor: str,
+    represented: str,
+    prior: Sequence[Mapping[str, Any]],
+) -> None:
     """Who may confirm. The grantor is the person who handed their authority on; the approver is someone else entirely, never the agent, never the person it acts for and never someone who already signed."""
     if role is Role.GRANTOR:
         if signer != creator:
-            raise LedgerError("MANDATE_SIGNER_NOT_GRANTOR", "only the person who created this mandate from their own authority can confirm it as its grantor")
+            raise LedgerError(
+                "MANDATE_SIGNER_NOT_GRANTOR",
+                "only the person who created this mandate from their own authority can confirm it as its grantor",
+            )
         return
-    if signer in (creator, executor, represented) or any(str(p["signer_principal_id"]) == signer for p in prior):
-        raise LedgerError("MANDATE_SIGNER_NOT_INDEPENDENT", "the second confirmation must come from someone who is not the grantor, the agent or the person it acts for, and has not signed")
+    if signer in (creator, executor, represented) or any(
+        str(p["signer_principal_id"]) == signer for p in prior
+    ):
+        raise LedgerError(
+            "MANDATE_SIGNER_NOT_INDEPENDENT",
+            "the second confirmation must come from someone who is not the grantor, the agent or the person it acts for, and has not signed",
+        )
 
 
 def check_hash(presented: str | None, actual: str) -> None:
     if presented != actual:
-        raise LedgerError("MANDATE_HASH_MISMATCH", "the terms you looked at are not the terms this mandate has now; read them again")
+        raise LedgerError(
+            "MANDATE_HASH_MISMATCH",
+            "the terms you looked at are not the terms this mandate has now; read them again",
+        )
 
 
-def signed_state(required: Sequence[Role], signatures: Sequence[Mapping[str, Any]], current_hash: str) -> dict[str, Any]:
+def signed_state(
+    required: Sequence[Role], signatures: Sequence[Mapping[str, Any]], current_hash: str
+) -> dict[str, Any]:
     """Which required confirmations exist for THESE exact terms. A confirmation of any other hash counts for nothing."""
     have = {Role(str(s["role"])) for s in signatures if s["canonical_hash"] == current_hash}
     missing = [r.value for r in required if r not in have]
-    return {"required": [r.value for r in required], "have": sorted(r.value for r in have), "missing": missing, "complete": not missing, "stale": sorted({str(s["canonical_hash"]) for s in signatures if s["canonical_hash"] != current_hash})}
+    return {
+        "required": [r.value for r in required],
+        "have": sorted(r.value for r in have),
+        "missing": missing,
+        "complete": not missing,
+        "stale": sorted(
+            {str(s["canonical_hash"]) for s in signatures if s["canonical_hash"] != current_hash}
+        ),
+    }

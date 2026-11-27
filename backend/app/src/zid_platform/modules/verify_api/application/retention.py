@@ -17,4 +17,8 @@ async def purge_request_log(conn: AsyncConnection, days: int = DEFAULT_DAYS) -> 
     """How many rows were removed. Raises when the period is under the minimum."""
     if days < MIN_DAYS:
         raise ValueError(f"the request log is kept for at least {MIN_DAYS} days")
-    return int((await conn.execute(text("SELECT verify.api_purge_request_log(:d)"), {"d": days})).scalar_one())
+    return int(
+        (
+            await conn.execute(text("SELECT verify.api_purge_request_log(:d)"), {"d": days})
+        ).scalar_one()
+    )

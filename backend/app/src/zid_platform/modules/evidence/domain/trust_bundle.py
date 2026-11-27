@@ -17,23 +17,39 @@ SCHEMA = "zoiko.trust-bundle.v1"
 TTL = timedelta(hours=24)  # a verifier that cannot refresh within a day is told its trust is stale
 MAX_TTL = timedelta(days=7)
 RECEIPT_SCHEMAS = ("zoiko.receipt.v1",)
-LIMITS = (
-    "This bundle lists signing keys and what is known about them. It says nothing about whether any decision was correct, and it is not a qualified or notarized statement. Post-quantum or hybrid suites are not offered."
-)
+LIMITS = "This bundle lists signing keys and what is known about them. It says nothing about whether any decision was correct, and it is not a qualified or notarized statement. Post-quantum or hybrid suites are not offered."
 
 
-def key_entry(jwk: Mapping[str, Any], *, active_kid: str, compromised: Mapping[str, datetime]) -> dict[str, Any]:
+def key_entry(
+    jwk: Mapping[str, Any], *, active_kid: str, compromised: Mapping[str, datetime]
+) -> dict[str, Any]:
     """One key as a verifier needs it. A compromised key stays listed, with the moment from which its signatures prove nothing, so history before that moment still verifies."""
     kid = str(jwk["kid"])
     since = compromised.get(kid)
     state = "COMPROMISED" if since else "ACTIVE" if kid == active_kid else "RETIRED"
-    out: dict[str, Any] = {"kid": kid, "state": state, "use": "evidence-signing", "alg": jwk.get("alg"), "jwk": dict(jwk)}
+    out: dict[str, Any] = {
+        "kid": kid,
+        "state": state,
+        "use": "evidence-signing",
+        "alg": jwk.get("alg"),
+        "jwk": dict(jwk),
+    }
     if since:
         out["compromised_from"] = since.astimezone(UTC).isoformat()
     return out
 
 
-def bundle_claims(*, issuer: str, environment: str, keys: Sequence[Mapping[str, Any]], active_kid: str, compromised: Mapping[str, datetime], version: int, now: datetime, ttl: timedelta = TTL) -> dict[str, Any]:
+def bundle_claims(
+    *,
+    issuer: str,
+    environment: str,
+    keys: Sequence[Mapping[str, Any]],
+    active_kid: str,
+    compromised: Mapping[str, datetime],
+    version: int,
+    now: datetime,
+    ttl: timedelta = TTL,
+) -> dict[str, Any]:
     ttl = min(ttl, MAX_TTL)
     entries = [key_entry(k, active_kid=active_kid, compromised=compromised) for k in keys]
     return {
@@ -53,7 +69,9 @@ def bundle_problems(
     """Why a verifier must not use this bundle. Every reason is named."""
     out: list[str] = []
     if claims.get("schema") != SCHEMA:
-        out.append("TRUST_BUNDLE_SCHEMA_UNSUPPORTED")  # an old verifier meeting a mandatory change refuses rather than guesses
+        out.append(
+            "TRUST_BUNDLE_SCHEMA_UNSUPPORTED"
+        )  # an old verifier meeting a mandatory change refuses rather than guesses
         return out
     if claims.get("issuer") != expected_issuer:
         out.append("TRUST_BUNDLE_WRONG_ISSUER")  # substituted
@@ -74,8 +92,12 @@ def bundle_problems(
     if not isinstance(version, int) or isinstance(version, bool):
         out.append("TRUST_BUNDLE_VERSION_INVALID")
     elif last_seen_version is not None and version < last_seen_version:
-        out.append("TRUST_BUNDLE_ROLLED_BACK")  # an older bundle than one already seen could resurrect a compromised key
-    if required_kid is not None and required_kid not in {k.get("kid") for k in claims.get("keys", [])}:
+        out.append(
+            "TRUST_BUNDLE_ROLLED_BACK"
+        )  # an older bundle than one already seen could resurrect a compromised key
+    if required_kid is not None and required_kid not in {
+        k.get("kid") for k in claims.get("keys", [])
+    }:
         out.append("TRUST_BUNDLE_LACKS_REQUIRED_KEY")
     return sorted(set(out))
 

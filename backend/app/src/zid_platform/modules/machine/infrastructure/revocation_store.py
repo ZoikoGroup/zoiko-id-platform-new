@@ -19,12 +19,17 @@ def _row(x: Any) -> dict[str, Any]:
 
 async def active_agents_of_sponsor(conn: AsyncConnection, sponsor_id: str) -> list[str]:
     rows = await conn.execute(
-        text("SELECT agent_principal_id::text AS a FROM agent.agent_profile WHERE sponsor_principal_id = :s AND status = 'ACTIVE' ORDER BY created_at, agent_principal_id"), {"s": uuid.UUID(sponsor_id)}
+        text(
+            "SELECT agent_principal_id::text AS a FROM agent.agent_profile WHERE sponsor_principal_id = :s AND status = 'ACTIVE' ORDER BY created_at, agent_principal_id"
+        ),
+        {"s": uuid.UUID(sponsor_id)},
     )
     return [x.a for x in rows]
 
 
-async def active_agents_of_blueprint(conn: AsyncConnection, blueprint_id: str, version: str | None) -> list[str]:
+async def active_agents_of_blueprint(
+    conn: AsyncConnection, blueprint_id: str, version: str | None
+) -> list[str]:
     rows = await conn.execute(
         text(
             "SELECT agent_principal_id::text AS a FROM agent.agent_profile WHERE blueprint_id = :b AND (CAST(:v AS text) IS NULL OR blueprint_version = :v) AND status = 'ACTIVE' ORDER BY created_at, agent_principal_id"
@@ -34,7 +39,9 @@ async def active_agents_of_blueprint(conn: AsyncConnection, blueprint_id: str, v
     return [x.a for x in rows]
 
 
-async def active_agents_of_issuer(conn: AsyncConnection, issuer: str, key_id: str | None) -> list[str]:
+async def active_agents_of_issuer(
+    conn: AsyncConnection, issuer: str, key_id: str | None
+) -> list[str]:
     """ACTIVE agents with a live binding to this outside issuer (and, when a key is named, whose binding pins that key)."""
     rows = await conn.execute(
         text(
@@ -48,21 +55,35 @@ async def active_agents_of_issuer(conn: AsyncConnection, issuer: str, key_id: st
 
 async def bindings_of_issuer(conn: AsyncConnection, issuer: str, key_id: str | None) -> list[str]:
     rows = await conn.execute(
-        text("SELECT binding_id::text AS b FROM agent.idp_binding WHERE issuer = :i AND status = 'ACTIVE' AND (CAST(:k AS text) IS NULL OR keys @> CAST(:kj AS jsonb))"),
+        text(
+            "SELECT binding_id::text AS b FROM agent.idp_binding WHERE issuer = :i AND status = 'ACTIVE' AND (CAST(:k AS text) IS NULL OR keys @> CAST(:kj AS jsonb))"
+        ),
         {"i": issuer, "k": key_id, "kj": json.dumps([{"kid": key_id}]) if key_id else None},
     )
     return [x.b for x in rows]
 
 
 async def active_agents(conn: AsyncConnection) -> list[str]:
-    rows = await conn.execute(text("SELECT agent_principal_id::text AS a FROM agent.agent_profile WHERE status = 'ACTIVE' ORDER BY created_at, agent_principal_id"))
+    rows = await conn.execute(
+        text(
+            "SELECT agent_principal_id::text AS a FROM agent.agent_profile WHERE status = 'ACTIVE' ORDER BY created_at, agent_principal_id"
+        )
+    )
     return [x.a for x in rows]
 
 
 async def next_epoch(conn: AsyncConnection, tenant_id: str) -> int:
     """The company's next stop number. The lock makes two stops at once take two numbers."""
-    await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"revocation:{tenant_id}"})
-    return int((await conn.execute(text("SELECT COALESCE(max(epoch), 0) + 1 FROM agent.revocation_event"))).scalar_one())
+    await conn.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"revocation:{tenant_id}"}
+    )
+    return int(
+        (
+            await conn.execute(
+                text("SELECT COALESCE(max(epoch), 0) + 1 FROM agent.revocation_event")
+            )
+        ).scalar_one()
+    )
 
 
 async def insert_event(
@@ -81,25 +102,43 @@ async def insert_event(
     )  # fmt: skip
 
 
-async def get_event(conn: AsyncConnection, event_id: str, *, lock: bool = False) -> dict[str, Any] | None:
+async def get_event(
+    conn: AsyncConnection, event_id: str, *, lock: bool = False
+) -> dict[str, Any] | None:
     try:
         key = uuid.UUID(event_id)
     except ValueError:
         return None
-    row = (await conn.execute(text(f"SELECT {_EVENT} FROM agent.revocation_event WHERE event_id = :e{' FOR UPDATE' if lock else ''}"), {"e": key})).first()
+    row = (
+        await conn.execute(
+            text(
+                f"SELECT {_EVENT} FROM agent.revocation_event WHERE event_id = :e{' FOR UPDATE' if lock else ''}"
+            ),
+            {"e": key},
+        )
+    ).first()
     return _row(row) if row else None
 
 
-async def list_events(conn: AsyncConnection, *, open_only: bool, limit: int) -> list[dict[str, Any]]:
+async def list_events(
+    conn: AsyncConnection, *, open_only: bool, limit: int
+) -> list[dict[str, Any]]:
     rows = await conn.execute(
-        text(f"SELECT {_EVENT} FROM agent.revocation_event WHERE (NOT :o OR closed_at IS NULL) ORDER BY epoch DESC LIMIT :n"), {"o": open_only, "n": limit}
+        text(
+            f"SELECT {_EVENT} FROM agent.revocation_event WHERE (NOT :o OR closed_at IS NULL) ORDER BY epoch DESC LIMIT :n"
+        ),
+        {"o": open_only, "n": limit},
     )
     return [_row(x) for x in rows]
 
 
-async def close_event(conn: AsyncConnection, event_id: str, *, by: str, note: str, now: datetime) -> bool:
+async def close_event(
+    conn: AsyncConnection, event_id: str, *, by: str, note: str, now: datetime
+) -> bool:
     res = await conn.execute(
-        text("UPDATE agent.revocation_event SET closed_by = :b, closed_at = :n, close_note = :note WHERE event_id = :e AND closed_at IS NULL"),
+        text(
+            "UPDATE agent.revocation_event SET closed_by = :b, closed_at = :n, close_note = :note WHERE event_id = :e AND closed_at IS NULL"
+        ),
         {"b": uuid.UUID(by), "n": now, "note": note, "e": uuid.UUID(event_id)},
     )
     return bool(res.rowcount)
@@ -108,6 +147,9 @@ async def close_event(conn: AsyncConnection, event_id: str, *, by: str, note: st
 async def events_covering(conn: AsyncConnection, agent_id: str) -> list[dict[str, Any]]:
     """Every stop that reached this agent, newest first, open or closed."""
     rows = await conn.execute(
-        text(f"SELECT {_EVENT} FROM agent.revocation_event WHERE targets->'agent_ids' @> CAST(:j AS jsonb) ORDER BY epoch DESC"), {"j": json.dumps([agent_id])}
+        text(
+            f"SELECT {_EVENT} FROM agent.revocation_event WHERE targets->'agent_ids' @> CAST(:j AS jsonb) ORDER BY epoch DESC"
+        ),
+        {"j": json.dumps([agent_id])},
     )
     return [_row(x) for x in rows]

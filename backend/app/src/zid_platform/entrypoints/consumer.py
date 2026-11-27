@@ -115,7 +115,9 @@ def analytics_ingest_handler(engine: AsyncEngine, cell_id: str):  # type: ignore
     async def handle(event: CloudEvent) -> None:
         if not wanted(event.type) or not event.tenantid:
             return
-        ctx = RequestContext(new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid)
+        ctx = RequestContext(
+            new_id("req"), event.correlationid, "consumer", cell_id, tenant_id=event.tenantid
+        )
         async with tenant_transaction(engine, ctx) as conn:
             await consume(conn, ANALYTICS_INGEST, event, apply)
 
@@ -257,7 +259,11 @@ async def run(
         consumers.append(
             run_consumer(
                 bootstrap,
-                [f"zid.{env}.{region}.{d}.{lane}" for d in ANALYTICS_DOMAINS for lane in ("priority", "domain", "integration")],
+                [
+                    f"zid.{env}.{region}.{d}.{lane}"
+                    for d in ANALYTICS_DOMAINS
+                    for lane in ("priority", "domain", "integration")
+                ],
                 ANALYTICS_INGEST,
                 analytics_ingest_handler(engine, cell_id),
                 stop_after=stop_after,

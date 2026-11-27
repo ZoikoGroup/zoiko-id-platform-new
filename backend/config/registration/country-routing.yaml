@@ -14,8 +14,7 @@ routes:
   IE: [eu-1, local-1]
   DE: [eu-1, local-1]
   FR: [eu-1, local-1]
-  # LOCAL DEVELOPMENT ONLY (India): local-1 is the only home cell. Do not commit or deploy.
-  IN: [local-1]
+  # India is not listed: it is opened per environment from the operator Country openings screen (CR-127), which names the home cell and replaces this table's row, so a development opening never ships in this file.
   # Switched off until the eu-1 and us-1 cells are ready; uncomment a row to offer that country (and say so in the owner pack):
   # NL: [eu-1]
   # ES: [eu-1]

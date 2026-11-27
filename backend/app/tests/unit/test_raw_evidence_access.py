@@ -75,6 +75,15 @@ def test_the_review_photo_port_is_reached_by_one_module_and_opened_only_under_th
         and "evidence/application/review_photo.py" not in p.as_posix()
         and "evidence/ports.py" not in p.as_posix()
     ]
-    assert users == ["modules/verification/application/idv_media.py"], users
+    assert sorted(users) == [
+        "modules/verification/application/idv_media.py",
+        "modules/verify_api/application/media_service.py",
+    ], users
     api = (SRC / "modules/verification/api/idv_cases.py").read_text(encoding="utf-8")
     assert 'action="evidence.object.read"' in api and "verification.idv.view_document" not in api
+    # The Verify API keeps a partner's customer photographs only when the deployment chose to (migration verify_api_0020) and is the second pinned reader:
+    # it opens one only on the route below, after the same protected act, and never lists or returns an image from anything else.
+    results = (SRC / "modules/verify_api/api/results.py").read_text(encoding="utf-8")
+    opener = results.split(":open", 1)[1].split("return _no_store", 1)[0]
+    assert "evidence.object.read" in opener and "protected_action" in opener
+    assert results.count("media.open_one(") == 1

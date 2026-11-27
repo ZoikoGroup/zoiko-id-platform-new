@@ -90,7 +90,9 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
                     c, Principal(p, tenant, kind, PrincipalStatus.ACTIVE, "uk-1")
                 )
             await make_admin(c, tenant, [admin, reviewer, sponsor, publisher], ACTIONS, RESOURCES)
-            await give_tenant_role(c, tenant, reviewer, home_cell=HOME_CELL)  # only an Admin or an Owner records the security review
+            await give_tenant_role(
+                c, tenant, reviewer, home_cell=HOME_CELL
+            )  # only an Admin or an Owner records the security review
             await create_organization(
                 c,
                 organization_id=org,
@@ -316,7 +318,9 @@ def test_agent_registry_lifecycle(rt_url: str, owner_url: str) -> None:
         indep = http.post(
             f"{BASE}/agents/{aid}:attest", headers=rev, json={"gate": "SECURITY_REVIEW"}
         )
-        assert indep.status_code == 200  # the reviewer is not sponsor, operator, publisher or registrant
+        assert (
+            indep.status_code == 200
+        )  # the reviewer is not sponsor, operator, publisher or registrant
         for gate in ("KILL_PATH_TESTED", "SHORT_LIVED_CREDENTIALS", "OBSERVABILITY"):
             assert (
                 http.post(

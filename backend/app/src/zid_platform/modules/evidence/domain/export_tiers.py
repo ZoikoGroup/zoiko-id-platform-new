@@ -18,15 +18,38 @@ from typing import Any
 
 TIERS = ("PUBLIC_MINIMAL", "CUSTOMER_EVIDENCE", "AUDITOR_DOSSIER")
 RECIPIENT_KINDS = ("CUSTOMER", "DATA_SUBJECT", "AUDITOR", "REGULATOR", "COUNSEL")
-LEGAL_BASES = ("CONSENT", "CONTRACT", "LEGAL_OBLIGATION", "LEGITIMATE_INTEREST", "AUDIT_ENGAGEMENT", "COURT_OR_REGULATOR_ORDER")
+LEGAL_BASES = (
+    "CONSENT",
+    "CONTRACT",
+    "LEGAL_OBLIGATION",
+    "LEGITIMATE_INTEREST",
+    "AUDIT_ENGAGEMENT",
+    "COURT_OR_REGULATOR_ORDER",
+)
 MAX_RETENTION_DAYS = {"PUBLIC_MINIMAL": 30, "CUSTOMER_EVIDENCE": 90, "AUDITOR_DOSSIER": 365}
-RECIPIENT_KINDS_FOR = {"CUSTOMER_EVIDENCE": ("CUSTOMER", "DATA_SUBJECT"), "AUDITOR_DOSSIER": ("AUDITOR", "REGULATOR", "COUNSEL")}
+RECIPIENT_KINDS_FOR = {
+    "CUSTOMER_EVIDENCE": ("CUSTOMER", "DATA_SUBJECT"),
+    "AUDITOR_DOSSIER": ("AUDITOR", "REGULATOR", "COUNSEL"),
+}
 _COUNTRY = re.compile(r"^[A-Z]{2}$")
 
 # What the tier hands over. The existing export package builder takes a mode and a list of fields to withhold.
-EXPORT_MODE = {"PUBLIC_MINIMAL": "CUSTOMER_VERIFY", "CUSTOMER_EVIDENCE": "CUSTOMER_VERIFY", "AUDITOR_DOSSIER": "AUDITOR"}
-PUBLIC_VISIBLE = ("receipt_id", "schema_version", "evidence_class", "decision_type")  # all the public tier shows of the receipt body
-CUSTOMER_WITHHELD = ("actor_handle", "input_commitment", "material_object_id")  # the customer sees the decision, not the internal handles behind it
+EXPORT_MODE = {
+    "PUBLIC_MINIMAL": "CUSTOMER_VERIFY",
+    "CUSTOMER_EVIDENCE": "CUSTOMER_VERIFY",
+    "AUDITOR_DOSSIER": "AUDITOR",
+}
+PUBLIC_VISIBLE = (
+    "receipt_id",
+    "schema_version",
+    "evidence_class",
+    "decision_type",
+)  # all the public tier shows of the receipt body
+CUSTOMER_WITHHELD = (
+    "actor_handle",
+    "input_commitment",
+    "material_object_id",
+)  # the customer sees the decision, not the internal handles behind it
 
 
 def withheld_for(tier: str, body_keys: Iterable[str]) -> list[str]:
@@ -61,15 +84,25 @@ def request_problems(
         problems.append("PURPOSE_REQUIRED")
     if legal_basis not in LEGAL_BASES:
         problems.append("LEGAL_BASIS_REQUIRED")
-    if not recipient or not str(recipient.get("name", "")).strip() or len(str(recipient.get("name", ""))) > 200:
+    if (
+        not recipient
+        or not str(recipient.get("name", "")).strip()
+        or len(str(recipient.get("name", ""))) > 200
+    ):
         problems.append("RECIPIENT_NAME_REQUIRED")
     elif recipient.get("kind") not in RECIPIENT_KINDS_FOR[tier]:
         problems.append("RECIPIENT_KIND_NOT_ALLOWED_FOR_TIER")
     if recipient and not str(recipient.get("contact", "")).strip():
         problems.append("RECIPIENT_CONTACT_REQUIRED")
     if recipient_country is None or not _COUNTRY.match(recipient_country):
-        problems.append("RECIPIENT_COUNTRY_REQUIRED")  # the cross-border question cannot be skipped by leaving it out
-    if tier == "AUDITOR_DOSSIER" and legal_basis in LEGAL_BASES and legal_basis in ("CONSENT", "LEGITIMATE_INTEREST"):  # a full dossier needs more than a preference
+        problems.append(
+            "RECIPIENT_COUNTRY_REQUIRED"
+        )  # the cross-border question cannot be skipped by leaving it out
+    if (
+        tier == "AUDITOR_DOSSIER"
+        and legal_basis in LEGAL_BASES
+        and legal_basis in ("CONSENT", "LEGITIMATE_INTEREST")
+    ):  # a full dossier needs more than a preference
         problems.append("LEGAL_BASIS_NOT_ALLOWED_FOR_TIER")
     return problems
 

@@ -343,9 +343,7 @@ def test_a_request_for_a_price_must_be_a_real_amount(rt_url: str, owner_url: str
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(tenant)) as t:
             for bad in (D(0), D(-1), D(2_000_000)):
                 with pytest.raises(PlanRequestError):
-                    await requests.request_plan(
-                        t, tenant, str(uuid.uuid4()), "BUSINESS", None, bad
-                    )
+                    await requests.request_plan(t, tenant, str(uuid.uuid4()), "BUSINESS", None, bad)
             # no amount is fine: a company may simply ask
             made = await requests.request_plan(
                 t, tenant, str(uuid.uuid4()), "BUSINESS", "Please call me", None

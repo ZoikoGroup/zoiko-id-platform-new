@@ -922,6 +922,22 @@
         "title": "LogoUploadBody",
         "type": "object"
       },
+      "MediaOpenBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "MediaOpenBody",
+        "type": "object"
+      },
       "ReviewFeedbackBody": {
         "additionalProperties": false,
         "properties": {
@@ -7445,6 +7461,111 @@
           }
         },
         "summary": "Session Detail",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sessions/{session_id}/media": {
+      "get": {
+        "description": "What was kept for this verification (never an image), and every time someone opened one: who, which, why and when.",
+        "operationId": "session_media_v1_verify_api_sessions__session_id__media_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Session Media V1 Verify Api Sessions  Session Id  Media Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Session Media",
+        "tags": [
+          "verify-api"
+        ]
+      }
+    },
+    "/v1/verify-api/sessions/{session_id}/media/{media_id}:open": {
+      "post": {
+        "description": "One photograph, after the person says why. A customer's photograph is raw evidence, so this is the protected `evidence.object.read` act (R3, E3), not an ordinary read. The reason, who and when are recorded before the image is returned, and the answer is never cached.",
+        "operationId": "open_session_media_v1_verify_api_sessions__session_id__media__media_id__open_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "media_id",
+            "required": true,
+            "schema": {
+              "title": "Media Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaOpenBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Session Media",
         "tags": [
           "verify-api"
         ]

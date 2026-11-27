@@ -15,7 +15,7 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -91,6 +91,45 @@ async def _ask(adapter: KybAdapter, number: str, country: str, now: datetime) ->
     return SourceOutcome(adapter.adapter_id, adapter.kind, SourceState.FOUND, facts)
 
 
+async def _resolve_lei(
+    applicant: Applicant,
+    route: Any,
+    *,
+    adapters: Mapping[str, KybAdapter],
+    routing: Routing,
+    now: datetime,
+) -> Applicant:
+    """Where GLEIF is the country's only source (`lei_as_primary`), a company is checked through its LEI, but nobody should have to know theirs. When the claim carries none, GLEIF is asked for the
+    record that holds exactly the claimed national registration number in exactly the claimed country, and its LEI is used only if there is ONE such record. A name is never matched, a near
+    number is never accepted and nothing is chosen between several: any doubt leaves the claim as it was, and it is then decided as before (no LEI, no coverage)."""
+    if (
+        applicant.lei
+        or not getattr(route, "lei_primary", False)
+        or not getattr(route, "lei", None)
+        or not routing.enabled(route.lei)
+    ):
+        return applicant
+    adapter = adapters.get(route.lei)
+    if adapter is None or not _covers(adapter, applicant.jurisdiction):
+        return applicant
+    try:
+        found = await asyncio.wait_for(
+            adapter.search(applicant.registration_number, applicant.jurisdiction, now),
+            SOURCE_TIMEOUT_S,
+        )
+    except Exception:  # noqa: BLE001 - an outage finds nothing: the claim stays as it was, never guessed
+        return applicant
+    wanted = applicant.registration_number.strip().upper()
+    exact = [
+        c
+        for c in found
+        if c.lei
+        and c.jurisdiction == applicant.jurisdiction
+        and c.registration_number.strip().upper() == wanted
+    ]
+    return replace(applicant, lei=exact[0].lei) if len(exact) == 1 else applicant
+
+
 async def decide(
     applicant: Applicant,
     *,
@@ -104,6 +143,7 @@ async def decide(
         return reconcile(
             applicant, [], accepted_suppliers=frozenset(), policy=routing.policy, now=now
         )
+    applicant = await _resolve_lei(applicant, route, adapters=adapters, routing=routing, now=now)
     accepted = routing.accepted_suppliers(applicant.jurisdiction)
     outcomes: list[SourceOutcome] = []
 
@@ -120,13 +160,21 @@ async def decide(
 
     await run(route.first_pass)
     decision = reconcile(
-        applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
-            lei_primary=route.lei_primary,
+        applicant,
+        outcomes,
+        accepted_suppliers=accepted,
+        policy=routing.policy,
+        now=now,
+        lei_primary=route.lei_primary,
     )
     if route.exception and decision.review_reason in EXCEPTION_TRIGGERS:
         await run(route.exception)
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            applicant,
+            outcomes,
+            accepted_suppliers=accepted,
+            policy=routing.policy,
+            now=now,
             lei_primary=route.lei_primary,
         )
     if (
@@ -137,7 +185,11 @@ async def decide(
     ):
         outcomes.append(await _ask(adapter, applicant.lei, applicant.jurisdiction, now))
         decision = reconcile(
-            applicant, outcomes, accepted_suppliers=accepted, policy=routing.policy, now=now,
+            applicant,
+            outcomes,
+            accepted_suppliers=accepted,
+            policy=routing.policy,
+            now=now,
             lei_primary=route.lei_primary,
         )
     return decision
@@ -159,7 +211,10 @@ async def search(
     out: list[Candidate] = []
     # The country's registers first, then its LEI reference (GLEIF): it lets an applicant find a company in a country whose register is not connected
     # yet. It is reference data, so a company found only there is still decided by `decide` (no registry source: a reviewer, never "verified").
-    asked = [*route.first_pass, *([route.lei] if route.lei and route.lei not in route.first_pass else [])]
+    asked = [
+        *route.first_pass,
+        *([route.lei] if route.lei and route.lei not in route.first_pass else []),
+    ]
     for adapter_id in asked:
         adapter = adapters.get(adapter_id)
         if adapter is None or not routing.enabled(adapter_id) or not _covers(adapter, jurisdiction):

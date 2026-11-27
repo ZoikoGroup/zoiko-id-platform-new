@@ -554,7 +554,16 @@ async def establish_document_root(
             "fresh_until": fresh_until.isoformat(),
         },
     )
-    return EstablishedRoot(org, root_id, "certificate-ocr", "CERTIFICATE_OCR", identifier, legal_name, jurisdiction, fresh_until)
+    return EstablishedRoot(
+        org,
+        root_id,
+        "certificate-ocr",
+        "CERTIFICATE_OCR",
+        identifier,
+        legal_name,
+        jurisdiction,
+        fresh_until,
+    )
 
 
 async def establish_development_root(

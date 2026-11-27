@@ -33,33 +33,57 @@ class Change:
     effective_at: datetime
 
 
-def plan(current: Sequence[str], wanted: Sequence[str], *, production: bool, now: datetime, effective_at: datetime | None = None) -> Change:
+def plan(
+    current: Sequence[str],
+    wanted: Sequence[str],
+    *,
+    production: bool,
+    now: datetime,
+    effective_at: datetime | None = None,
+) -> Change:
     """The change that takes `current` to `wanted`, or a PartnerError saying why not."""
     want = tuple(dict.fromkeys(s.strip() for s in wanted if s.strip()))
     if not want:
         raise PartnerError("VALIDATION_FAILED", "An application must keep at least one scope.")
     unknown = [s for s in want if s not in SCOPES]
     if unknown:
-        raise PartnerError("VALIDATION_FAILED", f"Unknown scope: {unknown[0]}. There are no wildcard scopes.")
+        raise PartnerError(
+            "VALIDATION_FAILED", f"Unknown scope: {unknown[0]}. There are no wildcard scopes."
+        )
     have = set(current)
     added, removed = [s for s in want if s not in have], [s for s in current if s not in want]
     if not added and not removed:
-        raise PartnerError("VALIDATION_FAILED", "That is the scope set the application already has.")
+        raise PartnerError(
+            "VALIDATION_FAILED", "That is the scope set the application already has."
+        )
     forbidden = [s for s in added if s in NEVER_SELF_SERVICE]
     if forbidden:
-        raise PartnerError("VALIDATION_FAILED", f"{forbidden[0]} is requested through the go-live process, not here.")
+        raise PartnerError(
+            "VALIDATION_FAILED",
+            f"{forbidden[0]} is requested through the go-live process, not here.",
+        )
     when = effective_at or now
     if when < now - timedelta(minutes=1):
         raise PartnerError("VALIDATION_FAILED", "A scope change cannot take effect in the past.")
     if when > now + MAX_STAGE:
-        raise PartnerError("VALIDATION_FAILED", f"A scope change can be staged at most {MAX_STAGE.days} days ahead.")
+        raise PartnerError(
+            "VALIDATION_FAILED",
+            f"A scope change can be staged at most {MAX_STAGE.days} days ahead.",
+        )
     if added and when > now + timedelta(minutes=1):
-        raise PartnerError("VALIDATION_FAILED", "Only a removal can be staged for later; an addition takes effect when it is approved.")
+        raise PartnerError(
+            "VALIDATION_FAILED",
+            "Only a removal can be staged for later; an addition takes effect when it is approved.",
+        )
     kind = "REPLACE" if added and removed else ("ADD" if added else "REMOVE")
-    return Change(kind, want, requires_approval=bool(added) and production, effective_at=max(when, now))
+    return Change(
+        kind, want, requires_approval=bool(added) and production, effective_at=max(when, now)
+    )
 
 
-def approval_problems(proposed_by: str, approver: str, already_approved_by: Sequence[str]) -> list[str]:
+def approval_problems(
+    proposed_by: str, approver: str, already_approved_by: Sequence[str]
+) -> list[str]:
     out: list[str] = []
     if approver == proposed_by:
         out.append("PROPOSER_CANNOT_APPROVE_OWN_CHANGE")
@@ -68,7 +92,9 @@ def approval_problems(proposed_by: str, approver: str, already_approved_by: Sequ
     return out
 
 
-def effective_scopes(base: Sequence[str], token_scopes: Sequence[str], current_change_scopes: Sequence[str] | None) -> tuple[str, ...]:
+def effective_scopes(
+    base: Sequence[str], token_scopes: Sequence[str], current_change_scopes: Sequence[str] | None
+) -> tuple[str, ...]:
     """What a token may do now: the scopes it was issued with, narrowed to those the application holds at this moment. Never wider than either."""
     holds = set(current_change_scopes) if current_change_scopes is not None else set(base)
     return tuple(s for s in token_scopes if s in holds)

@@ -21,7 +21,9 @@ from zid_platform.modules.machine.domain import idp_binding as d
 from zid_platform.modules.machine.domain.agents import MachineError
 from zid_platform.modules.machine.infrastructure import idp_store, machine_store
 
-STALE_AFTER = int(timedelta(hours=24).total_seconds())  # a provider not heard from in a day is not relied on
+STALE_AFTER = int(
+    timedelta(hours=24).total_seconds()
+)  # a provider not heard from in a day is not relied on
 
 
 def _iso(x: datetime | None) -> str | None:
@@ -58,7 +60,10 @@ async def create(
         environment=environment, keys=clean_keys, algs=algs, fingerprint=d.keys_fingerprint(clean_keys), created_by=actor, expires_at=expires_at,
     )  # fmt: skip
     if not made:
-        raise MachineError("IDP_BINDING_DUPLICATE", "this provider's identifier for an agent is already bound, in this environment. A name or an e-mail never merges two agents")
+        raise MachineError(
+            "IDP_BINDING_DUPLICATE",
+            "this provider's identifier for an agent is already bound, in this environment. A name or an e-mail never merges two agents",
+        )
     await _record(
         conn, tenant_id, name="agent.idp_bound", event=False, aggregate_type="agent", aggregate_id=agent_id, actor=actor, evidence=EvidenceClass.E2,
         data={"binding_id": bid, "profile": profile, "issuer": issuer, "environment": environment},
@@ -68,25 +73,59 @@ async def create(
     return view(got, now)
 
 
-async def present(conn: AsyncConnection, tenant_id: str, actor: str, binding_id: str, token: str, now: datetime | None = None) -> dict[str, Any]:
+async def present(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    binding_id: str,
+    token: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     """Check a token from the provider against what the company pinned. Always returns an answer: a failed check is recorded on the binding and reported, never raised, so the reason is not lost."""
     now = now or datetime.now(UTC)
     b = await idp_store.get(conn, binding_id, lock=True)
     if b is None:
         raise MachineError("IDP_BINDING_NOT_FOUND", "no such binding")
-    state = d.binding_state(status=b["status"], expires_at=b["expires_at"], now=now, last_ok_at=now, stale_after_s=STALE_AFTER)  # staleness is about the provider going quiet, not about this very check
+    state = d.binding_state(
+        status=b["status"],
+        expires_at=b["expires_at"],
+        now=now,
+        last_ok_at=now,
+        stale_after_s=STALE_AFTER,
+    )  # staleness is about the provider going quiet, not about this very check
     if state != "ACTIVE":
-        return {"accepted": False, "reason_codes": ["IDP_BINDING_" + state], "binding": view(b, now)}
+        return {
+            "accepted": False,
+            "reason_codes": ["IDP_BINDING_" + state],
+            "binding": view(b, now),
+        }
     prof = d.PROFILES[b["profile"]]
     codes: list[str] = []
     claims: Mapping[str, Any] = {}
     try:
         _header, claims = verify_external_jws(token, keys=b["keys"], algorithms=list(b["algs"]))
     except CryptoError as e:
-        codes = ["IDP_SIGNATURE_INVALID" if e.code in ("SIGNATURE_INVALID", "KEY_UNKNOWN", "ALG_KEY_MISMATCH") else "IDP_TOKEN_REJECTED"]
+        codes = [
+            "IDP_SIGNATURE_INVALID"
+            if e.code in ("SIGNATURE_INVALID", "KEY_UNKNOWN", "ALG_KEY_MISMATCH")
+            else "IDP_TOKEN_REJECTED"
+        ]
     if not codes:
-        codes = d.claim_problems(claims, issuer=b["issuer"], audience=b["audience"], subject=b["subject"], now=now, needs_jti=bool(prof["needs_jti"]))
-    if not codes and claims.get("jti") and not await idp_store.take_proof(conn, tenant_id, binding_id, d.token_digest(str(claims["jti"])), now):
+        codes = d.claim_problems(
+            claims,
+            issuer=b["issuer"],
+            audience=b["audience"],
+            subject=b["subject"],
+            now=now,
+            needs_jti=bool(prof["needs_jti"]),
+        )
+    if (
+        not codes
+        and claims.get("jti")
+        and not await idp_store.take_proof(
+            conn, tenant_id, binding_id, d.token_digest(str(claims["jti"])), now
+        )
+    ):
         codes = ["IDP_TOKEN_REPLAYED"]
     if codes:
         await idp_store.record_failure(conn, binding_id, codes[0])
@@ -104,25 +143,52 @@ async def present(conn: AsyncConnection, tenant_id: str, actor: str, binding_id:
     )  # fmt: skip
     ok = await idp_store.get(conn, binding_id)
     assert ok is not None
-    return {"accepted": True, "reason_codes": [], "binding": view(ok, now), "grants_authority": False}
+    return {
+        "accepted": True,
+        "reason_codes": [],
+        "binding": view(ok, now),
+        "grants_authority": False,
+    }
 
 
-async def revoke(conn: AsyncConnection, tenant_id: str, actor: str, binding_id: str, now: datetime | None = None) -> dict[str, Any]:
+async def revoke(
+    conn: AsyncConnection, tenant_id: str, actor: str, binding_id: str, now: datetime | None = None
+) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     b = await idp_store.get(conn, binding_id, lock=True)
     if b is None:
         raise MachineError("IDP_BINDING_NOT_FOUND", "no such binding")
     if not await idp_store.revoke(conn, binding_id, by=actor, now=now):
         raise MachineError("IDP_BINDING_STATE_INVALID", "this binding is already revoked")
-    await _record(conn, tenant_id, name="agent.idp_revoked", event=False, aggregate_type="agent", aggregate_id=str(b["agent_principal_id"]), actor=actor, evidence=EvidenceClass.E2, data={"binding_id": binding_id})
+    await _record(
+        conn,
+        tenant_id,
+        name="agent.idp_revoked",
+        event=False,
+        aggregate_type="agent",
+        aggregate_id=str(b["agent_principal_id"]),
+        actor=actor,
+        evidence=EvidenceClass.E2,
+        data={"binding_id": binding_id},
+    )
     after = await idp_store.get(conn, binding_id)
     assert after is not None
     return view(after, now)
 
 
 async def list_for(conn: AsyncConnection, agent_id: str | None) -> dict[str, Any]:
-    rows = await idp_store.for_agent(conn, agent_id) if agent_id else await idp_store.list_all(conn, limit=100)
-    return {"items": [view(b) for b in rows], "profiles": [{"profile": k, "label": v["label"], "certified": v["certified"], "note": v.get("note")} for k, v in d.PROFILES.items()]}
+    rows = (
+        await idp_store.for_agent(conn, agent_id)
+        if agent_id
+        else await idp_store.list_all(conn, limit=100)
+    )
+    return {
+        "items": [view(b) for b in rows],
+        "profiles": [
+            {"profile": k, "label": v["label"], "certified": v["certified"], "note": v.get("note")}
+            for k, v in d.PROFILES.items()
+        ],
+    }
 
 
 async def read(conn: AsyncConnection, binding_id: str) -> dict[str, Any]:

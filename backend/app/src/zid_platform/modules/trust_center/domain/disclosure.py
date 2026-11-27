@@ -17,12 +17,24 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("IPV4", re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")),
     ("IPV6", re.compile(r"\b(?:[0-9a-fA-F]{1,4}:){4,7}[0-9a-fA-F]{1,4}\b")),
     ("CIDR_OR_SUBNET", re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}/\d{1,2}\b")),
-    ("INTERNAL_HOST", re.compile(r"(?i)\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|corp|lan|intranet)\b")),
+    (
+        "INTERNAL_HOST",
+        re.compile(r"(?i)\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:internal|local|corp|lan|intranet)\b"),
+    ),
     ("EMAIL_ADDRESS", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")),
     ("LONG_NUMBER", re.compile(r"\b\d{13,19}\b")),
     ("DB_URL", re.compile(r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb|redis)(?:\+\w+)?://\S+")),
 )
-_EXPLOIT_WORDS = ("proof of concept", "poc exploit", "exploit chain", "payload:", "shellcode", "sql injection in", "bypass the", "cve-2")  # an advisory describes impact, not the way in
+_EXPLOIT_WORDS = (
+    "proof of concept",
+    "poc exploit",
+    "exploit chain",
+    "payload:",
+    "shellcode",
+    "sql injection in",
+    "bypass the",
+    "cve-2",
+)  # an advisory describes impact, not the way in
 
 
 def findings(text: str, *, allow: Sequence[str] = ()) -> list[str]:
@@ -35,11 +47,24 @@ def findings(text: str, *, allow: Sequence[str] = ()) -> list[str]:
 
 
 def safe_for_public(text: str, *, allow: Sequence[str] = ()) -> list[str]:
-    return [f"The text carries {f.lower().replace('_', ' ')}; remove it before it is public." for f in findings(text, allow=allow)]
+    return [
+        f"The text carries {f.lower().replace('_', ' ')}; remove it before it is public."
+        for f in findings(text, allow=allow)
+    ]
 
 
 # a public sentence may not claim these without the matching claim class: they are approval-class words handled in claims.CERT_WORDS; these are marketing superlatives a buyer cannot test
-VAGUE_SECURITY = ("military-grade", "military grade", "unhackable", "bank-grade", "100% secure", "unbreakable", "impenetrable", "zero risk", "guaranteed secure")
+VAGUE_SECURITY = (
+    "military-grade",
+    "military grade",
+    "unhackable",
+    "bank-grade",
+    "100% secure",
+    "unbreakable",
+    "impenetrable",
+    "zero risk",
+    "guaranteed secure",
+)
 
 
 def vague_security_language(text: str) -> list[str]:

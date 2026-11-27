@@ -32,7 +32,13 @@ def summarize(results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "scenarios": len(results),
         "counts": counts,
         "changes": [
-            {"index": i, "kind": k, "scenario": results[i]["scenario"], "candidate": results[i]["candidate"], "active": results[i]["active"]}
+            {
+                "index": i,
+                "kind": k,
+                "scenario": results[i]["scenario"],
+                "candidate": results[i]["candidate"],
+                "active": results[i]["active"],
+            }
             for i, k in enumerate(kinds)
             if k != "UNCHANGED"
         ],
@@ -41,7 +47,9 @@ def summarize(results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
-def analysis_claims(*, comparison: Mapping[str, Any], summary: Mapping[str, Any], requested_by: str, now_iso: str) -> dict[str, Any]:
+def analysis_claims(
+    *, comparison: Mapping[str, Any], summary: Mapping[str, Any], requested_by: str, now_iso: str
+) -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "analysis": True,

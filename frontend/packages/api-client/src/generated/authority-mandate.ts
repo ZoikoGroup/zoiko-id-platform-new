@@ -273,6 +273,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/mandates/{mandate_id}/canonical": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Canonical */
+        get: operations["canonical_v1_mandates__mandate_id__canonical_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/mandates/{mandate_id}/reservations": {
         parameters: {
             query?: never;
@@ -307,6 +324,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/mandates/{mandate_id}:countersign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Countersign Mandate */
+        post: operations["countersign_mandate_v1_mandates__mandate_id__countersign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/mandates/{mandate_id}:pause": {
         parameters: {
             query?: never;
@@ -335,6 +369,23 @@ export interface paths {
         put?: never;
         /** Revoke */
         post: operations["revoke_v1_mandates__mandate_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/mandates/{mandate_id}:sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign Mandate */
+        post: operations["sign_mandate_v1_mandates__mandate_id__sign_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -514,6 +565,11 @@ export interface components {
              */
             valid_to: string;
             value_limit?: components["schemas"]["ValueAmount"] | null;
+        };
+        /** MandateSignBody */
+        MandateSignBody: {
+            /** Canonical Hash */
+            canonical_hash: string;
         };
         /**
          * MandateStatus
@@ -1230,6 +1286,39 @@ export interface operations {
             };
         };
     };
+    canonical_v1_mandates__mandate_id__canonical_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mandate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reserve_v1_mandates__mandate_id__reservations_post: {
         parameters: {
             query?: never;
@@ -1304,6 +1393,43 @@ export interface operations {
             };
         };
     };
+    countersign_mandate_v1_mandates__mandate_id__countersign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mandate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MandateSignBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     pause_v1_mandates__mandate_id__pause_post: {
         parameters: {
             query?: never;
@@ -1347,6 +1473,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_mandate_v1_mandates__mandate_id__sign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mandate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MandateSignBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

@@ -135,7 +135,7 @@ describe("making a key pair in the browser", () => {
     const pub = k.jwks.keys[0]!;
     expect(Object.keys(pub).some((m) => ["d", "p", "q", "k"].includes(m))).toBe(false);
     expect(pub.kid).toBe(k.kid);
-    expect(k.privatePem).toMatch(/^-----BEGIN PRIVATE KEY-----\n/);
+    expect(k.privatePem).toMatch(/^-----BEGIN PRIVATE KEY-----\n/);  // zid-secret-scan: allow: asserts the PEM header
 
     // the pair is a real pair: sign with the private PEM, verify with the registered public key
     const der = Uint8Array.from(atob(k.privatePem.replace(/-----[A-Z ]+-----|\s/g, "")), (c) => c.charCodeAt(0));

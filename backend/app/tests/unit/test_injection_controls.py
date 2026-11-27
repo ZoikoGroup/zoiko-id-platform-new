@@ -44,6 +44,11 @@ REVIEWED_IDENTIFIERS: dict[str, str] = {
 # Reviewed by site: (file suffix, function, interpolated expression) -> why it is not user input.
 REVIEWED_SITES: dict[tuple[str, str, str], str] = {
     (
+        "trust_center/infrastructure/store.py",
+        "counts",
+        "v",
+    ): "iterates a dict of fixed literal SELECT count(*) statements defined in the same function; the only value bound is :now (WF-12)",
+    (
         "verification/infrastructure/method_store.py",
         "history",
         "sql + (' FOR UPDATE' if lock else '')",

@@ -13,10 +13,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from zid_platform.modules.commercial.ports import MINOR_UNITS
-from zid_platform.modules.verify_api.application import observe
+from zid_platform.modules.verify_api.application import approval_policy, observe
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.domain import pricing as p
 from zid_platform.modules.verify_api.infrastructure import price_store as db
+from zid_platform.modules.verify_api.infrastructure import single_approver
 
 
 def price_view(r: dict[str, Any]) -> dict[str, Any]:
@@ -84,10 +85,13 @@ async def approve(
     """A different operator from the one who proposed it. It must still start in a month that has not begun: a price that waited too long is rejected, never applied late."""
     now = now or datetime.now(UTC)
     r = await _load(conn, price_id)
-    if str(r["proposed_by"]) == operator:
+    if str(r["proposed_by"]) == operator and not approval_policy.single_approver():
         raise m.PartnerError(
             "PRICE_SELF_APPROVAL", "The person who proposed a price cannot also approve it."
         )
+    await single_approver.apply(
+        conn, approval_policy.single_approver()
+    )  # the table's own different-person rule yields only in single-approver mode (verify_api_0019)
     if r["effective_from"] < p.first_of_next_month(now.date()):
         raise m.PartnerError(
             "PRICE_NOT_IN_FUTURE",

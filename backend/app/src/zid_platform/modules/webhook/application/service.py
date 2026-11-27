@@ -110,6 +110,31 @@ async def register(
     return await endpoint_store.load_endpoint(conn, endpoint_id)
 
 
+def explain_failure(reason: str) -> str:
+    """What the address did when it was tested, and what to change, in plain words. The test sends one signed message and the address must answer 200 with the same challenge token it was sent."""
+    kind, _, detail = reason.partition(":")
+    if kind == "REDIRECT":
+        return f"The address forwarded us somewhere else (HTTP {detail}). It must answer the test itself, directly, without redirecting to another page or to a sign-in."
+    if kind == "HTTP":
+        hint = (
+            " That page does not exist at this address: check the path."
+            if detail == "404"
+            else " It must answer 200."
+        )
+        return f"The address answered HTTP {detail}.{hint}"
+    if kind == "NOT_JSON":
+        return 'The address answered 200 but not with JSON. Reply with {"challenge": "<the token you received>"}.'
+    if kind == "WRONG_CHALLENGE":
+        return "The address answered 200, but did not send back the same challenge token it received. Reply with the exact token."
+    if kind == "TIMEOUT":
+        return "The address did not answer in time. It has to reply within a few seconds."
+    if kind == "UNREACHABLE":
+        return "We could not connect to the address. Check that the server is running and reachable from the internet."
+    return (
+        "The address could not be tested. Check that it is correct and that the server is running."
+    )
+
+
 async def verify(
     conn: AsyncConnection,
     tenant_id: str,
@@ -124,7 +149,7 @@ async def verify(
     await endpoint_store.load_endpoint(conn, endpoint_id)  # 404 before 409
     if not await delivery.verify(conn, endpoint_id, client=client, resolve=resolve, sign=sign):
         raise WebhookError(
-            "WEBHOOK_VERIFICATION_FAILED", "the endpoint did not echo the signed challenge"
+            "WEBHOOK_VERIFICATION_FAILED", explain_failure(delivery.last_reason(endpoint_id))
         )
     await _record(
         conn,

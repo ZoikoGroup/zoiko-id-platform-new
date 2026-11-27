@@ -38,52 +38,88 @@ async def insert(
     return bool(res.rowcount)
 
 
-async def get(conn: AsyncConnection, binding_id: str, *, lock: bool = False) -> dict[str, Any] | None:
+async def get(
+    conn: AsyncConnection, binding_id: str, *, lock: bool = False
+) -> dict[str, Any] | None:
     try:
         key = uuid.UUID(binding_id)
     except ValueError:
         return None
-    row = (await conn.execute(text(f"SELECT {_COLS} FROM agent.idp_binding WHERE binding_id = :b{' FOR UPDATE' if lock else ''}"), {"b": key})).first()
+    row = (
+        await conn.execute(
+            text(
+                f"SELECT {_COLS} FROM agent.idp_binding WHERE binding_id = :b{' FOR UPDATE' if lock else ''}"
+            ),
+            {"b": key},
+        )
+    ).first()
     return _row(row) if row else None
 
 
 async def for_agent(conn: AsyncConnection, agent_id: str) -> list[dict[str, Any]]:
-    rows = await conn.execute(text(f"SELECT {_COLS} FROM agent.idp_binding WHERE agent_principal_id = :a ORDER BY created_at DESC"), {"a": uuid.UUID(agent_id)})
+    rows = await conn.execute(
+        text(
+            f"SELECT {_COLS} FROM agent.idp_binding WHERE agent_principal_id = :a ORDER BY created_at DESC"
+        ),
+        {"a": uuid.UUID(agent_id)},
+    )
     return [_row(x) for x in rows]
 
 
 async def list_all(conn: AsyncConnection, *, limit: int) -> list[dict[str, Any]]:
-    rows = await conn.execute(text(f"SELECT {_COLS} FROM agent.idp_binding ORDER BY created_at DESC LIMIT :n"), {"n": limit})
+    rows = await conn.execute(
+        text(f"SELECT {_COLS} FROM agent.idp_binding ORDER BY created_at DESC LIMIT :n"),
+        {"n": limit},
+    )
     return [_row(x) for x in rows]
 
 
-async def take_proof(conn: AsyncConnection, tenant_id: str, binding_id: str, jti_digest: str, now: datetime) -> bool:
+async def take_proof(
+    conn: AsyncConnection, tenant_id: str, binding_id: str, jti_digest: str, now: datetime
+) -> bool:
     """One token proves a binding once. False when this token id was already used."""
     res = await conn.execute(
-        text("INSERT INTO agent.idp_proof (binding_id, tenant_id, jti_digest, accepted_at) VALUES (:b, :t, :j, :n) ON CONFLICT DO NOTHING"),
+        text(
+            "INSERT INTO agent.idp_proof (binding_id, tenant_id, jti_digest, accepted_at) VALUES (:b, :t, :j, :n) ON CONFLICT DO NOTHING"
+        ),
         {"b": uuid.UUID(binding_id), "t": uuid.UUID(tenant_id), "j": jti_digest, "n": now},
     )
     return bool(res.rowcount)
 
 
-async def record_ok(conn: AsyncConnection, binding_id: str, claims: dict[str, str], now: datetime) -> None:
+async def record_ok(
+    conn: AsyncConnection, binding_id: str, claims: dict[str, str], now: datetime
+) -> None:
     await conn.execute(
-        text("UPDATE agent.idp_binding SET last_ok_at = :n, last_failure = NULL, external_claims = CAST(:c AS jsonb), claims_seen_at = :n WHERE binding_id = :b"),
+        text(
+            "UPDATE agent.idp_binding SET last_ok_at = :n, last_failure = NULL, external_claims = CAST(:c AS jsonb), claims_seen_at = :n WHERE binding_id = :b"
+        ),
         {"n": now, "c": json.dumps(claims), "b": uuid.UUID(binding_id)},
     )
 
 
 async def record_failure(conn: AsyncConnection, binding_id: str, code: str) -> None:
-    await conn.execute(text("UPDATE agent.idp_binding SET last_failure = :c WHERE binding_id = :b"), {"c": code[:100], "b": uuid.UUID(binding_id)})
+    await conn.execute(
+        text("UPDATE agent.idp_binding SET last_failure = :c WHERE binding_id = :b"),
+        {"c": code[:100], "b": uuid.UUID(binding_id)},
+    )
 
 
 async def revoke(conn: AsyncConnection, binding_id: str, *, by: str, now: datetime) -> bool:
     res = await conn.execute(
-        text("UPDATE agent.idp_binding SET status = 'REVOKED', revoked_by = :u, revoked_at = :n WHERE binding_id = :b AND status = 'ACTIVE'"), {"u": uuid.UUID(by), "n": now, "b": uuid.UUID(binding_id)}
+        text(
+            "UPDATE agent.idp_binding SET status = 'REVOKED', revoked_by = :u, revoked_at = :n WHERE binding_id = :b AND status = 'ACTIVE'"
+        ),
+        {"u": uuid.UUID(by), "n": now, "b": uuid.UUID(binding_id)},
     )
     return bool(res.rowcount)
 
 
 async def active_bindings(conn: AsyncConnection, *, limit: int) -> list[dict[str, Any]]:
-    rows = await conn.execute(text(f"SELECT {_COLS} FROM agent.idp_binding WHERE status = 'ACTIVE' ORDER BY created_at DESC LIMIT :n"), {"n": limit})
+    rows = await conn.execute(
+        text(
+            f"SELECT {_COLS} FROM agent.idp_binding WHERE status = 'ACTIVE' ORDER BY created_at DESC LIMIT :n"
+        ),
+        {"n": limit},
+    )
     return [_row(x) for x in rows]

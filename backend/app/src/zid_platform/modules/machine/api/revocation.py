@@ -44,11 +44,21 @@ class RevocationCloseBody(BaseModel):
 
 def http(e: MachineError) -> ZidError:
     code = e.code
-    status = 404 if code.endswith("NOT_FOUND") else 403 if code in ("REVOCATION_CLOSE_NOT_INDEPENDENT", "REVOCATION_REINSTATE_NOT_INDEPENDENT") else 422 if code.endswith("_INVALID") else 409
+    status = (
+        404
+        if code.endswith("NOT_FOUND")
+        else 403
+        if code in ("REVOCATION_CLOSE_NOT_INDEPENDENT", "REVOCATION_REINSTATE_NOT_INDEPENDENT")
+        else 422
+        if code.endswith("_INVALID")
+        else 409
+    )
     return ZidError(code, str(e), http_status=status)
 
 
-async def _run(request: Request, caller: Caller, action: str, resource: str, fn: Any, *, change: str = "") -> Any:
+async def _run(
+    request: Request, caller: Caller, action: str, resource: str, fn: Any, *, change: str = ""
+) -> Any:
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
             await protected_action(conn, caller, action=action, resource=resource, change=change)
@@ -59,26 +69,61 @@ async def _run(request: Request, caller: Caller, action: str, resource: str, fn:
 
 @router.post("/revocations:plan")
 async def plan(body: RevocationBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "agent.security.pause", "agent:*", lambda conn: svc.plan(conn, body.scope, body.subject))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "agent.security.pause",
+        "agent:*",
+        lambda conn: svc.plan(conn, body.scope, body.subject),
+    )
 
 
 @router.post("/revocations", status_code=201)
 async def stop(body: RevocationStopBody, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
-    return await _run(request, caller, "agent.security.pause", "agent:*", lambda conn: svc.execute(conn, tenant, actor, body.scope, body.subject, body.reason))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "agent.security.pause",
+        "agent:*",
+        lambda conn: svc.execute(conn, tenant, actor, body.scope, body.subject, body.reason),
+    )
 
 
 @router.get("/revocations")
-async def list_stops(request: Request, caller: CallerDep, open: bool = Query(default=False)) -> dict[str, Any]:  # noqa: A002
-    return await _run(request, caller, "machine.agent.read", "agent:*", lambda conn: svc.list_events(conn, open_only=open))  # type: ignore[no-any-return]
+async def list_stops(
+    request: Request, caller: CallerDep, open: bool = Query(default=False)
+) -> dict[str, Any]:
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "machine.agent.read",
+        "agent:*",
+        lambda conn: svc.list_events(conn, open_only=open),
+    )
 
 
 @router.get("/revocations/{event_id}")
 async def read_stop(event_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "machine.agent.read", "agent:*", lambda conn: svc.read_event(conn, event_id))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "machine.agent.read",
+        "agent:*",
+        lambda conn: svc.read_event(conn, event_id),
+    )
 
 
 @router.post("/revocations/{event_id}:close")
-async def close_stop(event_id: str, body: RevocationCloseBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def close_stop(
+    event_id: str, body: RevocationCloseBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
-    return await _run(request, caller, "agent.security.restore.close", f"agent:revocation:{event_id}", lambda conn: svc.close(conn, tenant, actor, event_id, body.note), change=f"close {event_id}")  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "agent.security.restore.close",
+        f"agent:revocation:{event_id}",
+        lambda conn: svc.close(conn, tenant, actor, event_id, body.note),
+        change=f"close {event_id}",
+    )

@@ -17,7 +17,7 @@ from onboarding_fixture import AUD, ISS, onboard
 from sqlalchemy import text
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
-from zid_platform.modules.verification.api import idv_cases  # noqa: F401
+from zid_platform.modules.verification.api import idv_cases
 from zid_platform.modules.verification.application import capture_checks
 from zid_platform.modules.verification.application.idv_document import DocumentReading
 from zid_platform.modules.verification.domain import idv_policy
@@ -63,8 +63,14 @@ def install_fake_imaging(monkeypatch: pytest.MonkeyPatch) -> None:
     async def sanitize(image: bytes, **_: Any) -> bytes:
         return image
 
-    monkeypatch.setattr(capture_checks, "read_document", read)  # the shared checks, used by the signed-in page and a partner's customer alike
+    monkeypatch.setattr(
+        capture_checks, "read_document", read
+    )  # the shared checks, used by the signed-in page and a partner's customer alike
     monkeypatch.setattr(capture_checks, "sanitize_image", sanitize)
+    monkeypatch.setattr(
+        idv_cases, "sanitize_image", sanitize
+    )  # the signed-in route imports its own copy of the step
+    monkeypatch.setattr(idv_cases, "read_document", read)  # and of the reading
 
 
 @pytest.fixture(autouse=True)

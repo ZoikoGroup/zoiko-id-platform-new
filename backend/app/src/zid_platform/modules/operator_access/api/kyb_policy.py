@@ -168,15 +168,27 @@ async def publish(policy_hash: HashPath, request: Request, op: OperatorDep) -> d
 
 
 @router.post("/v1/kyb/market-policies/{policy_hash}:activate-now")
-async def activate_now(policy_hash: HashPath, body: ActivateNowIn, request: Request, op: OperatorDep) -> dict[str, Any]:
+async def activate_now(
+    policy_hash: HashPath, body: ActivateNowIn, request: Request, op: OperatorDep
+) -> dict[str, Any]:
     """CR-133: put a stored pack in force without its sign-offs. The operator must send the acknowledgement; the activation note and the audit details name every control the pack lacked."""
 
     async def work(conn: Any, now: datetime) -> tuple[dict[str, Any], str, dict[str, Any]]:
         skipped = await org.kyb_policy.activate(
-            conn, policy_hash, by=str(op.principal_id), tenant_id=_operator_tenant(request), now=now, without_signoff=True
+            conn,
+            policy_hash,
+            by=str(op.principal_id),
+            tenant_id=_operator_tenant(request),
+            now=now,
+            without_signoff=True,
         )
         return (
-            {"policy_hash": policy_hash, "in_force": True, "without_signoff": True, "skipped": list(skipped)},
+            {
+                "policy_hash": policy_hash,
+                "in_force": True,
+                "without_signoff": True,
+                "skipped": list(skipped),
+            },
             policy_hash,
             {"without_signoff": True, "skipped": list(skipped)},
         )

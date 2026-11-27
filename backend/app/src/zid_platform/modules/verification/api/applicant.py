@@ -57,7 +57,7 @@ from zid_platform.modules.verification.domain.countries import SANDBOX_ENVIRONME
 
 router = APIRouter(tags=["verification-applicant"])
 CallerDep = Annotated[Caller, Depends(authenticated_caller)]
-TOKEN_HEADER = "X-Zoiko-Applicant-Token"
+TOKEN_HEADER = "X-Zoiko-Applicant-Token"  # zid-secret-scan: allow: a header name, not a credential
 _PRIVACY_STATUS = {
     "TOKEN_INVALID": 401,
     "TOKEN_ALREADY_USED": 401,
@@ -126,7 +126,9 @@ async def applicant(
     if s.session_ref != session_ref or s.applicant_id is None:
         raise ZidError("TOKEN_INVALID", "The session credential is not valid.", http_status=401)
     ctx = _ctx(tenant, str(s.applicant_id))
-    caller = unsigned_caller(ctx, client_id="hosted-applicant", scope=frozenset({"verification:execute"}))
+    caller = unsigned_caller(
+        ctx, client_id="hosted-applicant", scope=frozenset({"verification:execute"})
+    )
     return Applicant(tenant, s, caller)
 
 
@@ -179,13 +181,21 @@ def _face_route_on(request: Request) -> bool:
     return getattr(request.app.state, "idv_face_route_ack", None) == idv_cases.FACE_ROUTE_ACK
 
 
-async def hosted_gate(request: Request, conn: AsyncConnection, market: str, return_url: str | None) -> str:
+async def hosted_gate(
+    request: Request, conn: AsyncConnection, market: str, return_url: str | None
+) -> str:
     """What a hosted session must pass before it opens (wired into privacy by main): the market's country, pack, release, entitlement and kill-switch
     checks (WF-01 §04, Q04) and a return address on one of the business's verified domains (S10). Returns the mode the session runs in."""
     environment = environment_of(request)
     await enforce_regulated(request, market, Capability.INDIVIDUAL_VERIFICATION)
-    if return_url and not applicant_session.return_url_allowed(return_url, await verified_domains(conn), local=environment in ("local", "test")):
-        raise ZidError("RETURN_URL_NOT_ALLOWED", "The return address must be https on one of the organization's verified domains.", http_status=422)
+    if return_url and not applicant_session.return_url_allowed(
+        return_url, await verified_domains(conn), local=environment in ("local", "test")
+    ):
+        raise ZidError(
+            "RETURN_URL_NOT_ALLOWED",
+            "The return address must be https on one of the organization's verified domains.",
+            http_status=422,
+        )
     return "sandbox" if environment in SANDBOX_ENVIRONMENTS else "production"
 
 
@@ -251,7 +261,9 @@ async def public_context(
             "market_notice_version": rules.basis.notice_version,
             "lawful_basis": await applicant_session.lawful_basis(conn, s.activity_code),
             # only reviewed languages are offered (settings); machine translation of legal notices is never served
-            "languages": list(getattr(request.app.state, "hosted_verify_languages", None) or ["en"]),
+            "languages": list(
+                getattr(request.app.state, "hosted_verify_languages", None) or ["en"]
+            ),
             "methods": [m.view() for m in methods],
             "methods_withheld": withheld,
             "alternatives": privacy["alternatives"],
@@ -434,7 +446,9 @@ async def _evidence(
     except ZidError as e:
         safe = _safe(e)
 
-        async def failed(conn: AsyncConnection) -> None:  # its own transaction: the attempt is on record even though the request fails
+        async def failed(
+            conn: AsyncConnection,
+        ) -> None:  # its own transaction: the attempt is on record even though the request fails
             await _event(conn, a, "verification.session.capture_attempt_completed", {
                 "attempt_no": before + 1, "step": step, "result": "TECHNICAL_FAILED" if safe.code == "PROVIDER_TEMPORARILY_UNAVAILABLE" else safe.code,
             })  # fmt: skip
@@ -496,7 +510,11 @@ async def evidence_nfc_state(
     body: idv_cases.NfcStateIn, a: ApplicantDep, request: Request
 ) -> dict[str, Any]:
     return await _evidence(
-        request, a, None, lambda: idv_cases.nfc_state(a.case_id, body, request, a.caller), "NFC_STATE"
+        request,
+        a,
+        None,
+        lambda: idv_cases.nfc_state(a.case_id, body, request, a.caller),
+        "NFC_STATE",
     )
 
 
@@ -528,7 +546,13 @@ async def submit(a: ApplicantDep, request: Request) -> dict[str, Any]:
             await _event(conn, a, "verification.session.submitted", {"submission_id": s.session_ref, "case_version": case.version,
                                                                      "environment": s.environment})  # fmt: skip
             await flow.record_submission(conn, a.tenant, s.session_ref, now)
-            await flow.finalize_if_due(conn, a.tenant, case, now, review_sla_hours=_rules(request, s.market).review_sla_hours)
+            await flow.finalize_if_due(
+                conn,
+                a.tenant,
+                case,
+                now,
+                review_sla_hours=_rules(request, s.market).review_sla_hours,
+            )
         fresh = await applicant_session.session_row(conn, s.session_ref)
         return _status(fresh, case)
 
@@ -578,7 +602,9 @@ async def applicant_cancel(a: ApplicantDep, request: Request) -> dict[str, Any]:
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         await cancel_session(conn, a.tenant, a.session.session_ref)
         if a.session.state != "CANCELED":
-            await _event(conn, a, "verification.session.canceled", {"by": "APPLICANT"})  # a terminal state on record (WF-02 section 05.1)
+            await _event(
+                conn, a, "verification.session.canceled", {"by": "APPLICANT"}
+            )  # a terminal state on record (WF-02 section 05.1)
         fresh = await applicant_session.session_row(conn, a.session.session_ref)
         return _status(fresh, await _case(conn, fresh))
 

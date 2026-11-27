@@ -52,7 +52,7 @@ export type DirectorySyncIn = S<Scim, "DirectorySyncIn">;
 export type ProfileIn = S<Ver, "ProfileIn">;
 export type AdapterIn = S<Ver, "AdapterIn">;
 export type RelianceIn = S<Ver, "RelianceIn">;
-export type ReviewIn = S<Ver, "ReviewIn">;
+export type ReviewIn = S<Ver, "zid_platform__modules__verification__api__verification__ReviewIn">;
 export type VerificationStartIn = S<Ver, "zid_platform__modules__verification__api__verification__StartIn">;
 export type EvaluationRequest = S<AuthZen, "EvaluationRequest">;
 export type ConsentDecision = S<OAuth, "ConsentDecision">;
@@ -457,6 +457,10 @@ export function createCellApi(t: Transport) {
       results: (query: M.VerifyApiResultQuery = {}) => get<M.VerifyApiResultPage>("/v1/verify-api/sessions", query),
       result: (id: string) => get<M.VerifyApiResultDetail>(`/v1/verify-api/sessions/${seg(id)}`),
       recheck: (id: string) => post<M.VerifyApiSession>(`/v1/verify-api/sessions/${seg(id)}:recheck`),
+      /** The photographs kept for one verification (never an image) and every time one was opened. */
+      sessionMedia: (id: string) => get<M.VerifyApiMediaList>(`/v1/verify-api/sessions/${seg(id)}/media`),
+      /** One photograph, after the person says why. The reason is recorded before the image is returned. */
+      openMedia: (id: string, mediaId: string, reason: string) => post<M.VerifyApiMediaOpened>(`/v1/verify-api/sessions/${seg(id)}/media/${seg(mediaId)}:open`, { reason }),
       usage: (month?: string) => get<M.VerifyApiUsage>("/v1/verify-api/usage", month ? { month } : undefined),
       goLive: () => get<M.VerifyApiGoLive>("/v1/verify-api/go-live"),
       askToGoLive: (body: M.VerifyApiGoLiveIn) => post<M.VerifyApiGoLiveRequest>("/v1/verify-api/go-live-requests", body),

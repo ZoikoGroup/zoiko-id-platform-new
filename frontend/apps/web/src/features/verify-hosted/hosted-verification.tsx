@@ -102,7 +102,7 @@ export function HostedVerification({ token }: { token: string | null }) {
     return (
       <section className="space-y-5">
         <div aria-hidden className={`h-1.5 w-16 rounded-full ${themeClass(v.theme).bar}`} />
-        <LiveCheck requestedBy={v.requested_by} noticeVersion={v.notice_version ?? null} attemptsLeft={v.attempts_left ?? 0} call={call} />
+        <LiveCheck requestedBy={v.requested_by} noticeVersion={v.notice_version ?? null} attemptsLeft={v.attempts_left ?? 0} photosKeptDays={v.photos_kept_days ?? 0} call={call} />
         {safeSupport(v.support_url) ? (
           <p className="text-sm text-ink-muted">
             Need help?{" "}

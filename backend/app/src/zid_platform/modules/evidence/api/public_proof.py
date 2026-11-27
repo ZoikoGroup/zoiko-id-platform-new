@@ -67,19 +67,32 @@ def _who(request: Request) -> str:
 def _check_rate(request: Request) -> None:
     wait = _limiter.hit(_who(request))
     if wait:
-        raise ZidError("RATE_LIMITED", "Too many checks. Try again shortly.", http_status=429, headers={"Retry-After": str(wait)})
+        raise ZidError(
+            "RATE_LIMITED",
+            "Too many checks. Try again shortly.",
+            http_status=429,
+            headers={"Retry-After": str(wait)},
+        )
 
 
 @router.post("/v1/receipts/verify")
-async def verify_uploaded(body: ReceiptVerifyBody, request: Request, response: Response) -> dict[str, Any]:
+async def verify_uploaded(
+    body: ReceiptVerifyBody, request: Request, response: Response
+) -> dict[str, Any]:
     _check_rate(request)
     if len(json.dumps(body.bundle, separators=(",", ":"), default=str)) > MAX_BUNDLE_BYTES:
-        raise ZidError("VALIDATION_FAILED", "That bundle is larger than a proof ever is.", http_status=413)
+        raise ZidError(
+            "VALIDATION_FAILED", "That bundle is larger than a proof ever is.", http_status=413
+        )
     rt = current_runtime()
-    report = verify_bundle(body.bundle, trusted_keys=rt.trusted_keys())  # pinned to the issuer's published keys; never the keys the bundle brought
+    report = verify_bundle(
+        body.bundle, trusted_keys=rt.trusted_keys()
+    )  # pinned to the issuer's published keys; never the keys the bundle brought
     checks = [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in report.checks]
     names = {c["name"]: c for c in checks}
-    record_checked = "record_hash" in names and "not included" not in str(names["record_hash"]["detail"])
+    record_checked = "record_hash" in names and "not included" not in str(
+        names["record_hash"]["detail"]
+    )
     result = va.axes(
         checks=checks,
         receipt_hash_valid=bool(names.get("record_hash", {}).get("ok")) and record_checked,
@@ -109,5 +122,12 @@ async def issuer_bundle(request: Request, response: Response) -> dict[str, Any]:
         issuer=issuer, environment=str(getattr(request.app.state, "environment", "unknown")), keys=keys, active_kid=str(rt.signer.public_jwk()["kid"]), compromised=rt.compromised,
         version=tb.version_from(keys, rt.compromised), now=datetime.now(UTC),
     )  # fmt: skip
-    response.headers["Cache-Control"] = "public, max-age=300"  # a verifier may reuse it for minutes, and the bundle itself says when it expires
-    return {"bundle": claims, "signature": sign_jws(rt.signer, claims, typ=tb.BUNDLE_TYP), "typ": tb.BUNDLE_TYP, "verify_with": "keys you pinned earlier (GET /v1/evidence/keys is where they were first published)"}
+    response.headers["Cache-Control"] = (
+        "public, max-age=300"  # a verifier may reuse it for minutes, and the bundle itself says when it expires
+    )
+    return {
+        "bundle": claims,
+        "signature": sign_jws(rt.signer, claims, typ=tb.BUNDLE_TYP),
+        "typ": tb.BUNDLE_TYP,
+        "verify_with": "keys you pinned earlier (GET /v1/evidence/keys is where they were first published)",
+    }

@@ -34,6 +34,8 @@ SKIP_DIRS = {
 BINARY = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".docx", ".pptx", ".xlsx", ".woff", ".woff2"}
 MAX_BYTES = 2_000_000
 ALLOW = "zid-secret-scan: allow"
+# Generated test vectors that cannot carry a comment (JSON). Signed with throw-away keys by backend/libs/zid-evidence/tests/make_conformance_fixtures.py.
+ALLOW_FILES = frozenset({"sdks/typescript/test/fixtures/evidence-conformance.json"})
 
 # Always secrets, in any file (tests included).
 STRONG: dict[str, re.Pattern[str]] = {
@@ -89,6 +91,8 @@ def is_test_path(path: str) -> bool:
 def scan_text(text: str, path: str = "") -> list[tuple[int, str]]:
     """`(line, rule)` findings for one file's text; `path` decides whether test-fixture leniency applies."""
     findings: list[tuple[int, str]] = []
+    if path in ALLOW_FILES:
+        return findings
     lenient = is_test_path(path)
     for number, line in enumerate(text.splitlines(), 1):
         if ALLOW in line:

@@ -40,12 +40,18 @@ Slug = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_.-]{1,62}$")]
 Country = Annotated[str, Field(pattern=r"^[A-Z]{2}$")]
 Method = Literal["DOCUMENT", "DOCUMENT_FACE", "NFC_CHIP", "EID", "REGISTRY"]
 Key = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=200)]
-READ, MANAGE, APPROVE = "verification.routing.read", "verification.routing.manage", "verification.routing.approve"
+READ, MANAGE, APPROVE = (
+    "verification.routing.read",
+    "verification.routing.manage",
+    "verification.routing.approve",
+)
 
 
 def _me(caller: Caller) -> str:
     if not caller.ctx.principal_id:
-        raise ZidError("UNAUTHENTICATED", "An authenticated principal is required.", http_status=401)
+        raise ZidError(
+            "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
+        )
     return caller.ctx.principal_id
 
 
@@ -100,23 +106,52 @@ async def propose(body: CapabilityBody, request: Request, caller: CallerDep) -> 
 
 
 def _decide(action: str) -> Any:
-    async def handler(provider: Slug, method: Method, body: ReasonBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+    async def handler(
+        provider: Slug, method: Method, body: ReasonBody, request: Request, caller: CallerDep
+    ) -> dict[str, Any]:
         async def go(conn: Any) -> dict[str, Any]:
-            return await svc.decide_capability(conn, _tenant(caller), provider_id=provider, method=method, action=action, by=_me(caller), reason=body.reason)
+            return await svc.decide_capability(
+                conn,
+                _tenant(caller),
+                provider_id=provider,
+                method=method,
+                action=action,
+                by=_me(caller),
+                reason=body.reason,
+            )
 
         return await _guarded(request, caller, APPROVE, f"routing:capability:{provider}", go)  # type: ignore[no-any-return]
 
     return handler
 
 
-router.add_api_route("/capabilities/{provider}/{method}:approve", _decide("APPROVE"), methods=["POST"], name="approve_capability")
-router.add_api_route("/capabilities/{provider}/{method}:suspend", _decide("SUSPEND"), methods=["POST"], name="suspend_capability")
-router.add_api_route("/capabilities/{provider}/{method}:retire", _decide("RETIRE"), methods=["POST"], name="retire_capability")
+router.add_api_route(
+    "/capabilities/{provider}/{method}:approve",
+    _decide("APPROVE"),
+    methods=["POST"],
+    name="approve_capability",
+)
+router.add_api_route(
+    "/capabilities/{provider}/{method}:suspend",
+    _decide("SUSPEND"),
+    methods=["POST"],
+    name="suspend_capability",
+)
+router.add_api_route(
+    "/capabilities/{provider}/{method}:retire",
+    _decide("RETIRE"),
+    methods=["POST"],
+    name="retire_capability",
+)
 
 
 @router.get("/coverage")
-async def coverage(request: Request, caller: CallerDep, method: Annotated[Method | None, Query()] = None) -> dict[str, Any]:
-    return await _guarded(request, caller, READ, "routing:coverage", lambda conn: svc.coverage(conn, method=method))  # type: ignore[no-any-return]
+async def coverage(
+    request: Request, caller: CallerDep, method: Annotated[Method | None, Query()] = None
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request, caller, READ, "routing:coverage", lambda conn: svc.coverage(conn, method=method)
+    )
 
 
 @router.get("/claims")
@@ -146,8 +181,18 @@ class ResolveBody(RouteScenario):
 
 
 @router.post("/resolve", status_code=201)
-async def resolve(body: ResolveBody, request: Request, caller: CallerDep, key: Key) -> dict[str, Any]:
-    return await _guarded(request, caller, MANAGE, f"routing:session:{body.session_id}", lambda conn: svc.resolve_and_record(conn, _tenant(caller), idempotency_key=key, body=body.model_dump()))  # type: ignore[no-any-return]
+async def resolve(
+    body: ResolveBody, request: Request, caller: CallerDep, key: Key
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:session:{body.session_id}",
+        lambda conn: svc.resolve_and_record(
+            conn, _tenant(caller), idempotency_key=key, body=body.model_dump()
+        ),
+    )
 
 
 @router.get("/decisions/{decision_id}")
@@ -160,19 +205,49 @@ async def decision(decision_id: str, request: Request, caller: CallerDep) -> dic
         if row is None:
             raise svc.RoutingError("DECISION_NOT_FOUND", "no such route decision", 404)
         attempts = await store.attempts_of_decision(conn, decision_id)
-        return {**svc.decision_view(row, replayed=False), "attempts": [{"attempt_id": str(a.attempt_id), "provider_id": a.provider_id, "state": a.to_state} for a in attempts], "evidence": await svc.decision_evidence(conn, decision_id)}
+        return {
+            **svc.decision_view(row, replayed=False),
+            "attempts": [
+                {"attempt_id": str(a.attempt_id), "provider_id": a.provider_id, "state": a.to_state}
+                for a in attempts
+            ],
+            "evidence": await svc.decision_evidence(conn, decision_id),
+        }
 
     return await _guarded(request, caller, READ, f"routing:decision:{decision_id}", go)  # type: ignore[no-any-return]
 
 
 @router.post("/decisions/{decision_id}/attempts", status_code=201)
-async def reserve(decision_id: str, body: ResolveBody, request: Request, caller: CallerDep, key: Key) -> dict[str, Any]:
-    return await _guarded(request, caller, MANAGE, f"routing:decision:{decision_id}", lambda conn: svc.reserve_attempt(conn, _tenant(caller), decision_id=decision_id, idempotency_key=key, body=body.model_dump()))  # type: ignore[no-any-return]
+async def reserve(
+    decision_id: str, body: ResolveBody, request: Request, caller: CallerDep, key: Key
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:decision:{decision_id}",
+        lambda conn: svc.reserve_attempt(
+            conn,
+            _tenant(caller),
+            decision_id=decision_id,
+            idempotency_key=key,
+            body=body.model_dump(),
+        ),
+    )
 
 
 class HopBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["INGRESS", "TRANSIT", "STORAGE", "REMOTE_SUPPORT", "ANALYTICS", "TELEMETRY", "BACKUP", "SUBPROCESSOR"]
+    kind: Literal[
+        "INGRESS",
+        "TRANSIT",
+        "STORAGE",
+        "REMOTE_SUPPORT",
+        "ANALYTICS",
+        "TELEMETRY",
+        "BACKUP",
+        "SUBPROCESSOR",
+    ]
     party: Annotated[str, Field(min_length=1, max_length=120)]
     region: Slug
     data_class: Literal["MEDIA", "TEMPLATE", "DERIVED", "METADATA"]
@@ -184,9 +259,23 @@ class DataFlowBody(BaseModel):
 
 
 @router.post("/providers/{provider}/data-flow", status_code=201)
-async def data_flow(provider: Slug, body: DataFlowBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def data_flow(
+    provider: Slug, body: DataFlowBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Register a version of a provider's data-flow graph. A change from the graph its legal determination covers stops routing to it until a person looks again."""
-    return await _guarded(request, caller, MANAGE, f"routing:data-flow:{provider}", lambda conn: svc.record_data_flow(conn, _tenant(caller), provider_id=provider, hops=[h.model_dump() for h in body.hops], by=_me(caller)))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:data-flow:{provider}",
+        lambda conn: svc.record_data_flow(
+            conn,
+            _tenant(caller),
+            provider_id=provider,
+            hops=[h.model_dump() for h in body.hops],
+            by=_me(caller),
+        ),
+    )
 
 
 @router.get("/providers/{provider}/data-flow")
@@ -194,8 +283,19 @@ async def read_data_flow(provider: Slug, request: Request, caller: CallerDep) ->
     async def go(conn: Any) -> dict[str, Any]:
         row = await store.latest_data_flow(conn, provider)
         if row is None:
-            raise svc.RoutingError("DATA_FLOW_NOT_REGISTERED", "no data-flow graph is registered for this provider", 404)
-        return {"provider_id": provider, "version": row.version, "graph_digest": row.graph_digest, "hops": [dict(h) for h in row.hops], "recorded_by": row.recorded_by, "recorded_at": row.recorded_at.isoformat()}
+            raise svc.RoutingError(
+                "DATA_FLOW_NOT_REGISTERED",
+                "no data-flow graph is registered for this provider",
+                404,
+            )
+        return {
+            "provider_id": provider,
+            "version": row.version,
+            "graph_digest": row.graph_digest,
+            "hops": [dict(h) for h in row.hops],
+            "recorded_by": row.recorded_by,
+            "recorded_at": row.recorded_at.isoformat(),
+        }
 
     return await _guarded(request, caller, READ, f"routing:data-flow:{provider}", go)  # type: ignore[no-any-return]
 
@@ -214,6 +314,7 @@ async def attempt(attempt_id: str, request: Request, caller: CallerDep) -> dict[
 @router.get("/attempts/{attempt_id}/applicant-message")
 async def applicant_message(attempt_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     """What to show the applicant for this attempt: one safe next step, never the provider's name, never "failed" for a technical problem."""
+
     async def go(conn: Any) -> dict[str, Any]:
         try:
             return (await svc.attempt_view(conn, attempt_id))["applicant"]  # type: ignore[no-any-return]
@@ -225,15 +326,44 @@ async def applicant_message(attempt_id: str, request: Request, caller: CallerDep
 
 class AdvanceBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    target: Literal["DISPATCHED", "PENDING", "RESULT_RECEIVED", "OUTCOME_UNKNOWN", "RECONCILING", "EXCEPTION_REVIEW", "EXPLICIT_RECAPTURE_APPROVED", "NORMALIZED", "EVIDENCE_REJECTED", "REVIEW_REQUIRED", "FINALIZED", "CONFIRMED_NOT_PROCESSED"]
+    target: Literal[
+        "DISPATCHED",
+        "PENDING",
+        "RESULT_RECEIVED",
+        "OUTCOME_UNKNOWN",
+        "RECONCILING",
+        "EXCEPTION_REVIEW",
+        "EXPLICIT_RECAPTURE_APPROVED",
+        "NORMALIZED",
+        "EVIDENCE_REJECTED",
+        "REVIEW_REQUIRED",
+        "FINALIZED",
+        "CONFIRMED_NOT_PROCESSED",
+    ]
     reason: Annotated[str, Field(max_length=300)] | None = None
     external_operation_id: Annotated[str, Field(min_length=3, max_length=200)] | None = None
 
 
 @router.post("/attempts/{attempt_id}:advance")
-async def advance(attempt_id: str, body: AdvanceBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def advance(
+    attempt_id: str, body: AdvanceBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     # A person on this route acts as OPERATOR. FINALIZED is refused here by the state machine: only the owning verifier's own service finalises.
-    return await _guarded(request, caller, MANAGE, f"routing:attempt:{attempt_id}", lambda conn: svc.advance_attempt(conn, _tenant(caller), attempt_id, body.target, actor="OPERATOR", reason=body.reason, external_operation_id=body.external_operation_id))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:attempt:{attempt_id}",
+        lambda conn: svc.advance_attempt(
+            conn,
+            _tenant(caller),
+            attempt_id,
+            body.target,
+            actor="OPERATOR",
+            reason=body.reason,
+            external_operation_id=body.external_operation_id,
+        ),
+    )
 
 
 class FailureBody(BaseModel):
@@ -246,8 +376,16 @@ class FailureBody(BaseModel):
 
 
 @router.post("/attempts/{attempt_id}:fail")
-async def fail(attempt_id: str, body: FailureBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, MANAGE, f"routing:attempt:{attempt_id}", lambda conn: svc.record_failure(conn, _tenant(caller), attempt_id, **body.model_dump()))  # type: ignore[no-any-return]
+async def fail(
+    attempt_id: str, body: FailureBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:attempt:{attempt_id}",
+        lambda conn: svc.record_failure(conn, _tenant(caller), attempt_id, **body.model_dump()),
+    )
 
 
 class RerouteBody(ResolveBody):
@@ -255,10 +393,25 @@ class RerouteBody(ResolveBody):
 
 
 @router.post("/attempts/{attempt_id}:reroute", status_code=201)
-async def reroute(attempt_id: str, body: RerouteBody, request: Request, caller: CallerDep, key: Key) -> dict[str, Any]:
+async def reroute(
+    attempt_id: str, body: RerouteBody, request: Request, caller: CallerDep, key: Key
+) -> dict[str, Any]:
     data = body.model_dump()
     ref = data.pop("downgrade_approval_ref")
-    return await _guarded(request, caller, MANAGE, f"routing:attempt:{attempt_id}", lambda conn: svc.reroute(conn, _tenant(caller), failed_attempt_id=attempt_id, idempotency_key=key, body=data, downgrade_approval_ref=ref))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        f"routing:attempt:{attempt_id}",
+        lambda conn: svc.reroute(
+            conn,
+            _tenant(caller),
+            failed_attempt_id=attempt_id,
+            idempotency_key=key,
+            body=data,
+            downgrade_approval_ref=ref,
+        ),
+    )
 
 
 class PreflightScenario(RouteScenario):
@@ -273,7 +426,18 @@ class PreflightBody(BaseModel):
 
 @router.post("/preflight")
 async def preflight(body: PreflightBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, MANAGE, "routing:preflight", lambda conn: svc.preflight(conn, _tenant(caller), scenarios=[s.model_dump() for s in body.scenarios], proposed=body.proposed))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        "routing:preflight",
+        lambda conn: svc.preflight(
+            conn,
+            _tenant(caller),
+            scenarios=[s.model_dump() for s in body.scenarios],
+            proposed=body.proposed,
+        ),
+    )
 
 
 class ReleaseBody(BaseModel):
@@ -284,7 +448,13 @@ class ReleaseBody(BaseModel):
 
 @router.post("/releases", status_code=201)
 async def create_release(body: ReleaseBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, MANAGE, "routing:release", lambda conn: svc.create_release(conn, maker=_me(caller), risk=body.risk, scope=body.scope))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        MANAGE,
+        "routing:release",
+        lambda conn: svc.create_release(conn, maker=_me(caller), risk=body.risk, scope=body.scope),
+    )
 
 
 @router.get("/releases")
@@ -310,9 +480,16 @@ async def release(release_id: str, request: Request, caller: CallerDep) -> dict[
 
 
 @router.post("/releases/{release_id}:preflight")
-async def release_preflight(release_id: str, body: PreflightBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def release_preflight(
+    release_id: str, body: PreflightBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async def go(conn: Any) -> dict[str, Any]:
-        result = await svc.preflight(conn, _tenant(caller), scenarios=[s.model_dump() for s in body.scenarios], proposed=body.proposed)
+        result = await svc.preflight(
+            conn,
+            _tenant(caller),
+            scenarios=[s.model_dump() for s in body.scenarios],
+            proposed=body.proposed,
+        )
         return await svc.record_preflight(conn, release_id, result=result, by=_me(caller))
 
     return await _guarded(request, caller, MANAGE, f"routing:release:{release_id}", go)  # type: ignore[no-any-return]
@@ -324,18 +501,44 @@ class ApproveBody(BaseModel):
 
 
 @router.post("/releases/{release_id}:approve")
-async def release_approve(release_id: str, body: ApproveBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, APPROVE, f"routing:release:{release_id}", lambda conn: svc.approve_release(conn, release_id, approver=_me(caller), role=body.role))  # type: ignore[no-any-return]
+async def release_approve(
+    release_id: str, body: ApproveBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        APPROVE,
+        f"routing:release:{release_id}",
+        lambda conn: svc.approve_release(conn, release_id, approver=_me(caller), role=body.role),
+    )
 
 
 @router.post("/releases/{release_id}:publish")
 async def release_publish(release_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, APPROVE, f"routing:release:{release_id}", lambda conn: svc.publish_release(conn, release_id, by=_me(caller), tenant_id=_tenant(caller)))  # type: ignore[no-any-return]
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        APPROVE,
+        f"routing:release:{release_id}",
+        lambda conn: svc.publish_release(
+            conn, release_id, by=_me(caller), tenant_id=_tenant(caller)
+        ),
+    )
 
 
 @router.post("/releases/{release_id}:rollback")
-async def release_rollback(release_id: str, body: ReasonBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _guarded(request, caller, APPROVE, f"routing:release:{release_id}", lambda conn: svc.rollback_release(conn, release_id, by=_me(caller), reason=body.reason, tenant_id=_tenant(caller)))  # type: ignore[no-any-return]
+async def release_rollback(
+    release_id: str, body: ReasonBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
+    return await _guarded(  # type: ignore[no-any-return]
+        request,
+        caller,
+        APPROVE,
+        f"routing:release:{release_id}",
+        lambda conn: svc.rollback_release(
+            conn, release_id, by=_me(caller), reason=body.reason, tenant_id=_tenant(caller)
+        ),
+    )
 
 
 class VendorLineBody(BaseModel):
@@ -353,6 +556,10 @@ class ReconcileBody(BaseModel):
 
 @router.post("/reconcile")
 async def reconcile(body: ReconcileBody, request: Request, caller: CallerDep) -> dict[str, Any]:
-    lines = [rt.VendorLine(x.provider_id, x.external_operation_id, x.amount_minor, x.currency) for x in body.lines]
-    return await _guarded(request, caller, MANAGE, "routing:reconcile", lambda conn: svc.reconciliation(conn, lines))  # type: ignore[no-any-return]
-
+    lines = [
+        rt.VendorLine(x.provider_id, x.external_operation_id, x.amount_minor, x.currency)
+        for x in body.lines
+    ]
+    return await _guarded(  # type: ignore[no-any-return]
+        request, caller, MANAGE, "routing:reconcile", lambda conn: svc.reconciliation(conn, lines)
+    )

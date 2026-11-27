@@ -248,7 +248,9 @@ async def _seed_and_advance(
     """Steps 4-5: baseline release, the holder's PERSON_BOUND tenant-admin grant, OWNER active,
     ORGANIZATION_VERIFYING -> CONFIGURING with the gate report."""
     await set_fields(conn, tenant_id, organization_id=root.organization_id)
-    actions = owner_actions(catalog)  # CR-137: every customer-side action, not only the administrator list
+    actions = owner_actions(
+        catalog
+    )  # CR-137: every customer-side action, not only the administrator list
     await seed_baseline_release(
         conn, tenant_id, example_action="tenant.member.manage", catalog=catalog, now=now
     )
@@ -376,7 +378,14 @@ async def establish_from_verified_claim(
         from zid_platform.modules.organization.ports import establish_document_root
 
         if tenant.status is TenantStatus.DRAFT:
-            await transition(conn, tenant_id, Move.ADVANCE, reason_code="ORGANIZATION_SUBMITTED", actor=case.requested_by, now=now)
+            await transition(
+                conn,
+                tenant_id,
+                Move.ADVANCE,
+                reason_code="ORGANIZATION_SUBMITTED",
+                actor=case.requested_by,
+                now=now,
+            )
         name = (case.legal_name or "Company").strip()[:200] or "Company"
         root = await establish_document_root(
             conn, tenant_id, holder_principal_id=case.requested_by, legal_name=name,
@@ -384,7 +393,13 @@ async def establish_from_verified_claim(
         )  # fmt: skip
         await set_fields(conn, tenant_id, display_name=name)
         return await _seed_and_advance(
-            conn, tenant_id, principal_id=case.requested_by, root=root, catalog=catalog, detail=f"claim-document:{claim_id}", now=now
+            conn,
+            tenant_id,
+            principal_id=case.requested_by,
+            root=root,
+            catalog=catalog,
+            detail=f"claim-document:{claim_id}",
+            now=now,
         )
     if facts is None:
         raise OnboardingError(
@@ -489,7 +504,7 @@ async def owner_grant_top_up_pass(
                 ]
                 if not standing or any(g.authority.actions is None for g in standing):
                     continue  # no standing owner grant to extend, or one that already names no limit
-                held: set[str] = set().union(*(g.authority.actions for g in standing))
+                held: set[str] = set().union(*(g.authority.actions for g in standing))  # type: ignore[arg-type]
                 missing = wanted - held
                 if not missing:
                     continue

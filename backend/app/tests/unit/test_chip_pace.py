@@ -219,8 +219,8 @@ def test_a_chip_with_no_card_access_file_is_read_with_basic_access_control_as_be
 def test_a_chip_that_offers_only_variants_this_reader_lacks_falls_back_and_names_them_if_that_fails() -> (
     None
 ):
-    mapping = H("04007F000702020404") + bytes(
-        [1]
+    mapping = (
+        H("04007F000702020404") + bytes([1])
     )  # id-PACE-ECDH-IM-3DES-CBC-CBC, the integrated mapping with 3DES (the standard does not say how to build its function)
     infos = (pace_info(mapping, 12),)
     # it also accepts BAC: the read goes through Basic Access Control

@@ -29,16 +29,27 @@ def test_a_certificate_for_the_claimed_company_is_consistent() -> None:
 
 
 def test_another_companys_certificate_contradicts_the_claim() -> None:
-    assert c.compare(CERT, claimed_name="Tesco PLC", claimed_number="00123456")["verdict"] == c.CONTRADICTS
-    assert c.compare(CERT, claimed_name="Acme Widgets Limited", claimed_number="00445790")["verdict"] == c.CONTRADICTS
+    assert (
+        c.compare(CERT, claimed_name="Tesco PLC", claimed_number="00123456")["verdict"]
+        == c.CONTRADICTS
+    )
+    assert (
+        c.compare(CERT, claimed_name="Acme Widgets Limited", claimed_number="00445790")["verdict"]
+        == c.CONTRADICTS
+    )
 
 
 def test_a_leading_zero_lost_is_a_different_number() -> None:
-    assert c.compare(CERT, claimed_name="Tesco PLC", claimed_number="445790")["number"] == c.MISMATCH
+    assert (
+        c.compare(CERT, claimed_name="Tesco PLC", claimed_number="445790")["number"] == c.MISMATCH
+    )
 
 
 def test_a_poor_reading_is_not_enough_and_never_held_against_the_applicant() -> None:
-    assert c.compare("xx", claimed_name="Tesco PLC", claimed_number="00445790")["verdict"] == c.NOT_ENOUGH
+    assert (
+        c.compare("xx", claimed_name="Tesco PLC", claimed_number="00445790")["verdict"]
+        == c.NOT_ENOUGH
+    )
     noisy = "Certificate of Incorporation of a company. Registrar of Companies England. Some words here that do not carry the details at all, only noise."
     r = c.compare(noisy, claimed_name="Tesco PLC", claimed_number="00445790")
     assert r["verdict"] == c.NOT_ENOUGH and r["number"] == c.NOT_READ
@@ -46,7 +57,10 @@ def test_a_poor_reading_is_not_enough_and_never_held_against_the_applicant() -> 
 
 def test_a_noisy_name_still_matches_and_a_garbled_one_is_left_undecided() -> None:
     near = CERT.replace("TESCO PLC", "TESC0 PLC")
-    assert c.compare(near, claimed_name="Tesco PLC", claimed_number="00445790")["verdict"] == c.CONSISTENT
+    assert (
+        c.compare(near, claimed_name="Tesco PLC", claimed_number="00445790")["verdict"]
+        == c.CONSISTENT
+    )
 
 
 def test_the_answer_carries_codes_and_a_date_never_the_text() -> None:
@@ -60,14 +74,40 @@ FR = "EXTRAIT KBIS\nSociete par actions simplifiee\nDenomination sociale : EXEMP
 IN = "CERTIFICATE OF INCORPORATION\nCorporate Identity Number U74999MH2019PTC123456\nthe company SAMPLE TECH PRIVATE LIMITED is incorporated under the Companies Act 2013\n"
 
 
-def test_a_certificate_from_any_country_is_consistent_when_it_carries_the_claimed_number_and_name() -> None:
+def test_a_certificate_from_any_country_is_consistent_when_it_carries_the_claimed_number_and_name() -> (
+    None
+):
     """CR-135: no label has to be recognised; the claim says what to look for."""
-    assert c.compare(DE, claimed_name="Beispiel Maschinenbau GmbH", claimed_number="HRB 123456")["verdict"] == c.CONSISTENT
-    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100554")["verdict"] == c.CONSISTENT
-    assert c.compare(IN, claimed_name="Sample Tech Private Limited", claimed_number="U74999MH2019PTC123456")["verdict"] == c.CONSISTENT
+    assert (
+        c.compare(DE, claimed_name="Beispiel Maschinenbau GmbH", claimed_number="HRB 123456")[
+            "verdict"
+        ]
+        == c.CONSISTENT
+    )
+    assert (
+        c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100554")["verdict"]
+        == c.CONSISTENT
+    )
+    assert (
+        c.compare(
+            IN, claimed_name="Sample Tech Private Limited", claimed_number="U74999MH2019PTC123456"
+        )["verdict"]
+        == c.CONSISTENT
+    )
 
 
 def test_another_number_or_another_name_is_never_found_in_free_text() -> None:
-    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100555")["verdict"] != c.CONSISTENT  # a different number
-    assert c.compare(FR, claimed_name="Totally Different Name SAS", claimed_number="552100554")["verdict"] != c.CONSISTENT  # a different name
-    assert c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="5521")["verdict"] != c.CONSISTENT  # too short to look for
+    assert (
+        c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="552100555")["verdict"]
+        != c.CONSISTENT
+    )  # a different number
+    assert (
+        c.compare(FR, claimed_name="Totally Different Name SAS", claimed_number="552100554")[
+            "verdict"
+        ]
+        != c.CONSISTENT
+    )  # a different name
+    assert (
+        c.compare(FR, claimed_name="Exemple Industries SAS", claimed_number="5521")["verdict"]
+        != c.CONSISTENT
+    )  # too short to look for

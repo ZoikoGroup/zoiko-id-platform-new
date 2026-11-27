@@ -77,7 +77,9 @@ _SECRET_VALUE = (
         r"(?i)\b(password|passwd|secret|api[_-]?key|client_secret|private_key)\s*[=:]\s*\S+"
     ),
     re.compile(r"\b(?:zid|sk|pk|ghp|gho|xox[abp])_[A-Za-z0-9]{16,}\b"),  # vendor-style tokens
-    re.compile(r"(?<![A-Za-z0-9])(?:zvl|zat|zps)_[A-Za-z0-9_-]{16,}"),  # Verify API launch links, access tokens and client secrets (WF10 row 4-02)
+    re.compile(
+        r"(?<![A-Za-z0-9])(?:zvl|zat|zps)_[A-Za-z0-9_-]{16,}"
+    ),  # Verify API launch links, access tokens and client secrets (WF10 row 4-02)
     # ZID-UX-PRICE-004 P47: no card number or security code reaches a log line or span attribute, in any of the shapes a payload or a message puts them in
     re.compile(r"(?<![\w-])3[47]\d{2}[ -]?\d{6}[ -]?\d{5}(?![\w-])"),  # American Express 4-6-5
     re.compile(

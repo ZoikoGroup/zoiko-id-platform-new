@@ -19,11 +19,15 @@ OWNER_ONLY = frozenset({"analytics.access.delegate"})
 
 BUNDLES: dict[str, frozenset[str]] = {
     "ANALYTICS_VIEWER": frozenset({"analytics.read"}),
-    "OPERATIONS_LEAD": frozenset({"analytics.read", "analytics.drill", "analytics.operations.read", "analytics.export"}),
+    "OPERATIONS_LEAD": frozenset(
+        {"analytics.read", "analytics.drill", "analytics.operations.read", "analytics.export"}
+    ),
     "DEVELOPER_ADMIN": frozenset({"analytics.read", "analytics.operations.read"}),
     "COMPLIANCE_REVIEWER": frozenset({"analytics.read", "analytics.drill"}),
     "AUDITOR": frozenset({"analytics.read", "analytics.export"}),
-    "DATA_STEWARD": frozenset({"analytics.read", "analytics.corrections.request", "analytics.corrections.approve"}),
+    "DATA_STEWARD": frozenset(
+        {"analytics.read", "analytics.corrections.request", "analytics.corrections.approve"}
+    ),
 }
 
 
@@ -49,15 +53,28 @@ def allowed(roles: tuple[str, ...], granted: frozenset[str], permission: str) ->
     return permission not in OWNER_ONLY and permission in granted
 
 
-def check_grant(*, actor_roles: tuple[str, ...], actor: str, grantee: str, grantee_is_member: bool, bundle: str, now: datetime, expires_at: datetime | None) -> frozenset[str]:
+def check_grant(
+    *,
+    actor_roles: tuple[str, ...],
+    actor: str,
+    grantee: str,
+    grantee_is_member: bool,
+    bundle: str,
+    now: datetime,
+    expires_at: datetime | None,
+) -> frozenset[str]:
     if "OWNER" not in actor_roles:
-        raise AccessError("ANALYTICS_DELEGATION_OWNER_ONLY", "Only an Owner gives analytics access.")
+        raise AccessError(
+            "ANALYTICS_DELEGATION_OWNER_ONLY", "Only an Owner gives analytics access."
+        )
     if bundle not in BUNDLES:
         raise AccessError("ANALYTICS_BUNDLE_UNKNOWN", "Unknown analytics access bundle.")
     if actor == grantee:
         raise AccessError("ANALYTICS_SELF_GRANT", "Nobody gives analytics access to themselves.")
     if not grantee_is_member:
-        raise AccessError("ANALYTICS_GRANTEE_NOT_MEMBER", "Analytics access goes to an active member only.")
+        raise AccessError(
+            "ANALYTICS_GRANTEE_NOT_MEMBER", "Analytics access goes to an active member only."
+        )
     if expires_at is not None and expires_at <= now:
         raise AccessError("ANALYTICS_EXPIRY_PAST", "The expiry is already past.")
     return BUNDLES[bundle]

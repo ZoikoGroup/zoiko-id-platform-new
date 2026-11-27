@@ -36,6 +36,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/policy-releases/{release_id}:compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description Run each scenario under the draft and under the active release, and keep the result as a signed ANALYSIS (never attached to a receipt).
+         */
+        post: operations["compare_v1_policy_releases__release_id__compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/policy-releases/{release_id}:publish": {
         parameters: {
             query?: never;
@@ -108,30 +128,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** CaseIn */
-        CaseIn: {
-            /** Action */
-            action: string;
-            /** Context */
-            context?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Expect Allow
-             * @default false
-             */
-            expect_allow: boolean;
-            /** Name */
-            name: string;
-            /** Principal */
-            principal: string;
-            /** Resource */
-            resource: string;
-        };
         /** DraftIn */
         DraftIn: {
             /** Cases */
-            cases: components["schemas"]["CaseIn"][];
+            cases: components["schemas"]["zid_platform__modules__policy_authoring__api__policies__CaseIn"][];
             /** Name */
             name: string;
             /** Policies */
@@ -140,7 +140,7 @@ export interface components {
         /** EditIn */
         EditIn: {
             /** Cases */
-            cases: components["schemas"]["CaseIn"][];
+            cases: components["schemas"]["zid_platform__modules__policy_authoring__api__policies__CaseIn"][];
             /** Policies */
             policies: string;
         };
@@ -174,6 +174,31 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** WhatIfBody */
+        WhatIfBody: {
+            /** Scenarios */
+            scenarios: components["schemas"]["SimulateIn"][];
+        };
+        /** CaseIn */
+        zid_platform__modules__policy_authoring__api__policies__CaseIn: {
+            /** Action */
+            action: string;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Expect Allow
+             * @default false
+             */
+            expect_allow: boolean;
+            /** Name */
+            name: string;
+            /** Principal */
+            principal: string;
+            /** Resource */
+            resource: string;
         };
     };
     responses: never;
@@ -291,6 +316,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_v1_policy_releases__release_id__compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                release_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

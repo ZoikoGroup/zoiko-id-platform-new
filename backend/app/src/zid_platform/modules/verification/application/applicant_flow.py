@@ -32,7 +32,9 @@ def configure_usage_sink(sink: UsageSink | None) -> None:
     _usage_sink = sink
 
 
-async def record_submission(conn: AsyncConnection, tenant_id: str, session_ref: str, at: datetime) -> None:
+async def record_submission(
+    conn: AsyncConnection, tenant_id: str, session_ref: str, at: datetime
+) -> None:
     """Once per session (the meter's key is the session): the first submission only calls this, and a repeat would be the same event anyway (Q33)."""
     if _usage_sink is not None:
         await _usage_sink(conn, tenant_id, session_ref, at)
@@ -51,7 +53,14 @@ def idv_coverage(source: object | None = None) -> list[dict[str, object]]:
     out: list[dict[str, object]] = []
     for market, r in sorted(table.items()):
         routes = [{"route": "CHIP", "kind": "CHIP_AND_DOCUMENT"}] + [
-            {"route": a.route_id, "kind": "DOCUMENT_AND_FACE" if a.face_match else "DOCUMENT_AUTOMATIC" if a.automatic else "DOCUMENT_REVIEWED"}
+            {
+                "route": a.route_id,
+                "kind": "DOCUMENT_AND_FACE"
+                if a.face_match
+                else "DOCUMENT_AUTOMATIC"
+                if a.automatic
+                else "DOCUMENT_REVIEWED",
+            }
             for a in r.policy.alternates
         ]
         out.append({"market": market, "policy_version": r.policy.version, "routes": routes,
@@ -116,7 +125,12 @@ async def decision(conn: AsyncConnection, case: svc.Case) -> dict[str, Any]:
 
 
 async def finalize_if_due(
-    conn: AsyncConnection, tenant_id: str, case: svc.Case, now: datetime, *, review_sla_hours: int | None = None
+    conn: AsyncConnection,
+    tenant_id: str,
+    case: svc.Case,
+    now: datetime,
+    *,
+    review_sla_hours: int | None = None,
 ) -> None:
     """Tell the business once a submitted session's state is final, and again if a later decision supersedes it (each with its decision version)."""
     s = await applicant_session.session_for_case(conn, case.case_id)

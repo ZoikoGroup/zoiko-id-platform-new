@@ -201,13 +201,16 @@ def check_opening(
     missing = [a for a, ref in cleaned.items() if not _REFERENCE.match(ref)]
     if missing:
         raise CountryError(
-            "COUNTRY_OPENING_INCOMPLETE", f"each approval needs its reference (3 to 200 characters): {missing}"
+            "COUNTRY_OPENING_INCOMPLETE",
+            f"each approval needs its reference (3 to 200 characters): {missing}",
         )
     if capability != Capability.REGISTRATION.value:
         return cleaned, ()  # only sign-up decides which cell holds an account
     cells = tuple(dict.fromkeys(c.strip() for c in home_cells if c.strip()))
     if not cells or not all(_CELL.match(c) for c in cells):
-        raise CountryError("COUNTRY_OPENING_INCOMPLETE", "name the cell that holds this country's accounts")
+        raise CountryError(
+            "COUNTRY_OPENING_INCOMPLETE", "name the cell that holds this country's accounts"
+        )
     return cleaned, cells
 
 

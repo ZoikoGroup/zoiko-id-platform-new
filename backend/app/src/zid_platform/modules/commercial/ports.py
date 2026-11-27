@@ -218,6 +218,23 @@ async def require_production_environment(
         )
 
 
+async def has_paid_plan(conn: AsyncConnection) -> bool:
+    """Does this company (the connection's row-level scope) hold an ACTIVE plan that costs money and came from an order that was not a free pilot? The free Developer plan, no plan and a pilot all
+    answer False. An entitlement from an order is set only once the order is activated, and a plan with a monthly fee waits for its first payment when the order is activated with payment required
+    (CR-062), so an active, non-pilot, fee-bearing order entitlement is the record that the plan was bought. It is read only: this never grants or changes a plan."""
+    from sqlalchemy import text
+
+    row = await conn.execute(
+        text(
+            "SELECT 1 FROM commercial.entitlement e "
+            "JOIN commercial.plan p ON p.plan_code = e.plan_code "
+            "JOIN commercial.sales_order o ON o.order_id = e.source_order_id "
+            "WHERE e.state = 'ACTIVE' AND p.platform_fee > 0 AND NOT o.pilot LIMIT 1"
+        )
+    )
+    return row.first() is not None
+
+
 __all__ = [
     "METERS",
     "MINOR_UNITS",
@@ -284,6 +301,7 @@ __all__ = [
     "finance_policy",
     "freeze_month",
     "fx_store",
+    "has_paid_plan",
     "idv_usage_sink",
     "invoicing",
     "key_auth",

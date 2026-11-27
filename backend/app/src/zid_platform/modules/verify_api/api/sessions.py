@@ -194,7 +194,9 @@ async def partner_openapi(request: Request) -> JSONResponse:
 @router.get("/v1/verify-api/errors")
 async def partner_errors() -> JSONResponse:
     """Every error class a partner's server can meet, with what to do about each (ZID-CP-WF10 section 07.2). Public, like the API reference."""
-    return JSONResponse(error_catalog.catalog_view(), headers={"Cache-Control": "public, max-age=300"})
+    return JSONResponse(
+        error_catalog.catalog_view(), headers={"Cache-Control": "public, max-age=300"}
+    )
 
 
 @router.get("/v1/verify-api/credential-policy")
@@ -212,14 +214,19 @@ async def credential_policy() -> JSONResponse:
     hist = observe.REVOCATION_TO_REFUSAL
     series = hist.series.get(hist._key({}))
     count = int(series[-1]) if series else 0
-    return JSONResponse(credential_policy_rules.policy(ratified, hist.quantile(0.99), count), headers={"Cache-Control": "public, max-age=60"})
+    return JSONResponse(
+        credential_policy_rules.policy(ratified, hist.quantile(0.99), count),
+        headers={"Cache-Control": "public, max-age=60"},
+    )
 
 
 @router.get("/v1/verify-api/versions")
 async def api_versions() -> JSONResponse:
     """The partner API versions, their state, support dates, changelog and migration notes, each tied to an immutable schema snapshot (ZID-CP-WF10, WF-10.05). Public."""
     releases = [api_versions_rules.parse(x) for x in api_version_register.register()]
-    return JSONResponse(api_versions_rules.view(releases), headers={"Cache-Control": "public, max-age=300"})
+    return JSONResponse(
+        api_versions_rules.view(releases), headers={"Cache-Control": "public, max-age=300"}
+    )
 
 
 @router.get("/v1/verify-api/versions/{version}/openapi.json")
@@ -230,12 +237,19 @@ async def api_version_snapshot(version: str) -> JSONResponse:
         if r.version == version:
             text = api_version_register.snapshot_text(r.snapshot)
             if text is None or api_versions_rules.snapshot_problems(r, text):
-                raise ZidError("NOT_FOUND", "That version's schema is not available here.", http_status=404)
-            return JSONResponse(api_versions_rules.load_json(text), headers={"Cache-Control": "public, max-age=86400", "ETag": '"' + r.digest + '"'})
+                raise ZidError(
+                    "NOT_FOUND", "That version's schema is not available here.", http_status=404
+                )
+            return JSONResponse(
+                api_versions_rules.load_json(text),
+                headers={"Cache-Control": "public, max-age=86400", "ETag": '"' + r.digest + '"'},
+            )
     raise ZidError("NOT_FOUND", "There is no such API version.", http_status=404)
 
 
-_mcp_limiter = FailureLimiter(window=60, limit=120)  # a public endpoint: at most 120 messages a minute from one address
+_mcp_limiter = FailureLimiter(
+    window=60, limit=120
+)  # a public endpoint: at most 120 messages a minute from one address
 
 
 def _mcp_tools() -> dict[str, Any]:
@@ -243,7 +257,13 @@ def _mcp_tools() -> dict[str, Any]:
         c = error_catalog.classify(str(a["code"]).upper())
         if c is None:
             raise KeyError(a["code"])
-        return {"code": c.code, "http_status": c.http_status, "meaning": c.meaning, "caller_behavior": c.caller_behavior, "retryable": c.retryable}
+        return {
+            "code": c.code,
+            "http_status": c.http_status,
+            "meaning": c.meaning,
+            "caller_behavior": c.caller_behavior,
+            "retryable": c.retryable,
+        }
 
     def personas(_: Any) -> Any:
         return fixtures.catalog_view()
@@ -254,12 +274,22 @@ def _mcp_tools() -> dict[str, Any]:
         return fixtures.delivery_plan(str(a["persona"]), str(a.get("seed", "1")))
 
     def versions(_: Any) -> Any:
-        return api_versions_rules.view([api_versions_rules.parse(x) for x in api_version_register.register()])
+        return api_versions_rules.view(
+            [api_versions_rules.parse(x) for x in api_version_register.register()]
+        )
 
     def sdks(_: Any) -> Any:
-        return sdk_catalog.view([sdk_catalog.parse(x) for x in sdk_register.register()], datetime.now(UTC).date())
+        return sdk_catalog.view(
+            [sdk_catalog.parse(x) for x in sdk_register.register()], datetime.now(UTC).date()
+        )
 
-    return {"lookup_error": lookup, "list_api_versions": versions, "list_sdks": sdks, "list_test_personas": personas, "get_test_plan": plan}
+    return {
+        "lookup_error": lookup,
+        "list_api_versions": versions,
+        "list_sdks": sdks,
+        "list_test_personas": personas,
+        "get_test_plan": plan,
+    }
 
 
 @router.post("/v1/verify-api/mcp")
@@ -268,7 +298,13 @@ async def developer_mcp(request: Request) -> Response:
     who = request.client.host if request.client else "unknown"
     wait = _mcp_limiter.blocked(who)
     if wait:
-        raise ZidError("RATE_LIMITED", f"Too many messages. Try again in {wait} seconds.", http_status=429, retryable=True, retry_after_ms=int(wait) * 1000)
+        raise ZidError(
+            "RATE_LIMITED",
+            f"Too many messages. Try again in {wait} seconds.",
+            http_status=429,
+            retryable=True,
+            retry_after_ms=int(wait) * 1000,
+        )
     _mcp_limiter.failed(who)  # every message counts toward the window
     raw = await request.body()
     if len(raw) > mcp_dev.MAX_REQUEST_BYTES:
@@ -276,11 +312,23 @@ async def developer_mcp(request: Request) -> Response:
     try:
         message = json.loads(raw)
     except ValueError:
-        return JSONResponse({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Not valid JSON."}})
+        return JSONResponse(
+            {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Not valid JSON."}}
+        )
     if not isinstance(message, dict):
-        return JSONResponse({"jsonrpc": "2.0", "id": None, "error": {"code": -32600, "message": "Send one JSON-RPC message at a time."}})
+        return JSONResponse(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32600, "message": "Send one JSON-RPC message at a time."},
+            }
+        )
     answer = mcp_dev.handle(message, _mcp_tools())
-    return Response(status_code=202) if answer is None else JSONResponse(answer, headers={"Cache-Control": "no-store"})
+    return (
+        Response(status_code=202)
+        if answer is None
+        else JSONResponse(answer, headers={"Cache-Control": "no-store"})
+    )
 
 
 @router.get("/v1/verify-api/mcp/registry")
@@ -290,7 +338,10 @@ async def developer_mcp_registry() -> JSONResponse:
 
 
 @router.get("/v1/verify-api/pricing/people")
-async def people_pricing(plan: str | None = Query(default=None, pattern=r"^[a-z]{3,20}$"), verifications: int | None = Query(default=None, ge=0, le=1_000_000_000)) -> JSONResponse:
+async def people_pricing(
+    plan: str | None = Query(default=None, pattern=r"^[a-z]{3,20}$"),
+    verifications: int | None = Query(default=None, ge=0, le=1_000_000_000),
+) -> JSONResponse:
     """The Verify People prices as shown on the pricing page, and an estimate for a plan and a monthly volume. Proposed prices, not an invoice. Public."""
     table = people_price_register.table()
     out: dict[str, Any] = {
@@ -301,7 +352,9 @@ async def people_pricing(plan: str | None = Query(default=None, pattern=r"^[a-z]
         try:
             out["estimate"] = people_prices.estimate(table, plan, verifications)
         except PartnerError as e:
-            raise ZidError(e.code, e.detail, http_status=404 if e.code == "PLAN_UNKNOWN" else 422) from e
+            raise ZidError(
+                e.code, e.detail, http_status=404 if e.code == "PLAN_UNKNOWN" else 422
+            ) from e
     return JSONResponse(out, headers={"Cache-Control": "public, max-age=60"})
 
 
@@ -339,11 +392,19 @@ async def fixture_catalog() -> JSONResponse:
 
 
 @router.get("/v1/verify-api/fixtures/{persona_id}/plan")
-async def fixture_plan(persona_id: str, seed: str = Query(default="1", pattern=r"^[A-Za-z0-9_.-]{1,40}$")) -> JSONResponse:
+async def fixture_plan(
+    persona_id: str, seed: str = Query(default="1", pattern=r"^[A-Za-z0-9_.-]{1,40}$")
+) -> JSONResponse:
     """How the events of one persona are to be delivered to a partner's endpoint, and what a correct server must do. The same persona and seed always give the same plan. Public."""
     if fixtures.persona(persona_id) is None:
         raise ZidError("NOT_FOUND", "There is no such test persona.", http_status=404)
-    return JSONResponse({**fixtures.delivery_plan(persona_id, seed), "expectations": fixtures.expectations(persona_id)}, headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {
+            **fixtures.delivery_plan(persona_id, seed),
+            "expectations": fixtures.expectations(persona_id),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 class FixtureObservationBody(BaseModel):
@@ -378,12 +439,16 @@ class WebhookConfirmBody(BaseModel):
 
 
 @router.post("/v1/verify-api/onboarding/webhook-confirmations", status_code=201)
-async def confirm_webhook(body: WebhookConfirmBody, request: Request, who: VerifyApiDep) -> dict[str, Any]:
+async def confirm_webhook(
+    body: WebhookConfirmBody, request: Request, who: VerifyApiDep
+) -> dict[str, Any]:
     """Your server says it received a delivered webhook and verified its signature, naming the event id. The last step of the first-verification checklist (ZID-CP-WF10, WF-10.01)."""
     try:
         who.require("webhooks:read")
         async with _tx(request, who) as conn:
-            return await onboarding_service.confirm_webhook(conn, who.tenant_id, who.application_id, body.event_id)
+            return await onboarding_service.confirm_webhook(
+                conn, who.tenant_id, who.application_id, body.event_id
+            )
     except PartnerError as e:
         raise _fail(e) from e
 
@@ -428,7 +493,9 @@ async def create_session(
             )
     except PartnerError as e:
         raise _fail(e) from e
-    request.state.log_session_id = str(view.get("session_id", "")) or None  # lets the request log tie this call to the session it made
+    request.state.log_session_id = (
+        str(view.get("session_id", "")) or None
+    )  # lets the request log tie this call to the session it made
     return _no_store(view, 201 if created else 200)
 
 

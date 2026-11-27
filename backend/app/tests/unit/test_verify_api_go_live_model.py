@@ -139,7 +139,11 @@ def test_the_company_fact_is_a_registry_match_or_nothing_and_it_is_part_of_the_r
     assert g.company_fact(None) == {"verified": False, "claim": None, "assessed_at": None}
     at = datetime(2026, 11, 20, tzinfo=UTC)
     fact = g.company_fact(("COMPANY_REGISTRY_MATCHED", at))
-    assert fact == {"verified": True, "claim": "COMPANY_REGISTRY_MATCHED", "assessed_at": at.isoformat()}
+    assert fact == {
+        "verified": True,
+        "claim": "COMPANY_REGISTRY_MATCHED",
+        "assessed_at": at.isoformat(),
+    }
     plain = _record()
     assert "company_check" not in plain  # a record made without the check keeps its old digest
     with_check = _record(company_check={"claim": fact["claim"], "assessed_at": fact["assessed_at"]})

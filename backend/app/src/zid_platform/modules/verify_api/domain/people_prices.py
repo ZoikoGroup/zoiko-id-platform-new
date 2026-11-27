@@ -42,7 +42,9 @@ def parse(raw: Mapping[str, Any]) -> Table:
             continue
         charge, floor = Decimal(str(p["charge"])), Decimal(str(p["minimum_monthly"]))
         if charge <= 0 or floor < 0:
-            raise ValueError(f"plan {code}: the charge must be above zero and the minimum not negative")
+            raise ValueError(
+                f"plan {code}: the charge must be above zero and the minimum not negative"
+            )
         plans[code] = Plan(code, str(p["name"]), charge, floor, False)
     if raw.get("minimum_model") != "FLOOR":
         raise ValueError("only a spend floor is modelled")
@@ -54,9 +56,13 @@ def estimate(table: Table, plan: str, verifications: int) -> dict[str, Any]:
     if p is None:
         raise PartnerError("PLAN_UNKNOWN", f"There is no plan called {plan}.")
     if p.custom or p.charge is None or p.minimum_monthly is None:
-        raise PartnerError("PRICE_ON_REQUEST", f"{p.name} is priced by agreement. No estimate is offered.")
+        raise PartnerError(
+            "PRICE_ON_REQUEST", f"{p.name} is priced by agreement. No estimate is offered."
+        )
     if not 0 <= verifications <= MAX_VOLUME:
-        raise PartnerError("VOLUME_INVALID", "The number of verifications must be between 0 and 1,000,000,000.")
+        raise PartnerError(
+            "VOLUME_INVALID", "The number of verifications must be between 0 and 1,000,000,000."
+        )
     usage = (p.charge * verifications).quantize(_CENT, ROUND_HALF_EVEN)
     total = max(usage, p.minimum_monthly)
     return {

@@ -320,9 +320,7 @@ def test_a_face_that_does_not_match_is_a_retake_and_then_inconclusive_never_not_
             "FACE_DOES_NOT_MATCH_DOCUMENT_PHOTO",
             "ATTEMPTS_USED_UP",
         ]
-        assert decision["checks"] == [
-            {"method": "face_match", "result": "inconclusive"}
-        ]
+        assert decision["checks"] == [{"method": "face_match", "result": "inconclusive"}]
         assert (
             decision["assurance"] is None
         )  # no grade is claimed for a check that did not confirm anything

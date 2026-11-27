@@ -49,7 +49,18 @@ def get_bit(bits: bytes | bytearray, index: int) -> bool:
     return bool(bits[index // 8] & (0x80 >> (index % 8)))
 
 
-def list_claims(*, list_id: str, purpose: str, version: int, encoded: str, size_bits: int, issuer: str, environment: str, now: datetime, ttl: timedelta = TTL) -> dict[str, Any]:
+def list_claims(
+    *,
+    list_id: str,
+    purpose: str,
+    version: int,
+    encoded: str,
+    size_bits: int,
+    issuer: str,
+    environment: str,
+    now: datetime,
+    ttl: timedelta = TTL,
+) -> dict[str, Any]:
     if purpose not in PURPOSES:
         raise StatusListError("unknown purpose")
     ttl = min(ttl, MAX_TTL)
@@ -69,16 +80,37 @@ def list_claims(*, list_id: str, purpose: str, version: int, encoded: str, size_
     }
 
 
-def lookup(claims: Mapping[str, Any], bits: bytes, index: int, *, now: datetime, max_age: timedelta | None, expected_issuer: str, expected_environment: str) -> str:
+def lookup(
+    claims: Mapping[str, Any],
+    bits: bytes,
+    index: int,
+    *,
+    now: datetime,
+    max_age: timedelta | None,
+    expected_issuer: str,
+    expected_environment: str,
+) -> str:
     """REVOKED / SUSPENDED when the bit is set, ACTIVE when it is not and the list is fresh enough, otherwise UNKNOWN. Wrong issuer or environment, an
     expired list, a list older than the accepted age, a position outside it: all UNKNOWN. Nothing stale is ever read as ACTIVE."""
     try:
-        issued, expires = datetime.fromisoformat(str(claims["issued_at"])), datetime.fromisoformat(str(claims["expires_at"]))
+        issued, expires = (
+            datetime.fromisoformat(str(claims["issued_at"])),
+            datetime.fromisoformat(str(claims["expires_at"])),
+        )
     except (KeyError, ValueError):
         return "UNKNOWN"
-    if claims.get("schema") != SCHEMA or claims.get("issuer") != expected_issuer or claims.get("environment") != expected_environment:
+    if (
+        claims.get("schema") != SCHEMA
+        or claims.get("issuer") != expected_issuer
+        or claims.get("environment") != expected_environment
+    ):
         return "UNKNOWN"
-    if now > expires or max_age is None or now - issued > max_age or int(claims.get("size_bits", 0)) != len(bits) * 8:
+    if (
+        now > expires
+        or max_age is None
+        or now - issued > max_age
+        or int(claims.get("size_bits", 0)) != len(bits) * 8
+    ):
         return "UNKNOWN"
     try:
         marked = get_bit(bits, index)

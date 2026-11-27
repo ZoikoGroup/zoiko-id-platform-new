@@ -20,7 +20,17 @@ depends_on = None
 TENANT = "tenant_id = nullif(current_setting('app.tenant_id', true), '')::uuid"
 SCOPE = "current_setting('app.verify_api_scope', true)"
 STATES = "'QUEUED','CLAIMED','INVESTIGATING','AWAITING_APPLICANT','ESCALATED','SPECIALIST_REVIEW','AWAITING_SECOND_REVIEW','RETURNED','APPROVED_FINAL'"
-TABLES = ("api_review_case", "api_review_lease", "api_review_evidence", "api_review_reveal", "api_review_proposal", "api_review_second", "api_review_event", "api_review_hold", "api_review_advice")
+TABLES = (
+    "api_review_case",
+    "api_review_lease",
+    "api_review_evidence",
+    "api_review_reveal",
+    "api_review_proposal",
+    "api_review_second",
+    "api_review_event",
+    "api_review_hold",
+    "api_review_advice",
+)
 
 
 def upgrade() -> None:

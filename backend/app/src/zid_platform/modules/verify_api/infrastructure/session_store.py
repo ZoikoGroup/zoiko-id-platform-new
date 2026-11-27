@@ -15,7 +15,9 @@ _SESSION = (
     "session_id, tenant_id, application_id, environment, customer_reference, workflow_id, workflow_version, country, region, purpose_code, locale, return_origin, "
     "metadata, status, launch_expires_at, created_at, opened_at, completed_at, expires_at, recheck_of"
 )
-_SESSION_S = ", ".join("s." + c.strip() for c in _SESSION.split(","))  # the same columns, qualified for a join
+_SESSION_S = ", ".join(
+    "s." + c.strip() for c in _SESSION.split(",")
+)  # the same columns, qualified for a join
 _DECISION = "decision_id, session_id, decision_version, supersedes_decision_id, outcome, checks, reason_codes, sandbox, policy_version, region, completed_at"
 
 
@@ -338,6 +340,21 @@ async def search_sessions(
     return [_row(r) for r in rows]
 
 
+async def latest_outcomes(conn: AsyncConnection, session_ids: list[str]) -> dict[str, str]:
+    """The newest decision's outcome for each of these sessions, in one query. A session with no decision yet has no entry."""
+    if not session_ids:
+        return {}
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT DISTINCT ON (session_id) session_id, outcome FROM verify.api_decision WHERE session_id = ANY(:ids) ORDER BY session_id, decision_version DESC"
+            ),
+            {"ids": session_ids},
+        )
+    ).all()
+    return {str(r.session_id): str(r.outcome) for r in rows}
+
+
 async def list_decisions(conn: AsyncConnection, session_id: str) -> list[dict[str, Any]]:
     """Every decision of a session, oldest first: a later one supersedes an earlier one and the earlier one stays."""
     rows = (
@@ -366,5 +383,14 @@ async def rechecks_of(conn: AsyncConnection, session_id: str) -> list[dict[str, 
 
 async def get_session_by_id(conn: AsyncConnection, session_id: str) -> dict[str, Any] | None:
     """One session of the tenant (RLS) by id, for the console trace: id and status only."""
-    row = (await conn.execute(text("SELECT session_id, status FROM verify.api_session WHERE session_id = :s"), {"s": session_id})).mappings().first()
+    row = (
+        (
+            await conn.execute(
+                text("SELECT session_id, status FROM verify.api_session WHERE session_id = :s"),
+                {"s": session_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
     return dict(row) if row else None

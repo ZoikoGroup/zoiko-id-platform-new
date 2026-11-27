@@ -58,7 +58,19 @@ async def ask(body: TrustRoomRequestIn, request: Request, caller: CallerDep) -> 
     tenant, me = _me(caller)
     try:
         async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-            return await svc.request_access(conn, tenant=tenant, requester=me, organization=body.organization, purpose=body.purpose, evidence_id=body.evidence_id, accept_terms=body.accept_terms, now=datetime.now(UTC), terms_version=str(getattr(request.app.state, "trust_room_terms_version", svc.ROOM_TERMS_VERSION)))
+            return await svc.request_access(
+                conn,
+                tenant=tenant,
+                requester=me,
+                organization=body.organization,
+                purpose=body.purpose,
+                evidence_id=body.evidence_id,
+                accept_terms=body.accept_terms,
+                now=datetime.now(UTC),
+                terms_version=str(
+                    getattr(request.app.state, "trust_room_terms_version", svc.ROOM_TERMS_VERSION)
+                ),
+            )
     except svc.TrustError as e:
         raise ZidError(e.code, e.detail or e.code, http_status=STATUS.get(e.code, 422)) from e
 
@@ -76,16 +88,40 @@ async def mine(request: Request, caller: CallerDep) -> dict[str, Any]:
 async def download(body: TrustRoomDownloadIn, request: Request, caller: CallerDep) -> Response:
     tenant, me = _me(caller)
     ip = request.client.host if request.client else "unknown"
-    source = hashlib.sha256(f"{getattr(request.app.state, 'trust_report_salt', '')}|{ip}".encode()).hexdigest()
+    source = hashlib.sha256(
+        f"{getattr(request.app.state, 'trust_report_salt', '')}|{ip}".encode()
+    ).hexdigest()
     outcome: str | None = None
     got: tuple[bytes, str, str] | None = None
-    async with tenant_transaction(request_engine(request), caller.ctx) as conn:  # the record of a refusal must commit, so a denial is carried out of the block and raised after it
+    async with (
+        tenant_transaction(request_engine(request), caller.ctx) as conn
+    ):  # the record of a refusal must commit, so a denial is carried out of the block and raised after it
         try:
-            got = await svc.room_download(conn, token=body.token, tenant=tenant, principal=me, now=datetime.now(UTC), source_hash=source)
+            got = await svc.room_download(
+                conn,
+                token=body.token,
+                tenant=tenant,
+                principal=me,
+                now=datetime.now(UTC),
+                source_hash=source,
+            )
         except svc.RoomDenied as e:
             outcome = e.outcome
     if got is None:
         # an unknown token and a wrong person look the same from outside
-        raise ZidError("ACCESS_DENIED", "This access is not available.", http_status=403 if outcome not in ("EXPIRED",) else 410)
+        raise ZidError(
+            "ACCESS_DENIED",
+            "This access is not available.",
+            http_status=403 if outcome not in ("EXPIRED",) else 410,
+        )
     content, content_type, watermark = got
-    return Response(content, media_type=content_type, headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, noarchive", "Content-Disposition": 'attachment; filename="document"', "X-Zoiko-Watermark": watermark.encode("ascii", "ignore").decode()})
+    return Response(
+        content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Robots-Tag": "noindex, noarchive",
+            "Content-Disposition": 'attachment; filename="document"',
+            "X-Zoiko-Watermark": watermark.encode("ascii", "ignore").decode(),
+        },
+    )

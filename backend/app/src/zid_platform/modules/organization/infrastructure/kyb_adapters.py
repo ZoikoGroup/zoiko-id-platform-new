@@ -276,8 +276,12 @@ class GleifKyb:
         text_query = query.strip()
         searches = [f"filter[fulltext]={quote(text_query)}"]
         if _NUMBER_LIKE.fullmatch(text_query) and any(ch.isdigit() for ch in text_query):
-            searches.insert(0, f"filter[entity.registeredAs]={quote(text_query)}")  # a national number finds its company exactly
-        country_filter = f"&filter[entity.legalAddress.country]={quote(jurisdiction)}" if jurisdiction else ""
+            searches.insert(
+                0, f"filter[entity.registeredAs]={quote(text_query)}"
+            )  # a national number finds its company exactly
+        country_filter = (
+            f"&filter[entity.legalAddress.country]={quote(jurisdiction)}" if jurisdiction else ""
+        )
         data: list[Any] = []
         async with _client(self.base_url, self.transport) as c:
             for search in searches:
@@ -304,11 +308,14 @@ class GleifKyb:
                 adapter_id=self.adapter_id,
                 jurisdiction=country,
                 registry_authority="gleif",
-                registration_number=national or lei,  # the number the applicant knows; the LEI is carried beside it
+                registration_number=national
+                or lei,  # the number the applicant knows; the LEI is carried beside it
                 legal_name=name,
                 registration_status=_text(entity.get("status")),
                 source_uri=f"{self.base_url}/lei-records/{quote(lei)}",
-                confidence=name_similarity(text_query, name) if not national or national != text_query else 1.0,
+                confidence=name_similarity(text_query, name)
+                if not national or national != text_query
+                else 1.0,
                 lei=lei,
             )
         return sorted(out.values(), key=lambda x: (-x.confidence, x.registration_number))

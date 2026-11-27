@@ -134,7 +134,7 @@ async def _run(
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await _allowed(conn, caller, *actions)
         try:
-            return await fn(conn, caller.ctx.principal_id or "")
+            return await fn(conn, caller.ctx.principal_id or "")  # type: ignore[no-any-return]
         except PartnerError as e:
             raise fail(e) from e
 
@@ -143,7 +143,7 @@ async def _with_viewer(result: Any, me: str) -> dict[str, Any]:
     """Who is asking, so the screen can tell 'mine' from 'someone else's'."""
     out = await result
     out["viewer"] = me
-    return out
+    return out  # type: ignore[no-any-return]
 
 
 @router.get("/v1/verify-api/review-cases")

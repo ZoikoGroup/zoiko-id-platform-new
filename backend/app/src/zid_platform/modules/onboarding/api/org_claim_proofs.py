@@ -197,21 +197,36 @@ async def upload_proof(
     response.status_code = 201 if created else 200
     shown = _shown(proof)
     if proof.kind in READABLE_KINDS:
-        shown["read"] = await _read_certificate(request, caller, claim_id, content, proof.media_type)
-        async with tenant_transaction(request_engine(request), caller.ctx) as conn:  # CR-132: a stored certificate's reading is kept; a CONSISTENT one completes the company check
-            await proof_service.keep_reading(conn, tenant, str(claim_id), proof.proof_id, shown["read"], now)
+        shown["read"] = await _read_certificate(
+            request, caller, claim_id, content, proof.media_type
+        )
+        async with (
+            tenant_transaction(request_engine(request), caller.ctx) as conn
+        ):  # CR-132: a stored certificate's reading is kept; a CONSISTENT one completes the company check
+            await proof_service.keep_reading(
+                conn, tenant, str(claim_id), proof.proof_id, shown["read"], now
+            )
     return shown
 
 
-async def _read_certificate(request: Request, caller: Caller, claim_id: uuid.UUID, content: bytes, media_type: str) -> dict[str, Any]:
+async def _read_certificate(
+    request: Request, caller: Caller, claim_id: uuid.UUID, content: bytes, media_type: str
+) -> dict[str, Any]:
     """The platform reads the certificate itself (its own OCR) and compares the name and number with the claim. The result is evidence for the applicant and the reviewer, never a verification:
     a certificate the applicant supplies can be forged. Nothing read is kept or returned except codes and the incorporation date. A file the reader cannot take is answered, not refused: the upload stands."""
     if media_type not in {"image/jpeg", "image/png"}:
-        return {"verdict": certificate_read.NOT_ENOUGH, "reading": "PDF_NOT_READABLE_UPLOAD_A_PHOTO_OR_SCAN"}  # the reader takes JPEG and PNG only
+        return {
+            "verdict": certificate_read.NOT_ENOUGH,
+            "reading": "PDF_NOT_READABLE_UPLOAD_A_PHOTO_OR_SCAN",
+        }  # the reader takes JPEG and PNG only
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
-        name, number = await proof_service.claimed_company(conn, caller.ctx.tenant_id or "", str(claim_id))
+        name, number = await proof_service.claimed_company(
+            conn, caller.ctx.tenant_id or "", str(claim_id)
+        )
     try:
-        text = await read_page_text(content, transport=getattr(request.app.state, "imaging_transport", None))
+        text = await read_page_text(
+            content, transport=getattr(request.app.state, "imaging_transport", None)
+        )
     except ImagingUnavailable:
         return {"verdict": certificate_read.NOT_ENOUGH, "reading": "READING_UNAVAILABLE"}
     return certificate_read.compare(text, claimed_name=name, claimed_number=number)
@@ -221,16 +236,25 @@ async def _read_certificate(request: Request, caller: Caller, claim_id: uuid.UUI
     "/org-claims/{claim_id}/certificate:check",
     dependencies=[Depends(matrix_gate("b.upload-organization-kyb-evidence", Mode.EXECUTE))],
 )
-async def check_certificate(claim_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def check_certificate(
+    claim_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Read a certificate picture and compare it with the claim, WITHOUT saving it. The file is scanned for malware, read in memory for this one answer and dropped: nothing is stored, so it needs no
     place in the company's data region. It is the same check an upload gets (`read`), offered before the person decides to add the document. Evidence only: it never verifies the company."""
     policy = proof_policy()
     chunks: list[bytes] = []
     size = 0
-    async for chunk in request.stream():  # never read more than the limit allows, whatever the headers said
+    async for (
+        chunk
+    ) in request.stream():  # never read more than the limit allows, whatever the headers said
         size += len(chunk)
         if size > policy.max_bytes:
-            raise _error(ProofError("PROOF_TOO_LARGE", f"The file is larger than {policy.max_bytes // (1024 * 1024)} MB."))
+            raise _error(
+                ProofError(
+                    "PROOF_TOO_LARGE",
+                    f"The file is larger than {policy.max_bytes // (1024 * 1024)} MB.",
+                )
+            )
         chunks.append(chunk)
     content = b"".join(chunks)
     if not content:
@@ -240,12 +264,21 @@ async def check_certificate(claim_id: uuid.UUID, request: Request, caller: Calle
     elif content.startswith(b"\x89PNG\r\n\x1a\n"):
         media = "image/png"
     else:
-        raise _error(ProofError("PROOF_TYPE_NOT_ALLOWED", "Use a JPEG or PNG photograph or scan to have it checked."))
+        raise _error(
+            ProofError(
+                "PROOF_TYPE_NOT_ALLOWED", "Use a JPEG or PNG photograph or scan to have it checked."
+            )
+        )
     status = await _scanner(request).scan(content)
     if status is ScanStatus.INFECTED:
         raise _error(ProofError("PROOF_INFECTED", "That file could not be accepted."))
     if status is ScanStatus.UNAVAILABLE:
-        raise _error(ProofError("PROOF_SCAN_UNAVAILABLE", "The file could not be checked for safety right now. Try again soon."))
+        raise _error(
+            ProofError(
+                "PROOF_SCAN_UNAVAILABLE",
+                "The file could not be checked for safety right now. Try again soon.",
+            )
+        )
     missing: KybError | None = None
     try:
         out = await _read_certificate(request, caller, claim_id, content, media)

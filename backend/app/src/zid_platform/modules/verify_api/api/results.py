@@ -14,12 +14,14 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from zid_db import tenant_transaction
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.verify_api.api.console_sessions import _acting_as
 from zid_platform.modules.verify_api.api.sessions import _fail as fail
 from zid_platform.modules.verify_api.api.sessions import _no_store, _origin
+from zid_platform.modules.verify_api.application import media_service as media
 from zid_platform.modules.verify_api.application import results_service as svc
 from zid_platform.modules.verify_api.domain.model import PartnerError
 from zid_platform.modules.verify_api.infrastructure import session_store as db
@@ -90,3 +92,49 @@ async def recheck(session_id: str, request: Request, caller: CallerDep) -> JSONR
         except PartnerError as e:
             raise fail(e) from e
     return _no_store(view, 201)
+
+
+# ------------------------------------------------------------------------------ photographs kept for a session (migration verify_api_0020)
+
+
+class MediaOpenBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=5, max_length=300)
+
+
+@router.get("/v1/verify-api/sessions/{session_id}/media")
+async def session_media(session_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
+    """What was kept for this verification (never an image), and every time someone opened one: who, which, why and when."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(conn, caller, action=READ, resource=RESOURCE)
+        try:
+            if await db.get_session_any(conn, session_id) is None:
+                raise PartnerError("NOT_FOUND", "No such session.")
+            return await media.listing(conn, session_id)
+        except PartnerError as e:
+            raise fail(e) from e
+
+
+@router.post("/v1/verify-api/sessions/{session_id}/media/{media_id}:open")
+async def open_session_media(
+    session_id: str, media_id: str, body: MediaOpenBody, request: Request, caller: CallerDep
+) -> JSONResponse:
+    """One photograph, after the person says why. A customer's photograph is raw evidence, so this is the protected `evidence.object.read` act (R3, E3), not an ordinary read. The reason, who and when are recorded before the image is returned, and the answer is never cached."""
+    async with tenant_transaction(request_engine(request), caller.ctx) as conn:
+        await protected_action(
+            conn, caller, action="evidence.object.read", resource=f"verify_api_session:{session_id}"
+        )
+        try:
+            if await db.get_session_any(conn, session_id) is None:
+                raise PartnerError("NOT_FOUND", "No such session.")
+            view = await media.open_one(
+                conn,
+                tenant_id=str(caller.ctx.tenant_id or ""),
+                session_id=session_id,
+                media_id=media_id,
+                principal_id=str(caller.ctx.principal_id),
+                reason=body.reason,
+            )
+        except PartnerError as e:
+            raise fail(e) from e
+    return _no_store(view)

@@ -153,9 +153,17 @@ def board(
             "DEVICE_ATTESTATION",
             Level.BUILT_UNPROVEN,
             "Apple App Attest and Android Play Integrity are verified in code, tested on synthetic inputs only; "
-            + ("App Attest is configured" if apple_attestation_configured else "App Attest is not configured")
+            + (
+                "App Attest is configured"
+                if apple_attestation_configured
+                else "App Attest is not configured"
+            )
             + ", "
-            + ("Play Integrity is configured." if android_attestation_configured else "Play Integrity is not configured."),
+            + (
+                "Play Integrity is configured."
+                if android_attestation_configured
+                else "Play Integrity is not configured."
+            ),
             (
                 "A real device attestation chain and a real Play Integrity verdict",
                 "The apps' identifiers, signing-certificate digests and the Google service account in configuration",

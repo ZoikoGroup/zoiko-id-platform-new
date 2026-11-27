@@ -91,6 +91,7 @@ export function CameraStep({
   }, [facing, frame, stop]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- starting the camera is a sync with an outside device; the state it sets reports that device
     void start();
     return stop;
   }, [start, stop]);
@@ -145,7 +146,6 @@ export function CameraStep({
       <div className="relative mx-auto w-full max-w-xl overflow-hidden rounded-2xl bg-black shadow-sm">
         {shot && shotUrl ? (
           // the person checks the photograph with their own eyes: this is the file itself
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={shotUrl} alt={frame === "document" ? "Your document photograph" : "Your selfie"} className="block w-full object-contain" />
         ) : (
           <>

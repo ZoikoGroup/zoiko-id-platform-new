@@ -5002,7 +5002,12 @@ export type VerifyApiSession = {
   launch_expires_at?: Iso;
 };
 export type VerifyApiSessionPage = { items: VerifyApiSession[]; next_cursor: string | null };
-export type VerifyApiResultRow = VerifyApiSession & { application_id: string; application_name: string };
+export type VerifyApiResultRow = VerifyApiSession & {
+  application_id: string;
+  application_name: string;
+  /** The newest decision's outcome, or null while there is none. */
+  outcome?: "verified" | "not_verified" | "inconclusive" | "review_required" | null;
+};
 export type VerifyApiResultPage = { items: VerifyApiResultRow[]; next_cursor: string | null };
 export type VerifyApiDecision = {
   decision_id: string;
@@ -5016,6 +5021,25 @@ export type VerifyApiDecision = {
   sandbox: boolean;
   assurance: { scheme: string; level: string } | null;
 };
+/** A photograph kept for a verification: a pointer, never the image. */
+export type VerifyApiMedia = {
+  media_id: string;
+  kind: "DOCUMENT" | "SELFIE";
+  attempt: number;
+  content_type: string;
+  byte_length: number;
+  captured_at: Iso;
+  expires_at: Iso;
+  available: boolean;
+};
+export type VerifyApiMediaList = {
+  /** 0 means the deployment keeps no photographs. */
+  keeping_days: number;
+  items: VerifyApiMedia[];
+  opened: { access_id: string; media_id: string; reason: string; opened_at: Iso; by: string }[];
+};
+export type VerifyApiMediaOpened = VerifyApiMedia & { image_base64: string };
+
 export type VerifyApiResultDetail = VerifyApiResultRow & {
   decisions: VerifyApiDecision[];
   rechecks: { session_id: string; status: string; created_at: Iso }[];
@@ -5056,6 +5080,8 @@ export type VerifyApiUsage = {
 };
 export type VerifyApiGrant = { grant_id: string; status: "ACTIVE" | "REVOKED"; markets: string[]; methods: string[]; manifest_digest: string; signed: boolean; signature: string | null; approved_at: Iso; revoked_at: Iso | null; revoke_reason: string | null };
 export type VerifyApiGoLive = {
+  /** Present when the deployment opens production by itself: what is met and whether all three are. */
+  self_serve?: { enabled: boolean; identity: boolean; company: boolean; paid_plan: boolean; ready: boolean };
   certification: VerifyApiGoLiveCheck[];
   company: { verified: boolean; claim: string | null; assessed_at: string | null };
   request: VerifyApiGoLiveRequest | null;

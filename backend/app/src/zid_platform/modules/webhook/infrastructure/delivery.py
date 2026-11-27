@@ -109,13 +109,20 @@ async def verify(
         created=int(datetime.now(UTC).timestamp()),
         sign=sign,
     )
+    reason = ""
     try:
         resp = await client.post(
             row.url, content=body, headers=signed.headers, follow_redirects=False
         )
-        ok = resp.status_code == 200 and resp.json().get("challenge") == row.verification_token
+        reason = answer_reason(resp, row.verification_token)
+    except httpx.TimeoutException:
+        reason = "TIMEOUT"
+    except httpx.ConnectError:
+        reason = "UNREACHABLE"
     except (httpx.HTTPError, ValueError):
-        ok = False
+        reason = "ERROR"
+    ok = reason == ""
+    _LAST_REASON[endpoint_id] = reason
     if ok:
         await conn.execute(
             text(
@@ -125,6 +132,31 @@ async def verify(
             {"e": uuid.UUID(endpoint_id)},
         )
     return ok
+
+
+# Why the last verification of each endpoint failed, as a short code ("" when it passed), so the person is told what the address answered and not only that it failed. Process-local and
+# only ever read right after the verify call that wrote it; nothing here is stored or sent anywhere.
+_LAST_REASON: dict[str, str] = {}
+
+
+def answer_reason(resp: Any, token: str) -> str:
+    """What was wrong with an endpoint's answer to the challenge: "" when it was right, otherwise a code the service turns into a sentence."""
+    code = resp.status_code
+    if code in (301, 302, 303, 307, 308):
+        return f"REDIRECT:{code}"
+    if code != 200:
+        return f"HTTP:{code}"
+    try:
+        answered = resp.json()
+    except ValueError:
+        return "NOT_JSON"
+    if not isinstance(answered, dict) or answered.get("challenge") != token:
+        return "WRONG_CHALLENGE"
+    return ""
+
+
+def last_reason(endpoint_id: str) -> str:
+    return _LAST_REASON.pop(endpoint_id, "")
 
 
 async def route(conn: AsyncConnection, event: CloudEvent) -> int:
@@ -176,7 +208,14 @@ _OUTCOME_EVENT = {
 }
 
 
-async def _delivery_outcome(conn: AsyncConnection, r: Any, status: DeliveryStatus, attempt: int, code: int | None, now: datetime) -> None:
+async def _delivery_outcome(
+    conn: AsyncConnection,
+    r: Any,
+    status: DeliveryStatus,
+    attempt: int,
+    code: int | None,
+    now: datetime,
+) -> None:
     """What one attempt came to (ZID-EVENTS-001 webhook.delivery.*; WF-02 M12): delivered means the recipient answered 2xx, never just sent.
     Ids, codes and the delay only: never the payload."""
     name = _OUTCOME_EVENT.get(status)
@@ -263,7 +302,9 @@ async def deliver_due(
                 "d": r.delivery_id,
             },
         )
-        await _delivery_outcome(conn, r, step.status, attempts, resp.status_code if resp else None, now)
+        await _delivery_outcome(
+            conn, r, step.status, attempts, resp.status_code if resp else None, now
+        )
         if step.disable_endpoint:
             await conn.execute(
                 text(

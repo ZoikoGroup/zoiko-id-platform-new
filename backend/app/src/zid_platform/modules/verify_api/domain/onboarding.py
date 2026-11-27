@@ -50,7 +50,13 @@ class Facts:
 
 def checklist(f: Facts) -> dict[str, Any]:
     """Each step as done or not, with its evidence. Nothing is ready until step five is done, and a step does not count if an earlier one is missing."""
-    times: dict[str, datetime | None] = {"CREDENTIAL": f.credential_at, "TOKEN": f.token_at, "SESSION": f.session_at, "ENDPOINT": None, "VERIFIED_WEBHOOK": f.confirmed_at}
+    times: dict[str, datetime | None] = {
+        "CREDENTIAL": f.credential_at,
+        "TOKEN": f.token_at,
+        "SESSION": f.session_at,
+        "ENDPOINT": None,
+        "VERIFIED_WEBHOOK": f.confirmed_at,
+    }
     done = {
         "CREDENTIAL": f.credential_at is not None, "TOKEN": f.token_at is not None, "SESSION": f.session_at is not None, "ENDPOINT": f.endpoint_active, "VERIFIED_WEBHOOK": f.confirmed_at is not None,
     }  # fmt: skip
@@ -63,7 +69,15 @@ def checklist(f: Facts) -> dict[str, Any]:
             first_open = step
         if not done[step]:
             blocked = True
-        steps.append({"step": step, "title": TITLES[step], "done": done[step], "at": times[step].isoformat() if times[step] else None, "evidence": f.confirmed_event_id if step == "VERIFIED_WEBHOOK" and ok else None})
+        steps.append(
+            {
+                "step": step,
+                "title": TITLES[step],
+                "done": done[step],
+                "at": times[step].isoformat() if times[step] else None,  # type: ignore[union-attr]
+                "evidence": f.confirmed_event_id if step == "VERIFIED_WEBHOOK" and ok else None,
+            }
+        )
     complete = all(done.values())
     return {
         "steps": steps, "complete": complete, "next_step": first_open, "next_action": NEXT[first_open] if first_open else None,
@@ -74,7 +88,9 @@ def checklist(f: Facts) -> dict[str, Any]:
 
 def seconds_to_first_verified_webhook(f: Facts) -> int | None:
     """From the credential to the confirmed webhook, or None while any step is missing (an incomplete install has no time)."""
-    if not (f.credential_at and f.token_at and f.session_at and f.endpoint_active and f.confirmed_at):
+    if not (
+        f.credential_at and f.token_at and f.session_at and f.endpoint_active and f.confirmed_at
+    ):
         return None
     return max(0, int((f.confirmed_at - f.credential_at).total_seconds()))
 
@@ -82,7 +98,12 @@ def seconds_to_first_verified_webhook(f: Facts) -> int | None:
 def cohort_median(durations: Sequence[int | None]) -> dict[str, Any]:
     """The median over installs that finished. Those that did not are counted and left out, never averaged in as zero or as the time they stopped."""
     done = [d for d in durations if d is not None]
-    return {"installs": len(durations), "complete": len(done), "incomplete": len(durations) - len(done), "median_seconds": int(median(done)) if done else None}
+    return {
+        "installs": len(durations),
+        "complete": len(done),
+        "incomplete": len(durations) - len(done),
+        "median_seconds": int(median(done)) if done else None,
+    }
 
 
 def confirmation_problems(event_known_and_delivered: bool, already_confirmed: bool) -> list[str]:
@@ -96,5 +117,15 @@ def confirmation_problems(event_known_and_delivered: bool, already_confirmed: bo
 
 
 def view(facts: Mapping[str, Any]) -> dict[str, Any]:
-    f = Facts(facts.get("credential_at"), facts.get("token_at"), facts.get("session_at"), bool(facts.get("endpoint_active")), facts.get("confirmed_at"), facts.get("confirmed_event_id"))
-    return {**checklist(f), "seconds_to_first_verified_webhook": seconds_to_first_verified_webhook(f)}
+    f = Facts(
+        facts.get("credential_at"),
+        facts.get("token_at"),
+        facts.get("session_at"),
+        bool(facts.get("endpoint_active")),
+        facts.get("confirmed_at"),
+        facts.get("confirmed_event_id"),
+    )
+    return {
+        **checklist(f),
+        "seconds_to_first_verified_webhook": seconds_to_first_verified_webhook(f),
+    }

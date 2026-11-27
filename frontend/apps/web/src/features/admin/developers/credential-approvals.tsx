@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import type { VerifyApiApplicationDetail, VerifyApiApproval, VerifyApiIssued } from "@zoiko/api-client";
-import { Badge, Banner, Button, Card, Dialog, EmptyState, Select, TextField } from "@zoiko/ui";
+import { Badge, Banner, Button, Dialog, EmptyState, Select, TextField } from "@zoiko/ui";
 import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
@@ -30,8 +30,9 @@ export function CredentialApprovals({ app, onIssued }: { app: VerifyApiApplicati
           Ask for approval
         </Button>
       </div>
-      <Banner tone="info" title="A second administrator is needed">
-        A production credential is created or rotated only with another administrator's approval. You ask, they approve, then you use the approval once within 24 hours. It cannot be used for anything else.
+      <Banner tone="info" title="A production credential needs an approval">
+        A production credential is created or rotated only with an approval. You ask, it is approved, then you use the approval once within 24 hours. It cannot be used for anything else. If your deployment
+        requires a different administrator to approve, the server tells you when you press Approve.
       </Banner>
       {list.isPending ? (
         <p className="text-sm text-ink-muted">Loading…</p>
@@ -39,7 +40,7 @@ export function CredentialApprovals({ app, onIssued }: { app: VerifyApiApplicati
         <ApiErrorView error={list.error} title="The approvals could not be loaded" onRetry={() => void list.refetch()} />
       ) : mine.length === 0 ? (
         <EmptyState title="No approvals yet" icon={ShieldCheck} compact>
-          Ask for one, then have another administrator open this page and approve it.
+          Ask for one, then press Approve on it.
         </EmptyState>
       ) : (
         <div className="space-y-2">
@@ -115,7 +116,7 @@ function AskDialog({ app, onClose }: { app: VerifyApiApplicationDetail; onClose:
   const problem = askProblem(d);
   const live = app.credentials.filter((c) => c.status === "ACTIVE");
   const ask = useCellMutation((api) => api.verifyApi.requestApproval(app.application_id, askBody(d)), {
-    success: "Asked. Another administrator has to approve it.",
+    success: "Asked. Press Approve on it, then use it.",
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEY });
       onClose();
@@ -126,7 +127,7 @@ function AskDialog({ app, onClose }: { app: VerifyApiApplicationDetail; onClose:
       isOpen
       onOpenChange={(o) => !o && !ask.isPending && onClose()}
       title="Ask for approval"
-      description="Another administrator approves it. Then you use it once within 24 hours."
+      description="It is approved, then you use it once within 24 hours."
       footer={
         <>
           <Button variant="secondary" isDisabled={ask.isPending} onPress={onClose}>

@@ -51,7 +51,9 @@ def split(pairs: Sequence[Pair]) -> tuple[list[float], list[float]]:
     return same, different
 
 
-def rates(same: Sequence[float], different: Sequence[float], threshold: float) -> tuple[float, float]:
+def rates(
+    same: Sequence[float], different: Sequence[float], threshold: float
+) -> tuple[float, float]:
     """(FMR, FNMR) at a threshold: a score at or above it is a match."""
     fmr = sum(1 for s in different if s >= threshold) / len(different)
     fnmr = sum(1 for s in same if s < threshold) / len(same)

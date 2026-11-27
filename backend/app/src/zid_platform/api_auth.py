@@ -55,7 +55,12 @@ class Caller:
 def unsigned_caller(ctx: RequestContext, *, client_id: str, scope: frozenset[str]) -> Caller:
     """A caller that did not sign in (AAL-Z0), for a credential a route checked itself: the hosted applicant's session credential (WF-01 §08). Its tenant
     and principal come from that credential, never from the request."""
-    return Caller(ctx=ctx, authn=AuthnFact(level=0, auth_time=datetime.now(UTC)), client_id=client_id, scope=scope)
+    return Caller(
+        ctx=ctx,
+        authn=AuthnFact(level=0, auth_time=datetime.now(UTC)),
+        client_id=client_id,
+        scope=scope,
+    )
 
 
 def client_cert_thumbprint(request: Request) -> str | None:

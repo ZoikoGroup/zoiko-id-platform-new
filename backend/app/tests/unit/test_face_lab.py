@@ -52,7 +52,9 @@ def test_the_photographs_are_sent_as_base64_and_nothing_else() -> None:
     assert base64.b64encode(PHOTO) in seen["body"]
 
 
-@pytest.mark.parametrize("reason", ["NO_FACE_PROBE", "NO_FACE_REFERENCE", "MULTIPLE_FACES_PROBE", "IMAGE_UNREADABLE"])
+@pytest.mark.parametrize(
+    "reason", ["NO_FACE_PROBE", "NO_FACE_REFERENCE", "MULTIPLE_FACES_PROBE", "IMAGE_UNREADABLE"]
+)
 def test_the_sidecars_own_reason_is_passed_on_as_a_refusal(reason: str) -> None:
     with pytest.raises(lab.FaceLabError) as e:
         asyncio.run(lab.compare(PHOTO, PHOTO, transport=_transport(422, {"error": reason})))
@@ -63,7 +65,11 @@ def test_an_unreachable_or_broken_sidecar_is_unavailable_never_a_score() -> None
     def boom(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("down")
 
-    for transport in (httpx.MockTransport(boom), _transport(500, {"error": "ENGINE_FAILED"}), _transport(200, ["not", "an", "object"])):
+    for transport in (
+        httpx.MockTransport(boom),
+        _transport(500, {"error": "ENGINE_FAILED"}),
+        _transport(200, ["not", "an", "object"]),
+    ):
         with pytest.raises(lab.FaceLabError) as e:
             asyncio.run(lab.compare(PHOTO, PHOTO, transport=transport))
         assert e.value.code == "FACE_ENGINE_UNAVAILABLE" and e.value.http_status == 503
@@ -80,11 +86,21 @@ def test_only_an_http_address_is_ever_called(value: str, monkeypatch: pytest.Mon
 
 def test_the_engine_adapter_maps_the_score_and_names_itself() -> None:
     got = lab.SidecarFaceEngine(_transport(200, _ok())).match(PHOTO, PHOTO)
-    assert got.score == 0.71 and got.engine_id == lab.ENGINE_ID and got.engine_version == lab.ENGINE_VERSION
+    assert (
+        got.score == 0.71
+        and got.engine_id == lab.ENGINE_ID
+        and got.engine_version == lab.ENGINE_VERSION
+    )
 
 
 def test_the_engine_adapter_never_invents_a_score() -> None:
-    for transport in (_transport(422, {"error": "NO_FACE_PROBE"}), _transport(500, {}), _transport(200, {"score": 1.5}), _transport(200, {"score": True}), _transport(200, {})):
+    for transport in (
+        _transport(422, {"error": "NO_FACE_PROBE"}),
+        _transport(500, {}),
+        _transport(200, {"score": 1.5}),
+        _transport(200, {"score": True}),
+        _transport(200, {}),
+    ):
         with pytest.raises(EngineUnavailable):
             lab.SidecarFaceEngine(transport).match(PHOTO, PHOTO)
 
@@ -102,7 +118,10 @@ def test_the_lab_capability_exists_and_reads_no_customer_data() -> None:
 def test_the_gate_status_lists_what_is_missing_and_approves_nothing() -> None:
     status = lab.gate_status()
     assert status["mode"] == "DISABLED" and status["approvable"] is False
-    assert "DPIA_REFERENCE_MISSING" in status["problems"] and "EVALUATION_ID_MISSING" in status["problems"]
+    assert (
+        "DPIA_REFERENCE_MISSING" in status["problems"]
+        and "EVALUATION_ID_MISSING" in status["problems"]
+    )
 
 
 def test_the_operator_api_refuses_a_photograph_it_cannot_decode_or_that_is_too_large() -> None:
@@ -120,10 +139,19 @@ def test_the_operator_api_refuses_a_photograph_it_cannot_decode_or_that_is_too_l
 def test_the_calibrate_request_takes_scores_only_and_refuses_anything_else() -> None:
     from pydantic import ValidationError
 
-    ok = api.CalibrateIn(pairs=[{"score": 0.6, "same": True}, {"score": 0.7, "same": True}, {"score": 0.1, "same": False}, {"score": 0.0, "same": False}])
+    ok = api.CalibrateIn(
+        pairs=[
+            {"score": 0.6, "same": True},
+            {"score": 0.7, "same": True},
+            {"score": 0.1, "same": False},
+            {"score": 0.0, "same": False},
+        ]
+    )
     assert ok.targets == [0.1, 0.01, 0.001]
     for bad in (
-        {"pairs": [{"score": 0.6, "same": True, "name": "A. Person"}] * 4},  # nothing that names a person
+        {
+            "pairs": [{"score": 0.6, "same": True, "name": "A. Person"}] * 4
+        },  # nothing that names a person
         {"pairs": [{"score": 2.0, "same": True}] * 4},  # not a cosine
         {"pairs": [{"score": 0.5, "same": True}] * 3},  # too few to mean anything
     ):

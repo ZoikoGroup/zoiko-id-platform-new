@@ -217,6 +217,8 @@ jobs:
 
       - name: The signed release record
         run: |
-          echo "Published ${{ inputs.sdk }} ${{ inputs.version }}." >> "$GITHUB_STEP_SUMMARY"
-          echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Next: record the run URL and date in backend/config/developer/sdk-releases.yaml (published, last_test_run, provenance) in a reviewed change." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Published ${{ inputs.sdk }} ${{ inputs.version }}."
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "Next: record the run URL and date in backend/config/developer/sdk-releases.yaml (published, last_test_run, provenance) in a reviewed change."
+          } >> "$GITHUB_STEP_SUMMARY"

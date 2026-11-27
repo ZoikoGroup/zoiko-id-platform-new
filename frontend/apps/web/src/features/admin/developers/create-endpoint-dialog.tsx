@@ -9,14 +9,23 @@ import { useRuntime } from "@/lib/runtime";
 
 import { ENDPOINTS_KEY, EVENT_TYPES_KEY, shortEvent } from "./shared";
 
-export function CreateEndpointDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+/** The events a company that only verifies its own customers needs: the result of a check, and a check that ended without one. The catalogue names them com.zoiko.id.verification.api.session_decided.v1 and
+ * ...session_closed.v1, so the match is on the short name. */
+const IDENTITY_EVENT_PREFIX = "verification.api.";
+const isIdentityEvent = (type: string): boolean => shortEvent(type).startsWith(IDENTITY_EVENT_PREFIX);
+
+export function CreateEndpointDialog({ isOpen, onClose, identityOnly = false }: { isOpen: boolean; onClose: () => void; identityOnly?: boolean }) {
   const { api, protect } = useRuntime();
   const qc = useQueryClient();
   const toast = useToast();
   const types = useCellQuery(EVENT_TYPES_KEY, (a) => a.webhooks.eventTypes(), { enabled: isOpen });
 
   const [url, setUrl] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  // null means "the person has not touched the list": in identity-only mode that is every identity verification event, ticked for them.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const offered = (types.data?.items ?? []).filter((t) => !identityOnly || isIdentityEvent(t.type));
+  const selected = picked ?? (identityOnly ? offered.map((t) => t.type) : []);
+  const setSelected = (next: string[] | ((l: string[]) => string[])) => setPicked(typeof next === "function" ? next(selected) : next);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -24,7 +33,7 @@ export function CreateEndpointDialog({ isOpen, onClose }: { isOpen: boolean; onC
   function close() {
     if (pending) return;
     setUrl("");
-    setSelected([]);
+    setPicked(null);
     setError(null);
     setFormError(null);
     onClose();
@@ -53,7 +62,11 @@ export function CreateEndpointDialog({ isOpen, onClose }: { isOpen: boolean; onC
       isOpen={isOpen}
       onOpenChange={(o) => !o && close()}
       title="Register webhook endpoint"
-      description="The endpoint stays pending until it echoes a signed verification challenge."
+      description={
+        identityOnly
+          ? "Your server receives the result of each identity verification here. The endpoint stays pending until it echoes a signed verification challenge."
+          : "The endpoint stays pending until it echoes a signed verification challenge."
+      }
       size="lg"
       footer={
         <>
@@ -77,11 +90,11 @@ export function CreateEndpointDialog({ isOpen, onClose }: { isOpen: boolean; onC
           description="HTTPS only, a DNS name (not an IP address), standard port. Private and internal addresses are refused."
         />
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-ink">Events</legend>
+          <legend className="text-sm font-medium text-ink">{identityOnly ? "Identity verification events" : "Events"}</legend>
           <QueryView query={types}>
-            {(data) => (
+            {() => (
               <div className="grid gap-2 sm:grid-cols-2">
-                {data.items.map((t) => (
+                {offered.map((t) => (
                   <Checkbox
                     key={t.type}
                     isSelected={selected.includes(t.type)}

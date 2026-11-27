@@ -173,7 +173,11 @@ async def _release(c: AsyncConnection, tenant: str, actions: list[str], now: dat
 
 
 async def give_tenant_role(
-    conn: AsyncConnection, tenant_id: str, principal_id: str, role: str = "ADMIN", home_cell: str | None = None
+    conn: AsyncConnection,
+    tenant_id: str,
+    principal_id: str,
+    role: str = "ADMIN",
+    home_cell: str | None = None,
 ) -> None:
     """A real, ACTIVE tenant role (Owner or Admin) for a principal, as a company administrator holds it.
 
@@ -191,7 +195,12 @@ async def give_tenant_role(
             "creator_principal_id, created_at, state_changed_at) VALUES (:t, 'Test company', :s, 'ACTIVE', 'O0', :cell, :t, :p, now(), now()) "
             "ON CONFLICT (tenant_id) DO NOTHING"
         ),
-        {"t": uuid.UUID(tenant_id), "s": f"test-{tenant_id[:8]}", "p": uuid.UUID(principal_id), "cell": home_cell or CELL},
+        {
+            "t": uuid.UUID(tenant_id),
+            "s": f"test-{tenant_id[:8]}",
+            "p": uuid.UUID(principal_id),
+            "cell": home_cell or CELL,
+        },
     )
     await tenant_store.insert_role(
         conn,

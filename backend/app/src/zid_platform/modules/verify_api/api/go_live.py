@@ -32,6 +32,8 @@ GO_LIVE_STATUS = {
     "GO_LIVE_NOT_READY": 409,
     "GO_LIVE_SUITE_NOT_PASSED": 409,
     "GO_LIVE_COMPANY_NOT_VERIFIED": 409,
+    "PRODUCTION_REQUIREMENTS_NOT_MET": 409,
+    "GO_LIVE_SELF_SERVE_OFF": 409,
     "GO_LIVE_SIGNING_UNAVAILABLE": 503,
     "PRICE_NOT_IN_FUTURE": 422,
     "PRICE_STATE_INVALID": 409,
@@ -74,7 +76,9 @@ class GoLiveBody(BaseModel):
 async def go_live_status(request: Request, caller: CallerDep) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)
-        return await svc.status_view(conn, caller.ctx.tenant_id or "")
+        return await svc.status_view(
+            conn, caller.ctx.tenant_id or "", caller.ctx.principal_id or None
+        )
 
 
 @router.post("/v1/verify-api/go-live-requests", status_code=201)
@@ -82,6 +86,15 @@ async def ask_to_go_live(body: GoLiveBody, request: Request, caller: CallerDep) 
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
+            if svc.self_serve_enabled():
+                # Production opens by itself when the person's identity, the company and a paid plan are all complete; otherwise it says which is missing. No operator, no sandbox test.
+                return await svc.open_production(
+                    conn,
+                    caller.ctx.tenant_id or "",
+                    caller.ctx.principal_id or "",
+                    body.model_dump(),
+                    sign=getattr(request.app.state, "verify_go_live_sign", None),
+                )
             return await svc.submit(
                 conn, caller.ctx.tenant_id or "", caller.ctx.principal_id or "", body.model_dump()
             )

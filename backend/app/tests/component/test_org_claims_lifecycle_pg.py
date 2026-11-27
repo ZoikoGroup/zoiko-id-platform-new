@@ -285,7 +285,8 @@ def test_a_delegated_mandate_is_evidence_for_a_reviewer_and_counts_only_after_on
     shown = made.json()
     assert (
         shown["relationship"] == "DELEGATED_EMPLOYEE"
-        and "authority" not in shown["checks"]  # CR-134: the authority is no longer one of the checks
+        and "authority"
+        not in shown["checks"]  # CR-134: the authority is no longer one of the checks
     )
     case = lab.screening_case(claim)
 

@@ -37,7 +37,9 @@ def test_the_sponsor_the_operator_and_the_publisher_cannot_activate_their_own_ag
     assert activator_blockers(who, agent()) == ["AGENT_REVIEW_NOT_INDEPENDENT"]
 
 
-def test_the_person_who_registered_the_agent_cannot_activate_or_review_it_even_if_they_named_others() -> None:
+def test_the_person_who_registered_the_agent_cannot_activate_or_review_it_even_if_they_named_others() -> (
+    None
+):
     """The registrant may have named three other people as sponsor, operator and publisher and still built the agent themselves."""
     a = agent(registered_by="builder")
     assert activator_blockers("builder", a) == ["AGENT_REVIEW_NOT_INDEPENDENT"]
@@ -76,7 +78,10 @@ def test_an_owner_or_an_admin_may_record_the_security_review(roles: list[str]) -
     assert reviewer_role_blockers(roles) == []
 
 
-@pytest.mark.parametrize("roles", [[], ["APPROVER"], ["OPERATOR"], ["VIEWER"], ["APPROVER", "OPERATOR", "VIEWER"], ["owner"]])
+@pytest.mark.parametrize(
+    "roles",
+    [[], ["APPROVER"], ["OPERATOR"], ["VIEWER"], ["APPROVER", "OPERATOR", "VIEWER"], ["owner"]],
+)
 def test_anyone_else_may_not_record_the_security_review(roles: list[str]) -> None:
     """A person with no active Owner or Admin role, or nothing known about them, is refused. The names are exact: no case folding."""
     from zid_platform.modules.machine.domain.agents import reviewer_role_blockers

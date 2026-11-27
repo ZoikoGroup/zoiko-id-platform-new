@@ -195,7 +195,9 @@ def test_a_session_is_created_with_a_launch_link_shown_once_and_the_person_finis
             and d["decision_version"] == 1
             and d["supersedes_decision_id"] is None
         )
-        assert d["checks"] == [{"method": "face_match", "result": "pass"}]  # the one check the product has, in the sandbox as in production
+        assert d["checks"] == [
+            {"method": "face_match", "result": "pass"}
+        ]  # the one check the product has, in the sandbox as in production
         assert (
             d["evidence_receipt_id"] is None
             and d["assurance"]["level"] == "SANDBOX_SIMULATED"

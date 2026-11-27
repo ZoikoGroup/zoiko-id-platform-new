@@ -20,7 +20,16 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
-INTEGRITY_CHECKS = ("format", "profile", "record_identity", "record_hash", "entry_hash", "checkpoint_covers_entry", "checkpoint_signature", "inclusion_proof")
+INTEGRITY_CHECKS = (
+    "format",
+    "profile",
+    "record_identity",
+    "record_hash",
+    "entry_hash",
+    "checkpoint_covers_entry",
+    "checkpoint_signature",
+    "inclusion_proof",
+)
 CAVEAT = "A valid signature proves the record is intact and who signed it. It does not prove the decision was correct, that an authority existed in law, or that anything happened in the world."
 
 
@@ -47,9 +56,9 @@ def axes(
     if sealed:
         completeness = "COMPLETE"
     elif ledgered:
-        completeness, _ = "PARTIAL", reasons.append("NOT_YET_SEALED")
+        completeness, _ = "PARTIAL", reasons.append("NOT_YET_SEALED")  # type: ignore[func-returns-value]
     else:
-        completeness, _ = "MISSING", reasons.append("NOT_YET_LEDGERED")
+        completeness, _ = "MISSING", reasons.append("NOT_YET_LEDGERED")  # type: ignore[func-returns-value]
 
     # --- signature integrity
     failed = [n for n in INTEGRITY_CHECKS if n in by and not by[n]["ok"]]
@@ -61,17 +70,22 @@ def axes(
     elif sealed and "checkpoint_signature" in by and "inclusion_proof" in by:
         integrity = "VALID"
     else:
-        integrity = "INDETERMINATE"  # nothing wrong was found, but not everything needed was there to check
+        integrity = (
+            "INDETERMINATE"  # nothing wrong was found, but not everything needed was there to check
+        )
 
     # --- issuer trust: the pinned keys, never the keys the bundle brought
     if "checkpoint_signature" not in by:
         trust = "UNKNOWN"
     elif keys_source != "trusted":
-        trust, _ = "UNTRUSTED", reasons.append("KEYS_FROM_THE_BUNDLE")  # the bundle vouching for itself
+        trust, _ = (
+            "UNTRUSTED",
+            reasons.append("KEYS_FROM_THE_BUNDLE"),  # type: ignore[func-returns-value]
+        )  # the bundle vouching for itself
     elif by["checkpoint_signature"]["ok"]:
         trust = "TRUSTED"
     else:
-        trust, _ = "UNTRUSTED", reasons.append("SIGNING_KEY_NOT_PINNED_OR_SIGNATURE_BAD")
+        trust, _ = "UNTRUSTED", reasons.append("SIGNING_KEY_NOT_PINNED_OR_SIGNATURE_BAD")  # type: ignore[func-returns-value]
 
     # --- time
     ts = by.get("external_timestamp")
@@ -82,13 +96,18 @@ def axes(
         time_proof = "INVALID"
         reasons.append("TIMESTAMP_REJECTED")
     elif "not verified" in str(ts.get("detail", "")):
-        time_proof, _ = "UNVERIFIED_TIMESTAMP", reasons.append("TIMESTAMP_NOT_CHECKED_AGAINST_A_TRUST_LIST")
+        time_proof, _ = (
+            "UNVERIFIED_TIMESTAMP",
+            reasons.append("TIMESTAMP_NOT_CHECKED_AGAINST_A_TRUST_LIST"),  # type: ignore[func-returns-value]
+        )
     else:
         time_proof = "VERIFIED_TIMESTAMP"
 
     freshness = status_freshness(status_checked_at, now, max_status_age)
     if status_now is not None and freshness != "CURRENT":
-        reasons.append("STATUS_NOT_FRESH_ENOUGH" if freshness == "STALE" else "STATUS_AGE_POLICY_NOT_GIVEN")
+        reasons.append(
+            "STATUS_NOT_FRESH_ENOUGH" if freshness == "STALE" else "STATUS_AGE_POLICY_NOT_GIVEN"
+        )
     return {
         "signature_integrity": integrity,
         "issuer_trust": trust,

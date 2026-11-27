@@ -1,6 +1,6 @@
 "use client";
 
-import { Banner, Card, DateTime, Select } from "@zoiko/ui";
+import { Banner, Button, Card, DateTime, Select } from "@zoiko/ui";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useState } from "react";
 
@@ -8,8 +8,17 @@ import { QueryView, useCellQuery } from "@/lib/cell";
 
 import { checklistHeadline, errorGuidance, formatDuration, sdkAction, sdkProblem, sdkStateWords } from "./developer-logic";
 
+/** For each of the five steps: where to go, and one plain sentence about it, so a first customer is never left wondering what to press. */
+const NEXT_HINT: { tab: string; button: string; text: string }[] = [
+  { tab: "verify-api", button: "Open applications and keys", text: "Open your application, then press Create a credential. Copy the secret straight away: it is shown only once." },
+  { tab: "try", button: "Open Try it", text: "Your server trades the client ID and secret for a short-lived access token. Try it does this for you and shows the exact request." },
+  { tab: "try", button: "Open Try it", text: "Create a test verification session. It returns a link where a customer photographs a document and takes a selfie." },
+  { tab: "endpoints", button: "Open the result address", text: "Paste the address on your server where we send each result and press Save and test. We send one test message and tell you in plain words what the address answered." },
+  { tab: "endpoints", button: "Open the result address", text: "When a real result arrives, your server checks our signature and answers 200. Then this step turns green." },
+];
+
 /** The five steps from a new credential to a signed webhook your server confirmed. Ready means confirmed, not "a key was made". */
-export function DeveloperHomeSection() {
+export function DeveloperHomeSection({ onGo }: { onGo?: (tab: string) => void }) {
   const apps = useCellQuery(["developers", "applications"], (api) => api.verifyApi.applications());
   const [id, setId] = useState("");
   const list = apps.data?.items ?? [];
@@ -18,6 +27,10 @@ export function DeveloperHomeSection() {
   return (
     <Card title="Your first verification" description="Five steps, each backed by something that really happened. The last one is your own server confirming it received a signed webhook and checked the signature.">
       <div className="space-y-4">
+        <p className="text-sm text-ink-muted">
+          How it works: your website sends a customer to a verification page we host. They photograph a document and take a selfie, we compare the two, and we tell your server the result. Press the
+          button under <strong>Do this next</strong> and work down the list; nothing else on this page is needed to get started.
+        </p>
         <QueryView query={apps} loadingRows={1}>
           {(d) => (
             <Select label="Application" value={chosen} onChange={setId} options={d.items.map((a) => ({ id: a.application_id, label: `${a.name} (${a.environment.toLowerCase()})` }))} />
@@ -27,11 +40,22 @@ export function DeveloperHomeSection() {
           <QueryView query={q} loadingRows={4}>
             {(c) => {
               const h = checklistHeadline(c);
+              const next = c.steps.findIndex((s) => !s.done);
+              const hint = next >= 0 ? NEXT_HINT[next] : undefined;
               return (
                 <div className="space-y-3">
                   <Banner tone={h.tone} title={c.ready ? "Working in the sandbox" : "Not ready yet"}>
                     {h.text}
                   </Banner>
+                  {!c.ready && hint && onGo ? (
+                    <div className="space-y-2 rounded-lg border border-line p-3 text-sm">
+                      <p className="font-semibold">
+                        Do this next (step {next + 1} of {c.steps.length}): {c.steps[next]?.title}
+                      </p>
+                      <p className="text-ink-muted">{hint.text}</p>
+                      <Button onPress={() => onGo(hint.tab)}>{hint.button}</Button>
+                    </div>
+                  ) : null}
                   <ol className="space-y-2">
                     {c.steps.map((s) => (
                       <li key={s.step} className="flex items-start gap-2 text-sm">

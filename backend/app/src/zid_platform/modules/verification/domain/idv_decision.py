@@ -292,7 +292,7 @@ def decide(s: Signals, p: Policy) -> Result:
         problem = _chip_problems(s, p)
         if problem is not None:
             if p.chip is Requirement.REQUIRED:
-                lower(*(problem[0], *problem[1]))
+                lower(*(problem[0], *problem[1]))  # type: ignore[arg-type]
             elif s.passive_auth is PassiveAuth.SIGNATURE_FAIL:
                 lower(
                     Decision.REJECTED, "CHIP_INTEGRITY_FAILED"
@@ -343,12 +343,15 @@ def decide(s: Signals, p: Policy) -> Result:
                 "DOCUMENT_MANIPULATION_INDICATED",
             )
         elif s.optical is Optical.REVIEW:
-            lower(Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "OPTICAL_REVIEW")  # nobody reviews an automatic route: it asks for a retake
+            lower(
+                Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "OPTICAL_REVIEW"
+            )  # nobody reviews an automatic route: it asks for a retake
         elif p.optical is Requirement.REQUIRED and s.optical is not Optical.PASS:
             lower(Decision.INDETERMINATE, f"OPTICAL_{s.optical.value}")
     if s.mrz_check_digits_ok is False and not face_route:
         lower(
-            Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED, "MRZ_CHECK_DIGITS_FAILED"
+            Decision.INDETERMINATE if automatic else Decision.REVIEW_REQUIRED,
+            "MRZ_CHECK_DIGITS_FAILED",
         )  # on an automatic route nobody reviews, so an unreliable reading asks for a retake  # blocks automatic approval and is explained to the applicant
     if s.optical_matches_chip == "MISMATCH":
         lower(

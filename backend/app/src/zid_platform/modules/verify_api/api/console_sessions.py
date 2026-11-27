@@ -24,9 +24,14 @@ from zid_errors import ZidError
 
 from zid_platform.api_auth import Caller, authenticated_caller, request_engine
 from zid_platform.modules.verify_api.api.sessions import _fail, _no_store, _origin
-from zid_platform.modules.verify_api.application import certification_service, diagnostics_service, onboarding_service, service
-from zid_platform.modules.verify_api.application import try_it as try_it_service
+from zid_platform.modules.verify_api.application import (
+    certification_service,
+    diagnostics_service,
+    onboarding_service,
+    service,
+)
 from zid_platform.modules.verify_api.application import sessions_service as svc
+from zid_platform.modules.verify_api.application import try_it as try_it_service
 from zid_platform.modules.verify_api.application.service import VerifyApiCaller
 from zid_platform.modules.verify_api.domain.model import SCOPES, PartnerError
 from zid_platform.modules.verify_api.infrastructure import store
@@ -69,17 +74,23 @@ class ScopeChangeBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     scopes: list[str] = Field(min_length=1, max_length=20)
     reason: str = Field(min_length=3, max_length=300)
-    effective_at: datetime | None = None  # a removal may be staged for later (up to 30 days); an addition takes effect when approved
+    effective_at: datetime | None = (
+        None  # a removal may be staged for later (up to 30 days); an addition takes effect when approved
+    )
 
 
 def _me(caller: Caller) -> str:
     if not caller.ctx.principal_id:
-        raise ZidError("UNAUTHENTICATED", "An authenticated principal is required.", http_status=401)
+        raise ZidError(
+            "UNAUTHENTICATED", "An authenticated principal is required.", http_status=401
+        )
     return caller.ctx.principal_id
 
 
 @router.get("/v1/verify-api/applications/{application_id}/scope-changes")
-async def scope_change_history(application_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def scope_change_history(
+    application_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Every version of what this application may do, newest first, with who proposed it, who approved it and when it takes or took effect (ZID-CP-WF10, WF-10.03)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)
@@ -102,11 +113,21 @@ async def scope_change_history(application_id: uuid.UUID, request: Request, call
 
 
 @router.post("/v1/verify-api/applications/{application_id}/scope-changes", status_code=201)
-async def propose_scope_change(application_id: uuid.UUID, body: ScopeChangeBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def propose_scope_change(
+    application_id: uuid.UUID, body: ScopeChangeBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
-            return await service.change_scopes(conn, caller.ctx.tenant_id or "", str(application_id), _me(caller), body.scopes, body.reason, body.effective_at)
+            return await service.change_scopes(
+                conn,
+                caller.ctx.tenant_id or "",
+                str(application_id),
+                _me(caller),
+                body.scopes,
+                body.reason,
+                body.effective_at,
+            )
         except PartnerError as e:
             raise _fail(e) from e
 
@@ -118,23 +139,36 @@ class ScopeRollbackBody(BaseModel):
 
 
 @router.post("/v1/verify-api/applications/{application_id}/scope-changes:rollback", status_code=201)
-async def rollback_scope_change(application_id: uuid.UUID, body: ScopeRollbackBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def rollback_scope_change(
+    application_id: uuid.UUID, body: ScopeRollbackBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Restore an earlier scope set as a new version. Sessions and idempotency keys are untouched (ZID-CP-WF10, WF-10.12)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
-            return await service.rollback_scopes(conn, caller.ctx.tenant_id or "", str(application_id), _me(caller), body.to_version, body.reason)
+            return await service.rollback_scopes(
+                conn,
+                caller.ctx.tenant_id or "",
+                str(application_id),
+                _me(caller),
+                body.to_version,
+                body.reason,
+            )
         except PartnerError as e:
             raise _fail(e) from e
 
 
 @router.post("/v1/verify-api/scope-changes/{change_id}:approve")
-async def approve_scope_change(change_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def approve_scope_change(
+    change_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """A person other than the proposer approves widening a production application. The proposer is refused."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
-            return await service.approve_scope_change(conn, caller.ctx.tenant_id or "", str(change_id), _me(caller))
+            return await service.approve_scope_change(
+                conn, caller.ctx.tenant_id or "", str(change_id), _me(caller)
+            )
         except PartnerError as e:
             raise _fail(e) from e
 
@@ -145,18 +179,34 @@ class CertificationRunBody(BaseModel):
 
 
 @router.post("/v1/verify-api/applications/{application_id}/certification-runs", status_code=201)
-async def record_certification_run(application_id: uuid.UUID, body: CertificationRunBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def record_certification_run(
+    application_id: uuid.UUID, body: CertificationRunBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Score a sandbox integration against every synthetic persona and keep the result with its digest. A test record: not a certification and not a go-live approval (ZID-CP-WF10, WF-10.12)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
-            return await certification_service.record_run(conn, caller.ctx.tenant_id or "", str(application_id), _me(caller), body.observations)
+            return await certification_service.record_run(
+                conn,
+                caller.ctx.tenant_id or "",
+                str(application_id),
+                _me(caller),
+                body.observations,
+            )
         except (PartnerError, KeyError, ValueError, TypeError) as e:
-            raise _fail(e if isinstance(e, PartnerError) else PartnerError("VALIDATION_FAILED", "An observation is missing a field or has a wrong value.")) from e
+            raise _fail(
+                e
+                if isinstance(e, PartnerError)
+                else PartnerError(
+                    "VALIDATION_FAILED", "An observation is missing a field or has a wrong value."
+                )
+            ) from e
 
 
 @router.get("/v1/verify-api/applications/{application_id}/certification")
-async def certification_status(application_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def certification_status(
+    application_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)
         try:
@@ -173,12 +223,22 @@ class TryItBody(BaseModel):
 
 
 @router.post("/v1/verify-api/applications/{application_id}/try")
-async def try_it(application_id: uuid.UUID, body: TryItBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def try_it(
+    application_id: uuid.UUID, body: TryItBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """Run one partner call against a SANDBOX application and see the exact request and answer. A production application is refused: this can never reach production (ZID-CP-WF10, WF-10.05)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=MANAGE, resource=RESOURCE)
         try:
-            return await try_it_service.run(conn, caller.ctx.tenant_id or "", str(application_id), body.operation, body=body.body, idempotency_key=body.idempotency_key, origin=_origin(request))
+            return await try_it_service.run(
+                conn,
+                caller.ctx.tenant_id or "",
+                str(application_id),
+                body.operation,
+                body=body.body,
+                idempotency_key=body.idempotency_key,
+                origin=_origin(request),
+            )
         except PartnerError as e:
             raise _fail(e) from e
 
@@ -194,13 +254,15 @@ async def endpoint_health(request: Request, caller: CallerDep) -> dict[str, Any]
 @router.get("/v1/verify-api/applications/{application_id}/requests")
 async def request_explorer(
     application_id: uuid.UUID, request: Request, caller: CallerDep, status: int | None = Query(default=None), route: str | None = Query(default=None, max_length=120),
-    before: datetime | None = Query(default=None), limit: int = Query(default=50, ge=1, le=200),
+    before: datetime | None = Query(default=None), limit: int = Query(default=50, ge=1, le=200),  # noqa: B008
 ) -> dict[str, Any]:  # fmt: skip
     """What this application's server called, newest first, filtered by status or route. Redacted by construction: nothing but templates, codes and ids is kept (WF-10.10)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)
         try:
-            return await diagnostics_service.requests(conn, str(application_id), status=status, route=route, before=before, limit=limit)
+            return await diagnostics_service.requests(
+                conn, str(application_id), status=status, route=route, before=before, limit=limit
+            )
         except PartnerError as e:
             raise _fail(e) from e
 
@@ -225,7 +287,9 @@ async def onboarding_cohort(request: Request, caller: CallerDep) -> dict[str, An
 
 
 @router.get("/v1/verify-api/applications/{application_id}/onboarding")
-async def application_onboarding(application_id: uuid.UUID, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def application_onboarding(
+    application_id: uuid.UUID, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     """The first-verification checklist for one application: five steps, each with its evidence, and the time to the first verified webhook (ZID-CP-WF10, WF-10.01)."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
         await protected_action(conn, caller, action=READ, resource=RESOURCE)

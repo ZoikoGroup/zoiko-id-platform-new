@@ -93,6 +93,14 @@ def _migration_tables(py: Path) -> set[str]:
     return found
 
 
+# A reviewed exception: a backfill that must lift row-level security on another module's table for one statement and restore it.
+REVIEWED_BACKFILLS: dict[tuple[str, str], set[str]] = {
+    ("authority", "0005_grant_evidence_backfill.py"): {
+        "evidence.audit_record"
+    },  # CR-143: points old grants at the audit record of their issuance
+}
+
+
 def test_migrations_only_touch_tables_their_module_owns() -> None:
     """Each stream may create/alter only the tables table-ownership.yaml gives its module."""
     owned: dict[str, set[str]] = {}
@@ -105,7 +113,11 @@ def test_migrations_only_touch_tables_their_module_owns() -> None:
     violations = []
     for py in MIGRATIONS_DIR.glob("*/versions/*.py"):
         stream = py.parent.parent.name
-        extra = _migration_tables(py) - owned.get(stream, set())
+        extra = (
+            _migration_tables(py)
+            - owned.get(stream, set())
+            - REVIEWED_BACKFILLS.get((stream, py.name), set())
+        )
         violations += [
             f"{stream}/{py.name} touches {t}, owned by another module" for t in sorted(extra)
         ]

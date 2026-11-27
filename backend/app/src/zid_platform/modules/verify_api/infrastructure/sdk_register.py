@@ -8,7 +8,9 @@ from typing import Any
 
 import yaml
 
-CONFIG = Path(os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config")
+CONFIG = Path(
+    os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
+)
 FILE = Path(os.environ.get("ZID_SDK_RELEASES") or CONFIG / "developer" / "sdk-releases.yaml")
 
 

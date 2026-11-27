@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 log = logging.getLogger("zid.authzen")
 
 
-class _Simulated(Exception):  # noqa: N818 - a signal to roll back, not an error
+class _Simulated(Exception):
     """Raised on purpose to leave a transaction without committing it."""
 
 
@@ -177,7 +177,7 @@ async def evaluate_access(
         )
         verdict = await apply_overlay(
             conn,
-            tenant_id=ctx.tenant_id,
+            tenant_id=ctx.tenant_id,  # type: ignore[arg-type]
             tenant_status=caller.tenant_status,
             client_id=caller.client_id,
             subject=executor,
@@ -200,7 +200,7 @@ async def evaluate_access(
             async with conn.begin_nested():
                 await record_billable(
                     conn,
-                    tenant_id=ctx.tenant_id,
+                    tenant_id=ctx.tenant_id,  # type: ignore[arg-type]
                     meter="POLICY_DECISION",
                     key=key_decision(d.decision_id),
                     at=now,

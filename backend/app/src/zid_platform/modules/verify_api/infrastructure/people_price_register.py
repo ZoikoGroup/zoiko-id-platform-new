@@ -9,8 +9,12 @@ import yaml
 
 from zid_platform.modules.verify_api.domain import people_prices as pp
 
-CONFIG = Path(os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config")
-FILE = Path(os.environ.get("ZID_VERIFY_PEOPLE_PRICES") or CONFIG / "developer" / "verify-people-prices.yaml")
+CONFIG = Path(
+    os.environ.get("ZID_PLATFORM_CONFIG") or Path(__file__).resolve().parents[6] / "config"
+)
+FILE = Path(
+    os.environ.get("ZID_VERIFY_PEOPLE_PRICES") or CONFIG / "developer" / "verify-people-prices.yaml"
+)
 
 
 def table() -> pp.Table:

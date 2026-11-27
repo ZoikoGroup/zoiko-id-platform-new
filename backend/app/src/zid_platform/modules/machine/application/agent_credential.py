@@ -51,21 +51,35 @@ async def issue(
     if agent is None:
         raise MachineError("AGENT_NOT_FOUND", "no such agent")
     if agent.status is not AgentStatus.ACTIVE:
-        raise MachineError("AGENT_CREDENTIAL_NOT_ISSUABLE", "only an active agent is given a credential")
-    if not agent.sponsor_principal_id or not await sponsor_is_active(conn, agent.sponsor_principal_id):
-        raise MachineError("AGENT_CREDENTIAL_NOT_ISSUABLE", "an agent whose sponsor is not active is given no credential")
+        raise MachineError(
+            "AGENT_CREDENTIAL_NOT_ISSUABLE", "only an active agent is given a credential"
+        )
+    if not agent.sponsor_principal_id or not await sponsor_is_active(
+        conn, agent.sponsor_principal_id
+    ):
+        raise MachineError(
+            "AGENT_CREDENTIAL_NOT_ISSUABLE",
+            "an agent whose sponsor is not active is given no credential",
+        )
     if await governance.frozen_codes(conn, [agent_id]):
         raise MachineError("AGENT_CREDENTIAL_NOT_ISSUABLE", "a frozen agent is given no credential")
     jwk = d.check_public_key(public_key)
     ttl, ev = d.check_ttl(ttl_hours), d.check_evidence_class(evidence_class)
     aud = (audience or "").strip() or None
     if aud is not None and not 3 <= len(aud) <= 300:
-        raise MachineError("AGENT_CREDENTIAL_INVALID", "an audience is the relying party's own name, 3 to 300 characters")
+        raise MachineError(
+            "AGENT_CREDENTIAL_INVALID",
+            "an audience is the relying party's own name, 3 to 300 characters",
+        )
     mhash: str | None = None
     if mandate_id:
-        mine = {str(m["mandate_id"]) for m in await mandates_executed_by(conn, [agent_id], limit=100)}
+        mine = {
+            str(m["mandate_id"]) for m in await mandates_executed_by(conn, [agent_id], limit=100)
+        }
         if mandate_id not in mine:
-            raise MachineError("AGENT_CREDENTIAL_INVALID", "name a live mandate this agent executes, or none")
+            raise MachineError(
+                "AGENT_CREDENTIAL_INVALID", "name a live mandate this agent executes, or none"
+            )
         mhash = await canonical_hash_of(conn, mandate_id)
     cid = str(uuid.uuid4())
     expires = now + ttl
@@ -87,14 +101,30 @@ async def issue(
     return view(got, with_token=True)
 
 
-async def revoke(conn: AsyncConnection, tenant_id: str, actor: str, credential_id: str, now: datetime | None = None) -> dict[str, Any]:
+async def revoke(
+    conn: AsyncConnection,
+    tenant_id: str,
+    actor: str,
+    credential_id: str,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     c = await credential_store.get(conn, credential_id, lock=True)
     if c is None:
         raise MachineError("AGENT_CREDENTIAL_NOT_FOUND", "no such credential")
     if not await credential_store.revoke(conn, credential_id, by=actor, now=now):
         raise MachineError("AGENT_CREDENTIAL_STATE_INVALID", "this credential is already revoked")
-    await _record(conn, tenant_id, name="agent.credential_revoked", event=False, aggregate_type="agent", aggregate_id=str(c["agent_principal_id"]), actor=actor, evidence=EvidenceClass.E2, data={"credential_id": credential_id})
+    await _record(
+        conn,
+        tenant_id,
+        name="agent.credential_revoked",
+        event=False,
+        aggregate_type="agent",
+        aggregate_id=str(c["agent_principal_id"]),
+        actor=actor,
+        evidence=EvidenceClass.E2,
+        data={"credential_id": credential_id},
+    )
     after = await credential_store.get(conn, credential_id)
     assert after is not None
     return view(after)
@@ -125,8 +155,15 @@ async def verify(
         if record is not None and agent is None:
             agent_codes.append("AGENT_UNKNOWN")
         elif agent is not None:
-            sponsor_ok = bool(agent.sponsor_principal_id and await sponsor_is_active(conn, agent.sponsor_principal_id))
-            agent_codes = d.agent_problems(status=agent.status.value, frozen=bool(await governance.frozen_codes(conn, [agent_id])), sponsor_active=sponsor_ok)
+            sponsor_ok = bool(
+                agent.sponsor_principal_id
+                and await sponsor_is_active(conn, agent.sponsor_principal_id)
+            )
+            agent_codes = d.agent_problems(
+                status=agent.status.value,
+                frozen=bool(await governance.frozen_codes(conn, [agent_id])),
+                sponsor_active=sponsor_ok,
+            )
     possession: bool | None = None
     pcodes: list[str] = []
     if presentation is not None and record is not None:
@@ -134,9 +171,27 @@ async def verify(
             pcodes.append("PRESENTATION_NONCE_MISMATCH")
         else:
             try:
-                _h, pclaims = verify_external_jws(presentation, keys=[record["public_key"]], algorithms=["ES256", "EdDSA"], typ=d.PRESENTATION_TYP)
-                pcodes = d.presentation_problems(pclaims, credential_id=str(record["credential_id"]), relying_party=relying_party, nonce=nonce, now=now)
-                if not pcodes and not await credential_store.take_presentation(conn, tenant_id, str(record["credential_id"]), _digest(str(pclaims["jti"])), relying_party, now):
+                _h, pclaims = verify_external_jws(
+                    presentation,
+                    keys=[record["public_key"]],
+                    algorithms=["ES256", "EdDSA"],
+                    typ=d.PRESENTATION_TYP,
+                )
+                pcodes = d.presentation_problems(
+                    pclaims,
+                    credential_id=str(record["credential_id"]),
+                    relying_party=relying_party,
+                    nonce=nonce,
+                    now=now,
+                )
+                if not pcodes and not await credential_store.take_presentation(
+                    conn,
+                    tenant_id,
+                    str(record["credential_id"]),
+                    _digest(str(pclaims["jti"])),
+                    relying_party,
+                    now,
+                ):
                     pcodes.append("PRESENTATION_REPLAYED")
             except CryptoError:
                 pcodes.append("PRESENTATION_SIGNATURE_INVALID")

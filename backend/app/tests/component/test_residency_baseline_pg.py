@@ -62,12 +62,18 @@ def test_the_owner_sets_and_changes_the_residency_alone_with_no_second_administr
         )
 
         # CR-139: a later change is the owner's own too; no second administrator is asked for
-        again = api.put("/v1/tenant/residency", headers=owner, json={**BODY, "jurisdiction_pack_id": "uk-gdpr"})
+        again = api.put(
+            "/v1/tenant/residency", headers=owner, json={**BODY, "jurisdiction_pack_id": "uk-gdpr"}
+        )
         assert again.status_code == 200, again.text
         assert again.json()["residency"]["jurisdiction_pack_id"] == "uk-gdpr"
 
         # the pack and the reference are optional: left out, the platform fills them in
-        bare = api.put("/v1/tenant/residency", headers=owner, json={"residency_profile_id": "SRP-1", "home_cell_id": "uk-1"})
+        bare = api.put(
+            "/v1/tenant/residency",
+            headers=owner,
+            json={"residency_profile_id": "SRP-1", "home_cell_id": "uk-1"},
+        )
         assert bare.status_code == 200, bare.text
 
 

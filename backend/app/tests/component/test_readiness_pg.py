@@ -139,7 +139,9 @@ def test_a_register_match_without_verified_authority_cannot_activate(
     """AT-01 and AT-02: whatever the client sends or toggles, the gate reads server facts; a declined or missing one blocks, with reasons."""
     w = world
     accept(w)
-    use_claim(monkeypatch, claim(person_assurance="PENDING"))  # the company matched, the applicant's own identity is not proven
+    use_claim(
+        monkeypatch, claim(person_assurance="PENDING")
+    )  # the company matched, the applicant's own identity is not proven
     r = get(w)
     assert r["readiness"] == "LIMITED_SETUP" and r["can_activate"] is False
     blocked = activate(w)

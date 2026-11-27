@@ -20,7 +20,9 @@ MISMATCH = "MISMATCH"
 NOT_READ = "NOT_READ"
 GOOD_READING = 60  # characters of text: below this the picture was not read well enough to hold anything against anyone
 _MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-_LOOK_ALIKE = str.maketrans({"O": "0", "Q": "0", "D": "0", "I": "1", "L": "1", "Z": "2", "S": "5", "B": "8"})
+_LOOK_ALIKE = str.maketrans(
+    {"O": "0", "Q": "0", "D": "0", "I": "1", "L": "1", "Z": "2", "S": "5", "B": "8"}
+)
 
 
 def _words(text: str) -> list[str]:
@@ -66,7 +68,14 @@ def _birth(text: str, typed: date) -> str:
     d, m, y = f"{typed.day:02d}", f"{typed.month:02d}", f"{typed.year}"
     mon = _MONTHS[typed.month - 1]
     squeezed = re.sub(r"\s+", "", upper)
-    for form in (f"{d}/{m}/{y}", f"{d}-{m}-{y}", f"{d}.{m}.{y}", f"{y}-{m}-{d}", f"{d}{mon}{y}", f"{d}{mon}{y[2:]}"):
+    for form in (
+        f"{d}/{m}/{y}",
+        f"{d}-{m}-{y}",
+        f"{d}.{m}.{y}",
+        f"{y}-{m}-{d}",
+        f"{d}{mon}{y}",
+        f"{d}{mon}{y[2:]}",
+    ):
         if form in squeezed:
             return MATCH
     if re.search(r"YEAR\s*OF\s*BIRTH|YOB", upper) and y in upper:
@@ -74,7 +83,9 @@ def _birth(text: str, typed: date) -> str:
     return MISMATCH
 
 
-def compare(text: str, *, name: str | None, number: str | None, birth_date: date | None) -> dict[str, str]:
+def compare(
+    text: str, *, name: str | None, number: str | None, birth_date: date | None
+) -> dict[str, str]:
     """The result for each detail that was typed; a detail not typed is absent."""
     out: dict[str, str] = {}
     if name and name.strip():

@@ -140,7 +140,9 @@ class ResidencyBody(BaseModel):
     # CR-139 (owner decision, 20 Nov 2026): choosing a region is a plain selection. The legal pack follows the home cell's legal zone and the reference is filled in when left
     # empty, so neither has to be typed; a second administrator's approval is no longer asked for.
     jurisdiction_pack_id: str = Field(default="", max_length=64)
-    approval_ref: str = Field(default="", max_length=200)  # legal/compliance mapping reference, optional
+    approval_ref: str = Field(
+        default="", max_length=200
+    )  # legal/compliance mapping reference, optional
     approval_request_id: uuid.UUID | None = None  # accepted for older clients; no longer required
 
     def change(self) -> str:
@@ -171,10 +173,17 @@ async def put_residency(body: ResidencyBody, request: Request, caller: CallerDep
     async def go(conn: Any) -> dict[str, Any]:
         # CR-139: no cell readiness gate and no second administrator. The company is placed on the cell that already serves it; the owner's permission and a fresh passkey proof still apply.
         cell = catalog().cells.get(body.home_cell_id)
-        pack = body.jurisdiction_pack_id.strip() or _PACK_BY_ZONE.get(str(getattr(cell, "legal_zone", "") or "").upper(), "uk-gdpr")
-        ref = body.approval_ref.strip() or f"self-service:{body.residency_profile_id}:{body.home_cell_id}"
+        pack = body.jurisdiction_pack_id.strip() or _PACK_BY_ZONE.get(
+            str(getattr(cell, "legal_zone", "") or "").upper(), "uk-gdpr"
+        )
+        ref = (
+            body.approval_ref.strip()
+            or f"self-service:{body.residency_profile_id}:{body.home_cell_id}"
+        )
         chosen = body.model_copy(update={"jurisdiction_pack_id": pack, "approval_ref": ref})
-        await protected_action(conn, caller, action=ACTION, resource="tenant_residency", change=chosen.change())
+        await protected_action(
+            conn, caller, action=ACTION, resource="tenant_residency", change=chosen.change()
+        )
         await require_step_up(
             request,
             conn,

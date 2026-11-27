@@ -59,7 +59,12 @@ def environment_of(request: Request) -> str:
 
 
 def enforce(request: Request, country: str, capability: Capability) -> Availability:
-    """Raise a 422 `COUNTRY_CAPABILITY_UNAVAILABLE` unless the capability is open for the country."""
+    """Raise a 422 `COUNTRY_CAPABILITY_UNAVAILABLE` unless the capability is open for the country.
+    With ZID_IDV_OPEN_TO_ALL_COUNTRIES on, identity checks (INDIVIDUAL_VERIFICATION) are not held by the country registry at all: any signed-in person can complete one wherever they live."""
+    if capability is Capability.INDIVIDUAL_VERIFICATION and getattr(
+        request.app.state, "idv_open_to_all_countries", False
+    ):
+        return Availability.ENABLED
     try:
         return require(
             registry(),

@@ -21,10 +21,12 @@ from zid_platform.modules.verification.ports import (
     PartnerServices,
     partner_capture,
 )
+from zid_platform.modules.verify_api.application import media_service as media
 from zid_platform.modules.verify_api.application import sessions_service as ss
 from zid_platform.modules.verify_api.domain import live as lv
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.domain import sessions as s
+from zid_platform.modules.verify_api.infrastructure import session_store as db
 
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
 MAX_SELFIE_BYTES = 6 * 1024 * 1024
@@ -85,6 +87,7 @@ async def extras(conn: AsyncConnection, row: dict[str, Any], sv: PartnerServices
         "available": True,
         "notice_version": partner_capture.notice_version(rules),
         "attempts_left": lv.attempts_left(used, partner_capture.max_attempts(rules)),
+        "photos_kept_days": media.keep_days(),  # 0: neither photograph is kept; otherwise they are kept this many days and the company can open them under a recorded reason
     }
 
 
@@ -141,7 +144,7 @@ async def consent(
             "VALIDATION_FAILED", "The notice has changed. Reload the page and read it again."
         )
     if s.Status(row["status"]) is s.Status.READY:
-        await ss.db.set_status(conn, row["session_id"], s.Status.OPENED.value, now, opened=True)
+        await db.set_status(conn, row["session_id"], s.Status.OPENED.value, now, opened=True)
     tenant = str(row["tenant_id"])
     try:
         async with in_tenant(conn, tenant):
@@ -164,8 +167,8 @@ async def consent(
         raise m.PartnerError("CAPTURE_REFUSED", e.detail or e.code) from e
     if consented:
         return {"consented": True, "done": False}
-    await ss.db.set_status(conn, row["session_id"], s.Status.CANCELED.value, now, completed=True)
-    await ss.db.end_launch(
+    await db.set_status(conn, row["session_id"], s.Status.CANCELED.value, now, completed=True)
+    await db.end_launch(
         conn, row["session_id"]
     )  # nothing was photographed, and the person has said no
     await ss._announce_closed(conn, row, s.Status.CANCELED)
@@ -194,7 +197,7 @@ async def nonce(
         raise m.PartnerError("CAPTURE_REFUSED", e.detail or e.code) from e
     if status is not s.Status.CAPTURE_STARTED:
         s.check_transition(status, s.Status.CAPTURE_STARTED)
-        await ss.db.set_status(conn, row["session_id"], s.Status.CAPTURE_STARTED.value, now)
+        await db.set_status(conn, row["session_id"], s.Status.CAPTURE_STARTED.value, now)
     return {
         "nonce": value,
         "attempts_left": lv.attempts_left(
@@ -237,7 +240,7 @@ async def capture(
             raise m.PartnerError(
                 "CAPTURE_REFUSED", "This verification cannot continue. Ask for a new link."
             )
-        await ss.db.set_status(conn, row["session_id"], s.Status.SUBMITTED.value, now)
+        await db.set_status(conn, row["session_id"], s.Status.SUBMITTED.value, now)
         try:
             case, _problem = await partner_capture.submit(
                 conn,
@@ -250,6 +253,16 @@ async def capture(
                 selfie=selfie,
                 now=now,
             )
+            # Only when the deployment chose to keep photographs (ZID_VERIFY_KEEP_PHOTOS_DAYS): kept encrypted with an end date, for the people at the company to look at under a recorded reason.
+            await media.keep_capture(
+                conn,
+                tenant_id=tenant,
+                session_id=row["session_id"],
+                document=image,
+                selfie=selfie,
+                captured_at=taken,
+                now=now,
+            )
         except CaptureError as e:
             raise _refused(
                 e
@@ -259,7 +272,7 @@ async def capture(
                 raise m.PartnerError("CAPTURE_REFUSED", e.detail or e.code) from e
             exhausted = True
             case = await partner_capture.get(conn, case.case_id) or case
-    await ss.db.set_status(conn, row["session_id"], s.Status.PROCESSING.value, now)
+    await db.set_status(conn, row["session_id"], s.Status.PROCESSING.value, now)
     left = lv.attempts_left(
         partner_capture.attempts_used(case), partner_capture.max_attempts(rules)
     )
@@ -268,10 +281,10 @@ async def capture(
     )
     if outcome.result is lv.Result.RETRY:
         s.check_transition(s.Status.PROCESSING, s.Status.ACTION_REQUIRED)
-        await ss.db.set_status(conn, row["session_id"], s.Status.ACTION_REQUIRED.value, now)
+        await db.set_status(conn, row["session_id"], s.Status.ACTION_REQUIRED.value, now)
         return {"done": False, "retry": True, "reason": outcome.reasons[0], "attempts_left": left}
     await _finish(conn, row, case, outcome.result, outcome.reasons, now)
-    await ss.db.end_launch(conn, row["session_id"])
+    await db.end_launch(conn, row["session_id"])
     return {
         "done": True,
         "closed": outcome.result is not lv.Result.VERIFIED,

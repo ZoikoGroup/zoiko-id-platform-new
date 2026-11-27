@@ -110,7 +110,6 @@ export function TrustInspectorSection() {
     >
       <QueryView query={q} loadingRows={3}>
         {(t) => {
-          // eslint-disable-next-line react-hooks/purity -- reads the clock to judge the bundle's expiry
           const s = trustSummary(t.bundle, new Date());
           return (
             <div className="space-y-3">

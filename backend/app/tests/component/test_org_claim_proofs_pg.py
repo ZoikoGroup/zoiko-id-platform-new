@@ -10,6 +10,7 @@ import asyncio
 import uuid
 from typing import Any
 
+import pytest
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
 from onboarding_fixture import onboard
@@ -252,7 +253,7 @@ def test_the_tenants_residency_is_checked_before_the_scanner_or_the_vault_sees_t
         asyncio.run(forget_residency())
         r = put(api, owner, claim, PDF)
         assert r.status_code == 201, r.text
-        rows, objects, rejected, events = stored(owner_url, tenant, claim)
+        rows, objects, rejected, _events = stored(owner_url, tenant, claim)
         assert rows == 1 and objects == 1 and rejected == 0
 
 
@@ -418,31 +419,56 @@ def test_a_certificate_image_is_read_and_a_matching_one_completes_the_company_ch
     monkeypatch.setattr(route, "read_page_text", read_page_text)
     _o, api, _tenant, owner = make(rt_url, FakeScanner())
     with api:
-        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()["claim_id"]
+        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()[
+            "claim_id"
+        ]
         before = api.get(f"/v1/org-claims/{claim}/status", headers=owner).json()
         said["text"] = CERT_TEXT.replace("00123456", "00999999")
         other = put(api, owner, claim, JPEG + b"", ctype="image/jpeg", name="other.jpg")
-        assert other.json()["read"]["verdict"] == "CONTRADICTS" and other.json()["read"]["number"] == "MISMATCH"
+        assert (
+            other.json()["read"]["verdict"] == "CONTRADICTS"
+            and other.json()["read"]["number"] == "MISMATCH"
+        )
         # a certificate that contradicts the claim completes nothing
-        assert api.get(f"/v1/org-claims/{claim}/status", headers=owner).json()["checks"]["company"] == before["checks"]["company"]
+        assert (
+            api.get(f"/v1/org-claims/{claim}/status", headers=owner).json()["checks"]["company"]
+            == before["checks"]["company"]
+        )
         said["text"] = CERT_TEXT
         good = put(api, owner, claim, JPEG, ctype="image/jpeg", name="cert.jpg")
         assert good.status_code == 201, good.text
-        assert good.json()["read"]["verdict"] == "CONSISTENT" and good.json()["read"]["incorporated_on"] == "2019-03-03"
+        assert (
+            good.json()["read"]["verdict"] == "CONSISTENT"
+            and good.json()["read"]["incorporated_on"] == "2019-03-03"
+        )
         assert "ACME" not in str(good.json()["read"])  # codes and a date, never the text
         # a PDF is stored as before and answered plainly: the reader takes pictures only
         pdf = put(api, owner, claim, PDF, name="c.pdf")
-        assert pdf.status_code == 201 and pdf.json()["read"]["reading"].startswith("PDF_NOT_READABLE")
+        assert pdf.status_code == 201 and pdf.json()["read"]["reading"].startswith(
+            "PDF_NOT_READABLE"
+        )
         # a letter of authority is not read at all
-        letter = put(api, owner, claim, JPEG + b"\x02", ctype="image/jpeg", kind="LETTER_OF_AUTHORITY", name="l.jpg")
+        letter = put(
+            api,
+            owner,
+            claim,
+            JPEG + b"\x02",
+            ctype="image/jpeg",
+            kind="LETTER_OF_AUTHORITY",
+            name="l.jpg",
+        )
         assert "read" not in letter.json()
         # CR-132: a stored certificate that matches the claim completes the company check, and the status says what it rests on
         after = api.get(f"/v1/org-claims/{claim}/status", headers=owner).json()
-        assert after["checks"]["company"] == "COMPLETED" and after["company_basis"] == "DOCUMENT_OCR"
+        assert (
+            after["checks"]["company"] == "COMPLETED" and after["company_basis"] == "DOCUMENT_OCR"
+        )
         assert before["company_basis"] is None
 
 
-def test_a_certificate_can_be_checked_without_being_saved(rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_certificate_can_be_checked_without_being_saved(
+    rt_url: str, owner_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The check-only route reads and compares in memory and stores nothing, so it needs no place in the data region."""
     from zid_platform.modules.onboarding.api import org_claim_proofs as route
 
@@ -451,9 +477,11 @@ def test_a_certificate_can_be_checked_without_being_saved(rt_url: str, owner_url
 
     monkeypatch.setattr(route, "read_page_text", read_page_text)
     scanner = FakeScanner()
-    _o, api, tenant, owner = make(rt_url, scanner)
+    _o, api, _tenant, owner = make(rt_url, scanner)
     with api:
-        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()["claim_id"]
+        claim = api.post("/v1/org-claims", headers={**owner, **key()}, json=CLAIM).json()[
+            "claim_id"
+        ]
         h = {**owner, "Content-Type": "image/jpeg"}
         ok = api.post(f"/v1/org-claims/{claim}/certificate:check", content=JPEG, headers=h)
         assert ok.status_code == 200, ok.text
@@ -463,5 +491,17 @@ def test_a_certificate_can_be_checked_without_being_saved(rt_url: str, owner_url
         listed = api.get(f"/v1/org-claims/{claim}/proofs", headers=owner).json()
         assert listed["proofs"] == []
         # a PDF or an empty file is refused with a reason
-        assert api.post(f"/v1/org-claims/{claim}/certificate:check", content=PDF, headers={**owner, "Content-Type": "application/pdf"}).status_code == 415
-        assert api.post(f"/v1/org-claims/{claim}/certificate:check", content=b"", headers=h).status_code == 422
+        assert (
+            api.post(
+                f"/v1/org-claims/{claim}/certificate:check",
+                content=PDF,
+                headers={**owner, "Content-Type": "application/pdf"},
+            ).status_code
+            == 415
+        )
+        assert (
+            api.post(
+                f"/v1/org-claims/{claim}/certificate:check", content=b"", headers=h
+            ).status_code
+            == 422
+        )

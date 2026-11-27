@@ -85,9 +85,7 @@ def test_an_unknown_or_missing_fact_is_never_verified() -> None:
     assert [i.word for i in odd.trust if i.key == "company"] != [
         "Verified"
     ] and not odd.can_activate
-    missing = run(
-        [TrustFact("company", "COMPLETED", started=True)]
-    )  # the other one was never read
+    missing = run([TrustFact("company", "COMPLETED", started=True)])  # the other one was never read
     assert not missing.can_activate and sum(1 for i in missing.trust if i.done) == 1
     pending_started = run(facts(person_assurance="PENDING"))
     assert [i.word for i in pending_started.trust if i.key == "person_assurance"] == ["In review"]

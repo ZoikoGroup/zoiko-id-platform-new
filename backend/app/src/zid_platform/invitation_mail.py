@@ -69,7 +69,9 @@ async def send_invitation_email(
             sender,
             cell_id=str(getattr(request.app.state, "home_cell", None) or ""),
             template_id=INVITATION_TEMPLATE,
-            event_id=str(uuid.uuid4()),  # every send has its own ticket, so every send is its own event
+            event_id=str(
+                uuid.uuid4()
+            ),  # every send has its own ticket, so every send is its own event
             event_type="tenant.member.invited",
             tenant_id=tenant_id,
             recipient=Recipient(to, await address_hash(to), None, "UTC", "en-US"),

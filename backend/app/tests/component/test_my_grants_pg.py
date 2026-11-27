@@ -32,7 +32,9 @@ def _person(rt_url: str, o: Any, actions: list[str] | None) -> str:
     async def run() -> str:
         p = str(uuid.uuid4())
         async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
-            await create_principal(c, Principal(p, o.tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1"))
+            await create_principal(
+                c, Principal(p, o.tenant, PrincipalType.HUMAN, PrincipalStatus.ACTIVE, "uk-1")
+            )
             if actions:
                 await make_admin(c, o.tenant, p, actions, ["*"], release=False)
             o.sessions[p] = await _session(c, o.tenant, p)
@@ -70,9 +72,16 @@ def test_a_member_sees_the_permission_they_were_given_and_only_that(rt_url: str)
         assert items[0]["actions"] == ["invoice.approve", "payment.release"]
         assert items[0]["status"] == "ACTIVE" and items[0]["valid_to"]
         # nothing about the chain above the grant, the resources behind it or anyone else
-        assert not {"parent_grant_id", "resources", "authority_root_assertion_id", "grantee_principal_id"} & set(items[0])
+        assert not {
+            "parent_grant_id",
+            "resources",
+            "authority_root_assertion_id",
+            "grantee_principal_id",
+        } & set(items[0])
         theirs = api.get("/v1/authority-grants/mine", headers=_bearer(o, other)).json()["items"]
-        assert [g["actions"] for g in theirs] == [["purchase.create"]]  # each person sees their own, never the other's
+        assert [g["actions"] for g in theirs] == [
+            ["purchase.create"]
+        ]  # each person sees their own, never the other's
 
 
 def test_a_plain_member_with_no_grant_sees_an_empty_list_not_an_error(rt_url: str) -> None:
@@ -88,14 +97,23 @@ def test_reading_your_own_permissions_does_not_open_the_administrators_list(rt_u
     member = _person(rt_url, o, ["invoice.approve"])
     with _client(rt_url, o) as api:
         assert api.get("/v1/authority-grants/mine", headers=_bearer(o, member)).status_code == 200
-        assert api.get("/v1/authority-grants", headers=_bearer(o, member)).status_code == 403  # the company-wide list still needs its own right
+        assert (
+            api.get("/v1/authority-grants", headers=_bearer(o, member)).status_code == 403
+        )  # the company-wide list still needs its own right
 
 
 def test_a_revoked_permission_is_no_longer_listed(rt_url: str) -> None:
     o = onboard(rt_url)
     member = _person(rt_url, o, ["invoice.approve"])
     with _client(rt_url, o) as api:
-        grant = api.get("/v1/authority-grants/mine", headers=_bearer(o, member)).json()["items"][0]["authority_grant_id"]
+        grant = api.get("/v1/authority-grants/mine", headers=_bearer(o, member)).json()["items"][0][
+            "authority_grant_id"
+        ]
         gone = api.post(f"/v1/authority-grants/{grant}:revoke", headers=o.bearer(o.owner, scope=""))
-        if gone.status_code == 200:  # the owner's revoke may need a step-up in some setups; the listing rule is what is tested
-            assert api.get("/v1/authority-grants/mine", headers=_bearer(o, member)).json()["items"] == []
+        if (
+            gone.status_code == 200
+        ):  # the owner's revoke may need a step-up in some setups; the listing rule is what is tested
+            assert (
+                api.get("/v1/authority-grants/mine", headers=_bearer(o, member)).json()["items"]
+                == []
+            )

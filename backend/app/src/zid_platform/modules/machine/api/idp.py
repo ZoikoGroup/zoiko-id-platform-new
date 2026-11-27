@@ -47,7 +47,13 @@ class IdpPresentBody(BaseModel):
 
 def http(e: MachineError) -> ZidError:
     code = e.code
-    status = 404 if code.endswith("NOT_FOUND") else 422 if code.endswith("_INVALID") and code != "IDP_BINDING_STATE_INVALID" else 409
+    status = (
+        404
+        if code.endswith("NOT_FOUND")
+        else 422
+        if code.endswith("_INVALID") and code != "IDP_BINDING_STATE_INVALID"
+        else 409
+    )
     return ZidError(code, str(e), http_status=status)
 
 
@@ -61,7 +67,9 @@ async def _run(request: Request, caller: Caller, action: str, fn: Any) -> Any:
 
 
 @router.post("/agents/{agent_id}/idp-bindings", status_code=201)
-async def create_binding(agent_id: str, body: IdpBindingBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def create_binding(
+    agent_id: str, body: IdpBindingBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
     return await _run(  # type: ignore[no-any-return]
         request, caller, "machine.agent.manage",
@@ -73,22 +81,42 @@ async def create_binding(agent_id: str, body: IdpBindingBody, request: Request, 
 
 
 @router.get("/idp-bindings")
-async def list_bindings(request: Request, caller: CallerDep, agent_id: str | None = Query(default=None, min_length=36, max_length=36)) -> dict[str, Any]:
-    return await _run(request, caller, "machine.agent.read", lambda conn: svc.list_for(conn, agent_id))  # type: ignore[no-any-return]
+async def list_bindings(
+    request: Request,
+    caller: CallerDep,
+    agent_id: str | None = Query(default=None, min_length=36, max_length=36),
+) -> dict[str, Any]:
+    return await _run(  # type: ignore[no-any-return]
+        request, caller, "machine.agent.read", lambda conn: svc.list_for(conn, agent_id)
+    )
 
 
 @router.get("/idp-bindings/{binding_id}")
 async def read_binding(binding_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
-    return await _run(request, caller, "machine.agent.read", lambda conn: svc.read(conn, binding_id))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request, caller, "machine.agent.read", lambda conn: svc.read(conn, binding_id)
+    )
 
 
 @router.post("/idp-bindings/{binding_id}:present")
-async def present_token(binding_id: str, body: IdpPresentBody, request: Request, caller: CallerDep) -> dict[str, Any]:
+async def present_token(
+    binding_id: str, body: IdpPresentBody, request: Request, caller: CallerDep
+) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
-    return await _run(request, caller, "machine.agent.manage", lambda conn: svc.present(conn, tenant, actor, binding_id, body.token))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "machine.agent.manage",
+        lambda conn: svc.present(conn, tenant, actor, binding_id, body.token),
+    )
 
 
 @router.post("/idp-bindings/{binding_id}:revoke")
 async def revoke_binding(binding_id: str, request: Request, caller: CallerDep) -> dict[str, Any]:
     tenant, actor = caller.ctx.tenant_id or "", caller.ctx.principal_id or ""
-    return await _run(request, caller, "machine.agent.manage", lambda conn: svc.revoke(conn, tenant, actor, binding_id))  # type: ignore[no-any-return]
+    return await _run(  # type: ignore[no-any-return]
+        request,
+        caller,
+        "machine.agent.manage",
+        lambda conn: svc.revoke(conn, tenant, actor, binding_id),
+    )

@@ -52,6 +52,7 @@ export const ERRORS: { code: string; status: number; meaning: string; action: st
   { code: "VALIDATION_FAILED", status: 422, meaning: "A field is missing or not valid. The message names it.", action: "Fix the request. Nothing was created." },
   { code: "WORKFLOW_VERSION_UNAVAILABLE", status: 422, meaning: "The workflow or version you named is not available.", action: "List workflows and pick one." },
   { code: "RETURN_ORIGIN_NOT_REGISTERED", status: 422, meaning: "return_origin is not one of the addresses registered on the application.", action: "Register the address in the application's settings." },
+  { code: "SANDBOX_REQUIRES_SYNTHETIC_DATA", status: 422, meaning: "The sandbox is for made-up people only, and this request looks like real personal data.", action: "Use an invented reference such as test-user-1, or run the request in production." },
   { code: "RATE_LIMITED", status: 429, meaning: "Too many attempts. Wrong credentials are limited per client ID; wrong customer links per address.", action: "Wait the number of seconds in the message, then try again." },
 ];
 

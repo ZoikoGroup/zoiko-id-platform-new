@@ -63,7 +63,9 @@ def _view(r: Any, *, with_requester: bool) -> dict[str, Any]:
         "decided_at": r.decided_at.isoformat() if r.decided_at else None,
         "created_at": r.created_at.isoformat(),
     }
-    if with_requester:  # the administrators' list says who asked; a person's own list never needs to
+    if (
+        with_requester
+    ):  # the administrators' list says who asked; a person's own list never needs to
         out["requester_principal_id"] = str(r.requester_id)
     return out
 
@@ -147,7 +149,9 @@ async def withdraw(request_id: uuid.UUID, request: Request, caller: CallerDep) -
             {"id": request_id, "me": me},
         )
     if res.rowcount != 1:  # someone else's request is reported as missing, not as theirs
-        raise ZidError("ACCESS_REQUEST_NOT_FOUND", "No such open request of yours.", http_status=404)
+        raise ZidError(
+            "ACCESS_REQUEST_NOT_FOUND", "No such open request of yours.", http_status=404
+        )
     return {"request_id": str(request_id), "status": "WITHDRAWN"}
 
 
@@ -197,7 +201,9 @@ async def _decide(
                 http_status=403,
             )
         if row.status != "OPEN":
-            raise ZidError("ACCESS_REQUEST_CLOSED", "That request was already answered.", http_status=409)
+            raise ZidError(
+                "ACCESS_REQUEST_CLOSED", "That request was already answered.", http_status=409
+            )
         await conn.execute(
             text(
                 "UPDATE authz.access_request SET status = :s, decided_by = :me, decided_at = now(), decision_note = :n WHERE request_id = :id"

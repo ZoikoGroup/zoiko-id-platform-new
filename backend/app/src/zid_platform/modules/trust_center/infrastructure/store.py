@@ -23,7 +23,9 @@ def _claim(r: Any) -> cl.Claim:
         exact_text=r.exact_text,
         locale=r.locale,
         claim_type=cl.ClaimType(r.claim_type),
-        scope=cl.Scope(s["entity_id"], s["service"], tuple(s["markets"]), s.get("environment", "production")),
+        scope=cl.Scope(
+            s["entity_id"], s["service"], tuple(s["markets"]), s.get("environment", "production")
+        ),
         channels=tuple(r.channels),
         evidence_digests=tuple(r.evidence_digests),
         valid_until=r.valid_until,
@@ -58,48 +60,98 @@ async def insert_evidence(conn: AsyncConnection, *, actor: str, digest: str, evi
                                                   period_start, period_end, holder, restricted, recorded_by)
                 VALUES (:id, :digest, :type, :scheme, :issuer, :assessor, :entity, :products, :regions, :exclusions, :ps, :pe, :holder, :restricted, :actor)
                 RETURNING *"""),
-            {"id": uuid.uuid4(), "digest": digest, "type": evidence_type, "scheme": scheme, "issuer": issuer, "assessor": assessor, "entity": legal_entity,
-             "products": list(products), "regions": list(regions), "exclusions": list(exclusions), "ps": period_start, "pe": period_end, "holder": holder,
-             "restricted": restricted, "actor": uuid.UUID(actor)},
+            {
+                "id": uuid.uuid4(),
+                "digest": digest,
+                "type": evidence_type,
+                "scheme": scheme,
+                "issuer": issuer,
+                "assessor": assessor,
+                "entity": legal_entity,
+                "products": list(products),
+                "regions": list(regions),
+                "exclusions": list(exclusions),
+                "ps": period_start,
+                "pe": period_end,
+                "holder": holder,
+                "restricted": restricted,
+                "actor": uuid.UUID(actor),
+            },
         )
     ).one()
     return _artifact(row)
 
 
-async def confirm_evidence(conn: AsyncConnection, evidence_id: str, *, actor: str, now: datetime) -> ev.Artifact | None:
+async def confirm_evidence(
+    conn: AsyncConnection, evidence_id: str, *, actor: str, now: datetime
+) -> ev.Artifact | None:
     row = (
         await conn.execute(
-            text("UPDATE platform.tc_evidence SET issuer_confirmed = true, confirmed_by = :a, confirmed_at = :now WHERE evidence_id = :id AND NOT issuer_confirmed RETURNING *"),
+            text(
+                "UPDATE platform.tc_evidence SET issuer_confirmed = true, confirmed_by = :a, confirmed_at = :now WHERE evidence_id = :id AND NOT issuer_confirmed RETURNING *"
+            ),
             {"a": uuid.UUID(actor), "now": now, "id": uuid.UUID(evidence_id)},
         )
     ).first()
     return _artifact(row) if row else None
 
 
-async def set_lifecycle(conn: AsyncConnection, evidence_id: str, lifecycle: str) -> ev.Artifact | None:
-    row = (await conn.execute(text("UPDATE platform.tc_evidence SET lifecycle = :l WHERE evidence_id = :id RETURNING *"), {"l": lifecycle, "id": uuid.UUID(evidence_id)})).first()
+async def set_lifecycle(
+    conn: AsyncConnection, evidence_id: str, lifecycle: str
+) -> ev.Artifact | None:
+    row = (
+        await conn.execute(
+            text(
+                "UPDATE platform.tc_evidence SET lifecycle = :l WHERE evidence_id = :id RETURNING *"
+            ),
+            {"l": lifecycle, "id": uuid.UUID(evidence_id)},
+        )
+    ).first()
     return _artifact(row) if row else None
 
 
 async def evidence_by_id(conn: AsyncConnection, evidence_id: str) -> ev.Artifact | None:
-    row = (await conn.execute(text("SELECT * FROM platform.tc_evidence WHERE evidence_id = :id"), {"id": uuid.UUID(evidence_id)})).first()
+    row = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_evidence WHERE evidence_id = :id"),
+            {"id": uuid.UUID(evidence_id)},
+        )
+    ).first()
     return _artifact(row) if row else None
 
 
-async def evidence_by_digests(conn: AsyncConnection, digests: Sequence[str]) -> dict[str, ev.Artifact]:
+async def evidence_by_digests(
+    conn: AsyncConnection, digests: Sequence[str]
+) -> dict[str, ev.Artifact]:
     if not digests:
         return {}
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_evidence WHERE digest = ANY(:d)"), {"d": list(digests)})).all()
+    rows = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_evidence WHERE digest = ANY(:d)"), {"d": list(digests)}
+        )
+    ).all()
     return {r.digest: _artifact(r) for r in rows}
 
 
 async def list_evidence(conn: AsyncConnection, *, limit: int = 200) -> list[ev.Artifact]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_evidence ORDER BY recorded_at DESC LIMIT :n"), {"n": limit})).all()
+    rows = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_evidence ORDER BY recorded_at DESC LIMIT :n"),
+            {"n": limit},
+        )
+    ).all()
     return [_artifact(r) for r in rows]
 
 
 async def claims_resting_on(conn: AsyncConnection, digest: str) -> list[tuple[str, int]]:
-    rows = (await conn.execute(text("SELECT claim_id, revision FROM platform.tc_claim_revision WHERE :d = ANY(evidence_digests) AND status IN ('PUBLISHED', 'APPROVAL_PENDING')"), {"d": digest})).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT claim_id, revision FROM platform.tc_claim_revision WHERE :d = ANY(evidence_digests) AND status IN ('PUBLISHED', 'APPROVAL_PENDING')"
+            ),
+            {"d": digest},
+        )
+    ).all()
     return [(str(r.claim_id), r.revision) for r in rows]
 
 
@@ -107,11 +159,20 @@ async def claims_resting_on(conn: AsyncConnection, digest: str) -> list[tuple[st
 
 
 async def next_revision(conn: AsyncConnection, claim_id: str) -> int:
-    n = (await conn.execute(text("SELECT coalesce(max(revision), 0) FROM platform.tc_claim_revision WHERE claim_id = :c"), {"c": uuid.UUID(claim_id)})).scalar_one()
+    n = (
+        await conn.execute(
+            text(
+                "SELECT coalesce(max(revision), 0) FROM platform.tc_claim_revision WHERE claim_id = :c"
+            ),
+            {"c": uuid.UUID(claim_id)},
+        )
+    ).scalar_one()
     return int(n) + 1
 
 
-async def insert_revision(conn: AsyncConnection, c: cl.Claim, *, content_hash: str, status: str) -> None:
+async def insert_revision(
+    conn: AsyncConnection, c: cl.Claim, *, content_hash: str, status: str
+) -> None:
     import json
 
     await conn.execute(
@@ -124,10 +185,15 @@ async def insert_revision(conn: AsyncConnection, c: cl.Claim, *, content_hash: s
     )  # fmt: skip
 
 
-async def load_revision(conn: AsyncConnection, claim_id: str, revision: int, *, lock: bool = False) -> tuple[cl.Claim, str] | None:
+async def load_revision(
+    conn: AsyncConnection, claim_id: str, revision: int, *, lock: bool = False
+) -> tuple[cl.Claim, str] | None:
     row = (
         await conn.execute(
-            text("SELECT * FROM platform.tc_claim_revision WHERE claim_id = :c AND revision = :r" + (" FOR UPDATE" if lock else "")),
+            text(
+                "SELECT * FROM platform.tc_claim_revision WHERE claim_id = :c AND revision = :r"
+                + (" FOR UPDATE" if lock else "")
+            ),
             {"c": uuid.UUID(claim_id), "r": revision},
         )
     ).first()
@@ -147,7 +213,9 @@ async def history(conn: AsyncConnection, claim_id: str) -> list[dict[str, Any]]:
     return [dict(r._mapping) for r in rows]
 
 
-async def list_claims(conn: AsyncConnection, *, status: str | None, limit: int = 200) -> list[dict[str, Any]]:
+async def list_claims(
+    conn: AsyncConnection, *, status: str | None, limit: int = 200
+) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
             text("""
@@ -159,21 +227,44 @@ async def list_claims(conn: AsyncConnection, *, status: str | None, limit: int =
     return [dict(r._mapping) for r in rows]
 
 
-async def set_status(conn: AsyncConnection, claim_id: str, revision: int, status: str, *, published_at: datetime | None = None, withdrawn_at: datetime | None = None) -> None:
+async def set_status(
+    conn: AsyncConnection,
+    claim_id: str,
+    revision: int,
+    status: str,
+    *,
+    published_at: datetime | None = None,
+    withdrawn_at: datetime | None = None,
+) -> None:
     await conn.execute(
-        text("UPDATE platform.tc_claim_revision SET status = :s, published_at = coalesce(:p, published_at), withdrawn_at = coalesce(:w, withdrawn_at) WHERE claim_id = :c AND revision = :r"),
-        {"s": status, "p": published_at, "w": withdrawn_at, "c": uuid.UUID(claim_id), "r": revision},
+        text(
+            "UPDATE platform.tc_claim_revision SET status = :s, published_at = coalesce(:p, published_at), withdrawn_at = coalesce(:w, withdrawn_at) WHERE claim_id = :c AND revision = :r"
+        ),
+        {
+            "s": status,
+            "p": published_at,
+            "w": withdrawn_at,
+            "c": uuid.UUID(claim_id),
+            "r": revision,
+        },
     )
 
 
 async def supersede_others(conn: AsyncConnection, claim_id: str, keep: int) -> None:
-    await conn.execute(text("UPDATE platform.tc_claim_revision SET status = 'SUPERSEDED' WHERE claim_id = :c AND revision <> :r AND status = 'PUBLISHED'"), {"c": uuid.UUID(claim_id), "r": keep})
+    await conn.execute(
+        text(
+            "UPDATE platform.tc_claim_revision SET status = 'SUPERSEDED' WHERE claim_id = :c AND revision <> :r AND status = 'PUBLISHED'"
+        ),
+        {"c": uuid.UUID(claim_id), "r": keep},
+    )
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ approvals
 
 
-async def insert_approval(conn: AsyncConnection, a: cl.Approval, *, claim_id: str, revision: int) -> str:
+async def insert_approval(
+    conn: AsyncConnection, a: cl.Approval, *, claim_id: str, revision: int
+) -> str:
     aid = uuid.uuid4()
     await conn.execute(
         text("""
@@ -186,7 +277,14 @@ async def insert_approval(conn: AsyncConnection, a: cl.Approval, *, claim_id: st
 
 
 async def approvals(conn: AsyncConnection, claim_id: str, revision: int) -> list[cl.Approval]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_approval WHERE claim_id = :c AND revision = :r ORDER BY decided_at"), {"c": uuid.UUID(claim_id), "r": revision})).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM platform.tc_approval WHERE claim_id = :c AND revision = :r ORDER BY decided_at"
+            ),
+            {"c": uuid.UUID(claim_id), "r": revision},
+        )
+    ).all()
     return [_approval(r) for r in rows]
 
 
@@ -205,7 +303,13 @@ async def insert_publication(conn: AsyncConnection, *, claim_id: str, revision: 
 
 
 async def live_claims(conn: AsyncConnection) -> list[tuple[cl.Claim, str, datetime]]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_claim_revision WHERE status = 'PUBLISHED' ORDER BY claim_id"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM platform.tc_claim_revision WHERE status = 'PUBLISHED' ORDER BY claim_id"
+            )
+        )
+    ).all()
     return [(_claim(r), r.content_hash, r.published_at) for r in rows]
 
 
@@ -215,22 +319,44 @@ async def live_claims(conn: AsyncConnection) -> list[tuple[cl.Claim, str, dateti
 async def insert_withdrawal(conn: AsyncConnection, w: cl.Withdrawal, *, revision: int) -> str:
     wid = uuid.uuid4()
     await conn.execute(
-        text("INSERT INTO platform.tc_withdrawal (withdrawal_id, claim_id, revision, actor, reason, at, review_due) VALUES (:id, :c, :r, :a, :reason, :at, :due)"),
-        {"id": wid, "c": uuid.UUID(w.claim_id), "r": revision, "a": uuid.UUID(w.actor), "reason": w.reason, "at": w.at, "due": w.review_due},
+        text(
+            "INSERT INTO platform.tc_withdrawal (withdrawal_id, claim_id, revision, actor, reason, at, review_due) VALUES (:id, :c, :r, :a, :reason, :at, :due)"
+        ),
+        {
+            "id": wid,
+            "c": uuid.UUID(w.claim_id),
+            "r": revision,
+            "a": uuid.UUID(w.actor),
+            "reason": w.reason,
+            "at": w.at,
+            "due": w.review_due,
+        },
     )
     return str(wid)
 
 
-async def review_withdrawal(conn: AsyncConnection, withdrawal_id: str, *, actor: str, note: str, now: datetime) -> bool:
+async def review_withdrawal(
+    conn: AsyncConnection, withdrawal_id: str, *, actor: str, note: str, now: datetime
+) -> bool:
     r = await conn.execute(
-        text("UPDATE platform.tc_withdrawal SET reviewed_by = :a, reviewed_at = :now, review_note = :n WHERE withdrawal_id = :id AND reviewed_by IS NULL"),
+        text(
+            "UPDATE platform.tc_withdrawal SET reviewed_by = :a, reviewed_at = :now, review_note = :n WHERE withdrawal_id = :id AND reviewed_by IS NULL"
+        ),
         {"a": uuid.UUID(actor), "now": now, "n": note, "id": uuid.UUID(withdrawal_id)},
     )
     return bool(r.rowcount)
 
 
 async def withdrawals(conn: AsyncConnection, *, open_only: bool) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_withdrawal" + (" WHERE reviewed_by IS NULL" if open_only else "") + " ORDER BY at DESC LIMIT 200"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM platform.tc_withdrawal"
+                + (" WHERE reviewed_by IS NULL" if open_only else "")
+                + " ORDER BY at DESC LIMIT 200"
+            )
+        )
+    ).all()
     return [dict(r._mapping) for r in rows]
 
 
@@ -243,16 +369,30 @@ async def insert_snapshot(conn: AsyncConnection, *, actor: str, service: str, re
             text("""
                 INSERT INTO platform.tc_sli_snapshot (snapshot_id, service, region, window_label, numerator, denominator, exclusions, source_ref, recorded_by)
                 VALUES (:id, :s, :r, :w, :n, :d, :e, :src, :a) RETURNING *"""),
-            {"id": uuid.uuid4(), "s": service, "r": region, "w": window_label, "n": numerator, "d": denominator, "e": exclusions, "src": source_ref, "a": uuid.UUID(actor)},
+            {
+                "id": uuid.uuid4(),
+                "s": service,
+                "r": region,
+                "w": window_label,
+                "n": numerator,
+                "d": denominator,
+                "e": exclusions,
+                "src": source_ref,
+                "a": uuid.UUID(actor),
+            },
         )
     ).one()
     return dict(row._mapping)
 
 
-async def validate_snapshot(conn: AsyncConnection, snapshot_id: str, *, actor: str, now: datetime) -> dict[str, Any] | None:
+async def validate_snapshot(
+    conn: AsyncConnection, snapshot_id: str, *, actor: str, now: datetime
+) -> dict[str, Any] | None:
     row = (
         await conn.execute(
-            text("UPDATE platform.tc_sli_snapshot SET validated_by = :a, validated_at = :now WHERE snapshot_id = :id AND validated_by IS NULL RETURNING *"),
+            text(
+                "UPDATE platform.tc_sli_snapshot SET validated_by = :a, validated_at = :now WHERE snapshot_id = :id AND validated_by IS NULL RETURNING *"
+            ),
             {"a": uuid.UUID(actor), "now": now, "id": uuid.UUID(snapshot_id)},
         )
     ).first()
@@ -260,7 +400,15 @@ async def validate_snapshot(conn: AsyncConnection, snapshot_id: str, *, actor: s
 
 
 async def snapshots(conn: AsyncConnection, *, validated_only: bool) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_sli_snapshot" + (" WHERE validated_by IS NOT NULL" if validated_only else "") + " ORDER BY window_label DESC, service, region LIMIT 500"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT * FROM platform.tc_sli_snapshot"
+                + (" WHERE validated_by IS NOT NULL" if validated_only else "")
+                + " ORDER BY window_label DESC, service, region LIMIT 500"
+            )
+        )
+    ).all()
     return [dict(r._mapping) for r in rows]
 
 
@@ -268,40 +416,93 @@ async def snapshots(conn: AsyncConnection, *, validated_only: bool) -> list[dict
 
 
 async def advisory_for_incident(conn: AsyncConnection, incident_ref: str) -> str | None:
-    r = (await conn.execute(text("SELECT advisory_id FROM platform.tc_advisory WHERE incident_ref = :i"), {"i": uuid.UUID(incident_ref)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT advisory_id FROM platform.tc_advisory WHERE incident_ref = :i"),
+            {"i": uuid.UUID(incident_ref)},
+        )
+    ).first()
     return str(r.advisory_id) if r else None
 
 
 async def create_advisory(conn: AsyncConnection, *, incident_ref: str, actor: str) -> str:
     aid = uuid.uuid4()
-    await conn.execute(text("INSERT INTO platform.tc_advisory (advisory_id, incident_ref, created_by) VALUES (:a, :i, :by)"), {"a": aid, "i": uuid.UUID(incident_ref), "by": uuid.UUID(actor)})
+    await conn.execute(
+        text(
+            "INSERT INTO platform.tc_advisory (advisory_id, incident_ref, created_by) VALUES (:a, :i, :by)"
+        ),
+        {"a": aid, "i": uuid.UUID(incident_ref), "by": uuid.UUID(actor)},
+    )
     return str(aid)
 
 
-async def add_version(conn: AsyncConnection, *, advisory_id: str, kind: str, title: str, body: str, reason: str, author: str) -> int:
-    seq = int((await conn.execute(text("SELECT coalesce(max(seq), 0) + 1 FROM platform.tc_advisory_version WHERE advisory_id = :a"), {"a": uuid.UUID(advisory_id)})).scalar_one())
+async def add_version(
+    conn: AsyncConnection,
+    *,
+    advisory_id: str,
+    kind: str,
+    title: str,
+    body: str,
+    reason: str,
+    author: str,
+) -> int:
+    seq = int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT coalesce(max(seq), 0) + 1 FROM platform.tc_advisory_version WHERE advisory_id = :a"
+                ),
+                {"a": uuid.UUID(advisory_id)},
+            )
+        ).scalar_one()
+    )
     await conn.execute(
-        text("INSERT INTO platform.tc_advisory_version (advisory_id, seq, kind, title, body, reason, author) VALUES (:a, :q, :k, :t, :b, :r, :au)"),
-        {"a": uuid.UUID(advisory_id), "q": seq, "k": kind, "t": title, "b": body, "r": reason, "au": uuid.UUID(author)},
+        text(
+            "INSERT INTO platform.tc_advisory_version (advisory_id, seq, kind, title, body, reason, author) VALUES (:a, :q, :k, :t, :b, :r, :au)"
+        ),
+        {
+            "a": uuid.UUID(advisory_id),
+            "q": seq,
+            "k": kind,
+            "t": title,
+            "b": body,
+            "r": reason,
+            "au": uuid.UUID(author),
+        },
     )
     return seq
 
 
-async def approve_version(conn: AsyncConnection, advisory_id: str, seq: int, *, actor: str, now: datetime) -> bool:
+async def approve_version(
+    conn: AsyncConnection, advisory_id: str, seq: int, *, actor: str, now: datetime
+) -> bool:
     r = await conn.execute(
-        text("UPDATE platform.tc_advisory_version SET approved_by = :a, approved_at = :now WHERE advisory_id = :i AND seq = :q AND approved_by IS NULL"),
+        text(
+            "UPDATE platform.tc_advisory_version SET approved_by = :a, approved_at = :now WHERE advisory_id = :i AND seq = :q AND approved_by IS NULL"
+        ),
         {"a": uuid.UUID(actor), "now": now, "i": uuid.UUID(advisory_id), "q": seq},
     )
     return bool(r.rowcount)
 
 
 async def versions(conn: AsyncConnection, advisory_id: str) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT * FROM platform.tc_advisory_version WHERE advisory_id = :a ORDER BY seq"), {"a": uuid.UUID(advisory_id)})).all()
+    rows = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_advisory_version WHERE advisory_id = :a ORDER BY seq"),
+            {"a": uuid.UUID(advisory_id)},
+        )
+    ).all()
     return [dict(r._mapping) for r in rows]
 
 
 async def advisories(conn: AsyncConnection, *, public: bool) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT a.advisory_id, a.incident_ref, a.created_at FROM platform.tc_advisory a ORDER BY a.created_at DESC LIMIT 100"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT a.advisory_id, a.incident_ref, a.created_at FROM platform.tc_advisory a ORDER BY a.created_at DESC LIMIT 100"
+            )
+        )
+    ).all()
     out = []
     for r in rows:
         vs = await versions(conn, str(r.advisory_id))
@@ -309,19 +510,43 @@ async def advisories(conn: AsyncConnection, *, public: bool) -> list[dict[str, A
             vs = [v for v in vs if v["approved_by"] is not None]
             if not vs:
                 continue
-        out.append({"advisory_id": str(r.advisory_id), "incident_ref": str(r.incident_ref), "created_at": r.created_at, "versions": vs})
+        out.append(
+            {
+                "advisory_id": str(r.advisory_id),
+                "incident_ref": str(r.incident_ref),
+                "created_at": r.created_at,
+                "versions": vs,
+            }
+        )
     return out
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ vulnerability reports
 
 
-async def reports_from_source_since(conn: AsyncConnection, source_hash: str, since: datetime) -> int:
-    return int((await conn.execute(text("SELECT count(*) FROM platform.tc_report WHERE source_hash = :h AND received_at > :s"), {"h": source_hash, "s": since})).scalar_one())
+async def reports_from_source_since(
+    conn: AsyncConnection, source_hash: str, since: datetime
+) -> int:
+    return int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT count(*) FROM platform.tc_report WHERE source_hash = :h AND received_at > :s"
+                ),
+                {"h": source_hash, "s": since},
+            )
+        ).scalar_one()
+    )
 
 
 async def reports_since(conn: AsyncConnection, since: datetime) -> int:
-    return int((await conn.execute(text("SELECT count(*) FROM platform.tc_report WHERE received_at > :s"), {"s": since})).scalar_one())
+    return int(
+        (
+            await conn.execute(
+                text("SELECT count(*) FROM platform.tc_report WHERE received_at > :s"), {"s": since}
+            )
+        ).scalar_one()
+    )
 
 
 async def insert_report(conn: AsyncConnection, *, reference: str, summary: str, affected: str, severity: str, contact: str | None, source_hash: str, ack_due: datetime, received: datetime) -> str:  # fmt: skip
@@ -330,77 +555,196 @@ async def insert_report(conn: AsyncConnection, *, reference: str, summary: str, 
         text("""
             INSERT INTO platform.tc_report (report_id, reference, received_at, summary, affected, severity, contact, source_hash, ack_due)
             VALUES (:id, :ref, :at, :s, :a, :sev, :c, :h, :due)"""),
-        {"id": rid, "ref": reference, "at": received, "s": summary, "a": affected, "sev": severity, "c": contact, "h": source_hash, "due": ack_due},
+        {
+            "id": rid,
+            "ref": reference,
+            "at": received,
+            "s": summary,
+            "a": affected,
+            "sev": severity,
+            "c": contact,
+            "h": source_hash,
+            "due": ack_due,
+        },
     )
-    await conn.execute(text("INSERT INTO platform.tc_report_event (report_id, seq, kind, actor, note, at) VALUES (:r, 1, 'RECEIVED', NULL, '', :at)"), {"r": rid, "at": received})
+    await conn.execute(
+        text(
+            "INSERT INTO platform.tc_report_event (report_id, seq, kind, actor, note, at) VALUES (:r, 1, 'RECEIVED', NULL, '', :at)"
+        ),
+        {"r": rid, "at": received},
+    )
     return str(rid)
 
 
 async def reports(conn: AsyncConnection, *, open_only: bool) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT report_id, reference, received_at, severity, state, assignee, ack_due, acknowledged_at FROM platform.tc_report" + (" WHERE state NOT IN ('CLOSED', 'OUT_OF_SCOPE', 'DISCLOSED')" if open_only else "") + " ORDER BY received_at DESC LIMIT 200"))).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT report_id, reference, received_at, severity, state, assignee, ack_due, acknowledged_at FROM platform.tc_report"
+                + (
+                    " WHERE state NOT IN ('CLOSED', 'OUT_OF_SCOPE', 'DISCLOSED')"
+                    if open_only
+                    else ""
+                )
+                + " ORDER BY received_at DESC LIMIT 200"
+            )
+        )
+    ).all()
     return [dict(r._mapping) for r in rows]
 
 
 async def report_detail(conn: AsyncConnection, report_id: str) -> dict[str, Any] | None:
-    r = (await conn.execute(text("SELECT * FROM platform.tc_report WHERE report_id = :i FOR UPDATE"), {"i": uuid.UUID(report_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_report WHERE report_id = :i FOR UPDATE"),
+            {"i": uuid.UUID(report_id)},
+        )
+    ).first()
     if r is None:
         return None
-    ev = (await conn.execute(text("SELECT seq, kind, actor, note, at FROM platform.tc_report_event WHERE report_id = :i ORDER BY seq"), {"i": uuid.UUID(report_id)})).all()
+    ev = (
+        await conn.execute(
+            text(
+                "SELECT seq, kind, actor, note, at FROM platform.tc_report_event WHERE report_id = :i ORDER BY seq"
+            ),
+            {"i": uuid.UUID(report_id)},
+        )
+    ).all()
     return {**dict(r._mapping), "timeline": [dict(e._mapping) for e in ev]}
 
 
 async def move_report(conn: AsyncConnection, report_id: str, *, state: str | None, assignee: str | None, severity: str | None, actor: str, note: str, now: datetime) -> None:  # fmt: skip
     rid = uuid.UUID(report_id)
-    seq = int((await conn.execute(text("SELECT coalesce(max(seq), 0) + 1 FROM platform.tc_report_event WHERE report_id = :i"), {"i": rid})).scalar_one())
+    seq = int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT coalesce(max(seq), 0) + 1 FROM platform.tc_report_event WHERE report_id = :i"
+                ),
+                {"i": rid},
+            )
+        ).scalar_one()
+    )
     if state:
-        await conn.execute(text("UPDATE platform.tc_report SET state = :s, acknowledged_at = CASE WHEN :s = 'ACKNOWLEDGED' THEN :now ELSE acknowledged_at END WHERE report_id = :i"), {"s": state, "now": now, "i": rid})
+        await conn.execute(
+            text(
+                "UPDATE platform.tc_report SET state = :s, acknowledged_at = CASE WHEN :s = 'ACKNOWLEDGED' THEN :now ELSE acknowledged_at END WHERE report_id = :i"
+            ),
+            {"s": state, "now": now, "i": rid},
+        )
     if assignee:
-        await conn.execute(text("UPDATE platform.tc_report SET assignee = :a WHERE report_id = :i"), {"a": uuid.UUID(assignee), "i": rid})
+        await conn.execute(
+            text("UPDATE platform.tc_report SET assignee = :a WHERE report_id = :i"),
+            {"a": uuid.UUID(assignee), "i": rid},
+        )
     if severity:
-        await conn.execute(text("UPDATE platform.tc_report SET severity = :s WHERE report_id = :i"), {"s": severity, "i": rid})
+        await conn.execute(
+            text("UPDATE platform.tc_report SET severity = :s WHERE report_id = :i"),
+            {"s": severity, "i": rid},
+        )
     kind = "STATE" if state else "ASSIGNED" if assignee else "SEVERITY" if severity else "NOTE"
     await conn.execute(
-        text("INSERT INTO platform.tc_report_event (report_id, seq, kind, actor, note, at) VALUES (:i, :q, :k, :a, :n, :at)"),
-        {"i": rid, "q": seq, "k": kind, "a": uuid.UUID(actor), "n": (f"{state or severity or assignee or ''} {note}").strip()[:4000], "at": now},
+        text(
+            "INSERT INTO platform.tc_report_event (report_id, seq, kind, actor, note, at) VALUES (:i, :q, :k, :a, :n, :at)"
+        ),
+        {
+            "i": rid,
+            "q": seq,
+            "k": kind,
+            "a": uuid.UUID(actor),
+            "n": (f"{state or severity or assignee or ''} {note}").strip()[:4000],
+            "at": now,
+        },
     )
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ privacy disclosures
 
 
-async def insert_disclosure(conn: AsyncConnection, *, kind: str, subject: str, market: str, payload: dict[str, Any], effective_from: date, author: str) -> dict[str, Any]:
+async def insert_disclosure(
+    conn: AsyncConnection,
+    *,
+    kind: str,
+    subject: str,
+    market: str,
+    payload: dict[str, Any],
+    effective_from: date,
+    author: str,
+) -> dict[str, Any]:
     import json
 
-    rev = int((await conn.execute(text("SELECT coalesce(max(revision), 0) + 1 FROM platform.tc_disclosure WHERE kind = :k AND subject = :s AND market = :m"), {"k": kind, "s": subject, "m": market})).scalar_one())
+    rev = int(
+        (
+            await conn.execute(
+                text(
+                    "SELECT coalesce(max(revision), 0) + 1 FROM platform.tc_disclosure WHERE kind = :k AND subject = :s AND market = :m"
+                ),
+                {"k": kind, "s": subject, "m": market},
+            )
+        ).scalar_one()
+    )
     row = (
         await conn.execute(
             text("""
                 INSERT INTO platform.tc_disclosure (disclosure_id, kind, subject, market, revision, payload, effective_from, author)
                 VALUES (:id, :k, :s, :m, :r, CAST(:p AS jsonb), :ef, :a) RETURNING *"""),
-            {"id": uuid.uuid4(), "k": kind, "s": subject, "m": market, "r": rev, "p": json.dumps(payload, sort_keys=True), "ef": effective_from, "a": uuid.UUID(author)},
+            {
+                "id": uuid.uuid4(),
+                "k": kind,
+                "s": subject,
+                "m": market,
+                "r": rev,
+                "p": json.dumps(payload, sort_keys=True),
+                "ef": effective_from,
+                "a": uuid.UUID(author),
+            },
         )
     ).one()
     return dict(row._mapping)
 
 
 async def load_disclosure(conn: AsyncConnection, disclosure_id: str) -> dict[str, Any] | None:
-    r = (await conn.execute(text("SELECT * FROM platform.tc_disclosure WHERE disclosure_id = :i FOR UPDATE"), {"i": uuid.UUID(disclosure_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_disclosure WHERE disclosure_id = :i FOR UPDATE"),
+            {"i": uuid.UUID(disclosure_id)},
+        )
+    ).first()
     return dict(r._mapping) if r else None
 
 
-async def activate_disclosure(conn: AsyncConnection, d: dict[str, Any], *, actor: str, now: datetime) -> None:
-    await conn.execute(text("UPDATE platform.tc_disclosure SET status = 'SUPERSEDED' WHERE kind = :k AND subject = :s AND market = :m AND status = 'ACTIVE'"), {"k": d["kind"], "s": d["subject"], "m": d["market"]})
-    await conn.execute(text("UPDATE platform.tc_disclosure SET approved_by = :a, approved_at = :now, status = 'ACTIVE' WHERE disclosure_id = :i"), {"a": uuid.UUID(actor), "now": now, "i": d["disclosure_id"]})
+async def activate_disclosure(
+    conn: AsyncConnection, d: dict[str, Any], *, actor: str, now: datetime
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE platform.tc_disclosure SET status = 'SUPERSEDED' WHERE kind = :k AND subject = :s AND market = :m AND status = 'ACTIVE'"
+        ),
+        {"k": d["kind"], "s": d["subject"], "m": d["market"]},
+    )
+    await conn.execute(
+        text(
+            "UPDATE platform.tc_disclosure SET approved_by = :a, approved_at = :now, status = 'ACTIVE' WHERE disclosure_id = :i"
+        ),
+        {"a": uuid.UUID(actor), "now": now, "i": d["disclosure_id"]},
+    )
 
 
 async def withdraw_disclosure(conn: AsyncConnection, disclosure_id: str) -> None:
-    await conn.execute(text("UPDATE platform.tc_disclosure SET status = 'WITHDRAWN' WHERE disclosure_id = :i"), {"i": uuid.UUID(disclosure_id)})
+    await conn.execute(
+        text("UPDATE platform.tc_disclosure SET status = 'WITHDRAWN' WHERE disclosure_id = :i"),
+        {"i": uuid.UUID(disclosure_id)},
+    )
 
 
-async def disclosures(conn: AsyncConnection, *, market: str | None, active_only: bool) -> list[dict[str, Any]]:
+async def disclosures(
+    conn: AsyncConnection, *, market: str | None, active_only: bool
+) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text("SELECT * FROM platform.tc_disclosure WHERE (CAST(:m AS text) IS NULL OR market IN (:m, 'GLOBAL')) AND (NOT :act OR status = 'ACTIVE') ORDER BY kind, subject, revision DESC LIMIT 500"),
+            text(
+                "SELECT * FROM platform.tc_disclosure WHERE (CAST(:m AS text) IS NULL OR market IN (:m, 'GLOBAL')) AND (NOT :act OR status = 'ACTIVE') ORDER BY kind, subject, revision DESC LIMIT 500"
+            ),
             {"m": market, "act": active_only},
         )
     ).all()
@@ -410,20 +754,42 @@ async def disclosures(conn: AsyncConnection, *, market: str | None, active_only:
 # ------------------------------------------------------------------------------------------------------------------------------ evidence room
 
 
-async def insert_blob(conn: AsyncConnection, *, evidence_id: str, content: bytes, content_type: str, actor: str) -> None:
+async def insert_blob(
+    conn: AsyncConnection, *, evidence_id: str, content: bytes, content_type: str, actor: str
+) -> None:
     await conn.execute(
-        text("INSERT INTO platform.tc_evidence_blob (evidence_id, content, content_type, size_bytes, scan_state, uploaded_by) VALUES (:e, :c, :t, :n, 'CLEAN', :a)"),
-        {"e": uuid.UUID(evidence_id), "c": content, "t": content_type, "n": len(content), "a": uuid.UUID(actor)},
+        text(
+            "INSERT INTO platform.tc_evidence_blob (evidence_id, content, content_type, size_bytes, scan_state, uploaded_by) VALUES (:e, :c, :t, :n, 'CLEAN', :a)"
+        ),
+        {
+            "e": uuid.UUID(evidence_id),
+            "c": content,
+            "t": content_type,
+            "n": len(content),
+            "a": uuid.UUID(actor),
+        },
     )
 
 
 async def load_blob(conn: AsyncConnection, evidence_id: str) -> tuple[bytes, str] | None:
-    r = (await conn.execute(text("SELECT content, content_type FROM platform.tc_evidence_blob WHERE evidence_id = :e"), {"e": uuid.UUID(evidence_id)})).first()
+    r = (
+        await conn.execute(
+            text(
+                "SELECT content, content_type FROM platform.tc_evidence_blob WHERE evidence_id = :e"
+            ),
+            {"e": uuid.UUID(evidence_id)},
+        )
+    ).first()
     return (bytes(r.content), r.content_type) if r else None
 
 
 async def has_blob(conn: AsyncConnection, evidence_id: str) -> bool:
-    return (await conn.execute(text("SELECT 1 FROM platform.tc_evidence_blob WHERE evidence_id = :e"), {"e": uuid.UUID(evidence_id)})).first() is not None
+    return (
+        await conn.execute(
+            text("SELECT 1 FROM platform.tc_evidence_blob WHERE evidence_id = :e"),
+            {"e": uuid.UUID(evidence_id)},
+        )
+    ).first() is not None
 
 
 async def insert_request(conn: AsyncConnection, *, tenant: str, requester: str, organization: str, purpose: str, evidence_id: str, terms_version: str, now: datetime) -> dict[str, Any]:  # fmt: skip
@@ -432,16 +798,29 @@ async def insert_request(conn: AsyncConnection, *, tenant: str, requester: str, 
             text("""
                 INSERT INTO platform.tc_room_request (request_id, tenant_id, requester, organization, purpose, evidence_id, terms_accepted_at, terms_version)
                 VALUES (:id, :t, :r, :o, :p, :e, :now, :v) RETURNING *"""),
-            {"id": uuid.uuid4(), "t": uuid.UUID(tenant), "r": uuid.UUID(requester), "o": organization, "p": purpose, "e": uuid.UUID(evidence_id), "now": now, "v": terms_version},
+            {
+                "id": uuid.uuid4(),
+                "t": uuid.UUID(tenant),
+                "r": uuid.UUID(requester),
+                "o": organization,
+                "p": purpose,
+                "e": uuid.UUID(evidence_id),
+                "now": now,
+                "v": terms_version,
+            },
         )
     ).one()
     return dict(row._mapping)
 
 
-async def requests(conn: AsyncConnection, *, tenant: str | None, open_only: bool = False) -> list[dict[str, Any]]:
+async def requests(
+    conn: AsyncConnection, *, tenant: str | None, open_only: bool = False
+) -> list[dict[str, Any]]:
     rows = (
         await conn.execute(
-            text("SELECT r.*, g.grant_id, g.expires_at, g.revoked_at, g.downloads, g.max_downloads FROM platform.tc_room_request r LEFT JOIN platform.tc_room_grant g ON g.request_id = r.request_id WHERE (CAST(:t AS uuid) IS NULL OR r.tenant_id = :t) AND (NOT :o OR r.status = 'REQUESTED') ORDER BY r.created_at DESC LIMIT 200"),
+            text(
+                "SELECT r.*, g.grant_id, g.expires_at, g.revoked_at, g.downloads, g.max_downloads FROM platform.tc_room_request r LEFT JOIN platform.tc_room_grant g ON g.request_id = r.request_id WHERE (CAST(:t AS uuid) IS NULL OR r.tenant_id = :t) AND (NOT :o OR r.status = 'REQUESTED') ORDER BY r.created_at DESC LIMIT 200"
+            ),
             {"t": uuid.UUID(tenant) if tenant else None, "o": open_only},
         )
     ).all()
@@ -449,19 +828,48 @@ async def requests(conn: AsyncConnection, *, tenant: str | None, open_only: bool
 
 
 async def load_request(conn: AsyncConnection, request_id: str) -> dict[str, Any] | None:
-    r = (await conn.execute(text("SELECT * FROM platform.tc_room_request WHERE request_id = :i FOR UPDATE"), {"i": uuid.UUID(request_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_room_request WHERE request_id = :i FOR UPDATE"),
+            {"i": uuid.UUID(request_id)},
+        )
+    ).first()
     return dict(r._mapping) if r else None
 
 
-async def decide_request(conn: AsyncConnection, request_id: str, *, status: str, actor: str, reason: str, now: datetime) -> None:
-    await conn.execute(text("UPDATE platform.tc_room_request SET status = :s, decided_by = :a, decided_at = :now, decision_reason = :r WHERE request_id = :i"), {"s": status, "a": uuid.UUID(actor), "now": now, "r": reason, "i": uuid.UUID(request_id)})
+async def decide_request(
+    conn: AsyncConnection, request_id: str, *, status: str, actor: str, reason: str, now: datetime
+) -> None:
+    await conn.execute(
+        text(
+            "UPDATE platform.tc_room_request SET status = :s, decided_by = :a, decided_at = :now, decision_reason = :r WHERE request_id = :i"
+        ),
+        {"s": status, "a": uuid.UUID(actor), "now": now, "r": reason, "i": uuid.UUID(request_id)},
+    )
 
 
-async def insert_grant(conn: AsyncConnection, *, request_id: str, token_hash: str, expires_at: datetime, max_downloads: int, watermark: str) -> str:
+async def insert_grant(
+    conn: AsyncConnection,
+    *,
+    request_id: str,
+    token_hash: str,
+    expires_at: datetime,
+    max_downloads: int,
+    watermark: str,
+) -> str:
     gid = uuid.uuid4()
     await conn.execute(
-        text("INSERT INTO platform.tc_room_grant (grant_id, request_id, token_hash, expires_at, max_downloads, watermark) VALUES (:g, :r, :h, :e, :m, :w)"),
-        {"g": gid, "r": uuid.UUID(request_id), "h": token_hash, "e": expires_at, "m": max_downloads, "w": watermark},
+        text(
+            "INSERT INTO platform.tc_room_grant (grant_id, request_id, token_hash, expires_at, max_downloads, watermark) VALUES (:g, :r, :h, :e, :m, :w)"
+        ),
+        {
+            "g": gid,
+            "r": uuid.UUID(request_id),
+            "h": token_hash,
+            "e": expires_at,
+            "m": max_downloads,
+            "w": watermark,
+        },
     )
     return str(gid)
 
@@ -469,7 +877,9 @@ async def insert_grant(conn: AsyncConnection, *, request_id: str, token_hash: st
 async def grant_by_hash(conn: AsyncConnection, token_hash: str) -> dict[str, Any] | None:
     r = (
         await conn.execute(
-            text("SELECT g.*, r.tenant_id, r.requester, r.evidence_id, r.status AS request_status FROM platform.tc_room_grant g JOIN platform.tc_room_request r ON r.request_id = g.request_id WHERE g.token_hash = :h FOR UPDATE OF g"),
+            text(
+                "SELECT g.*, r.tenant_id, r.requester, r.evidence_id, r.status AS request_status FROM platform.tc_room_grant g JOIN platform.tc_room_request r ON r.request_id = g.request_id WHERE g.token_hash = :h FOR UPDATE OF g"
+            ),
             {"h": token_hash},
         )
     ).first()
@@ -477,28 +887,72 @@ async def grant_by_hash(conn: AsyncConnection, token_hash: str) -> dict[str, Any
 
 
 async def grant_for_request(conn: AsyncConnection, request_id: str) -> dict[str, Any] | None:
-    r = (await conn.execute(text("SELECT * FROM platform.tc_room_grant WHERE request_id = :i FOR UPDATE"), {"i": uuid.UUID(request_id)})).first()
+    r = (
+        await conn.execute(
+            text("SELECT * FROM platform.tc_room_grant WHERE request_id = :i FOR UPDATE"),
+            {"i": uuid.UUID(request_id)},
+        )
+    ).first()
     return dict(r._mapping) if r else None
 
 
 async def bump_download(conn: AsyncConnection, grant_id: str) -> None:
-    await conn.execute(text("UPDATE platform.tc_room_grant SET downloads = downloads + 1 WHERE grant_id = :g"), {"g": uuid.UUID(grant_id)})
+    await conn.execute(
+        text("UPDATE platform.tc_room_grant SET downloads = downloads + 1 WHERE grant_id = :g"),
+        {"g": uuid.UUID(grant_id)},
+    )
 
 
 async def revoke_grant(conn: AsyncConnection, grant_id: str, *, actor: str, now: datetime) -> None:
-    await conn.execute(text("UPDATE platform.tc_room_grant SET revoked_at = :now, revoked_by = :a WHERE grant_id = :g AND revoked_at IS NULL"), {"now": now, "a": uuid.UUID(actor), "g": uuid.UUID(grant_id)})
-    await conn.execute(text("UPDATE platform.tc_room_request SET status = 'REVOKED' WHERE request_id = (SELECT request_id FROM platform.tc_room_grant WHERE grant_id = :g) AND status = 'APPROVED'"), {"g": uuid.UUID(grant_id)})
-
-
-async def record_access(conn: AsyncConnection, *, grant_id: str, principal: str | None, action: str, outcome: str, source_hash: str, now: datetime) -> None:
     await conn.execute(
-        text("INSERT INTO platform.tc_room_access (access_id, grant_id, at, principal, action, outcome, source_hash) VALUES (:i, :g, :at, :p, :a, :o, :h)"),
-        {"i": uuid.uuid4(), "g": uuid.UUID(grant_id), "at": now, "p": uuid.UUID(principal) if principal else None, "a": action, "o": outcome, "h": source_hash},
+        text(
+            "UPDATE platform.tc_room_grant SET revoked_at = :now, revoked_by = :a WHERE grant_id = :g AND revoked_at IS NULL"
+        ),
+        {"now": now, "a": uuid.UUID(actor), "g": uuid.UUID(grant_id)},
+    )
+    await conn.execute(
+        text(
+            "UPDATE platform.tc_room_request SET status = 'REVOKED' WHERE request_id = (SELECT request_id FROM platform.tc_room_grant WHERE grant_id = :g) AND status = 'APPROVED'"
+        ),
+        {"g": uuid.UUID(grant_id)},
+    )
+
+
+async def record_access(
+    conn: AsyncConnection,
+    *,
+    grant_id: str,
+    principal: str | None,
+    action: str,
+    outcome: str,
+    source_hash: str,
+    now: datetime,
+) -> None:
+    await conn.execute(
+        text(
+            "INSERT INTO platform.tc_room_access (access_id, grant_id, at, principal, action, outcome, source_hash) VALUES (:i, :g, :at, :p, :a, :o, :h)"
+        ),
+        {
+            "i": uuid.uuid4(),
+            "g": uuid.UUID(grant_id),
+            "at": now,
+            "p": uuid.UUID(principal) if principal else None,
+            "a": action,
+            "o": outcome,
+            "h": source_hash,
+        },
     )
 
 
 async def access_history(conn: AsyncConnection, grant_id: str) -> list[dict[str, Any]]:
-    rows = (await conn.execute(text("SELECT at, principal, action, outcome FROM platform.tc_room_access WHERE grant_id = :g ORDER BY at"), {"g": uuid.UUID(grant_id)})).all()
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT at, principal, action, outcome FROM platform.tc_room_access WHERE grant_id = :g ORDER BY at"
+            ),
+            {"g": uuid.UUID(grant_id)},
+        )
+    ).all()
     return [dict(r._mapping) for r in rows]
 
 
@@ -506,8 +960,26 @@ async def access_history(conn: AsyncConnection, grant_id: str) -> list[dict[str,
 
 
 async def texts_by_state(conn: AsyncConnection) -> tuple[list[str], list[str]]:
-    live = (await conn.execute(text("SELECT exact_text FROM platform.tc_claim_revision WHERE status = 'PUBLISHED'"))).scalars().all()
-    gone = (await conn.execute(text("SELECT exact_text FROM platform.tc_claim_revision WHERE status = 'EMERGENCY_WITHDRAWN'"))).scalars().all()
+    live = (
+        (
+            await conn.execute(
+                text("SELECT exact_text FROM platform.tc_claim_revision WHERE status = 'PUBLISHED'")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    gone = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT exact_text FROM platform.tc_claim_revision WHERE status = 'EMERGENCY_WITHDRAWN'"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     return list(live), list(gone)
 
 
@@ -525,7 +997,10 @@ async def counts(conn: AsyncConnection, now: datetime) -> dict[str, int]:
         "room_denied_30d": "SELECT count(*) FROM platform.tc_room_access WHERE outcome <> 'ALLOWED' AND at > CAST(:now AS timestamptz) - interval '30 days'",
         "disclosures_pending": "SELECT count(*) FROM platform.tc_disclosure WHERE status = 'DRAFT'",
     }
-    return {k: int((await conn.execute(text(v), {"now": now} if ":now" in v else {})).scalar_one()) for k, v in q.items()}
+    return {
+        k: int((await conn.execute(text(v), {"now": now} if ":now" in v else {})).scalar_one())
+        for k, v in q.items()
+    }
 
 
 async def median_hours_to_withdraw(conn: AsyncConnection) -> float | None:

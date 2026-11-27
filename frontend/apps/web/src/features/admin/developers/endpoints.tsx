@@ -32,7 +32,7 @@ const COPY: Record<Change, { title: string; body: string; cta: string; danger?: 
   },
 };
 
-export function EndpointsSection() {
+export function EndpointsSection({ identityOnly = false }: { identityOnly?: boolean } = {}) {
   const endpoints = useCellQuery(ENDPOINTS_KEY, (api) => api.webhooks.endpoints());
   const [creating, setCreating] = useState(false);
   const [pending, setPending] = useState<{ endpoint: WebhookEndpoint; change: Change } | null>(null);
@@ -162,7 +162,9 @@ export function EndpointsSection() {
                     </Button>
                   }
                 >
-                  Register an HTTPS URL to receive events such as mandate revocations or credential status changes.
+                  {identityOnly
+                    ? "Register an HTTPS URL on your server. We send it the result of every identity verification, signed, so you can act on it."
+                    : "Register an HTTPS URL to receive events such as mandate revocations or credential status changes."}
                 </EmptyState>
               }
             />
@@ -170,7 +172,7 @@ export function EndpointsSection() {
         </QueryView>
       </Card>
 
-      <CreateEndpointDialog isOpen={creating} onClose={() => setCreating(false)} />
+      <CreateEndpointDialog isOpen={creating} onClose={() => setCreating(false)} identityOnly={identityOnly} />
 
       <Dialog
         isOpen={pending !== null}

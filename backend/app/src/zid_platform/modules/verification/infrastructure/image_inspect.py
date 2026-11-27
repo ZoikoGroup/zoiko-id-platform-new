@@ -91,7 +91,9 @@ async def read_mrz_text(image: bytes, *, transport: httpx.AsyncBaseTransport | N
 
 async def read_page_text(image: bytes, *, transport: httpx.AsyncBaseTransport | None = None) -> str:
     """All the text the sidecar can read from the whole picture, in memory for one comparison and never kept."""
-    data = await _post("/ocr", {"image_base64": base64.b64encode(image).decode(), "lang": "eng"}, transport)
+    data = await _post(
+        "/ocr", {"image_base64": base64.b64encode(image).decode(), "lang": "eng"}, transport
+    )
     regions = data.get("regions")
     if not isinstance(regions, list) or not regions or not isinstance(regions[0], dict):
         raise ImagingUnavailable()

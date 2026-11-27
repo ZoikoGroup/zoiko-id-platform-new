@@ -19,6 +19,7 @@ export function NewRequestDialog({ orgId, isOpen, onOpenChange, initialActionId 
   const [actionId, setActionId] = useState("");
   // A link from another page (the Team page) can open the form already on the kind of request it means.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- preselects the kind of request once the forms have loaded
     if (isOpen && initialActionId && forms.data?.forms.some((f) => f.action_id === initialActionId)) setActionId((cur) => cur || initialActionId);
   }, [isOpen, initialActionId, forms.data]);
   const [values, setValues] = useState<FormValues>({});

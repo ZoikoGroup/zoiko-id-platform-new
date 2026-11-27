@@ -12,13 +12,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from zid_platform.modules.verify_api.application import approval_policy, observe
 from zid_platform.modules.verify_api.application import certificates as certs
-from zid_platform.modules.verify_api.application import observe
 from zid_platform.modules.verify_api.domain import approvals as a
 from zid_platform.modules.verify_api.domain import credential_options as opts
 from zid_platform.modules.verify_api.domain import model as m
 from zid_platform.modules.verify_api.infrastructure import approval_store as db
-from zid_platform.modules.verify_api.infrastructure import store
+from zid_platform.modules.verify_api.infrastructure import single_approver, store
 
 
 def _iso(d: datetime | None) -> str | None:
@@ -129,7 +129,11 @@ async def approve(
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     r = await _open(conn, approval_id, now)
-    a.check_decider(str(r["requested_by"]), decider)
+    if not approval_policy.single_approver():
+        a.check_decider(str(r["requested_by"]), decider)
+    await single_approver.apply(
+        conn, approval_policy.single_approver()
+    )  # the table's own different-person rule yields only in single-approver mode (verify_api_0019)
     await db.decide(
         conn, approval_id, a.Status.APPROVED.value, decider, a.check_note(note, required=False), now
     )
@@ -189,7 +193,7 @@ async def spend(
     if not approval_id:
         raise m.PartnerError(
             "APPROVAL_REQUIRED",
-            "A production credential needs a second administrator's approval. Ask for one, have another administrator approve it, then use it within 24 hours.",
+            "A production credential needs an approval. Ask for one, approve it, then use it within 24 hours.",
         )
     try:
         uuid.UUID(approval_id)
@@ -207,6 +211,9 @@ async def spend(
         digest=a.key_digest(key) if key is not None else digest,
         now=now,
     )
+    await single_approver.apply(
+        conn, approval_policy.single_approver()
+    )  # marking it used updates the row, and the table's different-person rule is checked again on every update (verify_api_0019)
     if not await db.consume(conn, approval_id, now):
         raise m.PartnerError("APPROVAL_REQUIRED", "That approval has already been used.")
     observe.APPROVALS.inc(event="spent")

@@ -36,14 +36,24 @@ POLICY = Policy(
 
 
 def _signals(**over) -> Signals:
-    base = dict(route="WEB_FACE", optical=Optical.PASS, face=FaceMatch.MATCH, reference_source="OPTICAL", web_only_capture=True)
+    base = {
+        "route": "WEB_FACE",
+        "optical": Optical.PASS,
+        "face": FaceMatch.MATCH,
+        "reference_source": "OPTICAL",
+        "web_only_capture": True,
+    }
     base.update(over)
     return Signals(**base)
 
 
-def test_a_match_with_a_readable_document_approves_without_a_machine_readable_zone_or_typed_details() -> None:
+def test_a_match_with_a_readable_document_approves_without_a_machine_readable_zone_or_typed_details() -> (
+    None
+):
     r = decide(_signals(), POLICY)
-    assert r.decision is Decision.APPROVED, r.reasons  # an Aadhaar card has no machine-readable lines; none are needed
+    assert r.decision is Decision.APPROVED, (
+        r.reasons
+    )  # an Aadhaar card has no machine-readable lines; none are needed
 
 
 @pytest.mark.parametrize(
@@ -54,7 +64,9 @@ def test_a_match_with_a_readable_document_approves_without_a_machine_readable_zo
         (FaceMatch.NOT_RUN, "FACE_MATCH_NOT_RUN"),
     ],
 )
-def test_anything_but_a_match_asks_for_a_retake_and_is_never_an_automatic_rejection(face: FaceMatch, reason: str) -> None:
+def test_anything_but_a_match_asks_for_a_retake_and_is_never_an_automatic_rejection(
+    face: FaceMatch, reason: str
+) -> None:
     r = decide(_signals(face=face), POLICY)
     assert r.decision is Decision.INDETERMINATE and reason in r.reasons
 
@@ -76,17 +88,24 @@ def test_an_expired_document_is_still_refused_when_the_date_is_known() -> None:
 def test_the_claim_says_what_it_is_and_what_it_is_not() -> None:
     a = assertions(_signals())
     assert "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" in a
-    assert "LIVE_PRESENCE" not in a and not any(x.startswith("HOLDER_MATCHES") for x in a)  # no holder claim: the photograph was never authenticated
+    assert "LIVE_PRESENCE" not in a and not any(
+        x.startswith("HOLDER_MATCHES") for x in a
+    )  # no holder claim: the photograph was never authenticated
     assert grade_of(a, automatic=True) == FACE_MATCH == "FACE_MATCH_NO_LIVENESS"
 
 
 def test_a_real_liveness_pass_is_not_confused_with_the_face_route() -> None:
     a = assertions(_signals(liveness=Liveness.PASS))
-    assert "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" not in a and "HOLDER_MATCHES_DOCUMENT_PORTRAIT" in a
+    assert (
+        "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" not in a
+        and "HOLDER_MATCHES_DOCUMENT_PORTRAIT" in a
+    )
 
 
 def test_an_injected_capture_does_not_earn_the_claim() -> None:
-    assert "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" not in assertions(_signals(injection_risk=True))
+    assert "FACE_MATCHES_DOCUMENT_PHOTO_NO_LIVENESS" not in assertions(
+        _signals(injection_risk=True)
+    )
 
 
 def test_the_signal_follows_the_threshold_and_no_similarity_is_a_retake() -> None:
@@ -102,13 +121,45 @@ def _doc(alt: dict) -> dict:
 
 
 def test_the_policy_reads_a_face_route() -> None:
-    rules = parse({"markets": {"GB": _doc({"route_id": "WEB_FACE", "may_approve": True, "automatic": True, "face_match": True, "face_threshold": 0.45})}})["GB"]
+    rules = parse(
+        {
+            "markets": {
+                "GB": _doc(
+                    {
+                        "route_id": "WEB_FACE",
+                        "may_approve": True,
+                        "automatic": True,
+                        "face_match": True,
+                        "face_threshold": 0.45,
+                    }
+                )
+            }
+        }
+    )["GB"]
     alt = rules.policy.alternates[0]
-    assert alt.face_match and alt.face_threshold == 0.45 and alt.automatic and alt.reviewers_needed == 0
+    assert (
+        alt.face_match
+        and alt.face_threshold == 0.45
+        and alt.automatic
+        and alt.reviewers_needed == 0
+    )
 
 
 def test_a_face_route_with_no_threshold_gets_a_cautious_default() -> None:
-    rules = parse({"markets": {"GB": _doc({"route_id": "WEB_FACE", "may_approve": True, "automatic": True, "face_match": True})}})["GB"]
+    rules = parse(
+        {
+            "markets": {
+                "GB": _doc(
+                    {
+                        "route_id": "WEB_FACE",
+                        "may_approve": True,
+                        "automatic": True,
+                        "face_match": True,
+                    }
+                )
+            }
+        }
+    )["GB"]
     assert rules.policy.alternates[0].face_threshold == 0.5
 
 
@@ -116,10 +167,33 @@ def test_a_face_route_with_no_threshold_gets_a_cautious_default() -> None:
     "alt",
     [
         {"route_id": "X", "may_approve": True, "face_match": True},  # a face route is automatic
-        {"route_id": "X", "may_approve": True, "automatic": True, "face_threshold": 0.4},  # a threshold belongs to a face route
-        {"route_id": "X", "may_approve": True, "automatic": True, "face_match": True, "face_threshold": 0.1},
-        {"route_id": "X", "may_approve": True, "automatic": True, "face_match": True, "face_threshold": 1.0},
-        {"route_id": "X", "may_approve": True, "automatic": True, "face_match": True, "face_threshold": "high"},
+        {
+            "route_id": "X",
+            "may_approve": True,
+            "automatic": True,
+            "face_threshold": 0.4,
+        },  # a threshold belongs to a face route
+        {
+            "route_id": "X",
+            "may_approve": True,
+            "automatic": True,
+            "face_match": True,
+            "face_threshold": 0.1,
+        },
+        {
+            "route_id": "X",
+            "may_approve": True,
+            "automatic": True,
+            "face_match": True,
+            "face_threshold": 1.0,
+        },
+        {
+            "route_id": "X",
+            "may_approve": True,
+            "automatic": True,
+            "face_match": True,
+            "face_threshold": "high",
+        },
         {"route_id": "X", "may_approve": True, "automatic": True, "face_match": "yes"},
         {"route_id": "X", "may_approve": True, "reviewers_needed": 2, "face_match": True},
     ],

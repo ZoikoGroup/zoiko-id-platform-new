@@ -560,7 +560,11 @@ def test_the_http_token_endpoint_accepts_json_form_and_basic_never_caches_and_li
         ]
         assert codes[:10] == [401] * 10 and codes[10:] == [429, 429]
         limited = http.post(url, json={"client_id": guess, "client_secret": "zps_again"})
-        assert limited.status_code == 429 and int(limited.headers["retry-after"]) >= 1 and limited.json()["error"]["retryable"] is True  # a 429 says when to come back (CR-173)
+        assert (
+            limited.status_code == 429
+            and int(limited.headers["retry-after"]) >= 1
+            and limited.json()["error"]["retryable"] is True
+        )  # a 429 says when to come back (CR-173)
         assert (
             http.post(url, json={"client_id": cid, "client_secret": sec}).status_code == 200
         )  # another client is not slowed

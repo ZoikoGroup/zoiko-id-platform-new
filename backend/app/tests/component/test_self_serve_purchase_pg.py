@@ -114,7 +114,12 @@ def test_a_plan_is_bought_from_the_approved_book_and_switches_only_after_it_is_p
             async with eng.begin() as c:
                 with pytest.raises(activations.ActivationError) as e:
                     await activations.record_payment(
-                        c, tenant, oid, payment_ref=f"pi_ss_short_{oid}", amount_minor=100_00, currency="USD"
+                        c,
+                        tenant,
+                        oid,
+                        payment_ref=f"pi_ss_short_{oid}",
+                        amount_minor=100_00,
+                        currency="USD",
                     )
                 assert e.value.code == "ACTIVATION_AMOUNT_MISMATCH"
             async with tenant_transaction(eng, ctx(tenant)) as t:

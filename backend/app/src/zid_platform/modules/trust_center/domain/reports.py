@@ -27,7 +27,9 @@ class ReportState(StrEnum):
 _NEXT: dict[ReportState, frozenset[ReportState]] = {
     ReportState.RECEIVED: frozenset({ReportState.ACKNOWLEDGED, ReportState.OUT_OF_SCOPE}),
     ReportState.ACKNOWLEDGED: frozenset({ReportState.TRIAGED, ReportState.OUT_OF_SCOPE}),
-    ReportState.TRIAGED: frozenset({ReportState.FIXING, ReportState.OUT_OF_SCOPE, ReportState.CLOSED}),
+    ReportState.TRIAGED: frozenset(
+        {ReportState.FIXING, ReportState.OUT_OF_SCOPE, ReportState.CLOSED}
+    ),
     ReportState.FIXING: frozenset({ReportState.FIXED}),
     ReportState.FIXED: frozenset({ReportState.DISCLOSED, ReportState.CLOSED}),
     ReportState.DISCLOSED: frozenset({ReportState.CLOSED}),
@@ -35,7 +37,13 @@ _NEXT: dict[ReportState, frozenset[ReportState]] = {
     ReportState.OUT_OF_SCOPE: frozenset({ReportState.CLOSED}),
 }
 SEVERITIES = ("critical", "high", "medium", "low", "info")
-ACK_HOURS = {"critical": 4, "high": 24, "medium": 72, "low": 120, "info": 120}  # placeholders until DEC-09 sets the promise; the receipt says "target", not "guarantee"
+ACK_HOURS = {
+    "critical": 4,
+    "high": 24,
+    "medium": 72,
+    "low": 120,
+    "info": 120,
+}  # placeholders until DEC-09 sets the promise; the receipt says "target", not "guarantee"
 
 
 def can_move(a: ReportState, b: ReportState) -> bool:
@@ -114,5 +122,13 @@ def public_history(versions: list[AdvisoryVersion]) -> list[dict[str, object]]:
     for v in sorted(versions, key=lambda x: x.seq):
         if v.approved_by is None:
             continue
-        out.append({"seq": v.seq, "kind": str(v.kind), "title": v.title, "body": v.body, "correction_reason": v.reason if v.kind == AdvisoryKind.CORRECTION else None})
+        out.append(
+            {
+                "seq": v.seq,
+                "kind": str(v.kind),
+                "title": v.title,
+                "body": v.body,
+                "correction_reason": v.reason if v.kind == AdvisoryKind.CORRECTION else None,
+            }
+        )
     return out

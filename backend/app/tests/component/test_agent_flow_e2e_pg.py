@@ -124,7 +124,9 @@ def test_from_a_digest_to_a_token_and_back_to_a_kill(
                     c, Principal(p, tenant, kind, PrincipalStatus.ACTIVE, "uk-1")
                 )
             await make_admin(c, tenant, [engineer, reviewer, admin], ACTIONS, RESOURCES)
-            await give_tenant_role(c, tenant, reviewer, home_cell=HOME_CELL)  # only an Admin or an Owner records the security review
+            await give_tenant_role(
+                c, tenant, reviewer, home_cell=HOME_CELL
+            )  # only an Admin or an Owner records the security review
             await create_organization(
                 c,
                 organization_id=org,

@@ -11,7 +11,7 @@ export function HomeRedirect() {
   const caps = useCellQuery(["operator", "capabilities"], (api) => api.capabilities());
   const mode = caps.data?.mode;
   useEffect(() => {
-    if (mode) router.replace(mode === "direct" ? "/commercial" : "/requests");
+    if (mode) router.replace(mode === "direct" ? "/identity-verification" : "/requests");
   }, [mode, router]);
   return (
     <div className="p-8 text-sm text-ink-muted" role="status">

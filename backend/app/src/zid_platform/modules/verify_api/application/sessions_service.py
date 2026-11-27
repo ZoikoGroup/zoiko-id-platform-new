@@ -207,7 +207,9 @@ async def _create(
         }
     clean = s.check_session_request(body)
     if caller.environment == "SANDBOX":
-        s.check_synthetic(clean)  # the sandbox never takes what looks like a real person's details (CR-173)
+        s.check_synthetic(
+            clean
+        )  # the sandbox never takes what looks like a real person's details (CR-173)
     if not app_settings.entitled(allowed, clean["workflow_id"]):
         raise m.PartnerError(
             "WORKFLOW_NOT_ENTITLED",

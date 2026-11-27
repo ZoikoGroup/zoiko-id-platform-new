@@ -28,11 +28,39 @@ NOT_READ = "NOT_READ"
 MIN_TEXT = 60  # characters: less than this is a picture that was not read
 NAME_MATCH = 0.85
 NAME_MISMATCH = 0.6  # between the two the reading is too uncertain to hold against anyone
-_MONTHS = {m: i for i, m in enumerate(["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"], 1)}
+_MONTHS = {
+    m: i
+    for i, m in enumerate(
+        [
+            "JANUARY",
+            "FEBRUARY",
+            "MARCH",
+            "APRIL",
+            "MAY",
+            "JUNE",
+            "JULY",
+            "AUGUST",
+            "SEPTEMBER",
+            "OCTOBER",
+            "NOVEMBER",
+            "DECEMBER",
+        ],
+        1,
+    )
+}
 
-_NUMBER = re.compile(r"(?:COMPANY|REGISTERED|REGISTRATION)\s*(?:NUMBER|NO\.?)\s*[:.\-]?\s*([A-Z]{0,2}\s?\d[\d\s]{4,9}\d)", re.IGNORECASE)
-_NAME = re.compile(r"CERTIFIES\s+THAT\s+(.{2,160}?)\s+(?:IS\s+THIS\s+DAY|HAS\s+THIS\s+DAY|WAS\s+INCORPORATED|IS\s+INCORPORATED)", re.IGNORECASE | re.DOTALL)
-_DATE = re.compile(r"(?:GIVEN\s+AT[^.\n]{0,60}?\s+ON|INCORPORATED\s+ON|DATE\s+OF\s+INCORPORATION)\s*[:.\-]?\s*(?:THE\s+)?(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})", re.IGNORECASE)
+_NUMBER = re.compile(
+    r"(?:COMPANY|REGISTERED|REGISTRATION)\s*(?:NUMBER|NO\.?)\s*[:.\-]?\s*([A-Z]{0,2}\s?\d[\d\s]{4,9}\d)",
+    re.IGNORECASE,
+)
+_NAME = re.compile(
+    r"CERTIFIES\s+THAT\s+(.{2,160}?)\s+(?:IS\s+THIS\s+DAY|HAS\s+THIS\s+DAY|WAS\s+INCORPORATED|IS\s+INCORPORATED)",
+    re.IGNORECASE | re.DOTALL,
+)
+_DATE = re.compile(
+    r"(?:GIVEN\s+AT[^.\n]{0,60}?\s+ON|INCORPORATED\s+ON|DATE\s+OF\s+INCORPORATION)\s*[:.\-]?\s*(?:THE\s+)?(\d{1,2})(?:ST|ND|RD|TH)?\s+([A-Z]+)\s+(\d{4})",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -62,7 +90,9 @@ def extract(text: str) -> Extracted:
             when = date(int(m.group(3)), month, int(m.group(1)))
         except ValueError:
             when = None
-    document = "CERTIFICATE_OF_INCORPORATION" if "CERTIFICATE OF INCORPORATION" in upper else "UNKNOWN"
+    document = (
+        "CERTIFICATE_OF_INCORPORATION" if "CERTIFICATE OF INCORPORATION" in upper else "UNKNOWN"
+    )
     return Extracted(document, name or None, number, when)
 
 
@@ -79,7 +109,9 @@ def _number_present(text: str, claimed_number: str) -> bool:
     chars = _fold(claimed_number)
     if len(chars) < MIN_NUMBER_CHARS:
         return False
-    pattern = r"(?<![A-Z0-9])" + r"[\s.\-/]{0,2}".join(re.escape(c) for c in chars) + r"(?![A-Z0-9])"
+    pattern = (
+        r"(?<![A-Z0-9])" + r"[\s.\-/]{0,2}".join(re.escape(c) for c in chars) + r"(?![A-Z0-9])"
+    )
     return re.search(pattern, text.upper()) is not None
 
 
@@ -101,7 +133,14 @@ def compare(text: str, *, claimed_name: str, claimed_number: str) -> dict[str, o
     """What the certificate says, and whether it agrees with the claim. Nothing but codes, the two numbers and the date it read: the text itself is never returned or kept."""
     got = extract(text)
     if len(text.strip()) < MIN_TEXT:
-        return {"verdict": NOT_ENOUGH, "reading": "TOO_LITTLE_TEXT", "document": got.document, "number": NOT_READ, "name": NOT_READ, "incorporated_on": None}
+        return {
+            "verdict": NOT_ENOUGH,
+            "reading": "TOO_LITTLE_TEXT",
+            "document": got.document,
+            "number": NOT_READ,
+            "name": NOT_READ,
+            "incorporated_on": None,
+        }
     if _number_present(text, claimed_number) and _name_present(text, claimed_name):
         # CR-135: any country's certificate, in any layout: the claimed number and the claimed name are both written on it
         return {"verdict": CONSISTENT, "reading": "OK", "document": got.document, "number": MATCH, "name": MATCH,

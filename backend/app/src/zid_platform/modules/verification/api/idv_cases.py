@@ -380,9 +380,13 @@ async def _envelope(facts: CaptureFacts, media: bytes) -> Envelope:
     if facts.attestation is not None:
         challenge = f"{facts.nonce}:{digest}".encode()
         if facts.attestation.platform == "ANDROID_PLAY_INTEGRITY":
-            attested = await device_attestation.verify_play_integrity(dict(facts.attestation.report), challenge=challenge)
+            attested = await device_attestation.verify_play_integrity(
+                dict(facts.attestation.report), challenge=challenge
+            )
         else:
-            attested = device_attestation.verify(facts.attestation.platform, dict(facts.attestation.report), challenge=challenge)
+            attested = device_attestation.verify(
+                facts.attestation.platform, dict(facts.attestation.report), challenge=challenge
+            )
     return Envelope(facts.nonce, digest, facts.captured_at, facts.virtual_camera, attested)
 
 
@@ -449,7 +453,14 @@ async def chip(
 FACE_ROUTE_ACK = "accept-no-liveness-no-evaluation"
 
 
-async def _provider_checked(request: Request, caller: Caller, case_id: uuid.UUID, provider: str, outcome: str, started: float) -> None:
+async def _provider_checked(
+    request: Request,
+    caller: Caller,
+    case_id: uuid.UUID,
+    provider: str,
+    outcome: str,
+    started: float,
+) -> None:
     """WF-02 M11: one provider call, its outcome class and latency, in its own transaction so a failed call is on record although the request fails.
     Codes and milliseconds only: never the image, the reading or a score."""
     async with tenant_transaction(request_engine(request), caller.ctx) as conn:
@@ -523,7 +534,14 @@ async def _face_against_document(
         got = await face_lab.compare(clean_selfie, document)
     except face_lab.FaceLabError as e:
         # a face that cannot be found answered correctly (not a technical failure); anything else is the service failing
-        await _provider_checked(request, caller, case_id, "face_lab", "OK" if e.http_status == 422 else "TECHNICAL_ERROR", started)
+        await _provider_checked(
+            request,
+            caller,
+            case_id,
+            "face_lab",
+            "OK" if e.http_status == 422 else "TECHNICAL_ERROR",
+            started,
+        )
         if e.http_status == 422:
             log.info(
                 "idv face comparison: no result (%s)", e.code

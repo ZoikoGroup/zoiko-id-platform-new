@@ -301,7 +301,9 @@ async def _commit(
             applicant_flow,  # a hosted session tells its business (WF-01 §09)
         )
 
-        await applicant_flow.finalize_if_due(conn, str(tenant), latest, now, review_sla_hours=rules.review_sla_hours)
+        await applicant_flow.finalize_if_due(
+            conn, str(tenant), latest, now, review_sla_hours=rules.review_sla_hours
+        )
     return latest
 
 
@@ -402,7 +404,7 @@ async def submit_chip(
     )  # fmt: skip
     return await _commit(
         conn, c, s, rules, trigger="chip", now=now, attempts=attempts,
-        **({"printed_digests": None, "printed_salt": None} if document else {}),
+        **({"printed_digests": None, "printed_salt": None} if document else {}),  # type: ignore[arg-type]
     )  # fmt: skip
 
 

@@ -30,7 +30,9 @@ ACCESS_TTL = timedelta(minutes=60)
 SESSION_TTL = timedelta(hours=24)
 
 
-def configure_lifetimes(*, launch: timedelta, handoff: timedelta, access: timedelta, session: timedelta) -> None:
+def configure_lifetimes(
+    *, launch: timedelta, handoff: timedelta, access: timedelta, session: timedelta
+) -> None:
     global LAUNCH_TTL, HANDOFF_TTL, ACCESS_TTL, SESSION_TTL
     LAUNCH_TTL, HANDOFF_TTL, ACCESS_TTL, SESSION_TTL = launch, handoff, access, session
 
@@ -172,7 +174,9 @@ async def next_event_version(conn: AsyncConnection, ref: str) -> int:
     return int(
         (
             await conn.execute(
-                text("UPDATE privacy.verification_session SET event_seq = event_seq + 1 WHERE session_ref = :r RETURNING event_seq"),
+                text(
+                    "UPDATE privacy.verification_session SET event_seq = event_seq + 1 WHERE session_ref = :r RETURNING event_seq"
+                ),
                 {"r": ref},
             )
         ).scalar_one()
@@ -247,10 +251,15 @@ def configure_hosted_gate(gate: HostedGate | None) -> None:
     _gate = gate
 
 
-async def hosted_gate(request: Any, conn: AsyncConnection, market: str, return_url: str | None) -> str:
+async def hosted_gate(
+    request: Any, conn: AsyncConnection, market: str, return_url: str | None
+) -> str:
     """The mode ('sandbox' or 'production') once the gate passes; it raises the refusal otherwise. With no gate wired no hosted session opens."""
     if _gate is None:
-        raise PrivacyError("HOSTED_SESSIONS_UNAVAILABLE", "hosted verification is not configured in this deployment")
+        raise PrivacyError(
+            "HOSTED_SESSIONS_UNAVAILABLE",
+            "hosted verification is not configured in this deployment",
+        )
     return await _gate(request, conn, market, return_url)
 
 

@@ -63,7 +63,6 @@ export function ProvidersSection() {
   const approve = useCellMutation((api, c: RoutingCapability) => api.routing.approveCapability(c.provider_id, c.method, "Evidence reviewed"), { invalidate: [CAP_KEY], success: "Approved" });
   const suspend = useCellMutation((api, c: RoutingCapability) => api.routing.suspendCapability(c.provider_id, c.method, "Suspended by an operator"), { invalidate: [CAP_KEY], success: "Suspended" });
   const allowedList = allowed.split(",").map((x) => x.trim()).filter(Boolean);
-  // eslint-disable-next-line react-hooks/purity -- reads the clock to judge expiry
   const now = new Date();
   const columns: Column<RoutingCapability>[] = [
     { key: "p", header: "Provider", pinned: true, render: (c) => <span className="font-medium">{c.provider_id}</span>, sortValue: (c) => c.provider_id },

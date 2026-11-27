@@ -94,7 +94,7 @@ def check_public_jwk(jwk: Any) -> dict[str, str]:
     if (kty, crv) == ("EC", "P-256"):
         needed, alg = ("x", "y"), "ES256"
     elif (kty, crv) == ("OKP", "Ed25519"):
-        needed, alg = ("x",), "EdDSA"
+        needed, alg = ("x",), "EdDSA"  # type: ignore[assignment]
     else:
         raise PartnerError("VALIDATION_FAILED", "The key must be EC P-256 or Ed25519.")
     if any(not jwk.get(n) for n in needed):

@@ -221,7 +221,9 @@ def _mine_view(g: Grant) -> dict[str, Any]:
         "status": g.status.value,
         "granted_by": g.grantor_principal_id,
         "actions": None if a.actions is ANY else sorted(a.actions),  # type: ignore[arg-type]  # null: every action the company allows
-        "value_limit": {"amount": str(a.value.amount), "currency": a.value.currency} if a.value else None,
+        "value_limit": {"amount": str(a.value.amount), "currency": a.value.currency}
+        if a.value
+        else None,
         "valid_from": a.window.valid_from,
         "valid_to": a.window.valid_to,
         "delegation_allowed": g.delegation_allowed,

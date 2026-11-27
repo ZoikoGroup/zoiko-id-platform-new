@@ -6,7 +6,10 @@ import importlib.util
 import sys
 from pathlib import Path
 
-SPEC = importlib.util.spec_from_file_location("trace_workbench", Path(__file__).resolve().parents[4] / "tools" / "scripts" / "trace_workbench.py")
+SPEC = importlib.util.spec_from_file_location(
+    "trace_workbench",
+    Path(__file__).resolve().parents[4] / "tools" / "scripts" / "trace_workbench.py",
+)
 tw = importlib.util.module_from_spec(SPEC)  # type: ignore[arg-type]
 sys.modules["trace_workbench"] = tw
 SPEC.loader.exec_module(tw)  # type: ignore[union-attr]
@@ -27,21 +30,59 @@ def test_nineteen_dtv_ids_stay_missing_source_and_none_is_countable_as_done() ->
     reg = tw.dtv_register()
     assert len(reg) == 34 and sum(r["state"] == "MISSING_SOURCE" for r in reg) == 19
     assert all(r["countable_as_done"] == "no" for r in reg)
-    assert {r["id"] for r in reg if r["state"] == "CONDITIONAL_HOLD"} == {"DTV-03", "DTV-26", "DTV-27", "DTV-32", "DTV-33", "DTV-34"}
+    assert {r["id"] for r in reg if r["state"] == "CONDITIONAL_HOLD"} == {
+        "DTV-03",
+        "DTV-26",
+        "DTV-27",
+        "DTV-32",
+        "DTV-33",
+        "DTV-34",
+    }
 
 
-def test_the_sheet_says_not_assessed_where_there_is_no_source_and_never_claims_more_than_a_passed_run() -> None:
-    req = [{"requirement_id": "FR-X-1", "priority": "P0", "owning_units_modules": "tenant", "evidence_link": "", "test_status": "NOT_STARTED"}]
-    acc = [{"test_id": "T-1", "source_spec": "S", "evidence_link": "a/b.py::test_x", "test_status": "IN_PROGRESS"}]
+def test_the_sheet_says_not_assessed_where_there_is_no_source_and_never_claims_more_than_a_passed_run() -> (
+    None
+):
+    req = [
+        {
+            "requirement_id": "FR-X-1",
+            "priority": "P0",
+            "owning_units_modules": "tenant",
+            "evidence_link": "",
+            "test_status": "NOT_STARTED",
+        }
+    ]
+    acc = [
+        {
+            "test_id": "T-1",
+            "source_spec": "S",
+            "evidence_link": "a/b.py::test_x",
+            "test_status": "IN_PROGRESS",
+        }
+    ]
     r0, r1 = tw.sheet_rows(req, acc, [{"id": "T-1", "result": "PASSED", "commit": "abc"}])
-    assert r0["build_digest"] == tw.NA and r0["environment"] == tw.NA and r0["evidence_maturity"] == "E0" and r0["gate"] == "G0"
+    assert (
+        r0["build_digest"] == tw.NA
+        and r0["environment"] == tw.NA
+        and r0["evidence_maturity"] == "E0"
+        and r0["gate"] == "G0"
+    )
     assert r1["evidence_maturity"] == "E2" and r1["commit_sha"] == "abc" and r1["market"] == tw.NA
     assert set(r0) == set(tw.SHEET_FIELDS)
 
 
 def test_a_pass_on_a_file_that_changed_is_expired_and_cannot_close_a_gate() -> None:
-    acc = [{"test_id": f"T-{i}", "evidence_link": f"p{i}.py::t"} for i in range(4)] + [{"test_id": "T-9", "evidence_link": ""}]
-    st = {s.test_id: s for s in tw.staleness(acc, {"p0.py": "a", "p1.py": "a", "p2.py": "a"}, {"p0.py": "a", "p1.py": "CHANGED", "p3.py": "x"})}
+    acc = [{"test_id": f"T-{i}", "evidence_link": f"p{i}.py::t"} for i in range(4)] + [
+        {"test_id": "T-9", "evidence_link": ""}
+    ]
+    st = {
+        s.test_id: s
+        for s in tw.staleness(
+            acc,
+            {"p0.py": "a", "p1.py": "a", "p2.py": "a"},
+            {"p0.py": "a", "p1.py": "CHANGED", "p3.py": "x"},
+        )
+    }
     assert st["T-0"].state == "CURRENT" and tw.valid_pass(st["T-0"])
     assert st["T-1"].state == "EXPIRED" and not tw.valid_pass(st["T-1"])
     assert st["T-2"].state == "MISSING" and st["T-3"].state == "UNRECORDED" and "T-9" not in st
@@ -73,11 +114,15 @@ def test_nothing_without_a_build_digest_is_deployed_and_no_p0_passes_without_evi
 
 def test_the_implementer_cannot_sign_and_one_person_cannot_hold_two_signing_roles() -> None:
     assert "implementer" in " ".join(tw.assess(ready(implementer="quinn"))[3].blockers)
-    assert "more than one role" in " ".join(tw.assess(ready(signatures={**SIGN, "qa": "rita"}))[3].blockers)
+    assert "more than one role" in " ".join(
+        tw.assess(ready(signatures={**SIGN, "qa": "rita"}))[3].blockers
+    )
     assert "has not signed" in " ".join(tw.assess(ready(signatures={}))[3].blockers)
 
 
-def test_unsupported_claims_an_unrehearsed_rollback_expired_evidence_and_an_open_incident_each_block() -> None:
+def test_unsupported_claims_an_unrehearsed_rollback_expired_evidence_and_an_open_incident_each_block() -> (
+    None
+):
     assert not tw.assess(ready(unsupported_public_claims=1))[3].passed
     assert not tw.assess(ready(rollback_rehearsed=False))[3].passed
     assert not tw.assess(ready(evidence_expired=3))[1].passed
@@ -86,5 +131,11 @@ def test_unsupported_claims_an_unrehearsed_rollback_expired_evidence_and_an_open
 
 
 def test_the_manifest_example_in_the_document_is_blocked() -> None:
-    m = tw.manifest_from_json({"release_id": "ZID-RC-SAMPLE-001", "scope": {"market": "US", "tenant_class": "design-partner", "provider": "UNASSIGNED"}, "build_digest": None})
+    m = tw.manifest_from_json(
+        {
+            "release_id": "ZID-RC-SAMPLE-001",
+            "scope": {"market": "US", "tenant_class": "design-partner", "provider": "UNASSIGNED"},
+            "build_digest": None,
+        }
+    )
     assert not tw.production_eligible(tw.assess(m))

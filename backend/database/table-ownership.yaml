@@ -1069,6 +1069,16 @@ tables:
     module: verify_api
     tenant_scoped: true
     source: "ZID-EXT-IDV-001 section 9, 10.1 (CR-150)"
+  verify.api_session_media:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 photographs kept only when the deployment chose to (verify_api_0020)"
+  verify.api_media_access:
+    role: cell
+    module: verify_api
+    tenant_scoped: true
+    source: "ZID-EXT-IDV-001 record of every time a photograph was opened (verify_api_0020)"
   verify.api_decision:
     role: cell
     module: verify_api

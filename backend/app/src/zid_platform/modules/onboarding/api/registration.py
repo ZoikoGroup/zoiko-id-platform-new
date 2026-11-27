@@ -215,7 +215,9 @@ async def _send_recovery(request: Request, env: svc.Env, job: svc.RecoveryJob) -
 async def capabilities(request: Request, country: str | None = None) -> dict[str, Any]:
     _limit(request, "capabilities")
     env = _env(request)
-    await country_opening_store.refresh(request_engine(request))  # the countries an operator has opened (CR-127)
+    await country_opening_store.refresh(
+        request_engine(request)
+    )  # the countries an operator has opened (CR-127)
     try:
         return await svc.capabilities(env, country, now=datetime.now(UTC))
     except RegistrationError as e:

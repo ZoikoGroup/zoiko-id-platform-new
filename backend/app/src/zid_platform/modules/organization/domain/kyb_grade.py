@@ -160,7 +160,10 @@ def assess(
 
     if registry_ok:
         grade = Grade.K2
-        claims += ["LEI_RECORD_FOUND" if reg is not None and reg.reference_only else "REGISTER_FOUND", "COMPANY_ACTIVE_SOURCE_REPORTED"]
+        claims += [
+            "LEI_RECORD_FOUND" if reg is not None and reg.reference_only else "REGISTER_FOUND",
+            "COMPANY_ACTIVE_SOURCE_REPORTED",
+        ]
         if reg is not None and reg.reference_only:
             reasons.append("REGISTER_NOT_CHECKED_LEI_REFERENCE_ONLY")
     else:
@@ -328,18 +331,18 @@ def facts_from_dict(d: dict[str, object]) -> KybFacts:
             registry=None
             if not reg
             else RegistryFact(
-                bool(reg["matched"]),
-                str(reg["status_reported"]),
-                _when(reg["checked_at"]) or datetime.min.replace(tzinfo=UTC),
-                timedelta(seconds=int(reg["max_age_s"])),  # type: ignore[index, call-overload]
+                bool(reg["matched"]),  # type: ignore[index]
+                str(reg["status_reported"]),  # type: ignore[index]
+                _when(reg["checked_at"]) or datetime.min.replace(tzinfo=UTC),  # type: ignore[index]
+                timedelta(seconds=int(reg["max_age_s"])),  # type: ignore[index]
             ),
             documents=None
             if not doc
             else DocumentFact(
-                tuple(str(x) for x in doc["reviewers"]),
-                bool(doc["current"]),
-                _when(doc.get("reviewed_at")),
-            ),  # type: ignore[index, attr-defined]
+                tuple(str(x) for x in doc["reviewers"]),  # type: ignore[index]
+                bool(doc["current"]),  # type: ignore[index]
+                _when(doc.get("reviewed_at")),  # type: ignore[attr-defined]
+            ),
             ownership_complete=bool(d.get("ownership_complete")),
             persons_verified=bool(d.get("persons_verified")),
             screening=str(d.get("screening", "NOT_RUN")),
@@ -355,7 +358,7 @@ def facts_from_dict(d: dict[str, object]) -> KybFacts:
                     bool(m.get("second_signatory_required")),
                     bool(m.get("second_signatory_present")),
                 )
-                for m in (d.get("mandates") or [])  # type: ignore[union-attr]
+                for m in (d.get("mandates") or [])  # type: ignore[attr-defined]
             ),
         )
     except (KeyError, TypeError, ValueError) as e:

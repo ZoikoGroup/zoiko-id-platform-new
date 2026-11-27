@@ -143,7 +143,9 @@ class World:
             self.approver_grant = await make_admin(
                 c, t, self.approver, [READ], ["agent:*"], release=False
             )
-            await give_tenant_role(c, t, self.approver)  # only an Admin or an Owner records an agent's security review
+            await give_tenant_role(
+                c, t, self.approver
+            )  # only an Admin or an Owner records an agent's security review
         async with engine(self.owner_url) as eng, eng.begin() as c:
             for table in ("agent_profile", "tool_capability"):
                 await c.execute(

@@ -19,6 +19,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 from typing import Any
 
 STATES = ("CURRENT", "SUPPORTED", "DEPRECATED", "RETIRED")
@@ -81,7 +82,7 @@ def register_problems(releases: Sequence[Release]) -> list[str]:
                 out.append(f"DEPRECATED_WITHOUT_DATES:{r.version}")
             elif r.supported_until - r.announced < MIN_SUPPORT:
                 out.append(f"SUPPORT_WINDOW_UNDER_180_DAYS:{r.version}")
-    for earlier, later in zip(ordered, ordered[1:], strict=False):
+    for earlier, later in pairwise(ordered):
         if later.breaking and later.major <= earlier.major:
             out.append(f"BREAKING_CHANGE_WITHOUT_A_NEW_MAJOR:{later.version}")
         if later.breaking and earlier.state == "SUPPORTED" and earlier.supported_until is None:
@@ -100,7 +101,7 @@ def snapshot_problems(release: Release, text: str | None) -> list[str]:
 
 def secret_problems(text: str) -> list[str]:
     """A schema example must not carry a live-looking secret, a private key or a real-looking credential."""
-    markers = ("-----BEGIN", "client_secret\":\"zsk_", "AKIA", "sk_live_", "xoxb-")
+    markers = ("-----BEGIN", 'client_secret":"zsk_', "AKIA", "sk_live_", "xoxb-")
     return [f"EXAMPLE_LOOKS_LIKE_A_SECRET:{m}" for m in markers if m in text]
 
 

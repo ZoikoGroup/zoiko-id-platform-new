@@ -44,7 +44,7 @@ function pageAllowed(id: string, rights: Record<string, string[]> | undefined): 
  * refuses the calls by itself (UX-03), so hiding is courtesy, never the protection. */
 const ADMIN_ITEMS = new Set([
   "onboarding", "organization", "setup", "domains", "applications", "integrations", "team", "approvals", "billing", "contacts", "checks", "settings",
-  "command-center", "idv-cases", "verification-spend", "trust-room",
+  "idv-home", "command-center", "idv-cases", "verification-spend", "trust-room",
 ]);
 /** What the registrant who has not yet been confirmed as owner needs: the way to get confirmed. */
 const SETUP_ITEMS = new Set(["onboarding", "organization", "setup"]);

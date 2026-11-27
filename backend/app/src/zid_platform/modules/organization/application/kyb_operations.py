@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -60,7 +60,7 @@ async def open_appeal(
     version: int,
     reason: str,
     now: datetime | None = None,
-    window=ap.DEFAULT_WINDOW,
+    window: timedelta = ap.DEFAULT_WINDOW,
 ) -> str:
     now = now or datetime.now(UTC)
     decision, _applicant = await _decision(conn, tenant_id, version)

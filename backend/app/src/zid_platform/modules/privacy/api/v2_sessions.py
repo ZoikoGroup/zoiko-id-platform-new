@@ -61,9 +61,15 @@ async def create_session(body: SessionIn, request: Request, caller: CallerDep) -
 
     async def go(conn: AsyncConnection) -> dict[str, Any]:
         # WF-01 §04, Q04, S10: the market's regulatory checks and the return address, before a session exists (the gate is wired by main)
-        mode = await applicant_session.hosted_gate(request, conn, body.market, body.return_url) if body.market else None
+        mode = (
+            await applicant_session.hosted_gate(request, conn, body.market, body.return_url)
+            if body.market
+            else None
+        )
         if body.return_url and not body.market:
-            raise PrivacyError("RETURN_URL_NOT_ALLOWED", "a return address is only for a hosted session")
+            raise PrivacyError(
+                "RETURN_URL_NOT_ALLOWED", "a return address is only for a hosted session"
+            )
         out = await sessions.open_session(
             conn, _tenant(caller), me,
             activity_code=body.activity_code, purpose_code=body.purpose_id,
