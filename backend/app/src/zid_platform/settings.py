@@ -240,6 +240,8 @@ class Settings(ServiceSettings):
     # inline value (DEC-F5). Set, the cell collects payments and calculates tax through Stripe; unset, tax
     # answers "not configured" and a deployed cell refuses to collect. ZID_STRIPE_API_BASE: test doubles only.
     stripe_secret_key_file: str | None = None
+    # ZID_STRIPE_SECRET_KEY: the key as a value, for a deployer who keeps it in the env file. The file wins when both are set.
+    stripe_secret_key: str | None = None
     # ZID_SCREENING_SIGNAL_PEPPER_FILE: a deployment secret mixed into the hashes of the fraud and velocity signals (CR-068). Without one the
     # hashes are still tenant-scoped but a short value (a phone number) could be guessed, so a deployed cell sets it.
     screening_signal_pepper_file: str | None = None
@@ -250,6 +252,8 @@ class Settings(ServiceSettings):
     # ZID_STRIPE_WEBHOOK_SECRET_FILE (CR-040): path of a file holding the endpoint's signing secret (`whsec_...`).
     # Set, POST /v1/webhooks/stripe accepts Stripe's signed events; unset, the endpoint answers 404.
     stripe_webhook_secret_file: str | None = None
+    # ZID_STRIPE_WEBHOOK_SECRET: the signing secret(s) as a value, comma separated to roll a secret. The file wins when both are set.
+    stripe_webhook_secret: str | None = None
     # --- Email (Communication Estate; CR-031). Off by default: nothing is sent until a person turns it on.
     # ZID_EMAIL_ENABLED: master switch. ZID_EMAIL_ENABLED_TEMPLATES: JSON list of template ids, or ["*"] for
     # every template whose event is wired and whose links have a route. ZID_EMAIL_FROM: "Name <address>" of a
@@ -263,6 +267,8 @@ class Settings(ServiceSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password_file: str | None = None
+    # ZID_SMTP_PASSWORD: the password as a value, for a deployer who keeps it in the env file. The file above wins when both are set.
+    smtp_password: str | None = None
     # ZID_SMTP_INSECURE_LOCAL (local/test only): talk to a local mail sink (for example Mailpit) without TLS. Refused anywhere else.
     smtp_insecure_local: bool = False
     email_public_base_url: str | None = None

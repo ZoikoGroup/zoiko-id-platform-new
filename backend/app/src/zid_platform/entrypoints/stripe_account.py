@@ -19,13 +19,13 @@ import httpx
 
 def main() -> int:
     path = os.environ.get("ZID_STRIPE_SECRET_KEY_FILE")
-    if not path:
+    key = Path(path).read_text(encoding="utf-8").strip() if path else os.environ.get("ZID_STRIPE_SECRET_KEY", "").strip()
+    if not key:
         print(
-            "ZID_STRIPE_SECRET_KEY_FILE is not set: no payment provider is configured.",
+            "Neither ZID_STRIPE_SECRET_KEY_FILE nor ZID_STRIPE_SECRET_KEY is set: no payment provider is configured.",
             file=sys.stderr,
         )
         return 2
-    key = Path(path).read_text(encoding="utf-8").strip()
     base = os.environ.get("ZID_STRIPE_API_BASE", "https://api.stripe.com").rstrip("/")
     response = httpx.get(f"{base}/v1/account", auth=(key, ""), timeout=10)
     if response.status_code != 200:

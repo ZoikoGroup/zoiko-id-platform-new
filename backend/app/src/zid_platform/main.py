@@ -997,15 +997,18 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
         if not pepper:
             raise RuntimeError("ZID_SCREENING_SIGNAL_PEPPER_FILE is empty")
         app.state.screening_signal_pepper = pepper
-    if settings.stripe_secret_key_file:
+    if settings.stripe_secret_key_file or settings.stripe_secret_key:
         from pathlib import Path
 
         from .modules.commercial.ports import StripePayments, StripeTax
 
         # The processor and the tax engine (CR-027): the key is read once from its file and never logged.
-        stripe_key = Path(settings.stripe_secret_key_file).read_text(encoding="utf-8").strip()
+        if settings.stripe_secret_key_file:
+            stripe_key = Path(settings.stripe_secret_key_file).read_text(encoding="utf-8").strip()
+        else:
+            stripe_key = (settings.stripe_secret_key or "").strip()
         if not stripe_key:
-            raise RuntimeError("ZID_STRIPE_SECRET_KEY_FILE is empty")
+            raise RuntimeError("the Stripe secret key is empty")
         app.state.tax_port = StripeTax(stripe_key, base_url=settings.stripe_api_base)
         app.state.payment_port = StripePayments(stripe_key, base_url=settings.stripe_api_base)
         from urllib.parse import urlparse
@@ -1059,19 +1062,18 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
                 "ZID_ATTESTOR_KEYS_FILE must hold public keys only, and at least one"
             )
         app.state.attestor_keys = keys
-    if settings.stripe_webhook_secret_file:
+    if settings.stripe_webhook_secret_file or settings.stripe_webhook_secret:
         from pathlib import Path
 
         # Signing secrets for Stripe's webhook (CR-040): one per line, so a secret can be rolled without a gap.
-        app.state.stripe_webhook_secrets = [
-            ln.strip()
-            for ln in Path(settings.stripe_webhook_secret_file)
-            .read_text(encoding="utf-8")
-            .splitlines()
-            if ln.strip()
-        ]
+        webhook_text = (
+            Path(settings.stripe_webhook_secret_file).read_text(encoding="utf-8")
+            if settings.stripe_webhook_secret_file
+            else (settings.stripe_webhook_secret or "").replace(",", "\n")
+        )
+        app.state.stripe_webhook_secrets = [ln.strip() for ln in webhook_text.splitlines() if ln.strip()]
         if not app.state.stripe_webhook_secrets:
-            raise RuntimeError("ZID_STRIPE_WEBHOOK_SECRET_FILE is empty")
+            raise RuntimeError("the Stripe webhook signing secret is empty")
     from .modules.commercial.ports import key_auth, key_vc_issued
     from .modules.credential.ports import credentials_issued_between
     from .modules.session.ports import sessions_created_between
