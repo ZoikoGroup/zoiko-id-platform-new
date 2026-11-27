@@ -13,8 +13,10 @@ global_plane:
 
 cells:
   uk-1:
-    provider: aws
-    region: eu-west-2            # London
+    # Google Cloud, europe-west2 (London): the placement of the first production deployment (deploy/gcp-vm), recorded 27 Nov 2026 as a DRAFT declaration.
+    # SRE approves it (the file's approval_ref stays null until then); cell-readiness.yaml records the five gates separately.
+    provider: gcp
+    region: europe-west2            # London
     display_name: "United Kingdom (London)"   # what people see instead of the cell id
     jurisdiction: {country: GB, legal_zone: UK}
     availability_zones: 3
@@ -22,22 +24,22 @@ cells:
     # Deployment inventory (TENANCY §6, TEN-32): where each in-scope subsystem keeps this cell's data.
     # Declared by SRE; a subsystem that is not listed is reported as NOT_DECLARED, never assumed fine.
     subsystem_placements:
-      authoritative_db: {region: eu-west-2, country: GB, dedicated: false}
-      object_evidence_store: {region: eu-west-2, country: GB, dedicated: false}
-      cache: {region: eu-west-2, country: GB, dedicated: false}
-      search_index: {region: eu-west-2, country: GB, dedicated: false}
-      relationship_projection: {region: eu-west-2, country: GB, dedicated: false}
-      message_broker: {region: eu-west-2, country: GB, dedicated: false}
-      logs_traces: {region: eu-west-2, country: GB, dedicated: false}
-      security_events: {region: eu-west-2, country: GB, dedicated: false}
-      backups_snapshots: {region: eu-west-2, country: GB, dedicated: false}
-      kms_hsm: {region: eu-west-2, country: GB, dedicated: false}
-      support_tooling: {region: eu-west-2, country: GB, dedicated: false}
-      subprocessors: {region: eu-west-2, country: GB, dedicated: false}
-      analytics: {region: eu-west-2, country: GB, dedicated: false}
+      authoritative_db: {region: europe-west2, country: GB, dedicated: false}
+      object_evidence_store: {region: europe-west2, country: GB, dedicated: false}
+      cache: {region: europe-west2, country: GB, dedicated: false}
+      search_index: {region: europe-west2, country: GB, dedicated: false}
+      relationship_projection: {region: europe-west2, country: GB, dedicated: false}
+      message_broker: {region: europe-west2, country: GB, dedicated: false}
+      logs_traces: {region: europe-west2, country: GB, dedicated: false}
+      security_events: {region: europe-west2, country: GB, dedicated: false}
+      backups_snapshots: {region: europe-west2, country: GB, dedicated: false}
+      kms_hsm: {region: europe-west2, country: GB, dedicated: false}
+      support_tooling: {region: europe-west2, country: GB, dedicated: false}
+      subprocessors: {region: europe-west2, country: GB, dedicated: false}
+      analytics: {region: europe-west2, country: GB, dedicated: false}
     recovery:
       approved_recovery_cells: []        # doc default: cross-border transfer is DENY until approved (TENANCY §0.1)
-      in_region_posture: "Multi-AZ quorum + PITR/backups inside eu-west-2"
+      in_region_posture: "Multi-AZ quorum + PITR/backups inside europe-west2"
       cross_jurisdiction_candidate: eu-1  # allowed ONLY per tenant contract + Legal approval (open question Q1)
       if_no_cross_region_recovery: "Tenant explicitly accepts a different RTO/RPO for regional disaster (ARCH §15.3)"
   # Local development cell (docker compose sets ZID_CELL_ID=local-1). It is in the catalogue so a local company can
