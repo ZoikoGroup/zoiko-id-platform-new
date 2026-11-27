@@ -16,6 +16,8 @@ from zid_outbox import relay_once
 from zid_outbox.kafka import KafkaPublisher
 from zid_telemetry import configure_logging, get_logger
 
+from zid_platform.cell_identity import resolve_cell_id
+
 log = get_logger("zid.outbox_relay")
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -75,13 +77,14 @@ async def run(
 
 
 def main() -> None:
-    configure_logging("zid-outbox-relay", os.environ.get("ZID_CELL_ID", "local-1"))
+    cell = resolve_cell_id(os.environ)
+    configure_logging("zid-outbox-relay", cell)
     asyncio.run(
         run(
             database_url=os.environ["ZID_RELAY_DATABASE_URL"],
             bootstrap=os.environ["ZID_KAFKA_BOOTSTRAP"],
             env=os.environ.get("ZID_ENVIRONMENT", "local"),
-            region=os.environ.get("ZID_REGION", os.environ.get("ZID_CELL_ID", "local-1")),
+            region=os.environ.get("ZID_REGION", cell),
         )
     )
 

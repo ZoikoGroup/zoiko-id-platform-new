@@ -269,7 +269,7 @@ async def create_tenant(
                 display_name=body.display_name,
                 tenant_slug=body.tenant_slug,
                 deployment_mode=body.deployment_mode,
-                home_cell_id=getattr(request.app.state, "home_cell", None) or "local-1",
+                home_cell_id=request.app.state.home_cell,
                 console=service.ConsoleClient(*console) if console else None,
             )
         except TenantError as e:

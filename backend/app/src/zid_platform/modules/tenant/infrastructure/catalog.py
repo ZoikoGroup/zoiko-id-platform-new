@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from zid_platform.cell_identity import LOCAL_ENVIRONMENTS
 from zid_platform.modules.tenant.domain.residency import Catalog, Cell, Placement
 
 CONFIG = Path(
@@ -28,7 +29,10 @@ def catalog() -> Catalog:
     profiles_doc = _yaml(CONFIG / "residency-profiles" / "residency-profiles.yaml")
     cells: dict[str, Cell] = {}
     placements: dict[str, dict[str, Placement]] = {}
+    deployed = os.environ.get("ZID_ENVIRONMENT", "local") not in LOCAL_ENVIRONMENTS
     for cell_id, body in (cells_doc.get("cells") or {}).items():
+        if deployed and body.get("provider") == "local":
+            continue  # a development stand-in is not a region: a deployed environment never lists it, places a company in it or offers it
         juris = body.get("jurisdiction") or {}
         recovery = body.get("recovery") or {}
         placements[cell_id] = {

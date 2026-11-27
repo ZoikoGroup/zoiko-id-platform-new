@@ -31,6 +31,7 @@ from zid_outbox import CloudEvent, consume
 from zid_outbox.kafka import run_consumer
 from zid_telemetry import configure_logging
 
+from zid_platform.cell_identity import resolve_cell_id
 from zid_platform.keys import KeyRings
 from zid_platform.modules.relationship.infrastructure.spicedb import SpiceDB, project
 from zid_platform.modules.signals.application.ssf import (
@@ -305,7 +306,7 @@ async def run(
 
 
 def main() -> None:
-    cell = os.environ.get("ZID_CELL_ID", "local-1")
+    cell = resolve_cell_id(os.environ)
     configure_logging("zid-consumer", cell)
     from zid_platform.modules.evidence.ports import configure_runtime, runtime_from_settings
     from zid_platform.settings import Settings

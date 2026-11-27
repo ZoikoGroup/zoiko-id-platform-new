@@ -27,7 +27,7 @@ export function baselineBody(
 
 export function regionProblem(regionsText: string): string | null {
   const regions = splitList(regionsText);
-  if (!regions.length) return "Name at least one region, for example local-1. Without a region no agent can run.";
+  if (!regions.length) return "Name at least one region, for example uk-1. Without a region no agent can run.";
   if (regions.some((r) => r.includes("*"))) return "A region is an exact name. Wildcards are refused.";
   return null;
 }
@@ -102,7 +102,7 @@ function BaselineForm({ onClose, current }: { onClose: () => void; current: Part
           mono
           value={regions}
           onChange={setRegions}
-          placeholder="local-1"
+          placeholder="uk-1"
           description="The cells agents may run in, separated by spaces or commas. Exact names only, no wildcards."
         />
         {formError ? (

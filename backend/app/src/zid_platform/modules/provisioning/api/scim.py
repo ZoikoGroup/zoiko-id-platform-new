@@ -176,7 +176,7 @@ async def schemas() -> JSONResponse:
 
 @router.post("/scim/v2/Users")
 async def create_user(request: Request, caller: CallerDep) -> Response:
-    home = str(getattr(request.app.state, "home_cell", "local-1"))
+    home = str(request.app.state.home_cell)
 
     async def run(conn: AsyncConnection, src: Source) -> Response:
         r = await scim.create_user(
@@ -494,7 +494,7 @@ async def create_source(body: SourceIn, request: Request, caller: CallerDep) -> 
                 jwks=keys or {},
                 scopes=[SCIM_SCOPE],
                 audience=str(request.app.state.token_audience),
-                home_cell=str(getattr(request.app.state, "home_cell", "local-1")),
+                home_cell=str(request.app.state.home_cell),
             )
             client_id = str(client["client_id"])
         s = Source(source_id, tenant_id, client_id, body.display_name, "ACTIVE")
