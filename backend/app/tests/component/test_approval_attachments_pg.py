@@ -212,14 +212,18 @@ def test_the_organizations_region_is_checked_before_the_scanner_or_the_vault_see
     w.http.app.state.proof_scanner = scanner
     cid = request(w)["case_id"]
 
-    async def forget() -> None:
+    async def move_region() -> (
+        None
+    ):  # the company's data region is another cell: this cell may not hold its restricted documents
         async with engine(w.owner_url) as eng, eng.begin() as c:
             await c.execute(
-                text("DELETE FROM platform.tenant_residency WHERE tenant_id = :t"),
+                text(
+                    "UPDATE platform.tenant_residency SET home_cell_id = 'eu-1' WHERE tenant_id = :t"
+                ),
                 {"t": uuid.UUID(w.o.tenant)},
             )
 
-    asyncio.run(forget())
+    asyncio.run(move_region())
     r = put(w, w.o.owner, cid, PDF)
     assert r.status_code == 403 and code(r) == "ATTACHMENT_RESIDENCY_DENIED"
     assert scanner.calls == 0 and counts(w, cid)[:2] == (0, 0)

@@ -105,12 +105,25 @@ def test_many_answers_at_once_fail_closed_agree_and_stay_with_their_tenant(rt_ur
 # --------------------------------------------------------------------------------------------------------------------- 2. chaos over HTTP
 
 
+class _Records(logging.Handler):
+    """Every log record of every logger, with its exception text. CI runs pytest with `-p no:logging`, which removes the caplog fixture."""
+
+    def __init__(self) -> None:
+        super().__init__(logging.DEBUG)
+        self.lines: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        text = record.getMessage()
+        if record.exc_info:
+            text += logging.Formatter().formatException(record.exc_info)
+        self.lines.append(text)
+
+
 @pytest.mark.parametrize("fault", ["breach_store_timeout", "use_case_registry_error"])
 def test_a_failing_gate_is_a_plain_error_that_leaks_nothing(
     rt_url: str,
     fault: str,
     monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     import zid_platform.modules.privacy.ports as pp
@@ -127,16 +140,24 @@ def test_a_failing_gate_is_a_plain_error_that_leaks_nothing(
         monkeypatch.setattr(pp, "capture_paused_breaches", timeout)
     else:
         monkeypatch.setattr(pp, "use_case_problems", broken)
-    caplog.set_level(logging.DEBUG)
+    records = _Records()
+    root = logging.getLogger()
+    previous_level = root.level
+    root.addHandler(records)
+    root.setLevel(logging.DEBUG)
     from fastapi.testclient import TestClient
 
     app = api_for(rt_url, o, privacy_overlays=OVERLAYS).app
-    with TestClient(app, raise_server_exceptions=False) as api:  # what a real caller sees
-        r = api.get(
-            "/v1/biometric-methods/eligibility",
-            params={"country": "GB"},
-            headers=o.bearer(o.owner, scope="verification:read"),
-        )
+    try:
+        with TestClient(app, raise_server_exceptions=False) as api:  # what a real caller sees
+            r = api.get(
+                "/v1/biometric-methods/eligibility",
+                params={"country": "GB"},
+                headers=o.bearer(o.owner, scope="verification:read"),
+            )
+    finally:
+        root.removeHandler(records)
+        root.setLevel(previous_level)
     assert r.status_code >= 500, r.text
     body = r.text
     assert (
@@ -147,11 +168,7 @@ def test_a_failing_gate_is_a_plain_error_that_leaks_nothing(
         and "registry" not in body
     )
     assert "available_methods" not in body  # no partial answer that could be read as permission
-    fmt = logging.Formatter()
-    logged = "\n".join(
-        rec.getMessage() + (fmt.formatException(rec.exc_info) if rec.exc_info else "")
-        for rec in caplog.records
-    )
+    logged = "\n".join(records.lines)
     logged += capsys.readouterr().out  # the service's own JSON log lines
     assert MARKER not in logged and SUBJECT not in logged, "a fault message reached the logs"
 

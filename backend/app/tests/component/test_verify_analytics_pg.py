@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from admin_fixture import give_tenant_role
 from conftest import ctx, engine
 from onboarding_fixture import onboard
 from test_v2_privacy_pg import api_for, runtime  # noqa: F401  (runtime is autouse)
@@ -202,11 +203,18 @@ def test_an_export_downloads_once_and_a_correction_needs_a_second_person(rt_url:
         assert (
             api.post(f"{P}/corrections/{cid}:approve", headers=owner).status_code == 403
         )  # the same person cannot approve
-        api.post(
+
+        async def make_member() -> None:  # analytics access goes to an active member only
+            async with engine(rt_url) as eng, tenant_transaction(eng, ctx(o.tenant)) as c:
+                await give_tenant_role(c, o.tenant, o.second, role="MEMBER")
+
+        asyncio.run(make_member())
+        given = api.post(
             f"{P}/grants",
             headers=owner,
             json={"grantee_principal_id": o.second, "bundle": "DATA_STEWARD"},
         )
+        assert given.status_code in (200, 201), given.text
         assert (
             api.post(f"{P}/corrections/{cid}:approve", headers=o.bearer(o.second)).status_code
             == 200
