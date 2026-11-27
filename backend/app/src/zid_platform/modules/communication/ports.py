@@ -45,7 +45,10 @@ def build_sender(settings: Any) -> EmailSender | None:
         for name, value in (
             ("ZID_SMTP_HOST", settings.smtp_host),
             ("ZID_SMTP_USERNAME", settings.smtp_username),
-            ("ZID_SMTP_PASSWORD_FILE or ZID_SMTP_PASSWORD", settings.smtp_password_file or getattr(settings, "smtp_password", None)),
+            (
+                "ZID_SMTP_PASSWORD_FILE or ZID_SMTP_PASSWORD",
+                settings.smtp_password_file or getattr(settings, "smtp_password", None),
+            ),
             ("ZID_EMAIL_FROM", settings.email_from),
         )
         if not value

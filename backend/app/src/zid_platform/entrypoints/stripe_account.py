@@ -19,7 +19,11 @@ import httpx
 
 def main() -> int:
     path = os.environ.get("ZID_STRIPE_SECRET_KEY_FILE")
-    key = Path(path).read_text(encoding="utf-8").strip() if path else os.environ.get("ZID_STRIPE_SECRET_KEY", "").strip()
+    key = (
+        Path(path).read_text(encoding="utf-8").strip()
+        if path
+        else os.environ.get("ZID_STRIPE_SECRET_KEY", "").strip()
+    )
     if not key:
         print(
             "Neither ZID_STRIPE_SECRET_KEY_FILE nor ZID_STRIPE_SECRET_KEY is set: no payment provider is configured.",

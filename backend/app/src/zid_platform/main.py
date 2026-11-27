@@ -1071,7 +1071,9 @@ def _configure_commercial(app: FastAPI, settings: Settings) -> None:
             if settings.stripe_webhook_secret_file
             else (settings.stripe_webhook_secret or "").replace(",", "\n")
         )
-        app.state.stripe_webhook_secrets = [ln.strip() for ln in webhook_text.splitlines() if ln.strip()]
+        app.state.stripe_webhook_secrets = [
+            ln.strip() for ln in webhook_text.splitlines() if ln.strip()
+        ]
         if not app.state.stripe_webhook_secrets:
             raise RuntimeError("the Stripe webhook signing secret is empty")
     from .modules.commercial.ports import key_auth, key_vc_issued
