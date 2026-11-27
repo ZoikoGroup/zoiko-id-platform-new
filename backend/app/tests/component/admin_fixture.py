@@ -184,7 +184,7 @@ async def give_tenant_role(
     `make_admin` above builds the authority a person acts with; this is the other half: the company role. The security review of an agent
     needs both (CR-142 and the Admin-or-Owner rule), so a test reviewer is given both.
     """
-    from conftest import CELL
+    from zid_app import ServiceSettings
     from zid_platform.modules.tenant.domain.lifecycle import Role, RoleOrigin, RoleStatus
     from zid_platform.modules.tenant.infrastructure import tenant_store
 
@@ -199,7 +199,10 @@ async def give_tenant_role(
             "t": uuid.UUID(tenant_id),
             "s": f"test-{tenant_id[:8]}",
             "p": uuid.UUID(principal_id),
-            "cell": home_cell or CELL,
+            "cell": home_cell
+            or ServiceSettings.model_fields[
+                "cell_id"
+            ].default,  # the cell id the app runs as, never the cell UUID
         },
     )
     await tenant_store.insert_role(

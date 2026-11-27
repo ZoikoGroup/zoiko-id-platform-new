@@ -13,9 +13,10 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from conftest import engine
 from fastapi.testclient import TestClient
-from onboarding_fixture import AUD, ISS, onboard
+from onboarding_fixture import AUD, ISS, onboard, use_register_first_routing
 from sqlalchemy import text
 from test_approvals_pg import OWNER_TRANSFER, World, code, world  # noqa: F401  (world is a fixture)
 from test_org_claims_api_pg import REVIEW_ACTIONS, REVIEW_RESOURCES, Register, error
@@ -26,6 +27,11 @@ from zid_platform.modules.verification.infrastructure import verification_store 
 from zid_platform.settings import Settings
 
 CLAIM = {"country": "GB", "registration_number": "00123456", "legal_name": "Acme Widgets Limited"}
+
+
+@pytest.fixture(autouse=True)
+def _register_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_register_first_routing(monkeypatch)
 
 
 def key(prefix: str = "claim") -> dict[str, str]:

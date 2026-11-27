@@ -8,9 +8,10 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from conftest import ctx, engine
 from fastapi.testclient import TestClient
-from onboarding_fixture import AUD, ISS, onboard
+from onboarding_fixture import AUD, ISS, onboard, use_register_first_routing
 from zid_db import tenant_transaction
 from zid_platform.main import create_app
 from zid_platform.modules.organization.domain.kyb import (
@@ -99,6 +100,11 @@ async def load_lists(url: str) -> None:
             await screening_service.ingest_list(
                 c, lid, files, fetched_at=NOW, source_ref="t", now=NOW
             )
+
+
+@pytest.fixture(autouse=True)
+def _register_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_register_first_routing(monkeypatch)
 
 
 def error(r: Any) -> str:
